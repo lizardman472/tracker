@@ -181,11 +181,37 @@ D:[
 {id:'mace_paddle',nm:'Paddle Swing',s:3,rp:'12/side',rst:'1:00',rir:'2',tp:'mace',rl:'+reps → heavier',tg:12,rstS:60,tempo:'controlled'},
 {id:'mace_curl',nm:'Curl to Press',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'mace',rl:'+reps → heavier. Soft lockout.',tg:8,rstS:60,tempo:'2-1-2-0'}]};
 
-function getProgram(phase){const p=PHASES[phase]||PHASES[1],pr={};
-for(const[day,exs] of Object.entries(BASE_PR)){pr[day]=exs.map(ex=>{const adj=p.adj[ex.id];
+// Location B exercises — pattern-matched to home, no-band fallback
+const LOC_B_PR={A:[
+{id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s'},
+{id:'db_floor_press',nm:'DB Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip.',tg:10,rstS:120,tempo:'3-1-2-0'},
+{id:'inv_rows_a',nm:'Inverted Rows (Wide)',s:4,rp:'8-12',rst:'2:00',rir:'2',tp:'bw',rl:'Feet flat→elevated→pause→weighted',tg:12,rstS:120,tempo:'3-1-2-1'},
+{id:'db_row_a',nm:'DB Single-Arm Row',s:3,rp:'8-10',rst:'1:30',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg. Second pull.',tg:10,rstS:90,tempo:'3-1-2-0'},
+{id:'cb_mills',nm:'Clubbell Mills (Inside)',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'club',rl:'6kg→8kg. Dedicated slot.',tg:8,rstS:90,tempo:'controlled'},
+{id:'dand_baithak_a',nm:'Dand-Baithak',s:3,rp:'10D/20B',rst:'1:00',rir:'—',tp:'bw',rl:'10/20→15/30→20/40→25/50',tg:20,rstS:60,tempo:'rhythmic'}],
+B:[
+{id:'db_bss',nm:'DB Bulgarian Split Squat',s:4,rp:'8/leg',rst:'2:00',rir:'1-2',tp:'db',rl:'Confirm → ↑1-2kg goblet',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s'},
+{id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'2:30',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:150,tempo:'3-1-2-0'},
+{id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:120,tempo:'3-1-2-0'},
+{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:30',rir:'2',tp:'club',rl:'8kg. Keep arc in front.',tg:10,rstS:90,tempo:'controlled'},
+{id:'dead_bugs_b',nm:'Dead Bugs',s:3,rp:'8/side',rst:'1:00',rir:'—',tp:'bw',rl:'Slow. Press back into floor.',tg:8,rstS:60,tempo:'3-0-3-1'},
+{id:'dand_baithak_b',nm:'Dand-Baithak',s:2,rp:'15D/30B',rst:'1:00',rir:'—',tp:'bw',rl:'Different scheme from A2',tg:30,rstS:60,tempo:'rhythmic'}],
+C:[
+{id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'2:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:120,tempo:'3-1-2-0'},
+{id:'db_row_c',nm:'DB Single-Arm Row (Vol)',s:3,rp:'10-12',rst:'1:30',rir:'2',tp:'db',rl:'Lighter than B2. Higher reps.',tg:12,rstS:90,tempo:'3-1-2-0'},
+{id:'db_lunge',nm:'DB Walking Lunges',s:3,rp:'10/leg',rst:'1:30',rir:'2',tp:'db',rl:'Load→deficit',tg:10,rstS:90,tempo:'3-0-2-0'},
+{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:30',rir:'—',tp:'carry',rl:'↑ load. Exceeds home carry.',tg:1,rstS:90,tempo:'—'},
+{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky.',tg:10,rstS:60,tempo:'controlled'},
+{id:'band_prehab',nm:'Face Pulls + Ext Rotations',s:2,rp:'15 each',rst:'0:45',rir:'—',tp:'band',rl:'Choke yellow band. Prehab superset.',tg:15,rstS:45,tempo:'2-1-2-1'}]};
+
+function getProgram(phase,loc){
+const base=loc==='partner'?LOC_B_PR:BASE_PR;
+if(loc==='partner')return{A:base.A,B:base.B,C:base.C}; // no phase adjustment for Location B yet
+const p=PHASES[phase]||PHASES[1],pr={};
+for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{const adj=p.adj[ex.id];
 return adj?{...ex,rp:adj.rp,tg:adj.tg}:{...ex}})}return pr}
 
-const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.D];
+const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.D,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C];
 const BANDS=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
 const BAND_IDX=b=>{if(!b)return 99;const n=b.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===b||x===n||x.replace(/ \(heaviest\)/,'')==n);return i>=0?i:99};
 const JOINTS=['Shoulder','Elbow','Wrist'];
@@ -200,7 +226,7 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',confirmed:{},discomfort:[]};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',confirmed:{},discomfort:[],location:'home'};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v8';const OLD_KEYS=['rft-v7','rft-v6','rft-v5','rft-v4','rft-v3'];
@@ -212,7 +238,7 @@ if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.set
 let d=s?JSON.parse(s):structuredClone(SEED);
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
-if(!d.confirmed)d.confirmed={};if(!d.discomfort)d.discomfort=[];
+if(!d.confirmed)d.confirmed={};if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
 D=d}catch(e){D=structuredClone(SEED)}}
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 function saveAW(){if(!ADAY)return;try{localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now()}))}catch(e){}}
@@ -223,26 +249,57 @@ function today(){return new Date().toISOString().split('T')[0]}
 function fmtD(d){return new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}
 function dAgo(d){const x=Math.floor((new Date()-new Date(d+'T00:00:00'))/864e5);return x===0?'Today':x===1?'Yesterday':`${x}d ago`}
 function elapsed(){if(!SS)return'';const s=Math.floor((Date.now()-SS)/1000),m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`}
-function getCurPR(){return getProgram(D.phase)}
+function getCurPR(){return getProgram(D.phase,D.location)}
 
 // ═══════════════ PERIODIZATION ═══════════════
-function getPhaseInfo(){const wksSince=Math.max(1,Math.round((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5));
+function getPhaseInfo(){
+const wksSince=Math.max(1,Math.round((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5));
 const sessSince=D.sessions.filter(s=>s.date>=D.phaseStart).length;
 const p=PHASES[D.phase]||PHASES[1];
-return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSince,due:wksSince>=p.wk}}
+// Intelligent phase assessment: check how many exercises are stalling
+const pr=getCurPR();const allDays=Object.values(pr);
+let stalledEx=0,totalEx=0,progressingEx=0;
+for(const day of allDays)for(const ex of day){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
+  const sg=getSmartSugg(ex);totalEx++;
+  if(sg.type==='dn')stalledEx++;
+  if(sg.type==='up'||sg.type==='cf')progressingEx++}
+const timerDue=wksSince>=p.wk;
+const stallDue=stalledEx>=2; // 2+ exercises genuinely stalling (below min range)
+// Phase change recommended if: timer AND stalls, OR early if lots of stalls
+const recommend=timerDue&&stallDue?'due':timerDue&&!stallDue?'timer_only':!timerDue&&stallDue?'early_stall':'not_due';
+return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSince,
+  recommend,stalledEx,progressingEx,totalEx,timerDue,stallDue}}
 function advancePhase(){const next=D.phase>=3?1:D.phase+1;D.phase=next;D.phaseStart=today();D.confirmed={};save()}
 
 // ═══════════════ PROGRESSION ═══════════════
 function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const e=D.sessions[i].ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:D.sessions[i].date})}return h}
 function getLast(exId){const h=getHist(exId,1);return h.length?h[0]:null}
+function getRepMin(ex){const parts=ex.rp.replace(/\/.*/, '').split('-');return parseInt(parts[0])||ex.tg}
+function getDiscomfortRecent(exId,n=3){return D.discomfort.filter(d=>d.exId===exId).slice(-n)}
 
 function getSmartSugg(ex){
 const hist=getHist(ex.id,5),last=hist.length?hist[hist.length-1]:null;
 if(!last)return{text:'First time — find your weight',type:'new',wt:null,traj:[],detail:'',regress:''};
-if((ex.tp==='bb'||ex.tp==='mace')&&last.wt){
+
+// Discomfort check — if moderate discomfort in last 2 sessions, auto-hold
+const recentDisc=getDiscomfortRecent(ex.id,3);
+const modDisc=recentDisc.filter(d=>d.level==='moderate').length;
+const mildDisc=recentDisc.filter(d=>d.level==='mild').length;
+let discWarn='';
+if(modDisc>=2)discWarn='⚠ Repeated moderate discomfort — hold weight';
+else if(modDisc>=1)discWarn='⚠ Moderate discomfort last session — consider holding';
+else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor closely';
+
+// ─── WEIGHT-BASED (bb, mace, db) ───
+if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db')&&last.wt){
+  const mn=getRepMin(ex);
   const atW=hist.filter(h=>h.wt===last.wt);
-  const hit=h=>{const v=h.reps.filter(r=>r>0);return v.length>=ex.s&&v.slice(0,ex.s).every(r=>r>=ex.tg)};
-  const stalls=atW.filter(h=>!hit(h)).length;const lastHit=hit(last);
+  const hitTarget=h=>{const v=h.reps.filter(r=>r>0);return v.length>=ex.s&&v.slice(0,ex.s).every(r=>r>=ex.tg)};
+  const inRange=h=>{const v=h.reps.filter(r=>r>0);return v.length>=ex.s&&v.slice(0,ex.s).every(r=>r>=mn)};
+  const stalls=atW.filter(h=>!inRange(h)).length;
+  const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
+  const hitsAtW=atW.filter(h=>hitTarget(h)).length;
+  const lastHit=hitTarget(last);const lastInRange=inRange(last);
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
     const ps=p.reps.filter(r=>r>0).reduce((a,b)=>a+b,0),cs=h.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
     return cs>ps?{s:'↗',c:'up'}:cs<ps?{s:'↘',c:'dn'}:{s:'→',c:'same'}});
@@ -254,32 +311,74 @@ if((ex.tp==='bb'||ex.tp==='mace')&&last.wt){
     if(prev.wt&&last.wt&&last.wt<prev.wt)regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
     else if(prev.wt===last.wt){const pT=prev.reps.filter(r=>r>0).reduce((a,b)=>a+b,0),cT=last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
+  if(discWarn)regress=discWarn;
+  const dbInc=ex.tp==='db'?0.5:1;
+  // Discomfort override — hold weight if moderate pain trending
+  if(modDisc>=2){return{text:`→ ${last.wt}kg (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress}}
+  // HIT TARGET — use session count for confirmation (no side effects)
   if(lastHit){
-    // Check confirmation
-    const confKey=`${ex.id}_${last.wt}`;const isConf=D.confirmed[confKey];
-    if(!isConf){D.confirmed[confKey]=true;save();
-      return{text:`→ Confirm ${last.wt}kg`,type:'cf',wt:last.wt,traj,detail:`Hit target — confirm next session`,regress}}
-    // Check ceiling
-    const nxt=ex.tp==='bb'?nxUp(last.wt):last.wt+1;
-    if(ex.tp==='bb'&&nxt>MAX_BB){
-      return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
-    return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:`Confirmed — go up!`,regress}}
-  if(stalls>=3){const d=ex.tp==='bb'?nxDn(last.wt):last.wt;return{text:`↓ ${ex.tp==='bb'?d:last.wt}kg`,type:'dn',wt:ex.tp==='bb'?d:null,traj,detail:`${stalls} stalls — reset`,regress}}
-  const ri=atW.length>=2&&(()=>{const r=atW.map(h=>h.reps.filter(x=>x>0).reduce((a,b)=>a+b,0));return r[r.length-1]>r[0]})();
-  return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,stalls,detail:stalls?`Stall ×${stalls}/3`+(ri?' — reps ↑':''):`Push for ${ex.s}×${ex.tg}`,regress}}
+    if(hitsAtW>=2){
+      // Confirmed by training data — 2+ sessions hit target at this weight
+      const nxt=ex.tp==='bb'?nxUp(last.wt):last.wt+dbInc;
+      if(ex.tp==='bb'&&nxt>MAX_BB){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
+      return{text:`↑ ${nxt}kg${ex.tp==='db'?'/DB':''}`,type:'up',wt:nxt,traj,detail:`Hit ${ex.s}×${ex.tg} twice — go up!`,regress}}
+    // First time hitting target at this weight → confirm next session
+    return{text:`→ Confirm ${last.wt}kg`,type:'cf',wt:last.wt,traj,detail:`Hit ${ex.s}×${ex.tg} — repeat to confirm`,regress}}
+  // FAILING (below minimum) → count stalls
+  if(!lastInRange){
+    if(stalls>=3){const d=ex.tp==='bb'?nxDn(last.wt):Math.max(0,last.wt-dbInc);
+      return{text:`↓ ${d}kg`,type:'dn',wt:d,traj,detail:`${stalls} sessions below ${ex.s}×${mn} — reset`,regress}}
+    return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:`Below min. ${stalls}/3 stalls. Push for ${ex.s}×${mn}+`,regress}}
+  // IN RANGE but not at target → push reps
+  const avgRep=Math.round(last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0)/last.reps.filter(r=>r>0).length);
+  let tip=`Push for ${ex.s}×${ex.tg}`;
+  if(plateauSess>=4)tip=`${plateauSess} sessions at ${avgRep}s — try ${Math.min(avgRep+1,ex.tg)},${avgRep},${avgRep} next`;
+  else if(plateauSess>=2)tip=`Building at ${avgRep}s. Push for ${Math.min(avgRep+1,ex.tg)}s.`;
+  return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:tip,regress}}
+
+// ─── CLUB exercises ───
+if(ex.tp==='club'){
+  const traj=hist.map((h,i)=>{if(!i)return{s:'●',c:'same'};const pw=hist[i-1].wt||0,cw=h.wt||0;
+    return cw>pw?{s:'↑',c:'up'}:cw<pw?{s:'↓',c:'dn'}:{s:'→',c:'same'}});
+  const totalReps=last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
+  const allHit=last.reps.filter(r=>r>0).length>=ex.s&&last.reps.slice(0,ex.s).every(r=>r>=ex.tg);
+  if(allHit){return{text:`${last.wt||6}kg — smooth? → try ${(last.wt||6)+2}kg`,type:'up',wt:last.wt,traj,detail:`Hit target. Progress if shoulder feels smooth.`,regress:discWarn}}
+  return{text:`${last.wt||6}kg club`,type:'stay',wt:last.wt,traj,detail:`Focus on smooth form. ${totalReps} total reps.`,regress:discWarn}}
+
+// ─── BAND exercises ───
 if(ex.tp==='band'){
   const traj=hist.map((h,i)=>{if(!i)return{s:'●',c:'same'};const pi=BAND_IDX(hist[i-1].band),ci=BAND_IDX(h.band);
     return ci>pi?{s:'↑',c:'up'}:ci<pi?{s:'↓',c:'dn'}:{s:'→',c:'same'}});
   const hitTop=last.reps.filter(r=>r>0).length>=ex.s&&last.reps.slice(0,ex.s).every(r=>r>=ex.tg);
-  let regress='';if(hist.length>=2){const prev=hist[hist.length-2];
+  let regress=discWarn;if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
     if(BAND_IDX(prev.band)===BAND_IDX(last.band)){const pT=prev.reps.filter(r=>r>0).reduce((a,b)=>a+b,0),cT=last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(hitTop)return{text:'↑ Thinner band',type:'up',wt:null,traj,detail:`Hit ${ex.s}×${ex.tg}`,regress};
   return{text:last.band||'Check band',type:'stay',wt:null,traj,detail:`Stay on ${last.band||'current'}`,regress}}
-let regress='';if(hist.length>=2){const prev=hist[hist.length-2];
-  if((prev.wt||0)===(last.wt||0)){const pT=prev.reps.filter(r=>r>0).reduce((a,b)=>a+b,0),cT=last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
-  if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
-return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],detail:'',regress}}
+
+// ─── CARRY exercises ───
+if(ex.tp==='carry'||(ex.tp==='db'&&ex.id.includes('carry'))){
+  const lastWt=last.wt||0;
+  return{text:lastWt?`${lastWt}kg`:'Log weight',type:'stay',wt:lastWt,traj:[],detail:'↑ load or distance when comfortable',regress:discWarn}}
+
+// ─── BODYWEIGHT (push-ups, inverted rows, dead bugs, dand-baithak) ───
+if(ex.tp==='bw'){
+  const totalReps=last.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
+  const isDand=ex.id.includes('dand');
+  if(isDand){return{text:`${totalReps} total`,type:'stay',wt:null,traj:[],detail:ex.rl,regress:''}}
+  const traj=hist.map((h,i)=>{if(!i)return{s:'●',c:'same'};
+    const pt=hist[i-1].reps.filter(r=>r>0).reduce((a,b)=>a+b,0),ct=h.reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
+    return ct>pt?{s:'↗',c:'up'}:ct<pt?{s:'↘',c:'dn'}:{s:'→',c:'same'}});
+  const allHit=last.reps.filter(r=>r>0).length>=ex.s&&last.reps.slice(0,ex.s).every(r=>r>=ex.tg);
+  let regress=discWarn;
+  if(!regress&&hist.length>=2){const pt=hist[hist.length-2].reps.filter(r=>r>0).reduce((a,b)=>a+b,0);
+    if(totalReps<pt-3)regress=`Total reps dropped ${pt}→${totalReps}`}
+  if(allHit)return{text:'Hit target — progress',type:'up',wt:null,traj,detail:ex.rl,regress};
+  return{text:`${totalReps} reps`,type:'stay',wt:null,traj,detail:`Push for ${ex.s}×${ex.tg}`,regress}}
+
+// ─── Fallback ───
+return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],detail:'',regress:discWarn}}
 
 function getSkips(day,exId){const ds=D.sessions.filter(s=>s.day===day).slice(-3);let sk=0;for(const s of ds)if(!s.ex.find(e=>e.id===exId))sk++;return{sk,tot:ds.length}}
 function getPRs(exId){let bw=0,bv=0,be=0;for(const s of D.sessions)for(const e of s.ex)if(e.id===exId){const vr=e.reps.filter(r=>r>0);if(!vr.length)continue;const mx=Math.max(...vr),vol=(e.wt||0)*vr.reduce((a,b)=>a+b,0);if(e.wt>bw)bw=e.wt;if(vol>bv)bv=vol;if(e.wt){const x=e.wt*(1+mx/30);if(x>be)be=x}}return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
@@ -337,18 +436,20 @@ el.innerHTML=`<div class="timer-bar${TIMER.done?' done':''}"><div><div class="ti
 // ═══════════════ RENDER ═══════════════
 let CIV=null;
 function render(){const n=document.getElementById('nav');
-if(['workout','summary','cardio','warmup'].includes(VIEW))n.innerHTML='';
+if(['workout','summary','cardio','warmup','logpast'].includes(VIEW))n.innerHTML='';
 else{const ts=[['home','Home'],['stats','Stats'],['body','Body'],['history','Log'],['settings','⚙']];
 n.innerHTML=ts.map(([v,l])=>`<button class="${VIEW===v?'a':''}" onclick="go('${v}')">${l}</button>`).join('')}
 const a=document.getElementById('app');if(CIV){clearInterval(CIV);CIV=null}
-const fn={home:rHome,warmup:rWarmup,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates};
+const fn={home:rHome,warmup:rWarmup,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast};
 (fn[VIEW]||rHome)(a);
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed()},1000)}
 function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
 
 // ─── HOME ────────────────────────────────────
 function rHome(el){
-const nd=D.nextDay||'A',pr=getCurPR(),exs=pr[nd],dl=getDeload(),streak=getStreak(),fat=getFatigue(),phi=getPhaseInfo();
+const nd0=D.nextDay||'A',isP=D.location==='partner';
+const nd=(isP&&!['A','B','C'].includes(nd0))?'A':nd0;
+const pr=getCurPR(),exs=pr[nd]||pr['A'],dl=getDeload(),streak=getStreak(),fat=getFatigue(),phi=getPhaseInfo();
 const resume=checkResume();
 let h='<div class="sec">';
 
@@ -358,12 +459,31 @@ if(resume)h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="fon
 <div style="display:flex;gap:8px"><button class="btn btn-pr" style="flex:1;padding:12px" onclick="resumeW()">Resume</button>
 <button class="btn btn-wh" style="flex:1;padding:12px" onclick="clearAW();render()">Discard</button></div></div>`;
 
+// Location toggle
+h+=`<div style="display:flex;gap:0;margin-bottom:10px;border-radius:10px;overflow:hidden;border:1px solid var(--cb)">
+<button style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+background:${!isP?'var(--pr)':'var(--cd)'};color:${!isP?'#fff':'var(--mu)'}"
+onclick="D.location='home';save();render()">🏠 Home</button>
+<button style="flex:1;padding:10px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+background:${isP?'var(--pr)':'var(--cd)'};color:${isP?'#fff':'var(--mu)'}"
+onclick="D.location='partner';save();render()">🏘 Partner's</button></div>`;
+
 // Phase banner
+const phStatus=phi.recommend==='due'?'Phase complete + lifts stalling':phi.recommend==='timer_only'?`Wk ${phi.wk}/${phi.maxWk} · Lifts still progressing ✓`:phi.recommend==='early_stall'?`${phi.stalledEx} exercises stalling early`:`${phi.progressingEx} progressing · ${phi.stalledEx} stalling`;
 h+=`<div class="phase-banner"><div><strong>Phase ${phi.phase}: ${phi.name}</strong> · Wk ${phi.wk}/${phi.maxWk}</div>
 <div class="phase-bar"><div class="phase-fill" style="width:${Math.min(100,phi.wk/phi.maxWk*100)}%"></div></div></div>`;
-if(phi.due)h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center"><div style="font-size:14px;font-weight:700;color:var(--pu);margin-bottom:6px">Phase ${phi.phase} Complete</div>
-<div class="mu" style="margin-bottom:10px">${phi.desc}</div>
+if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center"><div style="font-size:14px;font-weight:700;color:var(--pu);margin-bottom:6px">Time to Switch Phases</div>
+<div class="mu" style="margin-bottom:10px">Week ${phi.wk} reached and ${phi.stalledEx} exercises stalling. ${PHASES[phi.phase>=3?1:phi.phase+1].desc}</div>
 <button class="btn btn-pr" style="padding:12px" onclick="advancePhase();render()">Start Phase ${phi.phase>=3?1:phi.phase+1}: ${PHASES[phi.phase>=3?1:phi.phase+1].name}</button></div>`;
+else if(phi.recommend==='timer_only')h+=`<div class="cd" style="border:1px solid var(--gr);padding:10px 14px;margin-bottom:10px;font-size:12px;text-align:center">
+<div style="color:var(--gr);font-weight:600">Phase ${phi.phase} timer complete — but lifts still progressing</div>
+<div class="mu" style="margin-top:4px">${phi.progressingEx} exercises moving up. Stay in current phase until progress stalls.</div>
+<div style="margin-top:8px"><button class="btn-sm btn-wh" onclick="advancePhase();render()">Switch anyway</button></div></div>`;
+else if(phi.recommend==='early_stall')h+=`<div class="cd" style="border:1px solid var(--am);padding:10px 14px;margin-bottom:10px;font-size:12px;text-align:center">
+<div style="color:var(--am);font-weight:600">${phi.stalledEx} exercises stalling at week ${phi.wk}</div>
+<div class="mu" style="margin-top:4px">Consider switching to Phase ${phi.phase>=3?1:phi.phase+1} (${PHASES[phi.phase>=3?1:phi.phase+1].name}) early.</div>
+<div style="margin-top:8px"><button class="btn-sm btn-pr" onclick="advancePhase();render()">Switch now</button>
+<button class="btn-sm btn-wh" style="margin-left:6px" onclick="this.parentNode.parentNode.remove()">Keep going</button></div></div>`;
 
 // Streak
 if(streak>=2)h+=`<div class="streak-banner"><div class="streak-num">${streak}</div><div><div style="font-size:13px;font-weight:700;color:var(--am)">Week Streak 🔥</div></div></div>`;
@@ -375,20 +495,23 @@ if(dl&&dl.due)h+=`<div class="deload-banner">Week ${dl.wk} — deload? <button c
 h+=`<div class="fg-bar"><div class="fg-fill" style="width:${fat.score*10}%;background:${fat.color}"></div></div>`;
 
 // Next workout
+const locSuffix=isP?'2':'1';
 h+=`<div class="cd cd-hl"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-<div><div class="lb">Next Workout</div><span class="bg bg-${nd.toLowerCase()}">Day ${nd}</span></div></div>`;
+<div><div class="lb">Next Workout${isP?' · Partner\'s':''}</div><span class="bg bg-${nd.toLowerCase()}">Day ${nd}${locSuffix}</span></div></div>`;
 for(const ex of exs){const sg=getSmartSugg(ex),skip=getSkips(nd,ex.id);
-h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--cb)">
+const isBlk2=ex.blk===2;
+h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--cb)${isBlk2?';opacity:.7':''}">
 <div style="flex:1"><span style="font-size:13px;font-weight:600">${esc(ex.nm)}</span>
 <span class="mu" style="margin-left:5px;font-size:10px">${ex.s}×${ex.rp}</span>
 ${skip.sk>=2?`<span class="skip-warn" style="font-size:9px;margin-left:4px">⚠${skip.sk}</span>`:''}
 ${sg.maxed?'<span class="max-badge">🔒 MAX</span>':''}
 </div><span class="sg sg-${sg.type==='up'?'up':sg.type==='dn'?'dn':sg.type==='cf'?'cf':sg.type==='new'?'nw':'st'}" style="font-size:11px;padding:2px 8px">${sg.text}</span></div>`}
-h+=`<button class="btn btn-pr" style="margin-top:14px" onclick="beginW('${nd}')">Start Day ${nd}</button></div>`;
+h+=`<button class="btn btn-pr" style="margin-top:14px" onclick="beginW('${nd}')">Start Day ${nd}${locSuffix}</button></div>`;
 
 // Other days
+const otherDays=isP?['A','B','C']:['A','B','C','D'];
 h+=`<div style="display:flex;gap:8px;margin-bottom:12px">`;
-for(const d of['A','B','C','D'])if(d!==nd)h+=`<button class="btn btn-wh" style="flex:1;font-size:12px;padding:12px 0" onclick="beginW('${d}')">Day ${d}</button>`;
+for(const d of otherDays)if(d!==nd)h+=`<button class="btn btn-wh" style="flex:1;font-size:12px;padding:12px 0" onclick="beginW('${d}')">Day ${d}${locSuffix}</button>`;
 h+=`</div>`;
 h+=`<button class="btn btn-wh" style="margin-bottom:12px;font-size:13px" onclick="go('cardio')">🚣 Log Cardio / Rest Day</button>`;
 
@@ -408,15 +531,16 @@ h+=`</div>`;el.innerHTML=h}
 function beginW(day){ADAY=day;WU_CHECKS=[false,false,false];VIEW='warmup';render();window.scrollTo(0,0)}
 
 function rWarmup(el){
-const pr=getCurPR(),exs=pr[ADAY],firstBB=exs.find(e=>e.tp==='bb');
+const pr=getCurPR(),exs=pr[ADAY],firstIso=exs.find(e=>e.isoWU);
+const isP=D.location==='partner',locSuffix=isP?'2':'1';
 let h=`<div class="sec"><div style="text-align:center;margin-bottom:16px">
-<span class="bg bg-${ADAY.toLowerCase()}" style="font-size:12px;padding:4px 14px">Day ${ADAY}</span>
+<span class="bg bg-${ADAY.toLowerCase()}" style="font-size:12px;padding:4px 14px">Day ${ADAY}${locSuffix}${isP?' · Partner\'s':''}</span>
 <div style="font-size:18px;font-weight:800;margin-top:10px">Pre-Session Activation</div>
 <div class="mu" style="margin-top:4px">Protect your joints before loading them</div></div>`;
 
 const items=[
 {label:'Joint Circles',desc:'Shoulders, wrists, elbows, hips — 10 each direction. Slow and controlled.'},
-{label:firstBB?.isoWU||'Isometric Hold',desc:firstBB?`Light weight. Build tension, don't move. 2 × 10 seconds.`:'Activate stabilisers at mid-range.'},
+{label:firstIso?.isoWU||'Isometric Hold',desc:firstIso?`Light weight. Build tension, don't move. 2 × 10 seconds.`:'Activate stabilisers at mid-range.'},
 {label:'Single-Leg Balance',desc:'30 seconds per leg, eyes open. Proprioception activation.'}];
 
 for(let i=0;i<items.length;i++){
@@ -434,7 +558,8 @@ el.innerHTML=h}
 // ─── GUIDED WORKOUT ─────────────────────────
 function startW(){const pr=getCurPR(),exs=pr[ADAY];LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs){const last=getLast(ex.id),sg=getSmartSugg(ex);
-LOG[ex.id]={wt:sg.wt||last?.wt||(ex.tp==='bb'?BAR:''),band:last?.band||'',
+const defWt=ex.tp==='bb'?BAR:ex.tp==='db'?'':'';
+LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
 notes:'',pf:!!last,wu:false,disc:'none',discJoints:[]}}
 saveAW();VIEW='workout';render();window.scrollTo(0,0)}
@@ -461,7 +586,8 @@ h+=`<div class="dot${dn?' done':i===CIDX?' cur':''}" onclick="CIDX=${i};saveAW()
 // Focus card
 h+=`<div class="focus-card">`;
 h+=`<div class="focus-name">${esc(ex.nm)}${sg.maxed?'<span class="max-badge">🔒 MAX</span>':''}</div>`;
-h+=`<div class="focus-meta">${CIDX+1}/${exs.length} · ${ex.s}×${ex.rp} · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · Tempo '+ex.tempo:''}</div>`;
+const blkLabel=ex.blk?` · Block ${ex.blk===1?'1: Strength':'2: Development'}`:'';
+h+=`<div class="focus-meta">${CIDX+1}/${exs.length} · ${ex.s}×${ex.rp} · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}${blkLabel}</div>`;
 
 if(cue)h+=`<div class="cue">💡 ${esc(cue)}</div>`;
 
@@ -489,13 +615,26 @@ h+=plateH(cur);h+=`<div style="text-align:center;font-size:10px;color:var(--mu);
 if(log.wu){const wu=warmupSets(cur);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:3px;font-size:11px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
 h+=`<div style="text-align:center;margin-bottom:8px"><button class="btn-ghost" style="font-size:11px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide warm-up':'Warm-up sets'}</button></div>`;
+} else if(ex.tp==='db'){
+h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">
+<input type="number" step="0.5" class="body-input" style="width:90px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal">
+<span class="mu">kg/DB</span></div>`
+} else if(ex.tp==='club'){
+h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">
+<input type="number" class="body-input" style="width:90px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric">
+<span class="mu">kg club</span></div>`
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:10px;text-align:center"><select class="bs" style="width:auto;text-align:center" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Select band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
-} else if(ex.tp!=='carry'){
+} else if(ex.tp==='bw'||ex.tp==='carry'){
+// No weight input needed — bodyweight or carry shows optional field
+if(ex.tp==='carry')h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">
+<input type="number" class="body-input" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()">
+<span class="mu">kg</span></div>`;
+} else {
 h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px">
 <input type="number" class="body-input" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()">
-<span class="mu">kg${ex.tp==='kb'?' (20/32)':''}</span></div>`}
+<span class="mu">kg</span></div>`}
 
 // Rep inputs
 h+=`<div style="display:flex;gap:8px;justify-content:center;margin:12px 0">`;
@@ -586,7 +725,7 @@ h+=`</div></div></div>
 <button class="btn btn-pr" style="margin-top:10px" onclick="saveSumm()">Save</button></div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S,nxt={A:'B',B:'C',C:'A'};
-D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup});
+D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup});
 D.nextDay=S.day==='D'?D.nextDay:nxt[S.day];save();ADAY=null;LOG={};SS=null;clearTimer();go('home')}
 
 // ─── CARDIO ──────────────────────────────────
@@ -668,11 +807,14 @@ if(!wt&&!wa&&!ar){alert('Enter at least one');return}D.bodyLog.push({date:today(
 
 // ─── HISTORY ─────────────────────────────────
 function rHist(el){const ss=[...D.sessions].reverse();
-let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">All Sessions (${ss.length})</div>`;
-for(const s of ss){h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
+let h=`<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div class="lb">All Sessions (${ss.length})</div>
+<button class="btn-sm btn-pr" onclick="go('logpast')">+ Log Past</button></div>`;
+for(const s of ss){const locBadge=s.loc==='partner'?' 🏘':'';
+h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}</span>
-<span class="mu" style="font-size:11px">${fmtD(s.date)}</span>
+<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}${s.loc==='partner'?'2':'1'}</span>
+<span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:11px">${['😌','🙂','💪','😤','🔥'][s.difficulty-1]}</span>`:''}</div>
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
@@ -686,6 +828,72 @@ function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);
 if(D.sessions.length){const l=D.sessions[D.sessions.length-1].day;D.nextDay={A:'B',B:'C',C:'A'}[l]||'A'}else D.nextDay='A';save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 
+// ─── LOG PAST SESSION ───────────────────────
+let LP={date:'',day:'A',loc:'home'};
+function rLogPast(el){
+const pr=getProgram(D.phase,LP.loc);
+const days=LP.loc==='partner'?['A','B','C']:['A','B','C','D'];
+const exs=pr[LP.day]||[];
+const suffix=LP.loc==='partner'?'2':'1';
+let h=`<div class="sec"><div style="font-size:18px;font-weight:800;margin-bottom:12px">Log Past Session</div>
+<div class="cd" style="margin-bottom:10px">
+<div style="display:flex;gap:8px;margin-bottom:8px">
+<div style="flex:1"><div class="dm" style="margin-bottom:3px">Date</div>
+<input type="date" class="bs" value="${LP.date||today()}" onchange="LP.date=this.value;render()"></div>
+<div><div class="dm" style="margin-bottom:3px">Location</div>
+<div style="display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--cb)">
+<button style="padding:6px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${LP.loc==='home'?'var(--pr)':'var(--cd)'};color:${LP.loc==='home'?'#fff':'var(--mu)'}" onclick="LP.loc='home';render()">🏠</button>
+<button style="padding:6px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${LP.loc==='partner'?'var(--pr)':'var(--cd)'};color:${LP.loc==='partner'?'#fff':'var(--mu)'}" onclick="LP.loc='partner';render()">🏘</button></div></div></div>
+<div style="display:flex;gap:6px">`;
+for(const d of days)h+=`<button class="btn-sm ${LP.day===d?'btn-pr':'btn-wh'}" onclick="LP.day='${d}';render()">Day ${d}${suffix}</button>`;
+h+=`</div></div>`;
+
+// Exercise inputs
+h+=`<div class="lb" style="margin-bottom:6px">Exercises — Day ${LP.day}${suffix}</div>`;
+for(const ex of exs){
+const inputId=`lp_${ex.id}`;
+h+=`<div class="cd" style="padding:10px 14px;margin-bottom:6px">
+<div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(ex.nm)} <span class="dm">${ex.s}×${ex.rp}</span></div>`;
+// Weight input
+if(ex.tp==='bb'||ex.tp==='db'||ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb')
+h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+<input type="number" step="${ex.tp==='db'?'0.5':'1'}" class="body-input" style="width:70px" id="${inputId}_wt" placeholder="kg" inputmode="decimal">
+<span class="dm">${ex.tp==='db'?'kg/DB':ex.tp==='club'?'kg club':'kg'}</span></div>`;
+// Band input
+if(ex.tp==='band')
+h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${inputId}_band"><option value="">Band...</option>
+${BANDS.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select></div>`;
+// Rep inputs
+h+=`<div style="display:flex;gap:6px">`;
+for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:42px" id="${inputId}_r${i}" placeholder="S${i+1}" inputmode="numeric">`;
+h+=`</div></div>`}
+
+h+=`<div style="display:flex;gap:8px;margin-top:14px">
+<button class="btn btn-pr" style="flex:2" onclick="savePast()">Save Session</button>
+<button class="btn btn-wh" style="flex:1" onclick="go('history')">Cancel</button></div></div>`;
+el.innerHTML=h}
+
+function savePast(){
+const pr=getProgram(D.phase,LP.loc);
+const exs=pr[LP.day]||[];const logged=[];
+for(const ex of exs){
+const wEl=document.getElementById(`lp_${ex.id}_wt`);
+const bEl=document.getElementById(`lp_${ex.id}_band`);
+const reps=[];let hasData=false;
+for(let i=0;i<ex.s;i++){const r=document.getElementById(`lp_${ex.id}_r${i}`);const v=r?parseInt(r.value)||0:0;reps.push(v);if(v>0)hasData=true}
+const wt=wEl?parseFloat(wEl.value)||null:null;
+const band=bEl?bEl.value:'';
+if(wt)hasData=true;if(band)hasData=true;
+if(hasData)logged.push({id:ex.id,wt,reps,band,notes:'(logged retroactively)'})}
+if(!logged.length){alert('No data entered');return}
+const dt=LP.date||today();
+D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,ex:logged});
+// Sort sessions by date
+D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+// Update nextDay based on latest session
+const last=D.sessions[D.sessions.length-1];
+D.nextDay={A:'B',B:'C',C:'A'}[last.day]||'A';
+save();go('history')}
 // ─── PLATES ──────────────────────────────────
 function rPlates(el){let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">All Valid Weights (${VW.length})</div>`;
 let prev=null;for(const w of VW){const j=prev!==null?`+${w-prev}kg`:'';
@@ -701,9 +909,15 @@ let h=`<div class="sec">
 <div class="lb" style="margin-bottom:6px">Data</div>
 <div class="cd"><div style="font-size:12px;line-height:1.8">
 Sessions: ${D.sessions.length} · Cardio: ${D.cardioLog.length} · Body: ${D.bodyLog.length}<br>
-Phase ${phi.phase}: ${phi.name} (Wk ${phi.wk}/${phi.maxWk}) · ${(sz/1024).toFixed(1)}KB<br>
+Phase ${phi.phase}: ${phi.name} (Wk ${phi.wk}/${phi.maxWk}) · Location: ${D.location==='partner'?"Partner's":'Home'} · ${(sz/1024).toFixed(1)}KB<br>
 Cues: ${Object.keys(D.cues).length} · Discomfort entries: ${D.discomfort.length}</div></div>
 <button class="btn btn-wh" style="margin-bottom:8px" onclick="go('plates')">📐 Plate Reference</button>
+<div class="lb" style="margin-top:10px;margin-bottom:6px">Location</div>
+<div class="cd"><div style="font-size:12px;margin-bottom:8px">Active: <strong>${D.location==='partner'?"🏘 Partner's":"🏠 Home"}</strong></div>
+<div style="display:flex;gap:6px">
+<button class="btn-sm ${D.location==='home'?'btn-pr':'btn-wh'}" onclick="D.location='home';save();render()">🏠 Home</button>
+<button class="btn-sm ${D.location==='partner'?'btn-pr':'btn-wh'}" onclick="D.location='partner';save();render()">🏘 Partner's</button>
+</div><div class="dm" style="margin-top:6px">Home: barbell + KBs + mace + pull-up tower<br>Partner's: DBs + bands + clubbells + parallel bars</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Current: <strong>Phase ${phi.phase} — ${phi.name}</strong> (Week ${phi.wk}/${phi.maxWk})</div>
 <div style="display:flex;gap:6px">`;
@@ -731,7 +945,7 @@ function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader
 r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!d.sessions)throw 0;
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
-if(!d.confirmed)d.confirmed={};if(!d.discomfort)d.discomfort=[];
+if(!d.confirmed)d.confirmed={};if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
 D=d;save();render()}catch(e){alert('Invalid')}};
 r.readAsText(f);ev.target.value=''}
 
