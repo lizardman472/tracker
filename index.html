@@ -153,10 +153,9 @@ const BASE_PR={A:[
 {id:'deadlift',nm:'Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s'},
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → thinner band',tg:8,rstS:150,tempo:'3-1-2-1'},
 {id:'floor_press',nm:'Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0'},
-{id:'zercher_a',nm:'Zercher Squat',s:3,rp:'6-8',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:8,rstS:120,tempo:'3-1-2-0'},
 {id:'face_pull',nm:'Face Pull',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'3×20 → heavier band',tg:20,rstS:60,tempo:'2-1-2-1'},
-{id:'leg_raise',nm:'Floor Leg Raise',s:3,rp:'10-15',rst:'1:00',rir:'2',tp:'bw',rl:'+reps → +weight → slow ecc',tg:15,rstS:60,tempo:'2-0-2-0'},
-{id:'pull_aparts',nm:'Band Pull-Aparts',s:3,rp:'15',rst:'0:45',rir:'—',tp:'band',rl:'Quality reps > more reps',tg:15,rstS:45,tempo:'2-1-2-0'}],
+{id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'BW→5kg→10kg overhead. Press back into floor.',tg:8,rstS:60,tempo:'3-0-3-1'},
+{id:'arms',nm:'Arms (Curl + Ext Superset)',s:2,rp:'12-15',rst:'1:00',rir:'2',tp:'kb',rl:'+reps → +weight. Soft lockout. Superset = no rest between curl & ext.',tg:15,rstS:60,tempo:'2-1-2-0'}],
 B:[
 {id:'zercher_b',nm:'Zercher Squat (Heavy)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s'},
 {id:'ohp',nm:'Barbell OHP',s:3,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight (slow!)',tg:7,rstS:150,tempo:'3-1-2-0'},
@@ -166,13 +165,12 @@ B:[
 {id:'dead_bugs',nm:'Dead Bugs',s:3,rp:'8/side',rst:'1:00',rir:'—',tp:'bw',rl:'Slow. Press back into floor.',tg:8,rstS:60,tempo:'3-0-3-1'}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0'},
-{id:'split_squat',nm:'Split Squat',s:3,rp:'10/leg',rst:'1:30',rir:'2',tp:'bw',rl:'BW→20kg→30kg→Zercher',tg:10,rstS:90,tempo:'3-0-2-0'},
+{id:'zercher_a',nm:'Zercher Squat',s:3,rp:'6-8',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s'},
+{id:'cossack_squat',nm:'Cossack Squat',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'BW→goblet hold→deeper. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0'},
 {id:'pushups',nm:'Push-ups (Bar Grip + Band)',s:4,rp:'8-15',rst:'1:30',rir:'1-2',tp:'bw',rl:'Chest to bar level. Band off to finish.',tg:15,rstS:90,tempo:'3-1-2-1'},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2-3',tp:'band',rl:'One band easier than Day A',tg:10,rstS:120,tempo:'3-1-2-1'},
-{id:'kb_press',nm:'KB Press',s:3,rp:'10/arm',rst:'1:00',rir:'2',tp:'kb',rl:'↑ KB or reps',tg:10,rstS:60,tempo:'2-1-2-1'},
 {id:'carry',nm:'Loaded Carry',s:3,rp:'40m',rst:'1:30',rir:'—',tp:'carry',rl:'↑ load or distance',tg:1,rstS:90,tempo:'—'},
-{id:'ext_rot',nm:'Banded External Rotations',s:2,rp:'15/side',rst:'0:45',rir:'—',tp:'band',rl:'Rotator cuff. Light band.',tg:15,rstS:45,tempo:'2-1-2-1'},
-{id:'arms',nm:'Arms (Curl/Ext)',s:2,rp:'12-15',rst:'1:00',rir:'2',tp:'kb',rl:'+reps → +weight. Soft lockout.',tg:15,rstS:60,tempo:'2-1-2-0'}],
+{id:'ext_rot',nm:'Banded External Rotations',s:2,rp:'15/side',rst:'0:45',rir:'—',tp:'band',rl:'Rotator cuff. Light band.',tg:15,rstS:45,tempo:'2-1-2-1'}],
 D:[
 {id:'mace_360',nm:'360° Swing',s:5,rp:'8/side',rst:'1:30',rir:'2',tp:'mace',rl:'+reps → heavier',tg:8,rstS:90,tempo:'controlled'},
 {id:'mace_grave',nm:'Gravedigger',s:4,rp:'8/side',rst:'1:30',rir:'2',tp:'mace',rl:'+reps → heavier',tg:8,rstS:90,tempo:'controlled'},
@@ -211,7 +209,9 @@ const p=PHASES[phase]||PHASES[1],pr={};
 for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{const adj=p.adj[ex.id];
 return adj?{...ex,rp:adj.rp,tg:adj.tg}:{...ex}})}return pr}
 
-const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.D,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C];
+const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.D,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
+// Legacy exercises (removed from program but needed for historical data display)
+{id:'split_squat',nm:'Split Squat',tp:'bw'},{id:'kb_press',nm:'KB Press',tp:'kb'},{id:'pull_aparts',nm:'Band Pull-Aparts',tp:'band'},{id:'pallof',nm:'Pallof Press',tp:'band'},{id:'leg_raise',nm:'Floor Leg Raise',tp:'bw'}];
 const BANDS=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
 const BAND_IDX=b=>{if(!b)return 99;const n=b.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===b||x===n||x.replace(/ \(heaviest\)/,'')==n);return i>=0?i:99};
 const JOINTS=['Shoulder','Elbow','Wrist'];
@@ -513,7 +513,36 @@ const otherDays=isP?['A','B','C']:['A','B','C','D'];
 h+=`<div style="display:flex;gap:8px;margin-bottom:12px">`;
 for(const d of otherDays)if(d!==nd)h+=`<button class="btn btn-wh" style="flex:1;font-size:12px;padding:12px 0" onclick="beginW('${d}')">Day ${d}${locSuffix}</button>`;
 h+=`</div>`;
-h+=`<button class="btn btn-wh" style="margin-bottom:12px;font-size:13px" onclick="go('cardio')">🚣 Log Cardio / Rest Day</button>`;
+
+// Smart cardio suggestion
+const lastSessDate=D.sessions.length?D.sessions[D.sessions.length-1].date:'';
+const trainedToday=lastSessDate===today();
+const daysSinceTrain=lastSessDate?Math.floor((new Date()-new Date(lastSessDate+'T00:00:00'))/864e5):99;
+// Count cardio this week (last 7 days)
+const weekAgo=new Date();weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().split('T')[0];
+const cardioThisWeek=D.cardioLog.filter(c=>c.date>=waStr);
+const easyThisWeek=cardioThisWeek.filter(c=>c.intensity==='easy'||c.intensity==='moderate').length;
+const hiitThisWeek=cardioThisWeek.filter(c=>c.intensity==='hard').length;
+const cardioTotal=easyThisWeek+hiitThisWeek;
+// Is HIIT safe? Not if next training day is A or B
+const hiitSafe=nd==='C'||nd==='D';
+const isRestDay=daysSinceTrain>=1&&!trainedToday;
+
+if(isRestDay){
+  const suggType=hiitSafe&&hiitThisWeek<1?'HIIT':'Easy';
+  const suggDesc=suggType==='HIIT'?'🔥 HIIT Row — 3min warm-up → 8×(20s hard/40s easy) → 2min cool-down (13 min)':'🚣 Easy Row — 20 min, conversational pace, HR 120-140';
+  const cardioBar=`${cardioTotal}/3 this week (${easyThisWeek} easy${hiitThisWeek?`, ${hiitThisWeek} HIIT`:''})`;
+  h+=`<div class="cd" style="border:1px solid var(--bl);margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+<div style="font-size:13px;font-weight:700;color:var(--bl)">Rest Day — Cardio</div>
+<span class="dm" style="font-size:10px">${cardioBar}</span></div>
+<div style="font-size:12px;color:var(--tx);margin-bottom:8px">${suggDesc}</div>
+${!hiitSafe&&hiitThisWeek<1?`<div class="dm" style="font-size:10px;margin-bottom:6px">HIIT not recommended before Day ${nd}. Save it for after B.</div>`:''}
+<div style="display:flex;gap:8px">
+<button class="btn btn-pr" style="flex:2;padding:10px;font-size:12px" onclick="window._cT='Rowing';go('cardio')">Log ${suggType} Row</button>
+<button class="btn btn-wh" style="flex:1;padding:10px;font-size:12px" onclick="go('cardio')">Other</button></div>
+${cardioTotal>=3?`<div style="text-align:center;margin-top:6px;font-size:11px;color:var(--gr);font-weight:600">✓ Cardio target hit this week</div>`:''}</div>`}
+else{h+=`<button class="btn btn-wh" style="margin-bottom:12px;font-size:13px" onclick="go('cardio')">🚣 Log Cardio / Rest Day</button>`}
 
 // Recent
 const rec=[...D.sessions].reverse().slice(0,3);
