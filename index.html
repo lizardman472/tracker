@@ -170,6 +170,16 @@ input[type=number]{-moz-appearance:textfield}
 .dpick{display:flex;gap:6px;justify-content:center;margin-bottom:14px;position:relative}
 .dpick button{flex:0 0 auto;min-width:54px;padding:8px 0;border-radius:9px;border:1.5px solid var(--cb);background:rgba(255,255,255,.04);color:var(--mu);font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.5px;cursor:pointer;transition:.15s}
 .dpick button.on{background:var(--pr);color:#0c0e13;border-color:var(--pr);box-shadow:0 2px 14px rgba(196,248,42,.3)}
+/* Training-cycle cue: A→B→C rotation pills + rest-day timeline */
+.cyc{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:10px}
+.cyc-d{min-width:42px;height:42px;padding:0 6px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:16px;border:2px solid var(--cb);background:var(--ib);color:var(--mu)}
+.cyc-d.done{background:var(--grl);border-color:var(--gr);color:var(--gr)}
+.cyc-d.next{background:var(--pr);border-color:var(--pr);color:#0c0e13;box-shadow:0 0 16px rgba(196,248,42,.3)}
+.cyc-arr{color:var(--dm);font-size:15px;padding:0 8px}
+.cyc-tl{display:flex;align-items:center;overflow-x:auto;padding:6px 0;gap:0}
+.cyc-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:36px}
+.cyc-gap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;padding:0 9px;color:var(--mu);font-size:9px;font-weight:600;white-space:nowrap}
+.cyc-dash{width:20px;height:2px;background:var(--cb);border-radius:2px;margin-bottom:3px}
 .preview-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--cb);font-size:12px}
 .preview-row:last-child{border:none}
 .prev2{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--cb);cursor:pointer;transition:background .15s}
@@ -842,10 +852,32 @@ if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');i
 function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
 function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t==='new'?'sg-nw':'sg-st'}
 
+// Training-cycle position + rest-day gaps for the home cue.
+// Walks all sessions (both locations) to show where you are in the A→B→C rotation
+// and how many rest days fell between recent sessions.
+function getCycleInfo(){
+const order=['A','B','C'];
+const ss=[...D.sessions].sort((a,b)=>a.date.localeCompare(b.date));
+// recent timeline: last up to 5 sessions; gap = calendar days from the previous session
+const recent=ss.slice(-5).map((s,i,arr)=>{const prev=arr[i-1];
+const gap=prev?Math.round((new Date(s.date+'T00:00:00')-new Date(prev.date+'T00:00:00'))/864e5):null;
+return{day:s.day,loc:s.loc||'home',date:s.date,gap}});
+// days completed in the current cycle: walk back to and including the most recent 'A'
+let done=new Set();
+for(let i=ss.length-1;i>=0;i--){const d=ss[i].day;if(!order.includes(d))continue;done.add(d);if(d==='A')break}
+const next=D.nextDay||'A';
+if(next==='A')done=new Set(); // a fresh A→B→C cycle is about to start
+// days since last session + average gap across all sessions
+const last=ss[ss.length-1];
+const sinceLast=last?Math.round((new Date(today()+'T00:00:00')-new Date(last.date+'T00:00:00'))/864e5):null;
+let gaps=[];for(let i=1;i<ss.length;i++)gaps.push((new Date(ss[i].date+'T00:00:00')-new Date(ss[i-1].date+'T00:00:00'))/864e5);
+const avgGap=gaps.length?Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length*10)/10:null;
+return{order,recent,done,next,sinceLast,avgGap}}
+
 // ─── HOME ──────────────────────────────────────
 function rHome(el){
 const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
-const nd=(isP&&!['A','B','C'].includes(nd0))?'A':nd0;
+const nd=!['A','B','C'].includes(nd0)?'A':nd0;
 const pr=getCurPR(),exs=pr[nd]||pr['A'],dl=getDeload(),fat=getFatigue(),phi=getPhaseInfo();
 const resume=checkResume();
 let h='<div class="sec">';
@@ -918,7 +950,7 @@ if(restDay){
   </div>
   </div>`;
 }else{
-  const days=isP?['A','B','C']:['A','B','C'];
+  const days=['A','B','C'];
   const sugg=D.nextDay||'A';
   let picker=`<div class="dpick">`;
   for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
@@ -929,6 +961,24 @@ if(restDay){
   ${picker}
   <button onclick="beginW('${nd}')">Start Workout</button></div>`;
 }
+
+// Training cycle — rotation position + rest-day gaps
+{const ci=getCycleInfo();
+const fmtSh=d=>new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'});
+h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Training Cycle</div><div class="cyc">`;
+ci.order.forEach((d,i)=>{const cls=ci.done.has(d)?'done':d===ci.next?'next':'';
+h+=`<div class="cyc-d ${cls}">${d}${ci.done.has(d)?' ✓':''}</div>`;
+if(i<ci.order.length-1)h+=`<span class="cyc-arr">→</span>`});
+h+=`</div>`;
+if(ci.recent.length){h+=`<div class="cyc-tl">`;
+ci.recent.forEach((s,i)=>{if(i>0){const rest=Math.max(0,s.gap-1);
+h+=`<div class="cyc-gap"><div class="cyc-dash"></div>${rest===0?'b2b':rest+'d rest'}</div>`}
+h+=`<div class="cyc-node"><span class="bg bg-${s.day.toLowerCase()}" style="font-size:10px;padding:2px 6px">${s.day}${s.loc==='partner'?'2':'1'}</span><span class="dm" style="font-size:9px;margin-top:2px">${fmtSh(s.date)}</span></div>`});
+h+=`<div class="cyc-gap"><div class="cyc-dash"></div>${ci.sinceLast===0?'today':ci.sinceLast+'d'}</div>`;
+h+=`<div class="cyc-node"><span class="cyc-d next" style="min-width:30px;width:30px;height:30px;font-size:13px;border-radius:9px">${ci.next}</span><span class="dm" style="font-size:9px;margin-top:2px">next</span></div></div>`;
+h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d between sessions · `:''}${ci.sinceLast===0?'trained today':ci.sinceLast===1?'last trained yesterday':`last trained ${ci.sinceLast}d ago`}</div>`;
+}else{h+=`<div class="dm" style="margin-top:2px">No sessions yet — Day A kicks off your first A→B→C cycle.</div>`}
+h+=`</div>`;}
 
 // Preview
 h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${exs.length}</div>`;
@@ -976,7 +1026,7 @@ h+=`</div>`;el.innerHTML=h}
 
 // ─── WORKOUT ───────────────────────────────────
 function beginW(day){ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';
-const pr=getCurPR(),exs=pr[ADAY];LOG={};SS=Date.now();CIDX=0;
+const pr=getCurPR(),exs=pr[ADAY]||pr['A'];LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs){const last=getLast(ex.id),sg=getSmartSugg(ex);
 const defWt=ex.tp==='bb'?BAR:ex.tp==='db'?'':'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
@@ -1547,7 +1597,7 @@ else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 let LP={date:'',day:'A',loc:'home'};
 function rLogPast(el){
 const pr=getProgram(D.phase,LP.loc);
-const days=LP.loc==='partner'?['A','B','C']:['A','B','C','D'];
+const days=['A','B','C'];
 const exs=pr[LP.day]||[];
 const suffix=LP.loc==='partner'?'2':'1';
 let h=`<div class="sec"><div style="font-size:18px;font-weight:800;margin-bottom:12px">Log Past Session</div>
