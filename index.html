@@ -167,6 +167,9 @@ input[type=number]{-moz-appearance:textfield}
 .start-hero .meta{font-size:11px;color:var(--mu);margin-bottom:16px;position:relative;letter-spacing:.3px}
 .start-hero button{background:var(--pr);color:#0c0e13;border:none;border-radius:var(--rad-sm);padding:14px 40px;font-family:var(--disp);font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 20px rgba(196,248,42,.3);position:relative}
 .start-hero button:active{transform:scale(.96)}
+.dpick{display:flex;gap:6px;justify-content:center;margin-bottom:14px;position:relative}
+.dpick button{flex:0 0 auto;min-width:54px;padding:8px 0;border-radius:9px;border:1.5px solid var(--cb);background:rgba(255,255,255,.04);color:var(--mu);font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.5px;cursor:pointer;transition:.15s}
+.dpick button.on{background:var(--pr);color:#0c0e13;border-color:var(--pr);box-shadow:0 2px 14px rgba(196,248,42,.3)}
 .preview-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--cb);font-size:12px}
 .preview-row:last-child{border:none}
 .prev2{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--cb);cursor:pointer;transition:background .15s}
@@ -245,12 +248,14 @@ function snapW(t){let b=VW[0];for(const w of VW)if(Math.abs(w-t)<Math.abs(b-t))b
 function plateH(t){if(!t||t<=BAR)return'';const ps=perSide(t);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
+// A→B→C→A rotation (same at both locations). Used to compute the next training day.
+const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},kb_curl:{rp:'8-12',tg:12},band_pushdown:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
+  adj:{deadlift:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},kb_curl:{rp:'10-15',tg:15},band_pushdown:{rp:'12-15',tg:15},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
+  adj:{deadlift:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},kb_curl:{rp:'6-10',tg:10},band_pushdown:{rp:'8-10',tg:10},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+  adj:{deadlift:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
 
 const BASE_PR={A:[
 {id:'deadlift',nm:'Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
@@ -288,16 +293,16 @@ const LOC_B_PR={A:[
 {id:'db_sl_rdl',nm:'DB Single-Leg RDL',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'db',rl:'Closes SL posterior chain gap. Start lighter than B-stance equivalent.',tg:8,rstS:90,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'inv_rows_a',nm:'Inverted Rows (Vertical Bias)',s:4,rp:'8-12',rst:'2:00',rir:'2',tp:'bw',rl:'Parallel bars neutral grip. Feet elevated, steep angle, pull chest to hands. Bias vertical.',tg:12,rstS:120,tempo:'3-1-2-1',perSide:false},
-{id:'band_lateral',nm:'Band Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'band',rl:'Mirrors home delt work. Umay band = RESISTANCE: thicker = harder. Lead with elbow, stop at shoulder height. Hit target → thicker band.',tg:15,rstS:60,tempo:'2-0-1-1',bandMode:'resist',perSide:false},
-{id:'rear_delt',nm:'Band Rear-Delt (Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'Umay door anchor, high pull. Mirrors home rear-delt work.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
+{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Mirrors home delt work. Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:90,tempo:'controlled',perSide:true}],
 B:[
 {id:'db_bss',nm:'DB Bulgarian Split Squat',s:4,rp:'8/leg',rst:'2:00',rir:'1-2',tp:'db',rl:'Confirm → ↑1-2kg goblet',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true,loadUnit:'per_db'},
 {id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'2:30',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:150,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'band_lateral',nm:'Band Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'band',rl:'2nd weekly delt exposure (mirrors home Day B). Umay band = RESISTANCE: thicker = harder. Hit target → thicker band.',tg:15,rstS:60,tempo:'2-0-1-1',bandMode:'resist',perSide:false},
+{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:90,tempo:'controlled',perSide:true},
-{id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'band',rl:'Pause at full extension, resist rotation. Shares progression with home Day C.',tg:10,rstS:60,tempo:'2-2-1-0',bandMode:'resist',perSide:true}],
+{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true,loadUnit:'per_db'}],
 C:[
 {id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'2:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'db_row_c',nm:'DB Single-Arm Row (Vol)',s:3,rp:'10-12',rst:'1:30',rir:'2',tp:'db',rl:'Lighter than B2. Higher reps.',tg:12,rstS:90,tempo:'3-1-2-0',perSide:false},
@@ -375,7 +380,8 @@ const MG={
   db_floor_press:{chest:1,triceps:0.5}, db_floor_press_v:{chest:1,triceps:0.5},
   db_ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, db_bss:{quads:1,glutes:0.5},
   db_row_b:{back:1,biceps:0.5}, db_row_c:{back:1,biceps:0.5}, db_row_a:{back:1,biceps:0.5},
-  db_lunge:{quads:1,glutes:0.5}, inv_rows_a:{back:1,biceps:0.5}
+  db_lunge:{quads:1,glutes:0.5}, inv_rows_a:{back:1,biceps:0.5},
+  db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
 const MG_INFO=[
@@ -415,7 +421,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='';
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -738,8 +744,6 @@ if(ex.tp==='bw'){
 // ─── Fallback ───
 return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],detail:'',regress:discWarn}}
 
-function getSkips(day,exId){const def=ALL_EX.find(e=>e.id===exId);if(def&&def.optional)return{sk:0,tot:0};
-const ds=D.sessions.filter(s=>s.day===day&&(s.loc||'home')===D.location).slice(-3);let sk=0;for(const s of ds)if(!s.ex.find(e=>e.id===exId))sk++;return{sk,tot:ds.length}}
 function getPRs(exId){let bw=0,bv=0,be=0;const def=ALL_EX.find(x=>x.id===exId);
 for(const s of D.sessions)for(const e of s.ex)if(e.id===exId){const vr=e.reps.filter(r=>r>0);if(!vr.length)continue;
 const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
@@ -800,9 +804,6 @@ const sc=Math.round(Math.min(10,f*1.2+ad*.9+tv/(1200*Math.max(1,f)))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
-function getStreak(){const now=new Date();let streak=0,w=new Date(now);const day=w.getDay();w.setDate(w.getDate()-(day||7)+1);w.setHours(0,0,0,0);
-while(true){const wE=new Date(w);wE.setDate(wE.getDate()+6);const cnt=D.sessions.filter(s=>{const d=new Date(s.date+'T00:00:00');return d>=w&&d<=wE}).length;
-if(cnt>=3)streak++;else break;w.setDate(w.getDate()-7);if(streak>52)break}return streak}
 function getDeload(){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
 const sc=D.lastDeload?D.sessions.filter(s=>s.date>D.lastDeload).length:D.sessions.length;
 // Signal-driven: don't deload on timer alone — check for actual fatigue signals
@@ -843,7 +844,7 @@ function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t=
 
 // ─── HOME ──────────────────────────────────────
 function rHome(el){
-const nd0=D.nextDay||'A',isP=D.location==='partner';
+const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
 const nd=(isP&&!['A','B','C'].includes(nd0))?'A':nd0;
 const pr=getCurPR(),exs=pr[nd]||pr['A'],dl=getDeload(),fat=getFatigue(),phi=getPhaseInfo();
 const resume=checkResume();
@@ -917,8 +918,15 @@ if(restDay){
   </div>
   </div>`;
 }else{
+  const days=isP?['A','B','C']:['A','B','C'];
+  const sugg=D.nextDay||'A';
+  let picker=`<div class="dpick">`;
+  for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
+  picker+=`</div>`;
+  const overridden=nd!==sugg;
   h+=`<div class="start-hero"><h2>Day ${nd}${ls}${isP?" · Partner's":''}</h2>
-  <div class="meta">P${phi.phase} ${phi.name} · Wk ${phi.wk}/${phi.maxWk} · ${fat.label}</div>
+  <div class="meta">P${phi.phase} ${phi.name} · Wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
+  ${picker}
   <button onclick="beginW('${nd}')">Start Workout</button></div>`;
 }
 
@@ -1167,10 +1175,9 @@ h+=`</div></div></div>
 <button class="btn btn-pr" style="${SDIFF?'':'opacity:0.35;pointer-events:none'}" onclick="saveSumm()">${SDIFF?'Save':'Select RPE to save'}</button></div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S;
-const nxt=D.location==='partner'?{A:'B',B:'C',C:'A'}:{A:'B',B:'C',C:'A'};
 D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,trainingWeek:D.trainingWeek||1,notes:S.notes||''});
-D.nextDay=nxt[S.day]||'A';
-save();ADAY=null;LOG={};SS=null;SNOTES='';clearTimer();go('home')}
+D.nextDay=NEXT_DAY[S.day]||'A';
+save();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;clearTimer();go('home')}
 
 
 // ─── CARDIO ──────────────────────────────────
@@ -1533,8 +1540,7 @@ h+=`</div>`}h+=`</div>`;el.innerHTML=h}
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
-const nxt=last.loc==='partner'?{A:'B',B:'C',C:'A'}:{A:'B',B:'C',C:'A'};
-D.nextDay=nxt[last.day]||'A'}else D.nextDay='A';save();render()}
+D.nextDay=NEXT_DAY[last.day]||'A'}else D.nextDay='A';save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 
 // ─── LOG PAST SESSION ───────────────────────
@@ -1603,8 +1609,7 @@ D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,ex:logged,volum
 D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 // Update nextDay based on latest session — location aware
 const last=D.sessions[D.sessions.length-1];
-const nxt=last.loc==='partner'?{A:'B',B:'C',C:'A'}:{A:'B',B:'C',C:'A'};
-D.nextDay=nxt[last.day]||'A';
+D.nextDay=NEXT_DAY[last.day]||'A';
 save();go('history')}
 // ─── PLATES ──────────────────────────────────
 function rPlates(el){let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">All Valid Weights (${VW.length})</div>`;
@@ -1680,8 +1685,7 @@ if(d.trainingWeek)D.trainingWeek=d.trainingWeek;
 if(d.location)D.location=d.location;
 // Update nextDay from latest session — location aware
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
-const nxt=last.loc==='partner'?{A:'B',B:'C',C:'A'}:{A:'B',B:'C',C:'A'};
-D.nextDay=nxt[last.day]||D.nextDay}
+D.nextDay=NEXT_DAY[last.day]||D.nextDay}
 // Run migration on imported data
 migrateData(D);
 save();render();
