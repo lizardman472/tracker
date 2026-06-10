@@ -395,20 +395,26 @@ const MG={
   band_lateral:{sidedelt:1},
   lateral_raise:{sidedelt:1}, kb_curl:{biceps:1}, band_pushdown:{triceps:1},
   kb_swing:{glutes:0.5,hams:0.5},
+  // Core / carries / clubs — the program is deliberately core-heavy (anti-extension,
+  // anti-rotation, anti-lateral-flexion), so the balance dashboard must see it.
+  dead_bugs_a:{core:1}, dead_bugs:{core:1}, dead_bugs_b:{core:1},
+  pallof_press:{core:1}, suitcase_march:{core:1}, carry:{core:0.5},
+  db_carry:{core:0.5}, cb_mills:{core:0.5,cuff:0.5}, cb_shield:{cuff:0.5},
+  cb_arm_cast:{triceps:0.5,cuff:0.5},
   // Partner
   db_rdl:{hams:1,glutes:1,back:0.5}, db_sl_rdl:{hams:1,glutes:1},
   db_floor_press:{chest:1,triceps:0.5}, db_floor_press_v:{chest:1,triceps:0.5},
   db_ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, db_bss:{quads:1,glutes:0.5},
   db_row_b:{back:1,biceps:0.5}, db_row_c:{back:1,biceps:0.5}, db_row_a:{back:1,biceps:0.5},
   db_lunge:{quads:1,glutes:0.5}, inv_rows_a:{back:1,biceps:0.5},
-  db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5}
+  db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5,core:0.5}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
 const MG_INFO=[
   ['chest','Chest',8,20],['back','Back/Lats',10,22],['quads','Quads',8,18],
   ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],['sidedelt','Side Delts',8,22],
   ['fdelt','Front Delts',0,12],['reardelt','Rear Delts',6,16],['biceps','Biceps',8,20],
-  ['triceps','Triceps',6,14],['cuff','Rotator Cuff',null,null]
+  ['triceps','Triceps',6,14],['core','Core',6,16],['cuff','Rotator Cuff',null,null]
 ];
 // Effective sets per muscle over the last N days, ALL locations — muscle stimulus
 // accumulates regardless of venue, and the A→B→C rotation can span both within a
@@ -1332,29 +1338,76 @@ const first=dates[0],span=first?Math.round((now-new Date(first+'T00:00:00'))/604
 return{sessions:sess.length,days:dates.length,totalVol:Math.round(totalVol),totalSets,last7,last30,streak,weeks:span,first};
 }
 // Per-exercise quick stats
+// ── e1RM slope (kg/week): least-squares fit over per-session best e1RM ──
+// Needs ≥3 weighted sessions spanning ≥2 weeks; otherwise the fit is noise.
+// e1RM (not raw weight) so rep-target changes and phase re-anchors don't read
+// as strength loss.
+function e1rmSlope(exId,days){
+const def=ALL_EX.find(e=>e.id===exId);
+const cut=ymd(new Date(Date.now()-(days||56)*864e5));
+const pts=[];
+for(const h of getHist(exId,200)){if(h.date<cut||!h.wt)continue;
+const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
+pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y:e1rm(h.wt,Math.max(...eR))})}
+if(pts.length<3)return null;
+if(pts[pts.length-1].x-pts[0].x<2)return null;
+const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
+let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
+if(!den)return null;
+return{slope:Math.round(num/den*100)/100,n,latest:Math.round(pts[pts.length-1].y*10)/10}}
+// ── Momentum board: every logged weighted lift ranked by e1RM kg/week ──
+function strengthMomentum(){
+const logged=loggedExIds();const out=[];
+for(const ex of ALL_EX){if(!logged.has(ex.id))continue;
+if(!['bb','db','kb','mace'].includes(ex.tp))continue;
+const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
+out.sort((a,b)=>b.slope-a.slope);return out}
+// ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
+function relStrength(){
+const bw=[...(D.bodyLog||[])].reverse().find(b=>b.weight)?.weight;if(!bw)return null;
+const cut=ymd(new Date(Date.now()-60*864e5));
+const lifts=[['deadlift','Deadlift'],['zercher_b','Zercher'],['ohp','OHP'],['floor_press','Floor Press']];
+const out=[];
+for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
+for(const h of getHist(id,200)){if(h.date<cut||!h.wt)continue;
+const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
+const v=e1rm(h.wt,Math.max(...eR));if(v>best)best=v}
+if(best)out.push({lbl,ratio:Math.round(best/bw*100)/100})}
+return out.length?{bw,lifts:out}:null}
+
 function exStats(exId){
 const def=ALL_EX.find(e=>e.id===exId);
 const h=getHist(exId,200);
 let totalVol=0,totalReps=0,sessions=h.length;
 for(const e of h){totalVol+=calcExVol(exId,e.wt,e.reps);totalReps+=(e.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}
 const pr=getPRs(exId);const last=h.length?h[h.length-1]:null;
-// trend: compare first vs last weighted session
-let trend=null;const wt=h.filter(e=>e.wt);if(wt.length>=2){const d=wt[wt.length-1].wt-wt[0].wt;trend=d}
+// trend: e1RM change over the last 8 weeks (slope × 8). First-vs-last weight
+// would read a phase re-anchor (deliberate load drop for a new rep range) as loss.
+let trend=null;const sl=e1rmSlope(exId,56);if(sl)trend=Math.round(sl.slope*8*10)/10;
 return{def,sessions,totalVol:Math.round(totalVol),totalReps,pr,last,trend,history:h};
 }
 
 // ── ISO-week key (Mon-anchored) for time bucketing ──
 function weekKey(dateStr){const d=new Date(dateStr+'T00:00:00');const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return ymd(d)}
-// ── Weekly tonnage + session-count series (last N weeks), location-aware optional ──
+// Continuous Monday keys for the last n weeks, ending at the current week.
+function weekKeys(n){const out=[];const cur=new Date(weekKey(today())+'T00:00:00');
+for(let i=n-1;i>=0;i--){const d=new Date(cur);d.setDate(d.getDate()-7*i);out.push(ymd(d))}return out}
+// ── Weekly tonnage + session-count series (last N calendar weeks) ──
+// Weeks without sessions appear as ZEROS: bucketing only existing keys would
+// compress the time axis and hide layoffs — the very thing a trend must reveal.
+// The current (in-progress) week is flagged `partial` so trend verdicts and
+// charts can treat it honestly instead of reading mid-week as a volume crash.
 function weeklySeries(weeks){
 const buckets={};
 for(const s of D.sessions){const wk=weekKey(s.date);if(!buckets[wk])buckets[wk]={vol:0,sets:0,sessions:0,rpe:[],dur:0};
 let v=0,st=0;for(const e of s.ex){v+=calcExVol(e.id,e.wt,e.reps);st+=(e.reps||[]).filter(r=>Number(r)>0).length}
 buckets[wk].vol+=v;buckets[wk].sets+=st;buckets[wk].sessions++;if(s.difficulty)buckets[wk].rpe.push(s.difficulty);if(s.duration)buckets[wk].dur+=s.duration}
-const keys=Object.keys(buckets).sort();const recent=keys.slice(-(weeks||10));
-return recent.map(k=>({wk:k,vol:Math.round(buckets[k].vol),sets:buckets[k].sets,sessions:buckets[k].sessions,
-rpe:buckets[k].rpe.length?Math.round(buckets[k].rpe.reduce((a,b)=>a+b,0)/buckets[k].rpe.length*10)/10:null,dur:buckets[k].dur,
-lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+const first=Object.keys(buckets).sort()[0];if(!first)return[];
+const cw=weekKey(today());
+return weekKeys(weeks||10).filter(k=>k>=first).map(k=>{const b=buckets[k]||{vol:0,sets:0,sessions:0,rpe:[],dur:0};
+return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions,
+rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
+lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
 // ── Recent PRs: scan history, find sessions that set a new best-weight or best-e1RM at the time ──
 function recentPRs(sinceDays){
@@ -1393,12 +1446,13 @@ if(snap.streak>=4)out.push({icon:'🔥',label:`${snap.streak}-week streak`,done:
 return out;
 }
 // ── Per-muscle weekly volume history (for trend bars) ──
+// Same zero-fill rule as weeklySeries: untrained weeks show as 0, not skipped.
 function muscleWeekly(muscleKey,weeks){
-const buckets={};
-for(const s of D.sessions){const wk=weekKey(s.date);if(!buckets[wk])buckets[wk]=0;
+const buckets={};let first=null;
+for(const s of D.sessions){const wk=weekKey(s.date);if(!first||wk<first)first=wk;if(!buckets[wk])buckets[wk]=0;
 for(const e of s.ex){const map=MG[e.id];if(!map||!map[muscleKey])continue;const sets=(e.reps||[]).filter(r=>Number(r)>0).length;buckets[wk]+=sets*map[muscleKey]}}
-const keys=Object.keys(buckets).sort().slice(-(weeks||8));
-return keys.map(k=>({wk:k,v:Math.round(buckets[k]*10)/10}));
+if(!first)return[];
+return weekKeys(weeks||8).filter(k=>k>=first).map(k=>({wk:k,v:Math.round((buckets[k]||0)*10)/10}));
 }
 // ── Consistency metrics ──
 function consistency(){
@@ -1421,10 +1475,12 @@ return{perWk,wuRate,avgGap,avgDur,avgRpe,spanWk:Math.round(spanWk)};
 
 function rStats(el){
 const hist=getHist(STAT_EX,20);
-// ── Weekly muscle-group volume dashboard (10-day window covers a full A→B→C rotation) ──
+// ── BALANCE card: per-muscle MEV/MAV status (10-day window = full A→B→C rotation),
+// merged with each muscle's 8-week history so "where am I now" and "how did I get
+// here" read as one section instead of two separately-computed ones.
 const wv=getWeeklyVolume(10);
 let mh=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Weekly Volume by Muscle</div>
-<div class="dm" style="margin-bottom:8px">Last 10 days (full rotation) · all locations · effective sets vs MEV–MAV</div>`;
+<div class="dm" style="margin-bottom:8px">Last 10 days (full rotation) · all locations · effective sets vs MEV–MAV · 8-wk history</div>`;
 let anyVol=false;
 for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
@@ -1435,13 +1491,22 @@ for(const[key,label,mev,mav] of MG_INFO){
     else{col='var(--pr)';tag='high volume';}
   }
   const pct=mav?Math.min(100,Math.round(v/mav*100)):(v>0?60:0);
-  mh+=`<div style="margin-bottom:7px">
+  mh+=`<div style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
   <span style="font-weight:600">${label}</span>
   <span style="color:${col}">${v} sets${mev!=null?` · ${tag}`:''}</span></div>
   <div style="height:6px;background:var(--ib);border-radius:3px;overflow:hidden">
   <div style="height:100%;width:${pct}%;background:${col}"></div>
-  ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-6px;left:${Math.round(mev/mav*100)}%;width:1px;height:6px;background:var(--tx);opacity:.4"></div></div>`:''}</div></div>`;
+  ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-6px;left:${Math.round(mev/mav*100)}%;width:1px;height:6px;background:var(--tx);opacity:.4"></div></div>`:''}</div>`;
+  if(mev!=null){
+    const series=muscleWeekly(key,8);const mxv=Math.max(...series.map(s=>s.v),mav,1);
+    let bars='';for(const s of series){
+      const empty=s.v<=0;const bh=empty?5:Math.max(12,Math.round(s.v/mxv*100));
+      const bc=empty?'var(--ib)':(s.v<mev?'var(--am)':'var(--gr)');
+      bars+=`<div title="${empty?'no sets':s.v}" style="flex:1;height:${bh}%;background:${bc};border-radius:2px;min-height:2px"></div>`}
+    if(series.length)mh+=`<div style="display:flex;align-items:flex-end;gap:2px;height:18px;margin-top:3px;opacity:.85">${bars}</div>`;
+  }
+  mh+=`</div>`;
 }
 if(!anyVol)mh+=`<div class="dm">No logged sets in the last 10 days.</div>`;
 // Priority nudge: surface the muscle furthest below MEV (research: add volume to laggers, don't cap at MAV)
@@ -1449,21 +1514,26 @@ else{let worst=null,worstGap=0;
   for(const[key,label,mev,mav] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
   if(worst)mh+=`<div class="dm" style="margin-top:6px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set here first.</div>`;
 }
-mh+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half.</div></div>`;
+// Push:pull set ratio over the same window. Side delts and legs are excluded by
+// convention; ~1:1 (0.7–1.4) keeps shoulders happy in a pressing-biased program.
+{const push=(wv.chest||0)+(wv.fdelt||0)+(wv.triceps||0),pull=(wv.back||0)+(wv.reardelt||0)+(wv.biceps||0);
+if(push||pull){const ratio=pull?Math.round(push/pull*100)/100:null;
+const ok=ratio!=null&&ratio>=0.7&&ratio<=1.4;
+mh+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid var(--cb)"><span style="font-weight:600">Push : Pull</span>
+<span style="color:${ok?'var(--gr)':'var(--am)'}">${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})${ok?' ✓':' — aim ~1:1'}`:''}</span></div>`}}
+mh+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
 
-// ── SNAPSHOT header ──
+// ── LIFETIME snapshot (slimmed: last-7/30 live in the heatmap and weekly charts
+// now, and Work Sets moved to the footer — headline cells should be scannable) ──
 const snap=statSnapshot();
 const fmtVol=v=>v>=1000?(v/1000).toFixed(v>=10000?0:1)+'t':v+'kg';
 let snapH=`<div class="cd"><div class="lb" style="margin-bottom:8px">Your Numbers</div>
 <div class="snap-grid">
 <div class="snap-cell"><div class="snap-num">${snap.sessions}</div><div class="snap-lbl">Sessions</div></div>
 <div class="snap-cell"><div class="snap-num alt">${fmtVol(snap.totalVol)}</div><div class="snap-lbl">Total Lifted</div></div>
-<div class="snap-cell"><div class="snap-num alt2">${snap.totalSets}</div><div class="snap-lbl">Work Sets</div></div>
-<div class="snap-cell"><div class="snap-num">${snap.streak}</div><div class="snap-lbl">Week Streak</div></div>
-<div class="snap-cell"><div class="snap-num alt">${snap.last7}</div><div class="snap-lbl">Last 7 Days</div></div>
-<div class="snap-cell"><div class="snap-num alt2">${snap.last30}</div><div class="snap-lbl">Last 30 Days</div></div>
+<div class="snap-cell"><div class="snap-num alt2">${snap.streak}</div><div class="snap-lbl">Week Streak</div></div>
 </div>
-<div class="dm" style="margin-top:8px;text-align:center">${snap.weeks} weeks since first session · ${snap.days} training days</div></div>`;
+<div class="dm" style="margin-top:8px;text-align:center">${snap.totalSets} work sets · ${snap.weeks} weeks since first session · ${snap.days} training days</div></div>`;
 
 // ── Exercise picker (filtered to logged + current-program; legacy hidden unless STAT_ALL) ──
 const logged=loggedExIds(),prog=programExIds();
@@ -1475,19 +1545,11 @@ const es=exStats(STAT_EX);
 const wtD=hist.filter(h=>h.wt).map(h=>({v:h.wt,l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
 const e1D=hist.filter(h=>h.wt&&h.reps.some(r=>r>0)).map(h=>{const mx=Math.max(...h.reps.filter(r=>r>0));return{v:e1rm(h.wt,mx),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 
-let h=`<div class="sec">`+snapH;
+// ── Assembly: four question-blocks (progress → balance → consistency → lifetime)
+// instead of eleven interleaved widgets. Actionable first, motivational last.
+let h=`<div class="sec">`;
 
-// ── MILESTONES ──
-const ms=milestones();
-if(ms.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Milestones</div>`;
-for(const m of ms){h+=`<div style="display:flex;align-items:center;gap:9px;padding:5px 0">
-<span style="font-size:17px;width:22px;text-align:center">${m.icon}</span>
-<span style="flex:1;font-size:12px;font-weight:${m.done?'700':'500'};color:${m.done?'var(--tx)':'var(--mu)'}">${m.label}</span>
-${m.done?'<span style="color:var(--pr);font-weight:800;font-size:13px">✓</span>':`<span class="dm" style="font-size:10px">${m.pct||0}%</span>`}</div>
-${!m.done&&m.pct!=null?`<div class="fg-bar"><div class="fg-fill" style="width:${m.pct}%;background:var(--pr)"></div></div>`:''}`}
-h+=`</div>`}
-
-// ── RECENT PRs ──
+// ═══ 1 · PROGRESS — am I getting stronger? ═══
 const rprs=recentPRs(30);
 if(rprs.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">New PRs · last 30 days</div>`;
 for(const p of rprs.slice(0,8)){h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--cb)">
@@ -1495,50 +1557,23 @@ for(const p of rprs.slice(0,8)){h+=`<div style="display:flex;justify-content:spa
 <span style="display:flex;align-items:center;gap:7px"><span class="pr-badge">${p.type==='weight'?'WEIGHT':'E1RM'} ${p.val}kg</span><span class="dm" style="font-size:10px">${fmtD(p.date)}</span></span></div>`}
 h+=`</div>`}
 
-// ── WEEKLY TRENDS ──
-const ws=weeklySeries(10);
-if(ws.length>=2){
-const volData=ws.map(w=>({v:Math.round(w.vol/1000*10)/10,lbl:w.lbl}));
-const sessData=ws.map(w=>({v:w.sessions,lbl:w.lbl}));
-// progressing? compare last 2 weeks' avg tonnage vs the prior 2
-let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol,0)/2,prior=ws.slice(-4,-2).reduce((a,w)=>a+w.vol,0)/2;
-const pct=prior?Math.round((recent-prior)/prior*100):0;
-trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
-h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Weekly Trends</div>`;
-h+=`<div class="cd">${svgBars(volData,360,150,'#c4f82a','Weekly Tonnage (t)')}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}</div>`;
-h+=`<div class="cd">${svgBars(sessData,360,130,'#48b6ff','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target</div></div>`;
-// RPE trend if data exists
-const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,lbl:w.lbl}));
-if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#ff5d5d','Avg RPE / Week')}</div>`;
-}
+// Strength momentum: per-lift e1RM slope (kg/week, 8-week window)
+const mom=strengthMomentum();
+if(mom.length){
+const moving=mom.filter(m=>m.slope>0.05).slice(0,3);
+const stalled=mom.filter(m=>m.slope<=0.05).sort((a,b)=>a.slope-b.slope).slice(0,2);
+h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum</div>
+<div class="dm" style="margin-bottom:5px">e1RM trend over 8 weeks · needs 3+ weighted sessions per lift</div>`;
+for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:var(--gr);font-weight:700">↑ +${m.slope} kg/wk</span></div>`;
+for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope} kg/wk</span></div>`;
+if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
+h+=`</div>`}
 
-// ── CONSISTENCY ──
-const con=consistency();
-h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Consistency & Effort</div>`;
-h+=`<div class="cd"><div class="estrip">
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${con.perWk}</div><div class="estrip-lbl">Sessions/wk</div></div>
-<div class="estrip-cell"><div class="estrip-num">${con.avgGap!=null?con.avgGap+'d':'—'}</div><div class="estrip-lbl">Avg Gap</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${con.avgDur!=null?con.avgDur+'m':'—'}</div><div class="estrip-lbl">Avg Length</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg RPE</div></div></div>`;
-if(con.wuRate!=null){h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span class="mu">Warm-up compliance</span><span style="color:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'};font-weight:700">${con.wuRate}%</span></div>
-<div class="fg-bar"><div class="fg-fill" style="width:${con.wuRate}%;background:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'}"></div></div>`}
-h+=`</div>`;
-
-// ── PER-MUSCLE BALANCE (8-week trend sparkbars for the 4 lowest muscles) ──
-{const wv=getWeeklyVolume(10);const ranked=MG_INFO.filter(([k,l,mev])=>mev!=null).map(([k,l,mev,mav])=>({k,l,mev,mav,v:wv[k]||0,gap:(mev-(wv[k]||0))})).sort((a,b)=>b.gap-a.gap);
-h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Muscle Volume Trend · 8wk</div><div class="cd">`;
-for(const m of ranked.slice(0,6)){const series=muscleWeekly(m.k,8);const mxv=Math.max(...series.map(s=>s.v),m.mav,1);
-let bars='';for(const s of series){
-  // Zero-set weeks render as a muted track sliver, not an 8%-tall amber bar that
-  // misreads as "a little volume, under MEV".
-  const empty=s.v<=0;const bh=empty?4:Math.max(10,Math.round(s.v/mxv*100));
-  const col=empty?'var(--ib)':(s.v<m.mev?'var(--am)':'var(--gr)');
-  bars+=`<div title="${empty?'no sets':s.v}" style="flex:1;height:${bh}%;background:${col};border-radius:2px;min-height:2px"></div>`}
-h+=`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:600">${m.l}</span><span class="dm">${Math.round(m.v*10)/10} now · MEV ${m.mev}</span></div>
-<div style="display:flex;align-items:flex-end;gap:2px;height:30px">${bars||'<span class=\"dm\">no data</span>'}</div></div>`}
-h+=`<div class="dm">Each bar = one week. Amber = under MEV that week.</div></div>`}
-
-h+=mh;
+// Relative strength (only renders once a bodyweight is logged in Body Tracking)
+const rel=relStrength();
+if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Relative Strength</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
+for(const r of rel.lifts)h+=`<div style="flex:1;min-width:70px;text-align:center;background:var(--ib);border-radius:6px;padding:7px 4px"><div style="font-weight:800;font-size:15px;color:var(--pr)">${r.ratio}×</div><div class="dm" style="font-size:9px">${r.lbl}</div></div>`;
+h+=`</div><div class="dm" style="margin-top:6px">Best 60-day e1RM ÷ ${rel.bw}kg bodyweight</div></div>`}
 
 // Exercise deep-dive
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Exercise Detail</div>`;
@@ -1552,16 +1587,17 @@ if(newList.length){h+=`<optgroup label="Current program — not yet logged">`;fo
 if(legacyList.length){h+=`<optgroup label="Legacy / unused">`;for(const id of legacyList)h+=opt(id);h+=`</optgroup>`}
 h+=`</select>`;
 h+=`<div style="text-align:right;margin:-4px 0 8px"><button class="btn-ghost" style="font-size:10px" onclick="STAT_ALL=!STAT_ALL;render()">${STAT_ALL?'Hide legacy/unused':'Show all exercises'}</button></div>`;
-// stat strip for selected exercise
+// stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
+// first-vs-last weight, so phase re-anchors don't read as regression)
 if(es.sessions){
 h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${es.pr.bestWt?es.pr.bestWt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':'—'}</div><div class="estrip-lbl">Best</div></div>
 <div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.wt?es.last.wt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':(es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'BW')}</div><div class="estrip-lbl">Last</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--gr)">${es.trend!=null?(es.trend>0?'+':'')+es.trend+'kg':'—'}</div><div class="estrip-lbl">Change</div></div></div>`;
+<div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
 }
 h+=`<div class="cd">${svgLine(wtD,360,170,'#c4f82a','Weight (kg)')}</div>`;
-if(selEx?.tp==='bb')h+=`<div class="cd">${svgLine(e1D,360,170,'#48b6ff','Est. 1RM')}</div>`;
+if(['bb','db','kb','mace'].includes(selEx?.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#48b6ff','Est. 1RM')}</div>`;
 
 // Discomfort summary for selected exercise
 const discData=D.discomfort.filter(d=>d.exId===STAT_EX);
@@ -1571,8 +1607,21 @@ if(jd.length)h+=`<div style="display:flex;justify-content:space-between;padding:
 <span style="font-size:12px">${j}</span><span style="font-size:12px;color:var(--rd)">${jd.length} occurrence${jd.length>1?'s':''} (${jd.filter(d=>d.level==='moderate').length} moderate)</span></div>`}
 h+=`</div>`}
 
-// Heatmap
-h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">12-Week Activity</div>`;
+// ═══ 2 · BALANCE — is the volume going to the right places? ═══
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Balance</div>`;
+h+=mh;
+// Whole-body joint flags, last 30 days (the per-exercise history sits in the
+// detail card above; this is the overview that should inform deload decisions)
+{const dcut=ymd(new Date(Date.now()-30*864e5));
+const d30=D.discomfort.filter(x=>x.date>=dcut&&x.level&&x.level!=='none');
+if(d30.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Joint Flags · last 30 days</div>`;
+for(const j of JOINTS){const jd=d30.filter(x=>x.joint===j);if(!jd.length)continue;
+const mod=jd.filter(x=>x.level==='moderate').length;
+h+=`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px"><span>${j}</span><span style="color:${mod?'var(--rd)':'var(--am)'};font-weight:600">${jd.length} flag${jd.length>1?'s':''}${mod?` · ${mod} moderate`:''}</span></div>`}
+h+=`<div class="dm" style="margin-top:4px">Moderate flags auto-hold progression on the affected lift.</div></div>`}}
+
+// ═══ 3 · CONSISTENCY — am I showing up? ═══
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Consistency</div>`;
 const hm=(()=>{const d=[];const now=new Date(),st=new Date(now);st.setDate(st.getDate()-84);
 for(let i=0;i<84;i++){const x=new Date(st);x.setDate(x.getDate()+i);const ds=ymd(x);
 const s=D.sessions.filter(z=>z.date===ds),c=D.cardioLog.filter(z=>z.date===ds);
@@ -1581,10 +1630,57 @@ h+=`<div class="cd"><div class="hm-grid">`;['M','T','W','T','F','S','S'].forEach
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
 for(let i=0;i<off;i++)h+=`<div class="hm-cell"></div>`;
 for(const d of hm){let bg='var(--ib)';
-if(d.isC)bg='rgba(61,220,151,.25)';else if(d.day==='A')bg='rgba(196,248,42,.4)';else if(d.day==='B')bg='rgba(72,182,255,.4)';
+// cardio is amber to match the legend — it was green-tinted, indistinguishable from Day C
+if(d.isC)bg='rgba(255,177,61,.30)';else if(d.day==='A')bg='rgba(196,248,42,.4)';else if(d.day==='B')bg='rgba(72,182,255,.4)';
 else if(d.day==='C')bg='rgba(61,220,151,.4)';else if(d.day==='D')bg='rgba(255,177,61,.4)';
 h+=`<div class="hm-cell" style="background:${bg}">${d.d===1?d.d:''}</div>`}
 h+=`</div><div class="dm" style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap"><span style="color:var(--pr)">■ A</span><span style="color:var(--bl)">■ B</span><span style="color:var(--gr)">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
+
+// Weekly charts — complete weeks only. The in-progress week is reported as a
+// "so far" line instead of charted, so mid-week never reads as a volume crash.
+const wsAll=weeklySeries(11);
+const curW=wsAll.length&&wsAll[wsAll.length-1].partial?wsAll[wsAll.length-1]:null;
+const ws=wsAll.filter(w=>!w.partial);
+if(ws.length>=2){
+const volData=ws.map(w=>({v:Math.round(w.vol/1000*10)/10,lbl:w.lbl}));
+const sessData=ws.map(w=>({v:w.sessions,lbl:w.lbl}));
+// progressing? compare last 2 complete weeks' avg tonnage vs the prior 2
+let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol,0)/2,prior=ws.slice(-4,-2).reduce((a,w)=>a+w.vol,0)/2;
+const pct=prior?Math.round((recent-prior)/prior*100):0;
+trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
+h+=`<div class="cd">${svgBars(volData,360,150,'#c4f82a','Weekly Tonnage (t)')}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(sessData,360,130,'#48b6ff','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
+// RPE trend if data exists
+const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,lbl:w.lbl}));
+if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#ff5d5d','Avg RPE / Week')}</div>`;
+}
+
+const con=consistency();
+h+=`<div class="cd"><div class="estrip">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${con.perWk}</div><div class="estrip-lbl">Sessions/wk</div></div>
+<div class="estrip-cell"><div class="estrip-num">${con.avgGap!=null?con.avgGap+'d':'—'}</div><div class="estrip-lbl">Avg Gap</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${con.avgDur!=null?con.avgDur+'m':'—'}</div><div class="estrip-lbl">Avg Length</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg RPE</div></div></div>`;
+if(con.wuRate!=null){h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span class="mu">Warm-up compliance</span><span style="color:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'};font-weight:700">${con.wuRate}%</span></div>
+<div class="fg-bar"><div class="fg-fill" style="width:${con.wuRate}%;background:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'}"></div></div>`}
+// Cardio is logged but was never surfaced anywhere on this tab
+{const ccut=ymd(new Date(Date.now()-7*864e5));
+const c7=D.cardioLog.filter(c=>c.date>=ccut);
+const cMin=c7.reduce((a,c)=>a+(c.duration||0),0);
+h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span class="mu">Cardio · last 7 days</span><span style="color:${cMin>=60?'var(--gr)':'var(--mu)'};font-weight:700">${cMin?`${cMin} min · ${c7.length} session${c7.length===1?'':'s'}`:'—'}</span></div>`}
+h+=`</div>`;
+
+// ═══ 4 · LIFETIME — motivation, at the bottom where it belongs ═══
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Lifetime</div>`;
+h+=snapH;
+const ms=milestones();
+if(ms.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Milestones</div>`;
+for(const m of ms){h+=`<div style="display:flex;align-items:center;gap:9px;padding:5px 0">
+<span style="font-size:17px;width:22px;text-align:center">${m.icon}</span>
+<span style="flex:1;font-size:12px;font-weight:${m.done?'700':'500'};color:${m.done?'var(--tx)':'var(--mu)'}">${m.label}</span>
+${m.done?'<span style="color:var(--pr);font-weight:800;font-size:13px">✓</span>':`<span class="dm" style="font-size:10px">${m.pct||0}%</span>`}</div>
+${!m.done&&m.pct!=null?`<div class="fg-bar"><div class="fg-fill" style="width:${m.pct}%;background:var(--pr)"></div></div>`:''}`}
+h+=`</div>`}
 
 // PRs — only exercises with real history
 const allPrs=[];for(const ex of ALL_EX){if(!logged.has(ex.id))continue;const pr=getPRs(ex.id);if(pr.bestWt||pr.bestVol)allPrs.push({nm:ex.nm,...pr})}

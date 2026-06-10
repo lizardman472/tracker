@@ -139,5 +139,39 @@ let dd = { sessions: [{ id: 'm1', date: '2026-06-01', day: 'C', loc: 'home', vol
 migrateData(dd);
 T('migrate recomputes volume (perSide×2, carry excluded)', dd.sessions[0].volume === 21 * 2 * 24, dd.sessions[0].volume);
 
+// ── week bucketing: zero-fill gaps + partial-week flag ──
+const wk = off => ymd(new Date(Date.now() - off * 864e5));
+d = freshD();
+d.sessions = [
+  { id: 'w1', date: wk(28), day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 60, reps: [5, 5, 5], band: '' }] },
+  { id: 'w2', date: wk(0), day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 60, reps: [5, 5, 5], band: '' }] }];
+const series = weeklySeries(10);
+T('weekly series is continuous (4-week gap present)', series.length >= 4, series.length);
+T('gap weeks appear as zeros, not skipped', series.some(w => w.vol === 0));
+T('current week flagged partial', series[series.length - 1].partial === true);
+T('muscleWeekly zero-fills too', muscleWeekly('hams', 8).some(w => w.v === 0));
+
+// ── e1RM slope + momentum ──
+d = freshD();
+d.sessions = [[21, 40], [14, 42], [7, 44], [0, 46]].map(([off, w], i) =>
+  ({ id: 'e' + i, date: wk(off), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: w, reps: [5, 5, 5], band: '' }] }));
+const sl = e1rmSlope('ohp', 56);
+// +2kg/wk on the bar ≈ +2.33kg/wk e1RM at 5 reps (×7/6)
+T('e1rmSlope fits rising loads', sl && sl.slope > 2 && sl.slope < 2.7, JSON.stringify(sl));
+T('e1rmSlope null with no data', e1rmSlope('deadlift', 56) === null);
+T('momentum board ranks ohp as rising', strengthMomentum().some(m => m.id === 'ohp' && m.slope > 0));
+T('exStats trend is e1RM-based and positive', exStats('ohp').trend > 15, exStats('ohp').trend);
+
+// ── relative strength (needs bodyweight) ──
+T('relStrength null without bodyweight', relStrength() === null);
+d.bodyLog = [{ date: wk(3), weight: 80 }];
+const rs = relStrength();
+T('relStrength = best 60d e1RM ÷ BW', rs && rs.bw === 80 && rs.lifts.some(l => l.lbl === 'OHP' && l.ratio > 0.6 && l.ratio < 0.72), JSON.stringify(rs));
+
+// ── core muscle group now tracked ──
+d = freshD();
+d.sessions = [{ id: 'c1', date: today(), day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
+T('core volume visible to balance dashboard', getWeeklyVolume(10).core === 3, JSON.stringify(getWeeklyVolume(10)));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
