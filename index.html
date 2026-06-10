@@ -10,6 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>Rack-Free Tracker v12</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
+<link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -266,6 +267,11 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
   adj:{deadlift:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
   adj:{deadlift:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+
+// Exercise ids whose rep target shifts across phases — used to re-anchor working
+// load on a phase transition. (Partner DB exercises aren't here, so their targets
+// and loads carry across phases unchanged.)
+const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
 
 const BASE_PR={A:[
 {id:'deadlift',nm:'Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
@@ -639,8 +645,10 @@ if(modDisc>=2)discWarn='⚠ Repeated moderate discomfort — hold weight';
 else if(modDisc>=1)discWarn='⚠ Moderate discomfort last session — consider holding';
 else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor closely';
 
-// ─── WEIGHT-BASED (bb, mace, db) — handle null wt fallback for type migrations (e.g., Cossack bw→bb) ───
-if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'){
+// ─── WEIGHT-BASED (bb, mace, db, kb) — handle null wt fallback for type migrations (e.g., Cossack bw→bb) ───
+// kb (loaded dead bugs etc.) progresses like db: rep-first double progression with
+// micro-load steps, rather than falling through to a bare "Continue".
+if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
   // Find most recent session with a valid weight; if none, treat as a brand-new exercise
   const lastWithWt=[...hist].reverse().find(h=>h.wt&&Number(h.wt)>0);
   if(!lastWithWt){
@@ -649,7 +657,7 @@ if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'){
   if(!last.wt){
     return{text:`→ ${lastWithWt.wt}kg`,type:'stay',wt:lastWithWt.wt,traj:[],detail:`Last weighted: ${lastWithWt.wt}kg on ${lastWithWt.date}`,regress:discWarn}}
 }
-if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db')&&last.wt){
+if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const mn=getRepMin(ex);
   const atW=hist.filter(h=>h.wt===last.wt);
   const hitTarget=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=ex.tg)};
@@ -673,6 +681,26 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db')&&last.wt){
   const dbInc=ex.tp==='db'?0.5:1;
   // Discomfort override — hold weight if moderate pain trending
   if(modDisc>=2){return{text:`→ ${last.wt}kg (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress}}
+  // Phase-transition re-anchor: if the last session predates the current phase and
+  // this lift's rep target changed, re-derive the working load from e1RM for the new
+  // target. Higher-rep phases (Hypertrophy) land lighter; low-rep phases (Strength)
+  // land heavier — closing the "Phase 2 promises −15% but nothing does it" gap and
+  // avoiding a stall when Phase-1 loads meet Phase-2 rep targets. No-op if you were
+  // already at the right load. Ratio = (1+oldReps/30)/(1+newTg/30), so e1RM's
+  // high-rep inaccuracy largely cancels.
+  if(PHASE_ADJ_IDS.has(ex.id)&&D.phaseStart&&last.date<D.phaseStart){
+    const eRl=effectiveReps(ex,last.reps);
+    const repsAch=eRl.length?Math.min(...eRl):ex.tg;
+    const est=e1rm(last.wt,repsAch);
+    if(est>0){
+      const raw=est/(1+ex.tg/30);
+      const tgt=ex.tp==='bb'?snapW(raw):Math.round(raw*2)/2;
+      if(tgt>0&&tgt!==last.wt){
+        const dir=tgt<last.wt?'lighter':'heavier';
+        return{text:`→ ${tgt}kg${ex.tp==='db'?'/DB':''}`,type:'new',wt:tgt,traj,
+          detail:`New phase (${(PHASES[D.phase]||PHASES[1]).name}) — re-anchored ${dir} for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}. Adjust to taste, then progress from here.`,regress}}
+    }
+  }
   // HIT TARGET (single-session double progression). AMRAP signal = reps over target on the last set.
   if(lastHit){
     const isConfirmLift=CONFIRM_LIFTS.has(ex.id);
@@ -777,7 +805,7 @@ function getPRs(exId){let bw=0,bv=0,be=0;const def=ALL_EX.find(x=>x.id===exId);
 for(const s of D.sessions)for(const e of s.ex)if(e.id===exId){const vr=e.reps.filter(r=>r>0);if(!vr.length)continue;
 const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
 const vol=calcExVol(e.id,e.wt,e.reps);
-if(e.wt>bw)bw=e.wt;if(vol>bv)bv=vol;if(e.wt&&mx>0){const x=e.wt*(1+mx/30);if(x>be)be=x}}
+if(e.wt>bw)bw=e.wt;if(vol>bv)bv=vol;{const x=e1rm(e.wt,mx);if(x>be)be=x}}
 return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
 function checkPR(exId,wt,reps){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
 const vol=calcExVol(exId,wt,reps);
@@ -835,9 +863,14 @@ if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,lab
 
 function getDeload(){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
 const sc=D.lastDeload?D.sessions.filter(s=>s.date>D.lastDeload).length:D.sessions.length;
-// Signal-driven: don't deload on timer alone — check for actual fatigue signals
-const recent5=D.sessions.slice(-5);
-const avgDiff=recent5.filter(s=>s.difficulty).length?recent5.filter(s=>s.difficulty).reduce((a,s)=>a+s.difficulty,0)/recent5.filter(s=>s.difficulty).length:0;
+// Signal-driven: don't deload on timer alone — check for actual fatigue signals.
+// Average RPE over the last 14 days (not the last 5 sessions whenever they were)
+// so a fortnight-old hard block can't keep flagging fatigue today. Fall back to
+// the 5 most recent rated sessions if nothing falls inside the window.
+const cut14=ymd(new Date(Date.now()-14*864e5));
+let rated=D.sessions.filter(s=>s.date>=cut14&&s.difficulty);
+if(!rated.length)rated=D.sessions.filter(s=>s.difficulty).slice(-5);
+const avgDiff=rated.length?rated.reduce((a,s)=>a+s.difficulty,0)/rated.length:0;
 const highFatigue=avgDiff>=4;
 // For beginners (<30 sessions), extend timer to 8 weeks and require signals
 const isBeginner=D.sessions.length<30;const timerThresh=isBeginner?8:6;
@@ -1328,13 +1361,20 @@ function recentPRs(sinceDays){
 const cut=sinceDays?ymd(new Date(Date.now()-sinceDays*864e5)):null;
 const prs=[];
 for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
-let bw=0,be=0;
+// The first logged session establishes the baseline — it isn't itself a PR
+// (otherwise every exercise's debut shows up as a weight PR).
+let bw=0,be=0,seen=false;
 for(const e of h){const vr=(e.reps||[]).filter(r=>Number(r)>0);if(!vr.length)continue;
 const def=ALL_EX.find(x=>x.id===ex.id);const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
 const e1=e.wt&&mx>0?e1rm(e.wt,mx):0;
 let isPR=null;
-if(e.wt&&e.wt>bw){bw=e.wt;isPR={type:'weight',val:e.wt}}
-if(e1>be){be=e1;if(!isPR)isPR={type:'e1rm',val:e1}}
+if(seen){
+  if(e.wt&&e.wt>bw)isPR={type:'weight',val:e.wt};
+  else if(e1>be)isPR={type:'e1rm',val:e1};
+}
+if(e.wt&&e.wt>bw)bw=e.wt;
+if(e1>be)be=e1;
+seen=true;
 if(isPR&&(!cut||e.date>=cut))prs.push({nm:ex.nm,date:e.date,...isPR})}}
 prs.sort((a,b)=>b.date.localeCompare(a.date));return prs;
 }
@@ -1488,7 +1528,12 @@ h+=`</div>`;
 {const wv=getWeeklyVolume(10);const ranked=MG_INFO.filter(([k,l,mev])=>mev!=null).map(([k,l,mev,mav])=>({k,l,mev,mav,v:wv[k]||0,gap:(mev-(wv[k]||0))})).sort((a,b)=>b.gap-a.gap);
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Muscle Volume Trend · 8wk</div><div class="cd">`;
 for(const m of ranked.slice(0,6)){const series=muscleWeekly(m.k,8);const mxv=Math.max(...series.map(s=>s.v),m.mav,1);
-let bars='';for(const s of series){const bh=Math.max(8,Math.round(s.v/mxv*100));bars+=`<div title="${s.v}" style="flex:1;height:${bh}%;background:${s.v<m.mev?'var(--am)':'var(--gr)'};border-radius:2px;min-height:2px"></div>`}
+let bars='';for(const s of series){
+  // Zero-set weeks render as a muted track sliver, not an 8%-tall amber bar that
+  // misreads as "a little volume, under MEV".
+  const empty=s.v<=0;const bh=empty?4:Math.max(10,Math.round(s.v/mxv*100));
+  const col=empty?'var(--ib)':(s.v<m.mev?'var(--am)':'var(--gr)');
+  bars+=`<div title="${empty?'no sets':s.v}" style="flex:1;height:${bh}%;background:${col};border-radius:2px;min-height:2px"></div>`}
 h+=`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:600">${m.l}</span><span class="dm">${Math.round(m.v*10)/10} now · MEV ${m.mev}</span></div>
 <div style="display:flex;align-items:flex-end;gap:2px;height:30px">${bars||'<span class=\"dm\">no data</span>'}</div></div>`}
 h+=`<div class="dm">Each bar = one week. Amber = under MEV that week.</div></div>`}
@@ -1773,11 +1818,10 @@ r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
 load();render();
-if('serviceWorker'in navigator){const c=`const C='rft-v14';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html'])));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))));return self.clients.claim()});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('Offline'))))});`;
-navigator.serviceWorker.register(URL.createObjectURL(new Blob([c],{type:'application/javascript'}))).catch(()=>{})}
-const mf={name:'Rack-Free Tracker',short_name:'Tracker',start_url:'.',display:'standalone',background_color:'#f4f6f8',theme_color:'#f4f6f8',
-icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23f4f6f8' width='100' height='100' rx='22'/><text x='50' y='68' text-anchor='middle' font-size='55'>🏋️</text></svg>",sizes:'any',type:'image/svg+xml'}]};
-const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:'application/json'}));document.head.appendChild(ml);
+// Register the real same-origin service worker file. Blob-URL workers are
+// rejected by all browsers, so offline support needs an actual ./sw.js.
+if('serviceWorker'in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{})})}
 
 </script>
 </body>
