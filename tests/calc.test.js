@@ -18,7 +18,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
@@ -172,6 +172,47 @@ T('relStrength = best 60d e1RM ÷ BW', rs && rs.bw === 80 && rs.lifts.some(l => 
 d = freshD();
 d.sessions = [{ id: 'c1', date: today(), day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
 T('core volume visible to balance dashboard', getWeeklyVolume(10).core === 3, JSON.stringify(getWeeklyVolume(10)));
+
+// ── e1RM blend: Epley low reps, Lombardi cap past the ≈7-rep crossover ──
+T('e1rm 12 reps uses Lombardi (conservative)', e1rm(60, 12) === Math.round(60 * Math.pow(12, 0.1) * 10) / 10, e1rm(60, 12));
+T('e1rm 12 reps below old Epley value', e1rm(60, 12) < 84);
+T('e1rmF continuous at 1 rep', e1rmF(1) === 1);
+T('e1rmF monotonic', e1rmF(5) < e1rmF(8) && e1rmF(8) < e1rmF(12) && e1rmF(12) < e1rmF(20));
+
+// ── calendar-week streak ──
+d = freshD();
+d.sessions = [21, 14, 7].map((off, i) => ({ id: 'st' + i, date: wk(off), day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 60, reps: [5, 5, 5], band: '' }] }));
+T('streak counts calendar weeks with current-week grace', statSnapshot().streak === 3, statSnapshot().streak);
+d.sessions.push({ id: 'st3', date: today(), day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 60, reps: [5, 5, 5], band: '' }] });
+T('current-week session extends streak', statSnapshot().streak === 4, statSnapshot().streak);
+d.sessions = [{ id: 'st4', date: wk(21), day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 60, reps: [5, 5, 5], band: '' }] }];
+T('gap breaks streak', statSnapshot().streak === 0, statSnapshot().streak);
+
+// ── import schema guard ──
+T('rejects non-object session', validSession('junk') === null);
+T('rejects bad date', validSession({ id: 'x', date: 'tuesday', ex: [] }) === null);
+T('rejects missing ex array', validSession({ id: 'x', date: '2026-06-01' }) === null);
+const vs = validSession({ id: 7, date: '2026-06-01', ex: [{ id: 'deadlift', wt: '60', reps: ['5', 'x', 5] }, { bad: true }, null] });
+T('coerces id/wt/reps and drops bad ex entries', vs && vs.id === '7' && vs.ex.length === 1 && vs.ex[0].wt === 60 && JSON.stringify(vs.ex[0].reps) === '[5,0,5]', JSON.stringify(vs));
+
+// ── resume program-drift guard ──
+d = freshD();
+const store = {};
+global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+const dayAIds = getProgram(1, 'home').A.map(e => e.id);
+const aw = { day: 'A', log: {}, start: Date.now(), cidx: 0, ts: Date.now(), loc: 'home', phase: 1, exIds: dayAIds };
+store[global.__X.AW_KEY] = JSON.stringify(aw);
+T('resume accepted when program matches', checkResume() !== null);
+store[global.__X.AW_KEY] = JSON.stringify({ ...aw, exIds: ['ghost_exercise', ...dayAIds.slice(1)] });
+T('resume rejected when program drifted', checkResume() === null);
+
+// ── fatigue: moderate cardio sits between easy and hard ──
+d = freshD();
+d.sessions = []; d.cardioLog = [{ id: 'cf1', date: today(), type: 'Rowing', duration: 40, intensity: 'moderate' }];
+const fMod = getFatigue().score;
+d.cardioLog[0].intensity = 'easy'; const fEasy = getFatigue().score;
+d.cardioLog[0].intensity = 'hard'; const fHard = getFatigue().score;
+T('moderate cardio between easy and hard', fEasy < fMod && fMod < fHard, JSON.stringify({ fEasy, fMod, fHard }));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

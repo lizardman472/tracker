@@ -501,6 +501,11 @@ function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return nul
 if(Date.now()-d.ts>7200000)return null;
 if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
+// Program-drift guard: exIds was stored for exactly this but never checked. If
+// the day's exercise list changed since the save (program version bump, edits),
+// the saved LOG rows no longer line up with what would render — discard.
+if(Array.isArray(d.exIds)&&d.day){const cur=(getCurPR()[d.day]||[]).map(e=>e.id);
+if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i]))return null}
 return d}catch(e){return null}}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
@@ -692,14 +697,13 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   // target. Higher-rep phases (Hypertrophy) land lighter; low-rep phases (Strength)
   // land heavier — closing the "Phase 2 promises −15% but nothing does it" gap and
   // avoiding a stall when Phase-1 loads meet Phase-2 rep targets. No-op if you were
-  // already at the right load. Ratio = (1+oldReps/30)/(1+newTg/30), so e1RM's
-  // high-rep inaccuracy largely cancels.
+  // already at the right load. Ratio = e1rmF(oldReps)/e1rmF(newTg) — same curve in
+  // both directions, so the formula's absolute inaccuracy largely cancels.
   if(PHASE_ADJ_IDS.has(ex.id)&&D.phaseStart&&last.date<D.phaseStart){
     const eRl=effectiveReps(ex,last.reps);
     const repsAch=eRl.length?Math.min(...eRl):ex.tg;
-    const est=e1rm(last.wt,repsAch);
-    if(est>0){
-      const raw=est/(1+ex.tg/30);
+    if(last.wt>0){
+      const raw=last.wt*e1rmF(repsAch)/e1rmF(ex.tg);
       const tgt=ex.tp==='bb'?snapW(raw):Math.round(raw*2)/2;
       if(tgt>0&&tgt!==last.wt){
         const dir=tgt<last.wt?'lighter':'heavier';
@@ -816,7 +820,12 @@ return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
 function checkPR(exId,wt,reps){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
 const vol=calcExVol(exId,wt,reps);
 if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
-function e1rm(wt,reps){return reps<=0||!wt?0:reps===1?wt:Math.round(wt*(1+reps/30)*10)/10}
+// Rep→1RM multiplier. Epley (1+r/30) tracks well at low reps but turns optimistic
+// past ~10; Lombardi (r^0.1) is the conservative curve there. min() of the two is
+// continuous (crossover ≈7 reps) and keeps 10–20-rep accessory e1RMs honest.
+// Shared with the phase re-anchor so load translation uses one curve both ways.
+function e1rmF(reps){return reps<=1?1:Math.min(1+reps/30,Math.pow(reps,0.10))}
+function e1rm(wt,reps){return reps<=0||!wt?0:Math.round(wt*e1rmF(reps)*10)/10}
 function warmupSets(wt){if(!wt||wt<=BAR)return[];const s=[{wt:BAR,reps:8,l:'Bar only'}];const w60=snapW(BAR+(wt-BAR)*.5),w80=snapW(BAR+(wt-BAR)*.8);if(w60>BAR&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80)});return s}
 
 // Discomfort analysis
@@ -860,7 +869,7 @@ s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
 D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps)});scores.push({vol,diff:s.difficulty||3})});
-D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:20),diff:3}))}
+D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:3}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 const f=scores.length,ad=scores.reduce((a,b)=>a+b.diff,0)/f,tv=scores.reduce((a,b)=>a+b.vol,0);
 const sc=Math.round(Math.min(10,f*1.2+ad*.9+tv/(1200*Math.max(1,f)))*10)/10;
@@ -1330,10 +1339,15 @@ const dates=[...new Set(sess.map(s=>s.date))].sort();
 const now=new Date();const d7=new Date(now);d7.setDate(d7.getDate()-7);const d30=new Date(now);d30.setDate(d30.getDate()-30);
 const last7=dates.filter(d=>new Date(d+'T00:00:00')>=d7).length;
 const last30=dates.filter(d=>new Date(d+'T00:00:00')>=d30).length;
-// week streak
-let streak=0;{let cur=new Date(now);for(let w=0;w<52;w++){const wEnd=new Date(cur);const wStart=new Date(cur);wStart.setDate(wStart.getDate()-6);
-const hit=dates.some(d=>{const x=new Date(d+'T00:00:00');return x>=wStart&&x<=wEnd});
-if(hit)streak++;else if(w>0)break;cur.setDate(cur.getDate()-7)}}
+// week streak — calendar weeks (Mon-anchored, same buckets as the weekly charts).
+// Rolling 7-day windows shifted with the weekday you opened the app and could
+// count one session into two windows. Grace: an empty current week doesn't
+// break the streak — it's still in progress.
+let streak=0;{const wks=new Set(dates.map(weekKey));
+const prevWk=k=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()-7);return ymd(d)};
+let cur=weekKey(today());
+if(!wks.has(cur))cur=prevWk(cur);
+while(wks.has(cur)&&streak<520){streak++;cur=prevWk(cur)}}
 const first=dates[0],span=first?Math.round((now-new Date(first+'T00:00:00'))/6048e5):0;
 return{sessions:sess.length,days:dates.length,totalVol:Math.round(totalVol),totalSets,last7,last30,streak,weeks:span,first};
 }
@@ -1879,10 +1893,30 @@ h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thicke
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
 const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`workout-${today()}.json`;a.click();
 D.lastBackup=today();D.lastBackupCount=D.sessions.length;save();render()}
+// Schema guard for imports. A malformed backup (sessions without ex arrays,
+// non-numeric reps, garbage dates) used to merge silently and crash renders
+// later. Coerce what's salvageable, return null for what isn't.
+function validSession(s){
+if(!s||typeof s!=='object'||Array.isArray(s))return null;
+if(s.id==null||(typeof s.id!=='string'&&typeof s.id!=='number'))return null;
+if(typeof s.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s.date))return null;
+if(!Array.isArray(s.ex))return null;
+const ex=[];
+for(const e of s.ex){
+  if(!e||typeof e!=='object'||typeof e.id!=='string')continue;
+  const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
+  const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
+  ex.push({...e,reps,wt})}
+return{...s,id:String(s.id),ex}}
 function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
-r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!d.sessions)throw 0;
-if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
-if(!d.discomfort)d.discomfort=[];
+r.onload=e=>{try{const d=JSON.parse(e.target.result);
+if(!d||typeof d!=='object'||!Array.isArray(d.sessions))throw 0;
+let skipped=0;d.sessions=d.sessions.map(validSession).filter(s=>s?true:(skipped++,false));
+if(!d.sessions.length&&skipped)throw 0; // nothing salvageable — reject outright
+if(!d.cues||typeof d.cues!=='object'||Array.isArray(d.cues))d.cues={};
+if(!Array.isArray(d.bodyLog))d.bodyLog=[];
+if(!Array.isArray(d.cardioLog))d.cardioLog=[];
+if(!Array.isArray(d.discomfort))d.discomfort=[];
 // Patch 10: Merge sessions — REPLACE same-ID, ADD new
 const existingMap=new Map(D.sessions.map(s=>[s.id,s]));
 let added=0,replaced=0;
@@ -1909,7 +1943,7 @@ D.nextDay=NEXT_DAY[last.day]||D.nextDay}
 // Run migration on imported data
 migrateData(D);
 save();render();
-alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)`)}catch(e){alert('Invalid file')}};
+alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed session${skipped>1?'s':''} skipped`:''}`)}catch(e){alert('Invalid file')}};
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
