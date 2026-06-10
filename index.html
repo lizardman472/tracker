@@ -403,7 +403,7 @@ const MG_INFO=[
 // Effective sets per muscle over the last 7 days at the current location.
 function getWeeklyVolume(days){
   const cut=new Date();cut.setDate(cut.getDate()-(days||7));
-  const cutS=cut.toISOString().split('T')[0];
+  const cutS=ymd(cut);
   const tot={};
   for(const s of D.sessions){
     if(s.date<cutS)continue;
@@ -485,7 +485,12 @@ if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
 return d}catch(e){return null}}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
-function today(){return new Date().toISOString().split('T')[0]}
+// Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
+// calendar day — it converts to UTC and rolls back a day for UTC+ timezones
+// (e.g. NZ mornings), which silently mis-dates sessions, rest-day detection,
+// the heatmap and weekly buckets.
+function ymd(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function today(){return ymd(new Date())}
 // Banner dismissal: a banner stays hidden only while its "sig" (situation signature) is unchanged.
 // When the underlying state moves on (more sessions, new week), the sig changes and the banner returns.
 function bannerDismissed(key,sig){return D.dismissed&&D.dismissed[key]===String(sig)}
@@ -805,7 +810,7 @@ if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function getFatigue(){const now=new Date(),scores=[];
-for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=d.toISOString().split('T')[0];
+for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
 D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps)});scores.push({vol,diff:s.difficulty||3})});
 D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:20),diff:3}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
@@ -892,7 +897,7 @@ if(resume)h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="fon
 const daysSince=D.lastBackup?Math.floor((new Date()-new Date(D.lastBackup+'T00:00:00'))/864e5):999;
 const bkSig='n'+D.sessions.length; // re-shows once you've logged another session
 if((sinceCount>=3||(!D.lastBackup&&D.sessions.length>0)||daysSince>=14)&&!bannerDismissed('backup',bkSig)){
-h+=`<div class="cd" style="border:1px solid var(--am);background:var(--am)10;position:relative">
+h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
 <button onclick="dismissBanner('backup','${bkSig}')" style="position:absolute;top:8px;right:10px;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:2px 4px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚠ Back up your data</div>
 <div class="dm" style="margin-bottom:8px">${D.lastBackup?`${sinceCount} new session${sinceCount!==1?'s':''} since last backup (${dAgo(D.lastBackup)}).`:'No backup yet.'} A browser cache-clear wipes everything stored here.</div>
@@ -1282,7 +1287,7 @@ return{def,sessions,totalVol:Math.round(totalVol),totalReps,pr,last,trend,histor
 }
 
 // ── ISO-week key (Mon-anchored) for time bucketing ──
-function weekKey(dateStr){const d=new Date(dateStr+'T00:00:00');const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d.toISOString().split('T')[0]}
+function weekKey(dateStr){const d=new Date(dateStr+'T00:00:00');const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return ymd(d)}
 // ── Weekly tonnage + session-count series (last N weeks), location-aware optional ──
 function weeklySeries(weeks){
 const buckets={};
@@ -1296,7 +1301,7 @@ lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'sho
 }
 // ── Recent PRs: scan history, find sessions that set a new best-weight or best-e1RM at the time ──
 function recentPRs(sinceDays){
-const cut=sinceDays?new Date(Date.now()-sinceDays*864e5).toISOString().split('T')[0]:null;
+const cut=sinceDays?ymd(new Date(Date.now()-sinceDays*864e5)):null;
 const prs=[];
 for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
 let bw=0,be=0;
@@ -1500,7 +1505,7 @@ h+=`</div>`}
 // Heatmap
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">12-Week Activity</div>`;
 const hm=(()=>{const d=[];const now=new Date(),st=new Date(now);st.setDate(st.getDate()-84);
-for(let i=0;i<84;i++){const x=new Date(st);x.setDate(x.getDate()+i);const ds=x.toISOString().split('T')[0];
+for(let i=0;i<84;i++){const x=new Date(st);x.setDate(x.getDate()+i);const ds=ymd(x);
 const s=D.sessions.filter(z=>z.date===ds),c=D.cardioLog.filter(z=>z.date===ds);
 let day=null;s.forEach(z=>{day=z.day});d.push({date:ds,day,isC:c.length>0&&!s.length,d:x.getDate()})}return d})();
 h+=`<div class="cd"><div class="hm-grid">`;['M','T','W','T','F','S','S'].forEach(d=>h+=`<div style="font-size:9px;color:var(--mu);text-align:center">${d}</div>`);
@@ -1744,7 +1749,7 @@ r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
 load();render();
-if('serviceWorker'in navigator){const c=`const C='rft-v13';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','/index.html'])));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))));return self.clients.claim()});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('Offline'))))});`;
+if('serviceWorker'in navigator){const c=`const C='rft-v14';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html'])));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))));return self.clients.claim()});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('Offline'))))});`;
 navigator.serviceWorker.register(URL.createObjectURL(new Blob([c],{type:'application/javascript'}))).catch(()=>{})}
 const mf={name:'Rack-Free Tracker',short_name:'Tracker',start_url:'.',display:'standalone',background_color:'#f4f6f8',theme_color:'#f4f6f8',
 icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23f4f6f8' width='100' height='100' rx='22'/><text x='50' y='68' text-anchor='middle' font-size='55'>🏋️</text></svg>",sizes:'any',type:'image/svg+xml'}]};
