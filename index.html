@@ -312,7 +312,7 @@ B:[
 {id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:90,tempo:'controlled',perSide:true},
-{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true,loadUnit:'per_db'}],
+{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true}],
 C:[
 {id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'2:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'db_row_c',nm:'DB Single-Arm Row (Vol)',s:3,rp:'10-12',rst:'1:30',rir:'2',tp:'db',rl:'Lighter than B2. Higher reps.',tg:12,rstS:90,tempo:'3-1-2-0',perSide:false},
@@ -328,7 +328,7 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
   const adj=p.adj[ex.id];
   return adj?{...ex,rp:adj.rp,tg:adj.tg}:{...ex}})}return pr}
 
-const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
+const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
 {id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',tg:12,rstS:60,tp:'kb',rl:'Legacy (Day D retired — arms covered by compounds)',perSide:false},
 {id:'band_pushdown',nm:'Band Triceps Pushdown',s:3,rp:'10-12',tg:12,rstS:60,tp:'band',rl:'Legacy (Day D retired)',bandMode:'resist',perSide:false},
@@ -360,6 +360,10 @@ const ALL_EX=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_PR.B
 {id:'leg_raise',nm:'Floor Leg Raise',s:3,rp:'12',tg:12,rstS:60,tp:'bw',rl:'Legacy',perSide:false},
 {id:'arms',nm:'Arms (Curl/Ext)',s:2,rp:'12-15',tg:15,rstS:60,tp:'kb',rl:'Legacy',perSide:false},
 {id:'carry',nm:'Carry (legacy)',s:3,rp:'40m',tg:1,rstS:90,tp:'carry',rl:'Legacy — see suitcase_march',perSide:false}];
+// Ids repeat across days and legacy stubs (lateral_raise on A+B; zercher_a/pullup_c
+// active + stub). Dedupe keeping the first (active) definition so PR scans and the
+// stats picker don't double-count or render duplicates.
+const ALL_EX=(()=>{const seen=new Set();return ALL_EX_RAW.filter(e=>!seen.has(e.id)&&seen.add(e.id))})();
 const BANDS=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
 const BAND_IDX=b=>{if(!b)return 99;const n=b.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===b||x===n||x.replace(/ \(heaviest\)/,'')==n);return i>=0?i:99};
 const JOINTS=['Shoulder','Elbow','Wrist'];
@@ -400,14 +404,15 @@ const MG_INFO=[
   ['fdelt','Front Delts',0,12],['reardelt','Rear Delts',6,16],['biceps','Biceps',8,20],
   ['triceps','Triceps',6,14],['cuff','Rotator Cuff',null,null]
 ];
-// Effective sets per muscle over the last 7 days at the current location.
+// Effective sets per muscle over the last N days, ALL locations — muscle stimulus
+// accumulates regardless of venue, and the A→B→C rotation can span both within a
+// week, so a per-location filter would undercount and raise false below-MEV flags.
 function getWeeklyVolume(days){
   const cut=new Date();cut.setDate(cut.getDate()-(days||7));
   const cutS=ymd(cut);
   const tot={};
   for(const s of D.sessions){
     if(s.date<cutS)continue;
-    if(D.location&&s.loc&&s.loc!==D.location)continue;
     for(const e of s.ex){
       const map=MG[e.id];if(!map)continue;
       const sets=(e.reps||[]).filter(r=>Number(r)>0).length;if(!sets)continue;
@@ -441,9 +446,10 @@ const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp',
 'dead_bugs_b','band_prehab','inv_rows_a']);
 for(const s of d.sessions){
   if(!s.loc)s.loc=s.ex.some(e=>partnerIds.has(e.id))?'partner':'home';
-  if(s.volume===0||s.volume===undefined||s.volume===null){
-    let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps)}
-    if(tv>0)s.volume=tv}
+  // Always re-derive stored volume so history stays consistent with the
+  // current tonnage formula (perSide ×2, carries excluded, per_db ×2).
+  {let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps)}
+   if(tv>0||s.volume!=null)s.volume=tv}
   if(s.duration!=null&&s.duration<10&&s.ex.length>=3)s.duration=null}
 return d}
 
@@ -526,18 +532,24 @@ function getLast(exId){const h=getHist(exId,1);return h.length?h[0]:null}
 function getRepMin(ex){const parts=ex.rp.replace(/\/.*/, '').split('-');return parseInt(parts[0])||ex.tg}
 function getDiscomfortRecent(exId,n=3){return D.discomfort.filter(d=>d.exId===exId).slice(-n)}
 
-// Patch 2: effectiveReps — halve reps for perSide exercises
+// CONVENTION: reps are entered AS PERFORMED PER SIDE for perSide exercises,
+// matching the on-screen prescription ("8/side" → type 8). Targets (tg) and
+// rep minimums are also per-side, so entered values compare directly — no
+// halving. (The old Patch-2 halving assumed both-sides totals were entered,
+// which made every per-side exercise need double the displayed reps to progress.)
 function effectiveReps(ex,reps){
-const vals=(reps||[]).filter(r=>Number(r)>0).map(Number);
-if(ex&&ex.perSide)return vals.map(v=>Math.floor(v/2));
-return vals}
+return (reps||[]).filter(r=>Number(r)>0).map(Number)}
 
-// Volume helper — accounts for loadUnit (per_db = double the weight)
+// Tonnage helper. perSide reps are logged per side, so the load is moved twice
+// the entered rep count; per_db means the entered weight is per dumbbell with two
+// held. Carries log steps/metres in the rep field — excluding them keeps kg·steps
+// from dwarfing real tonnage (32kg × 120 steps was adding ~3.8t to a session).
 function calcExVol(exId,wt,reps){
 const def=ALL_EX.find(e=>e.id===exId);
+if(def&&def.tp==='carry')return 0;
 const vr=(reps||[]).filter(r=>Number(r)>0).map(Number);
 if(!wt||!vr.length)return 0;
-const mult=(def&&def.loadUnit==='per_db')?2:1;
+const mult=((def&&def.loadUnit==='per_db')?2:1)*((def&&def.perSide)?2:1);
 return wt*mult*vr.reduce((a,b)=>a+b,0)}
 
 // RPE scale — replaces emoji system
@@ -675,7 +687,9 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db')&&last.wt){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
       const nxt=nxUpN(last.wt,steps);
-      if(nxt>MAX_BB){
+      // nxUpN can't exceed the plate inventory, so "at ceiling" shows up as no
+      // movement (nxt===last.wt), not as nxt>MAX_BB — that branch was unreachable.
+      if(nxt<=last.wt){
         return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
       const jump=Math.round((nxt-last.wt)*10)/10;
       return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
@@ -831,9 +845,13 @@ const due=wk>=timerThresh&&highFatigue;const consider=wk>=timerThresh&&!highFati
 return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10}}
 
 // ═══════════════ TIMER ═══════════════
-function startTimer(secs){clearTimer();TIMER={tot:secs,left:secs,done:false};
-TIV=setInterval(()=>{TIMER.left--;if(TIMER.left<=0){TIMER.done=true;clearInterval(TIV);TIV=null;
-try{navigator.vibrate([200,100,200,100,200])}catch(e){}playBeep()}rTimer()},1000);rTimer()}
+// Wall-clock based: setInterval is throttled/paused with the screen off on
+// mobile, so counting ticks drifts long. Recompute remaining from an end
+// timestamp each tick — after a background pause the display resyncs instantly.
+function startTimer(secs){clearTimer();TIMER={tot:secs,end:Date.now()+secs*1000,left:secs,done:false};
+TIV=setInterval(()=>{TIMER.left=Math.max(0,Math.ceil((TIMER.end-Date.now())/1000));
+if(TIMER.left<=0&&!TIMER.done){TIMER.done=true;clearInterval(TIV);TIV=null;
+try{navigator.vibrate([200,100,200,100,200])}catch(e){}playBeep()}rTimer()},500);rTimer()}
 function clearTimer(){if(TIV)clearInterval(TIV);TIV=null;TIMER=null;rTimer()}
 function playBeep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();
 o.connect(g);g.connect(a.destination);o.frequency.value=880;o.type='square';g.gain.value=.25;o.start();o.stop(a.currentTime+.12);
@@ -1037,7 +1055,7 @@ const defWt=ex.tp==='bb'?BAR:ex.tp==='db'?'':'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
 setDone:Array(ex.s).fill(false),
-notes:'',pf:!!last,wu:false,disc:'none',discJoints:[]}}
+notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 saveAW();VIEW='workout';render();window.scrollTo(0,0)}
 
 function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;VIEW='workout';render();window.scrollTo(0,0)}
@@ -1054,9 +1072,12 @@ h+=`<div style="display:flex;justify-content:space-between;align-items:center;ma
 <button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div></div>`;
 
 // Progress
-const dC=exs.filter((_,i)=>{const l=LOG[exs[i].id];return l&&(l.reps.every(r=>r!==''&&Number(r)>0)||(l.setDone&&l.setDone.every(d=>d)))}).length;
+// "done" requires the exercise to have been touched — prefilled last-session reps
+// alone don't count, otherwise every exercise with history shows complete at start.
+const exDone=l=>l&&(((l.touched||!l.pf)&&l.reps.every(r=>r!==''&&Number(r)>0))||(l.setDone&&l.setDone.every(d=>d)));
+const dC=exs.filter((_,i)=>exDone(LOG[exs[i].id])).length;
 h+=`<div class="prog-strip">`;for(let i=0;i<exs.length;i++){const l=LOG[exs[i].id];
-const dn=l&&(l.reps.every(r=>r!==''&&Number(r)>0)||(l.setDone&&l.setDone.every(d=>d)));
+const dn=exDone(l);
 h+=`<div class="prog-seg${dn?' pg-done':i===CIDX?' pg-cur':''}"></div>`}
 h+=`</div><div style="text-align:right;font-size:10px;color:var(--mu);margin-bottom:6px">${dC}/${exs.length}</div>`;
 
@@ -1077,7 +1098,7 @@ h+=`</div>`}h+=`</div>`;
 for(let idx=0;idx<exs.length;idx++){
 const ex=exs[idx],log=LOG[ex.id];if(!log)continue;
 const isCur=idx===CIDX;
-const isDone=log.reps.every(r=>r!==''&&Number(r)>0)||(log.setDone&&log.setDone.every(d=>d));
+const isDone=((log.touched||!log.pf)&&log.reps.every(r=>r!==''&&Number(r)>0))||(log.setDone&&log.setDone.every(d=>d));
 const last=getLast(ex.id),sg=getSmartSugg(ex),cue=D.cues[ex.id];
 
 if(isDone&&!isCur){
@@ -1176,13 +1197,13 @@ setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scroll
 
 // ─── HELPERS ───────────────────────────────────
 function stepWt(id,dir){const c=Number(LOG[id].wt)||BAR,ix=VW.indexOf(c);
-const ni=Math.max(0,Math.min(VW.length-1,ix+dir));LOG[id].wt=VW[ni];LOG[id].pf=false;saveAW();render()}
-function setL(id,f,v){LOG[id][f]=v}
-function setRep(id,i,v){LOG[id].reps[i]=v;LOG[id].pf=false;saveAW();
+const ni=Math.max(0,Math.min(VW.length-1,ix+dir));LOG[id].wt=VW[ni];LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
+function setL(id,f,v){LOG[id][f]=v;LOG[id].touched=true}
+function setRep(id,i,v){LOG[id].reps[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW();
 const ex=ALL_EX.find(e=>e.id===id);if(ex){const filled=LOG[id].reps.filter(r=>r!==''&&Number(r)>0).length;
 if(filled===i+1&&filled<ex.s&&!TIMER)startTimer(ex.rstS)}}
 function toggleSetDone(id,i){if(!LOG[id].setDone)LOG[id].setDone=Array(LOG[id].reps.length).fill(false);
-LOG[id].setDone[i]=!LOG[id].setDone[i];
+LOG[id].setDone[i]=!LOG[id].setDone[i];LOG[id].touched=true;
 if(LOG[id].setDone[i]){const ex=ALL_EX.find(e=>e.id===id);if(ex&&!TIMER)startTimer(ex.rstS)}
 saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
@@ -1196,7 +1217,10 @@ if(v!==null){if(v.trim())D.cues[exId]=v.trim();else delete D.cues[exId];save();r
 // ─── FINISH + SUMMARY ─────────────────────────
 function finishW(){
 const pr=getCurPR(),exs=pr[ADAY];
-const logged=Object.entries(LOG).filter(([,v])=>v.reps.some(r=>r!==''&&Number(r)>0))
+// Only log exercises the user actually interacted with — untouched prefilled
+// reps would otherwise save phantom sessions for skipped exercises and feed
+// fake "sessions at weight" into the progression engine.
+const logged=Object.entries(LOG).filter(([,v])=>(v.touched||!v.pf)&&v.reps.some(r=>r!==''&&Number(r)>0))
   .map(([id,v])=>({id,wt:v.wt?Number(v.wt):null,reps:v.reps.map(r=>r===''?0:Number(r)),band:v.band||'',notes:v.notes}));
 if(!logged.length)return;
 for(const[id,v] of Object.entries(LOG)){if(v.disc&&v.disc!=='none'&&v.discJoints.length){
@@ -1307,7 +1331,7 @@ for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
 let bw=0,be=0;
 for(const e of h){const vr=(e.reps||[]).filter(r=>Number(r)>0);if(!vr.length)continue;
 const def=ALL_EX.find(x=>x.id===ex.id);const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
-const e1=e.wt&&mx>0?Math.round(e.wt*(1+mx/30)*10)/10:0;
+const e1=e.wt&&mx>0?e1rm(e.wt,mx):0;
 let isPR=null;
 if(e.wt&&e.wt>bw){bw=e.wt;isPR={type:'weight',val:e.wt}}
 if(e1>be){be=e1;if(!isPR)isPR={type:'e1rm',val:e1}}
@@ -1360,7 +1384,7 @@ const hist=getHist(STAT_EX,20);
 // ── Weekly muscle-group volume dashboard (10-day window covers a full A→B→C rotation) ──
 const wv=getWeeklyVolume(10);
 let mh=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Weekly Volume by Muscle</div>
-<div class="dm" style="margin-bottom:8px">Last 10 days (full rotation) · ${D.location==='partner'?"Partner's":'Home'} · effective sets vs MEV–MAV</div>`;
+<div class="dm" style="margin-bottom:8px">Last 10 days (full rotation) · all locations · effective sets vs MEV–MAV</div>`;
 let anyVol=false;
 for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
@@ -1379,7 +1403,7 @@ for(const[key,label,mev,mav] of MG_INFO){
   <div style="height:100%;width:${pct}%;background:${col}"></div>
   ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-6px;left:${Math.round(mev/mav*100)}%;width:1px;height:6px;background:var(--tx);opacity:.4"></div></div>`:''}</div></div>`;
 }
-if(!anyVol)mh+=`<div class="dm">No logged sets in the last 10 days at this location.</div>`;
+if(!anyVol)mh+=`<div class="dm">No logged sets in the last 10 days.</div>`;
 // Priority nudge: surface the muscle furthest below MEV (research: add volume to laggers, don't cap at MAV)
 else{let worst=null,worstGap=0;
   for(const[key,label,mev,mav] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
@@ -1436,7 +1460,7 @@ const ws=weeklySeries(10);
 if(ws.length>=2){
 const volData=ws.map(w=>({v:Math.round(w.vol/1000*10)/10,lbl:w.lbl}));
 const sessData=ws.map(w=>({v:w.sessions,lbl:w.lbl}));
-// progressing? compare last 3 vs prior 3 tonnage
+// progressing? compare last 2 weeks' avg tonnage vs the prior 2
 let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol,0)/2,prior=ws.slice(-4,-2).reduce((a,w)=>a+w.vol,0)/2;
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
