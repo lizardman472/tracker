@@ -137,6 +137,18 @@ input[type=number]{-moz-appearance:textfield}
 .set-tick:active{transform:scale(.85)}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
+/* Exercise swap */
+.swap-btn{font-size:10px;font-weight:800;color:var(--pr);border:1px solid var(--cb);border-radius:7px;padding:3px 8px;letter-spacing:.3px}
+.swap-btn.on{background:var(--prl);border-color:var(--pr)}
+.swap-badge{display:inline-block;font-family:var(--disp);font-size:8px;font-weight:800;letter-spacing:.5px;color:var(--ink);background:var(--pr);border-radius:4px;padding:1px 4px;vertical-align:middle}
+.swap-panel{margin-top:8px;background:var(--ib);border:1px solid var(--ibr);border-radius:var(--rad-sm);padding:9px 10px}
+.swap-hd{font-family:var(--disp);font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);font-weight:700;margin-bottom:7px}
+.swap-filters{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.swap-filters button{font-size:10px;font-weight:700;color:var(--mu);background:var(--cd);border:1px solid var(--cb);border-radius:20px;padding:4px 10px;cursor:pointer;transition:.12s}
+.swap-filters button.on{color:var(--ink);background:var(--pr);border-color:var(--pr)}
+.swap-opt{display:flex;justify-content:space-between;align-items:center;padding:8px 9px;margin-bottom:5px;background:var(--cd);border:1px solid var(--cb);border-radius:9px;cursor:pointer;transition:.12s}
+.swap-opt:active{transform:scale(.99)}.swap-opt:hover{border-color:var(--pr)}
+.swap-go{font-size:10px;font-weight:800;color:var(--pr);flex:0 0 auto;margin-left:8px}
 /* Warmup */
 .wu-check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--cb);cursor:pointer}
 .wu-box{width:28px;height:28px;border-radius:8px;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:.15s;color:var(--mu)}
@@ -454,7 +466,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all';
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -498,9 +510,9 @@ d=migrateToV12(d);
 D=d}catch(e){D=structuredClone(SEED)}}
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
-function saveAW(){if(!ADAY)return;try{const pr=getCurPR();const exIds=(pr[ADAY]||[]).map(e=>e.id);
+function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds}))}catch(e){}}
+loc:D.location,phase:D.phase,exIds,swaps:SWAP}))}catch(e){}}
 function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Patch 11: checkResume validates loc and phase match
 function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
@@ -510,7 +522,7 @@ if(d.phase&&d.phase!==D.phase)return null;
 // Program-drift guard: exIds was stored for exactly this but never checked. If
 // the day's exercise list changed since the save (program version bump, edits),
 // the saved LOG rows no longer line up with what would render — discard.
-if(Array.isArray(d.exIds)&&d.day){const cur=(getCurPR()[d.day]||[]).map(e=>e.id);
+if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.id);
 if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i]))return null}
 return d}catch(e){return null}}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
@@ -1102,20 +1114,55 @@ ${s.volume?`<span class="dm">${(s.volume/1000).toFixed(1)}k</span>`:''}</div></d
 h+=`</div>`;el.innerHTML=h}
 
 // ─── WORKOUT ───────────────────────────────────
-function beginW(day){ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';
-const pr=getCurPR(),exs=pr[ADAY]||pr['A'];LOG={};SS=Date.now();CIDX=0;
-for(const ex of exs){const last=getLast(ex.id),sg=getSmartSugg(ex);
-const defWt=ex.tp==='bb'?BAR:ex.tp==='db'?'':'';
+// Seed a LOG row for one exercise (prefilled from last session / smart suggestion).
+// Idempotent — used by beginW and by the swap flow when a new movement enters the day.
+function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=getSmartSugg(ex);
+const defWt=ex.tp==='bb'?BAR:'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
-setDone:Array(ex.s).fill(false),
-notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
+setDone:Array(ex.s).fill(false),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
+
+// The day's exercise list with any in-session swaps applied. Each returned object
+// carries _slot (the original program id it occupies) so the swap controls can
+// re-swap or revert that slot regardless of what currently fills it.
+function dayExs(day,sw){sw=sw||SWAP;return (getCurPR()[day]||[]).map(ex=>{
+const id=sw[ex.id],alt=id&&ALL_EX.find(e=>e.id===id);
+return alt?{...alt,_slot:ex.id,_swapped:true}:{...ex,_slot:ex.id}})}
+
+// Candidate replacements for a slot: library movements sharing a primary muscle,
+// not already in today's session, not legacy stubs, optionally filtered by gear.
+const TP_LABEL={bb:'Barbell',db:'Dumbbell',band:'Band',kb:'Kettlebell',bw:'Bodyweight',mace:'Mace',club:'Club',carry:'Carry'};
+function swapCandidates(slotId,curId,tpFilter){
+const src=MG[curId]||MG[slotId]||{};
+const prim=Object.keys(src).filter(m=>src[m]>=1);const pset=prim.length?prim:Object.keys(src);
+const shown=new Set(dayExs(ADAY).map(e=>e.id));
+return ALL_EX.filter(e=>{
+  if(e.id===curId||shown.has(e.id))return false;
+  if(/legacy|retired/i.test(e.rl||''))return false;
+  if(tpFilter!=='all'&&e.tp!==tpFilter)return false;
+  const m=MG[e.id];return m&&pset.some(x=>m[x])})
+.map(e=>({e,ov:pset.reduce((a,x)=>a+((MG[e.id]||{})[x]||0),0)}))
+.sort((a,b)=>b.ov-a.ov).slice(0,12).map(x=>x.e)}
+
+function openSwap(slotId){SWAP_OPEN=SWAP_OPEN===slotId?null:slotId;SWAP_FILTER='all';render()}
+function doSwap(slotId,newId){const oldId=SWAP[slotId]||slotId;
+if(oldId!==newId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
+SWAP[slotId]=newId;ensureLog(ALL_EX.find(e=>e.id===newId));
+SWAP_OPEN=null;saveAW();render()}
+function revertSwap(slotId){const oldId=SWAP[slotId];
+if(oldId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
+delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
+SWAP_OPEN=null;saveAW();render()}
+
+function beginW(day){ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
+const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
+for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';render();window.scrollTo(0,0)}
 
-function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;VIEW='workout';render();window.scrollTo(0,0)}
+function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;VIEW='workout';render();window.scrollTo(0,0)}
 
 function rWork(el){
-const pr=getCurPR(),exs=pr[ADAY];const isP=D.location==='partner';
+const exs=dayExs(ADAY);const isP=D.location==='partner';
 let h='<div class="sec">';
 
 // Header
@@ -1171,9 +1218,26 @@ h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
 // Current — expanded
 h+=`<div class="ex-row cur" id="ex-cur">
 <div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}</span>
-<span class="dm">${idx+1}/${exs.length}</span></div>
+<span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}${ex._swapped?' <span class="swap-badge">SWAP</span>':''}</span>
+<span style="display:flex;align-items:center;gap:8px">
+<button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>
+<span class="dm">${idx+1}/${exs.length}</span></span></div>
 <div style="font-size:10px;color:var(--mu);margin-top:1px">${ex.s}×${ex.rp} · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</div>`;
+if(SWAP_OPEN===ex._slot){
+const tps=['all',...Array.from(new Set(swapCandidates(ex._slot,ex.id,'all').map(c=>c.tp)))];
+const cands=swapCandidates(ex._slot,ex.id,SWAP_FILTER);
+const prim=Object.keys(MG[ex.id]||MG[ex._slot]||{}).filter(m=>(MG[ex.id]||MG[ex._slot])[m]>=1);
+const mLbl=prim.map(m=>(MG_INFO.find(x=>x[0]===m)||[,m])[1]).join(' · ');
+h+=`<div class="swap-panel"><div class="swap-hd">Replace with — same muscle${mLbl?` (${mLbl})`:''}</div>
+<div class="swap-filters">${tps.map(t=>`<button class="${t===SWAP_FILTER?'on':''}" onclick="event.stopPropagation();SWAP_FILTER='${t}';render()">${t==='all'?'All gear':esc(TP_LABEL[t]||t)}</button>`).join('')}</div>`;
+if(!cands.length)h+=`<div class="dm" style="padding:6px 2px">No alternatives for this filter.</div>`;
+for(const c of cands){const cl=getLast(c.id);
+h+=`<div class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
+<div><div style="font-size:12px;font-weight:700">${esc(c.nm)}</div>
+<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+cl.band:''}`:' · new'}</div></div>
+<span class="swap-go">Use</span></div>`}
+if(ex._swapped)h+=`<button class="btn-ghost" style="font-size:10px;margin-top:6px;color:var(--am)" onclick="event.stopPropagation();revertSwap('${ex._slot}')">↺ Restore original</button>`;
+h+=`</div>`}
 
 if(cue)h+=`<div class="cue">💡 ${esc(cue)}</div>`;
 h+=`<div style="margin-top:6px"><span class="sg ${sgClass(sg.type)}">${esc(sg.text)}</span>
@@ -1263,7 +1327,7 @@ saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
 if(idx>=0)j.splice(idx,1);else j.push(joint);saveAW();render()}
 let CANCEL_ARMED=false;
-function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';clearAW();clearTimer();go('home')}
+function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();go('home')}
 else{CANCEL_ARMED=true;setTimeout(()=>CANCEL_ARMED=false,3000);render()}}
 function editCue(exId){const cur=D.cues[exId]||'';const v=prompt(`Cue for ${ALL_EX.find(e=>e.id===exId)?.nm||exId}:`,cur);
 if(v!==null){if(v.trim())D.cues[exId]=v.trim();else delete D.cues[exId];save();render()}}
@@ -1310,7 +1374,7 @@ h+=`</div></div></div>
 function saveSumm(){const S=window._S;
 D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,trainingWeek:D.trainingWeek||1,notes:S.notes||''});
 D.nextDay=NEXT_DAY[S.day]||'A';
-save();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;clearTimer();go('home')}
+save();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();go('home')}
 
 
 // ─── CARDIO ──────────────────────────────────
