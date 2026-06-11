@@ -137,6 +137,11 @@ input[type=number]{-moz-appearance:textfield}
 .set-tick:active{transform:scale(.85)}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
+/* Toggle switch */
+.toggle{width:42px;height:24px;border-radius:14px;background:var(--cb);border:1px solid var(--ibr);position:relative;cursor:pointer;padding:0;transition:.18s;flex:0 0 auto}
+.toggle.on{background:var(--pr);border-color:var(--pr)}
+.toggle-dot{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.toggle.on .toggle-dot{left:20px}
 /* Exercise swap */
 .swap-btn{font-size:10px;font-weight:800;color:var(--pr);border:1px solid var(--cb);border-radius:7px;padding:3px 8px;letter-spacing:.3px}
 .swap-btn.on{background:var(--prl);border-color:var(--pr)}
@@ -509,6 +514,7 @@ function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 let d=s?JSON.parse(s):structuredClone(SEED);
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
+if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
 if(!d.trainingWeek)d.trainingWeek=1;
@@ -926,7 +932,22 @@ return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10}}
 function startTimer(secs){clearTimer();TIMER={tot:secs,end:Date.now()+secs*1000,left:secs,done:false};
 TIV=setInterval(()=>{TIMER.left=Math.max(0,Math.ceil((TIMER.end-Date.now())/1000));
 if(TIMER.left<=0&&!TIMER.done){TIMER.done=true;clearInterval(TIV);TIV=null;
-try{navigator.vibrate([200,100,200,100,200])}catch(e){}playBeep()}rTimer()},500);rTimer()}
+try{navigator.vibrate([200,100,200,100,200])}catch(e){}playBeep();notifyRestDone()}rTimer()},500);rTimer()}
+// Notifications — best-effort, no backend. The reliably-deliverable case is the
+// rest-timer alert while the app sits backgrounded on a locked phone; true
+// scheduled "train today" pushes need a server, so we only fire what the browser
+// will honour from a live (even if hidden) page.
+function notifyOK(){return D.notify&&D.notify.enabled&&D.notify.rest&&typeof Notification!=='undefined'&&Notification.permission==='granted'}
+function notifyRestDone(){if(!notifyOK())return;
+if(typeof document!=='undefined'&&document.visibilityState==='visible')return; // pill+beep already visible
+try{new Notification('Rest complete 💪',{body:'Back to it — next set.',tag:'rft-rest',silent:false})}catch(e){}}
+function reqNotify(){if(typeof Notification==='undefined'){alert('This browser does not support notifications.');return}
+Notification.requestPermission().then(p=>{D.notify=D.notify||{enabled:false,rest:true};
+D.notify.enabled=(p==='granted');if(p==='granted'){D.notify.rest=true;
+try{new Notification('Notifications on ✓',{body:'Rest timers will ping you when they finish.',tag:'rft-test'})}catch(e){}}
+else if(p==='denied')alert('Notifications are blocked. Enable them for this site in your browser settings.');
+save();render()})}
+function toggleNotifyRest(){D.notify=D.notify||{enabled:false,rest:true};D.notify.rest=!D.notify.rest;save();render()}
 function clearTimer(){if(TIV)clearInterval(TIV);TIV=null;TIMER=null;rTimer()}
 function playBeep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();
 o.connect(g);g.connect(a.destination);o.frequency.value=880;o.type='square';g.gain.value=.25;o.start();o.stop(a.currentTime+.12);
@@ -1989,7 +2010,22 @@ Cues: ${Object.keys(D.cues).length} · Discomfort entries: ${D.discomfort.length
 <button class="btn-sm ${D.location==='home'?'btn-pr':'btn-wh'}" onclick="D.location='home';save();render()">🏠 Home</button>
 <button class="btn-sm ${D.location==='partner'?'btn-pr':'btn-wh'}" onclick="D.location='partner';save();render()">🏘 Partner's</button>
 </div><div class="dm" style="margin-top:6px">Home: barbell + KBs + mace + pull-up tower<br>Partner's: DBs + bands + clubbells + parallel bars</div></div>
-<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
+<div class="lb" style="margin-top:10px;margin-bottom:6px">Notifications</div>`;
+{const supported=typeof Notification!=='undefined';
+const perm=supported?Notification.permission:'unsupported';
+const on=D.notify&&D.notify.enabled&&perm==='granted';
+h+=`<div class="cd">`;
+if(!supported){h+=`<div class="dm">This browser doesn't support notifications.</div>`;}
+else if(perm==='denied'){h+=`<div style="font-size:12px;color:var(--am);margin-bottom:4px">⚠ Blocked in browser settings</div><div class="dm">Allow notifications for this site, then reload to enable rest-timer alerts.</div>`;}
+else if(!on){h+=`<div style="font-size:12px;margin-bottom:8px">Get a ping when your rest timer finishes while the app is in the background.</div>
+<button class="btn btn-pr" style="padding:9px" onclick="reqNotify()">🔔 Enable notifications</button>`;}
+else{h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<span style="font-size:12px;font-weight:600">Rest-timer alerts</span>
+<button class="toggle${D.notify.rest?' on':''}" onclick="toggleNotifyRest()"><span class="toggle-dot"></span></button></div>
+<button class="btn btn-wh btn-sm" onclick="notifyRestDone.__test=1;(function(){try{new Notification('Test ping 🔔',{body:'Notifications are working.',tag:'rft-test'})}catch(e){}})()">Send test ping</button>
+<div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled “train today” reminders aren't possible without a server.</div>`;}
+h+=`</div>`;}
+h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Current: <strong>Phase ${phi.phase} — ${phi.name}</strong> (Week ${phi.wk}/${phi.maxWk})</div>
 <div style="display:flex;gap:6px">`;
 for(let i=1;i<=3;i++)h+=`<button class="btn-sm ${D.phase===i?'btn-pr':'btn-wh'}" onclick="D.phase=${i};D.phaseStart=today();save();render()">P${i}: ${PHASES[i].name}</button>`;
