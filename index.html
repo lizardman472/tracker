@@ -224,6 +224,15 @@ svg text{font-family:var(--body)}
 .status-k{font-family:var(--disp);font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mu);font-weight:700;margin-bottom:6px}
 .status-v{font-family:var(--disp);font-size:16px;font-weight:900;line-height:1;letter-spacing:.2px}
 .status-s{font-size:9px;color:var(--dm);margin-top:5px;line-height:1.3}
+/* Progress tab: strength-level rows */
+.std-row{margin-bottom:11px}.std-row:last-of-type{margin-bottom:2px}
+.std-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.std-lift{font-size:12px;font-weight:700;color:var(--tx)}
+.std-ratio{font-family:var(--disp);font-size:14px;font-weight:900;color:var(--tx);font-variant-numeric:tabular-nums}
+.std-tier{font-family:var(--disp);font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border:1px solid;border-radius:5px;padding:2px 6px}
+.std-bar{height:7px;background:var(--ib);border-radius:4px;overflow:hidden;border:1px solid var(--cb)}
+.std-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.std-sub{font-size:9px;color:var(--dm);margin-top:3px}
 /* Progress tab: snapshot grid + stat strip */
 .snap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .snap-cell{background:var(--ib);border-radius:var(--rad-sm);padding:11px 8px;text-align:center}
@@ -1446,6 +1455,13 @@ for(const ex of ALL_EX){if(!logged.has(ex.id))continue;
 if(!['bb','db','kb','mace'].includes(ex.tp))continue;
 const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
 out.sort((a,b)=>b.slope-a.slope);return out}
+// ── Strength standards: bodyweight-relative e1RM thresholds marking the start of
+// each tier. Approximate, calibrated for these specific (often unconventional)
+// rack-free lifts — Zercher ≈ ¾ back-squat, floor press ≈ bench, strict OHP. Meant
+// as motivational signposts, not a certified standards table. ──
+const STD={deadlift:[1.0,1.5,2.0,2.5],zercher_b:[0.75,1.1,1.4,1.75],ohp:[0.5,0.7,0.9,1.1],floor_press:[0.75,1.0,1.25,1.5]};
+const TIERS=['Beginner','Novice','Intermediate','Advanced','Elite'];
+const TIER_C=['var(--mu)','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
 // ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
 function relStrength(){
 const bw=[...(D.bodyLog||[])].reverse().find(b=>b.weight)?.weight;if(!bw)return null;
@@ -1456,7 +1472,13 @@ for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
 for(const h of getHist(id,200)){if(h.date<cut||!h.wt)continue;
 const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
 const v=e1rm(h.wt,Math.max(...eR));if(v>best)best=v}
-if(best)out.push({lbl,ratio:Math.round(best/bw*100)/100})}
+if(!best)continue;
+const ratio=Math.round(best/bw*100)/100,th=STD[id];
+let ti=0;for(let i=0;i<th.length;i++)if(ratio>=th[i])ti=i+1;
+const lo=ti===0?0:th[ti-1],hi=ti<th.length?th[ti]:th[th.length-1];
+const pct=ti>=th.length?100:Math.max(2,Math.min(100,Math.round((ratio-lo)/(hi-lo)*100)));
+const nextKg=ti<th.length?Math.round(th[ti]*bw*10)/10:null;
+out.push({lbl,ratio,e1rm:best,tier:TIERS[ti],tierIdx:ti,color:TIER_C[ti],pct,next:ti<th.length?TIERS[ti+1]:null,nextKg})}
 return out.length?{bw,lifts:out}:null}
 
 function exStats(exId){
@@ -1677,9 +1699,15 @@ h+=`</div>`}
 
 // Relative strength (only renders once a bodyweight is logged in Body Tracking)
 const rel=relStrength();
-if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Relative Strength</div><div style="display:flex;gap:8px;flex-wrap:wrap">`;
-for(const r of rel.lifts)h+=`<div style="flex:1;min-width:70px;text-align:center;background:var(--ib);border-radius:6px;padding:7px 4px"><div style="font-weight:800;font-size:15px;color:var(--pr)">${r.ratio}×</div><div class="dm" style="font-size:9px">${r.lbl}</div></div>`;
-h+=`</div><div class="dm" style="margin-top:6px">Best 60-day e1RM ÷ ${rel.bw}kg bodyweight</div></div>`}
+if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Strength Level <span class="dm" style="font-weight:400;text-transform:none;letter-spacing:0">· vs ${rel.bw}kg bodyweight</span></div>`;
+for(const r of rel.lifts){
+h+=`<div class="std-row">
+<div class="std-top"><span class="std-lift">${r.lbl}</span>
+<span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">${r.ratio}×</span><span class="std-tier" style="color:${r.color};border-color:${r.color}">${r.tier}</span></span></div>
+<div class="std-bar"><div class="std-fill" style="width:${r.pct}%;background:${r.color}"></div></div>
+<div class="std-sub">${r.next?`${r.nextKg}kg e1RM → ${r.next}`:'Top tier — Elite 🏆'}</div></div>`}
+h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight. Tiers are approximate signposts for these lifts.</div></div>`}
+else if(logged.size){h+=`<div class="cd" style="text-align:center;padding:16px"><div style="font-size:20px;margin-bottom:4px">⚖️</div><div class="dm">Log your bodyweight in <b style="color:var(--pr)">Body Tracking</b> to unlock strength-level tiers (Novice → Elite) for your main lifts.</div></div>`}
 
 // Exercise deep-dive
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Exercise Detail</div>`;
