@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v18';
+const C = 'rft-v19';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
