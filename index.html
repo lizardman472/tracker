@@ -142,6 +142,19 @@ input[type=number]{-moz-appearance:textfield}
 .toggle.on{background:var(--pr);border-color:var(--pr)}
 .toggle-dot{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 .toggle.on .toggle-dot{left:20px}
+/* Form rating */
+.form-rate{margin:8px 0 2px;padding:8px 10px;background:var(--ib);border:1px solid var(--ibr);border-radius:var(--rad-sm)}
+.form-row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.form-lbl{font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--mu)}
+.form-btns{display:flex;gap:4px}
+.form-b{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:13px;font-weight:800;cursor:pointer;transition:.12s;padding:0}
+.form-b:active{transform:scale(.92)}
+.form-b.sm{width:24px;height:24px;font-size:11px;border-radius:6px}
+.form-cap{font-size:10px;font-weight:600;margin-top:5px;display:flex;align-items:center;flex-wrap:wrap}
+.form-perset{margin-top:7px;padding-top:7px;border-top:1px solid var(--cb);display:flex;flex-direction:column;gap:5px}
+.form-prow{display:flex;align-items:center;justify-content:space-between}
+.form-ps-lbl{font-size:10px;font-weight:700;color:var(--mu)}
+.form-chip{display:inline-block;font-family:var(--disp);font-size:8px;font-weight:800;letter-spacing:.4px;border:1px solid;border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:middle}
 /* Exercise swap */
 .swap-btn{font-size:10px;font-weight:800;color:var(--pr);border:1px solid var(--cb);border-radius:7px;padding:3px 8px;letter-spacing:.3px}
 .swap-btn.on{background:var(--prl);border-color:var(--pr)}
@@ -480,7 +493,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all';
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -589,6 +602,19 @@ function getDiscomfortRecent(exId,n=3){return D.discomfort.filter(d=>d.exId===ex
 // which made every per-side exercise need double the displayed reps to progress.)
 function effectiveReps(ex,reps){
 return (reps||[]).filter(r=>Number(r)>0).map(Number)}
+
+// ── Form quality (1–5: 5=Strict … 1=Negatives). Per-set scores are the source of
+// truth; sessClean() gates progression — a session only counts as a "clean hit"
+// if no working set was rated below FORM_MIN. Unrated sets count as clean, so
+// gating is opt-in and historical data is never penalised. ──
+const FORM_LABELS=['','Negatives','Loose','Hybrid','Solid','Strict'];
+const FORM_C=['','var(--rd)','#f97362','var(--am)','var(--pr)','var(--gr)'];
+const FORM_MIN=4;
+function sessClean(h){const f=h&&h.form;if(!Array.isArray(f)||!f.length)return true;
+for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0&&f[i]<FORM_MIN)return false}return true}
+// Worst rated working-set score for a session (0 = unrated) — for display + rollup.
+function sessForm(h){const f=h&&h.form;if(!Array.isArray(f))return 0;let m=0;
+for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0)m=m?Math.min(m,f[i]):f[i]}return m}
 
 // Tonnage helper. perSide reps are logged per side, so the load is moved twice
 // the entered rep count; per_db means the entered weight is per dumbbell with two
@@ -708,8 +734,8 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=mn)};
   const stalls=atW.filter(h=>!inRange(h)).length;
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
-  const hitsAtW=atW.filter(h=>hitTarget(h)).length;
-  const lastHit=hitTarget(last);const lastInRange=inRange(last);
+  const hitsAtW=atW.filter(h=>hitTarget(h)&&sessClean(h)).length;
+  const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
     const ps=effectiveReps(ex,p.reps).reduce((a,b)=>a+b,0),cs=effectiveReps(ex,h.reps).reduce((a,b)=>a+b,0);
     return cs>ps?{s:'↗',c:'up'}:cs<ps?{s:'↘',c:'dn'}:{s:'→',c:'same'}});
@@ -744,6 +770,11 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
           detail:`New phase (${(PHASES[D.phase]||PHASES[1]).name}) — re-anchored ${dir} for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}. Adjust to taste, then progress from here.`,regress}}
     }
   }
+  // FORM GATE — hit the reps but a working set was rated below clean: hold load and
+  // clean it up rather than advancing on broken-down reps.
+  if(hitTarget(last)&&!sessClean(last)){
+    return{text:`→ ${last.wt}kg${ex.tp==='db'?'/DB':''} (clean up)`,type:'stay',wt:last.wt,traj,
+      detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
   // HIT TARGET (single-session double progression). AMRAP signal = reps over target on the last set.
   if(lastHit){
     const isConfirmLift=CONFIRM_LIFTS.has(ex.id);
@@ -805,6 +836,12 @@ if(ex.tp==='band'){
   let regress=discWarn;if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
     if(BAND_IDX(prev.band)===BAND_IDX(last.band)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=reps.reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
+  // FORM GATE — for assist bands this is the key save: hitting reps with negatives/
+  // partials must NOT trigger "less assistance", or it pushes you off a cliff.
+  if(hitTop&&!sessClean(last)){
+    const fl=FORM_LABELS[sessForm(last)]||'breakdown';
+    return{text:`Stay on ${last.band||'band'} — clean up`,type:'stay',wt:null,traj,
+      detail:isResist?`Hit ${ex.s}×${ex.tg} but form slipped (${fl}) — get strict reps before more resistance.`:`Hit ${ex.s}×${ex.tg} with ${fl.toLowerCase()} (not strict) — get clean reps on this band before reducing assistance.`,regress}}
   if(hitTop){
     if(isResist){
       const curIdx=BAND_IDX(last.band);
@@ -838,6 +875,7 @@ if(ex.tp==='bw'){
   let regress=discWarn;
   if(!regress&&hist.length>=2){const pt=effectiveReps(ex,hist[hist.length-2].reps).reduce((a,b)=>a+b,0);
     if(totalReps<pt-3)regress=`Total reps dropped ${pt}→${totalReps}`}
+  if(allHit&&!sessClean(last))return{text:`Clean up the reps`,type:'stay',wt:null,traj,detail:`Hit ${ex.s}×${ex.tg} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — get strict full-ROM reps before progressing.`,regress};
   if(allHit)return{text:`Hit target${ex.perSide?' /side':''} — progress`,type:'up',wt:null,traj,detail:ex.rl,regress};
   return{text:`${totalReps} reps${ex.perSide?' /side':''}`,type:'stay',wt:null,traj,detail:`Push for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}`,regress}}
 
@@ -1150,7 +1188,7 @@ function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=ge
 const defWt=ex.tp==='bb'?BAR:'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
-setDone:Array(ex.s).fill(false),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
+setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 
 // The day's exercise list with any in-session swaps applied. Each returned object
 // carries _slot (the original program id it occupies) so the swap controls can
@@ -1236,7 +1274,7 @@ if(isDone&&!isCur){
 // Done row
 h+=`<div class="ex-row done-row" onclick="CIDX=${idx};saveAW();render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}</span>
+<span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
 <span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+log.band:''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
 } else if(!isCur){
 // Upcoming row
@@ -1312,6 +1350,25 @@ onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value
 <div class="set-tick${dn?' done':''}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</div></div>`}
 h+=`</div>`;
 
+// Form rating — exercise-level stamp (one tap) + optional per-set editor. Gates progression.
+{const farr=Array.isArray(log.form)?log.form.slice(0,ex.s):[];
+const rated=farr.filter(f=>f>0);
+const uniform=rated.length===ex.s&&rated.every(f=>f===farr[0])?farr[0]:0;
+const worst=rated.length?Math.min(...rated):0;
+const mixed=rated.length>0&&!uniform;
+h+=`<div class="form-rate"><div class="form-row1">
+<span class="form-lbl">Form</span><div class="form-btns">`;
+for(let s=5;s>=1;s--)h+=`<button class="form-b${uniform===s?' on':''}" style="${uniform===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormAll('${ex.id}',${s})">${s}</button>`;
+h+=`</div></div>
+<div class="form-cap">${rated.length?(mixed?`<span style="color:${FORM_C[worst]||'var(--mu)'}">Mixed · worst ${FORM_LABELS[worst]}</span>`:`<span style="color:${FORM_C[uniform]}">${FORM_LABELS[uniform]}</span>${uniform<FORM_MIN?' · holds progression':''}`):'<span class="dm">5 strict → 1 negatives · optional</span>'}
+<button class="btn-ghost" style="font-size:9px;margin-left:6px" onclick="FORM_EXP=FORM_EXP==='${ex.id}'?null:'${ex.id}';render()">${FORM_EXP===ex.id?'Hide per-set':'Per-set'}</button></div>`;
+if(FORM_EXP===ex.id){h+=`<div class="form-perset">`;
+for(let i=0;i<ex.s;i++){const fv=farr[i]||0;h+=`<div class="form-prow"><span class="form-ps-lbl">S${i+1}</span><div class="form-btns">`;
+for(let s=5;s>=1;s--)h+=`<button class="form-b sm${fv===s?' on':''}" style="${fv===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormSet('${ex.id}',${i},${s})">${s}</button>`;
+h+=`</div></div>`}
+h+=`</div>`}
+h+=`</div>`}
+
 // Rest
 h+=`<div style="text-align:center;margin:4px 0">
 <button class="btn btn-wh" style="width:auto;padding:8px 24px;font-size:12px" onclick="startTimer(${ex.rstS})">⏱ ${ex.rst}</button></div>`;
@@ -1356,6 +1413,12 @@ if(LOG[id].setDone[i]){const ex=ALL_EX.find(e=>e.id===id);if(ex&&!TIMER)startTim
 saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
 if(idx>=0)j.splice(idx,1);else j.push(joint);saveAW();render()}
+// Form rating — stamp all working sets (quick path) or one set (per-set path).
+function ensureForm(id,n){if(!Array.isArray(LOG[id].form))LOG[id].form=[];while(LOG[id].form.length<n)LOG[id].form.push(0)}
+function setFormAll(id,score){const ex=ALL_EX.find(e=>e.id===id);const n=ex?ex.s:LOG[id].reps.length;ensureForm(id,n);
+const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===score);
+for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
+function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
 function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();go('home')}
 else{CANCEL_ARMED=true;setTimeout(()=>CANCEL_ARMED=false,3000);render()}}
@@ -1369,7 +1432,7 @@ const pr=getCurPR(),exs=pr[ADAY];
 // reps would otherwise save phantom sessions for skipped exercises and feed
 // fake "sessions at weight" into the progression engine.
 const logged=Object.entries(LOG).filter(([,v])=>(v.touched||!v.pf)&&v.reps.some(r=>r!==''&&Number(r)>0))
-  .map(([id,v])=>({id,wt:v.wt?Number(v.wt):null,reps:v.reps.map(r=>r===''?0:Number(r)),band:v.band||'',notes:v.notes}));
+  .map(([id,v])=>({id,wt:v.wt?Number(v.wt):null,reps:v.reps.map(r=>r===''?0:Number(r)),band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes}));
 if(!logged.length)return;
 for(const[id,v] of Object.entries(LOG)){if(v.disc&&v.disc!=='none'&&v.discJoints.length){
   for(const j of v.discJoints)D.discomfort.push({date:today(),exId:id,level:v.disc,joint:j})}}
