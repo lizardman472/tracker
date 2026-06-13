@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,setD:d=>{D=d},getD:()=>D,go,beginW,render,getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,setD:d=>{D=d},getD:()=>D,go,beginW,render,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -79,8 +79,31 @@ T('stepper hero shows the seeded 40kg', /40<sub>kg<\/sub>/.test(work));
 T('plate math is correct for 40kg on 7kg bar (1×10 + 1×5 + 1×1 + 1×0.5/side)', /1×10kg \+ 1×5kg \+ 1×1kg \+ 1×0\.5kg/.test(work));
 T('plate visual shows one 10kg plate per side', (work.match(/pl pl-10/g) || []).length === 1);
 
-// ── Progress tab ──
+// ── Progress tab (default exercise) ──
 tryRender('Progress (stats)', () => R.go('stats'));
 T('progress produced non-empty markup', R.getA().length > 200);
+
+// ── Progress tab with a hex lift selected ──
+R.setSTAT('hex_dl');
+tryRender('Progress (stats, hex_dl selected)', () => R.go('stats'));
+R.setSTAT('deadlift');
+
+// ── History with the stored hex session expanded — exercises session-detail plate breakdown ──
+let histOk = tryRender('History (list)', () => R.go('history'));
+if (histOk) {
+  R.setEXP('hxs');
+  tryRender('History (hex session expanded)', () => R.render());
+  const hist = R.getA();
+  T('expanded hex session shows 40kg', /40kg/.test(hist));
+  // 40kg on the 7kg bar breaks down to 10+5+1+0.5/side — the 5kg plate ONLY appears
+  // if the detail used the hex bar; the 11kg-bar misread (10+2.5+1+1) would have no 5kg.
+  T('hex session detail uses the 7kg bar (has a 5kg plate)', /pl pl-5/.test(hist));
+  T('hex session detail has exactly one 10kg plate/side', (hist.match(/pl pl-10/g) || []).length === 1);
+}
+
+// ── Settings + All-Valid-Weights reference screen ──
+tryRender('Settings', () => R.go('settings'));
+tryRender('All Valid Weights (plates)', () => R.go('plates'));
+T('plates screen renders the ladder', /All Valid Weights/.test(R.getA()));
 
 console.log(`\n${pass} passed, ${fail} failed`);
