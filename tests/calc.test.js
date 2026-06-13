@@ -32,7 +32,10 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
 // ── ALL_EX integrity ──
 const ids = ALL_EX.map(e => e.id);
 T('ALL_EX ids unique', new Set(ids).size === ids.length);
-T('active zercher_a kept (not legacy stub)', ALL_EX.find(e => e.id === 'zercher_a').nm === 'Zercher Squat (Moderate)');
+// lateral_raise appears on Day A (s:3) and Day B (s:4); dedup must keep the first (active) def.
+T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lateral_raise').s === 3);
+// Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
+T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
 
 // ── tonnage (calcExVol) ──
 T('carry excluded from tonnage', calcExVol('suitcase_march', 32, [40, 40, 40]) === 0);
@@ -77,10 +80,10 @@ d.sessions = [{ id: 'x4', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 
 sg = getSmartSugg(ohp);
 T('normal hit-target → up', sg.type === 'up' && sg.wt > 21, JSON.stringify(sg));
 
-const dl = getProgram(1, 'home').A.find(e => e.id === 'deadlift');
-d.sessions = [{ id: 'x5', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 46, reps: [5, 5, 5], band: '' }] }];
+const dl = getProgram(1, 'home').A.find(e => e.id === 'hex_dl');
+d.sessions = [{ id: 'x5', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
 T('confirm lift needs 2 hits', getSmartSugg(dl).type === 'cf');
-d.sessions.push({ id: 'x6', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 46, reps: [5, 5, 5], band: '' }] });
+d.sessions.push({ id: 'x6', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] });
 T('confirmed → up', getSmartSugg(dl).type === 'up');
 
 // stall ladder

@@ -274,44 +274,49 @@ svg text{font-family:var(--body)}
 <div id="timer-root"></div>
 <script>
 // ═══════════════ EQUIPMENT ═══════════════
-const BAR=11,MAX_BB=80;
+const BAR=11,HEXBAR=7,MAX_BB=80;
 // Plate inventory: {w: plate weight kg, q: total count owned (pairs loaded symmetrically)}
 // Mains + micro set (pairs of 0.25/0.5/0.75/1kg). q must be even to load evenly.
 const PL=[{w:10,q:4},{w:5,q:4},{w:2.5,q:2},{w:1,q:6},{w:0.75,q:2},{w:0.5,q:2},{w:0.25,q:2}];
-// Valid barbell weights: enumerate every loadable combo (each plate used 0..floor(q/2) per side, ×2).
-const VW=(()=>{
-  const perSide=PL.map(p=>({w:p.w,max:Math.floor(p.q/2)}));
-  const set=new Set([BAR]);
-  // iterative combination across plate types
+// Valid weights for a given bar: enumerate every loadable combo (each plate 0..floor(q/2) per side, ×2).
+// Bar-aware: the hex/trap bar is lighter (7kg) than the straight bar (11kg), so its ladder differs.
+function buildVW(barW){
+  const per=PL.map(p=>({w:p.w,max:Math.floor(p.q/2)}));
+  const set=new Set([barW]);
   let combos=[0];
-  for(const p of perSide){
+  for(const p of per){
     const next=[];
     for(const base of combos)for(let c=0;c<=p.max;c++)next.push(base+c*p.w);
     combos=[...new Set(next)];
   }
-  for(const side of combos){const t=Math.round((BAR+2*side)*100)/100;if(t<=MAX_BB)set.add(t)}
+  for(const side of combos){const t=Math.round((barW+2*side)*100)/100;if(t<=MAX_BB)set.add(t)}
   return [...set].sort((a,b)=>a-b);
-})();
-function perSide(t){let r=(t-BAR)/2;if(r<0)return null;const o=[];for(const p of PL){const m=p.q/2;let c=Math.min(Math.floor(r/p.w),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}return Math.abs(r)<.01?o:null}
-function fmtPl(t){if(t<=BAR)return'Bar only';const p=perSide(t);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
-function nxUp(c){for(const w of VW)if(w>c)return w;return c}
-function nxDn(c){for(let i=VW.length-1;i>=0;i--)if(VW[i]<c)return VW[i];return c}
+}
+const VW=buildVW(BAR);      // 11kg straight bar (default)
+const VWH=buildVW(HEXBAR);  // 7kg hex/trap bar
+// Resolve the bar weight + valid-weight ladder an exercise loads on (hex lifts carry bar:7).
+function barOf(ex){return ex&&ex.bar?ex.bar:BAR}
+function vwOf(ex){return ex&&ex.bar===HEXBAR?VWH:VW}
+function perSide(t,bar=BAR){let r=(t-bar)/2;if(r<0)return null;const o=[];for(const p of PL){const m=p.q/2;let c=Math.min(Math.floor(r/p.w),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}return Math.abs(r)<.01?o:null}
+function fmtPl(t,bar=BAR){if(t<=bar)return'Bar only';const p=perSide(t,bar);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
+function nxUp(c,vw=VW){for(const w of vw)if(w>c)return w;return c}
+function nxDn(c,vw=VW){for(let i=vw.length-1;i>=0;i--)if(vw[i]<c)return vw[i];return c}
 // Jump n discrete plate-steps up from current weight (AMRAP-sized, joint-capped)
-function nxUpN(c,n){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w);if(nw===w)break;w=nw}return w}
+function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw===w)break;w=nw}return w}
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
-const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a']);
-function snapW(t){let b=VW[0];for(const w of VW)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
-function plateH(t){if(!t||t<=BAR)return'';const ps=perSide(t);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
+const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b','hex_squat_c']);
+function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
+function plateH(t,bar=BAR){if(!t||t<=bar)return'';const ps=perSide(t,bar);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
+  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},hex_squat_c:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
+  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},hex_squat_c:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},hex_squat_c:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
 // load on a phase transition. (Partner DB exercises aren't here, so their targets
@@ -319,7 +324,7 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
 const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
 
 const BASE_PR={A:[
-{id:'deadlift',nm:'Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
+{id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
 {id:'b_stance_rdl',nm:'B-Stance RDL',s:3,rp:'8/side',rst:'2:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'floor_press',nm:'Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
@@ -327,7 +332,7 @@ const BASE_PR={A:[
 {id:'lateral_raise',nm:'Band Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'band',rl:'⚡ Superset with Face Pull. Band = RESISTANCE here (opposite of pull-ups): thicker band = harder. Anchor under foot, lead with elbow, stop at shoulder height. Hit target → thicker band.',tg:15,rstS:60,tempo:'2-0-1-1',bandMode:'resist',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
-{id:'zercher_b',nm:'Zercher Squat (Heavy)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',rl:'PILLAR. Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
+{id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:3,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
@@ -335,17 +340,19 @@ B:[
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'2nd weekly rear-delt exposure. Wide/high pull, elbows flare, squeeze rear delts. Target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure. Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
+{id:'hex_squat_c',nm:'Hex Bar Squat (High Handle, Mod)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',bar:7,rl:'2nd weekly quad exposure. High handles, lighter than Day B. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'pushups',nm:'Push-ups (Bar Grip)',s:4,rp:'8-15',rst:'1:30',rir:'1-2',tp:'bw',rl:'Parallel bars, neutral grip. Band = resistance (across back). Band off to finish.',tg:15,rstS:90,tempo:'3-1-2-1',perSide:false},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'suitcase_march',nm:'Suitcase March',s:3,rp:'30-40 steps/side',rst:'1:30',rir:'controlled',tp:'carry',rl:'32kg. Slow march, no trunk shift. Push toward 40.',tg:40,rstS:90,tempo:'controlled',perSide:true},
+{id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40.',tg:40,rstS:90,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'band',rl:'Finisher. Pause at full extension, resist rotation. Anti-rotation. Target → thicker band.',tg:10,rstS:60,tempo:'2-2-1-0',bandMode:'resist',perSide:true}]};
 
-// ═══════════════ HEX BAR + LANDMINE — removed; equipment not yet owned. ═══════════════
-// When acquired, reintroduce neutral-grip variants (hex DL/RDL/carry, landmine press/row/SL-RDL)
-// and re-add the biweekly swap map. For now the program is straight-bar / KB / band only.
+// ═══════════════ HEX BAR (owned) + LANDMINE (pending) ═══════════════
+// Hex bar arrived → integrated as a STRAIGHT SWAP (not a rotation): hex_dl (Day A),
+// hex_squat_b (Day B), hex_squat_c (Day C), hex_carry (Day C) replace the straight-bar
+// deadlift / Zercher / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
+// Landmine NOT yet owned — OHP stays barbell. Landmine press/row/SL-RDL go here when it lands.
 const HEX_LM_EX=[];
 
 // Location B exercises — pattern-matched to home, no-band fallback
@@ -386,6 +393,10 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 // Legacy exercises — complete stub fields to prevent crashes in getSmartSugg/getRepMin
 // These are no longer in active program but appear in historical sessions
 {id:'bb_row_light',nm:'Barbell Row (Light)',s:2,rp:'10-12',tg:12,rstS:90,tp:'bb',rl:'Legacy (removed v12)',perSide:false},
+// Straight-bar lifts swapped out for hex-bar variants (v19) — kept so pre-swap history/charts resolve
+{id:'deadlift',nm:'Deadlift',s:3,rp:'5',tg:5,rstS:180,tp:'bb',rl:'Legacy — replaced by Hex Bar Deadlift',perSide:false},
+{id:'zercher_b',nm:'Zercher Squat (Heavy)',s:4,rp:'5-6',tg:6,rstS:210,tp:'bb',rl:'Legacy — replaced by Hex Bar Squat',perSide:false},
+{id:'suitcase_march',nm:'Suitcase March',s:3,rp:'30-40 steps/side',tg:40,rstS:90,tp:'carry',rl:'Legacy — replaced by Hex Bar Farmer\'s Carry',perSide:true},
 {id:'kb_swing',nm:'KB Swing',s:3,rp:'12-15',tg:15,rstS:90,tp:'kb',rl:'Legacy (removed v12)',perSide:false},
 {id:'zercher_a',nm:'Zercher (Moderate)',s:3,rp:'6-8',tg:8,rstS:120,tp:'bb',rl:'Legacy (removed v12)',perSide:false},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',tg:10,rstS:120,tp:'band',rl:'Legacy (removed v12)',bandMode:'assist',perSide:false},
@@ -425,8 +436,10 @@ const JOINTS=['Shoulder','Elbow','Wrist'];
 // set total once (a 3×8/side lateral set is 3 sets of stimulus, not 6).
 const MG={
   // Home compounds
-  deadlift:{back:0.5,hams:1,glutes:1}, 
-  rdl:{hams:1,glutes:1,back:0.5}, 
+  deadlift:{back:0.5,hams:1,glutes:1},
+  hex_dl:{back:0.5,hams:1,glutes:1,quads:0.5}, // hex DL is slightly more quad-dominant than straight
+  hex_squat_b:{quads:1,back:0.5}, hex_squat_c:{quads:1,back:0.5}, hex_carry:{core:1},
+  rdl:{hams:1,glutes:1,back:0.5},
   b_stance_rdl:{hams:1,glutes:1}, 
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5},
   cossack_squat:{quads:0.5,glutes:0.5},
@@ -641,6 +654,12 @@ const RPE_SHORT=['L','M','H','VH','MAX'];
 //   addKg — kg to add after multiplication (default 0)
 const RELATED_EX={
   // Home program new exercises
+  // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
+  // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
+  'hex_dl':         {id:null,               seedWt:47, note:'NEW — hex DL ≠ straight deadlift. Feel-out set, start light on the 7kg bar.'},
+  'hex_squat_b':    {id:null,               seedWt:47, note:'NEW — high-handle hex squat ≠ Zercher. Feel-out set, build from light.'},
+  'hex_squat_c':    {id:null,               seedWt:37, note:'NEW — moderate hex squat, lighter than Day B. Feel-out set first.'},
+  'hex_carry':      {id:null,               seedWt:47, note:'NEW — hex farmer carry on the 7kg bar. Start manageable, push distance then load.'},
   'b_stance_rdl':   {id:'rdl',              mult:0.7,  seedWt:32, note:'~70% of bilateral RDL, front-foot loaded'},
   'inverted_row':   {id:'inv_rows_a',       mult:1.0,            note:'similar BW row at partner'},
   'band_er':        {id:'ext_rot',          mult:1.0,            note:'same movement, renamed v12'},
@@ -763,7 +782,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     const repsAch=eRl.length?Math.min(...eRl):ex.tg;
     if(last.wt>0){
       const raw=last.wt*e1rmF(repsAch)/e1rmF(ex.tg);
-      const tgt=ex.tp==='bb'?snapW(raw):Math.round(raw*2)/2;
+      const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
       if(tgt>0&&tgt!==last.wt){
         const dir=tgt<last.wt?'lighter':'heavier';
         return{text:`→ ${tgt}kg${ex.tp==='db'?'/DB':''}`,type:'new',wt:tgt,traj,
@@ -788,7 +807,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     if(ex.tp==='bb'){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
-      const nxt=nxUpN(last.wt,steps);
+      const nxt=nxUpN(last.wt,steps,vwOf(ex));
       // nxUpN can't exceed the plate inventory, so "at ceiling" shows up as no
       // movement (nxt===last.wt), not as nxt>MAX_BB — that branch was unreachable.
       if(nxt<=last.wt){
@@ -801,7 +820,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     return{text:`↑ ${nxt}kg${ex.tp==='db'?'/DB':''}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
-    if(stalls>=3){const d=ex.tp==='bb'?nxDn(last.wt):Math.max(0,Math.round((last.wt-dbInc)*10)/10);
+    if(stalls>=3){const d=ex.tp==='bb'?nxDn(last.wt,vwOf(ex)):Math.max(0,Math.round((last.wt-dbInc)*10)/10);
       return{text:`↓ ${d}kg`,type:'dn',wt:d,traj,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — reset ~10% and rebuild`,regress}}
     if(stalls===2){
       // Before the reset: try a cluster/rep-scheme tweak (GZCLP-style) to break through
@@ -897,7 +916,7 @@ if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');if(vol>pr.bestVol&&pr.bestVol>0)p
 // Shared with the phase re-anchor so load translation uses one curve both ways.
 function e1rmF(reps){return reps<=1?1:Math.min(1+reps/30,Math.pow(reps,0.10))}
 function e1rm(wt,reps){return reps<=0||!wt?0:Math.round(wt*e1rmF(reps)*10)/10}
-function warmupSets(wt){if(!wt||wt<=BAR)return[];const s=[{wt:BAR,reps:8,l:'Bar only'}];const w60=snapW(BAR+(wt-BAR)*.5),w80=snapW(BAR+(wt-BAR)*.8);if(w60>BAR&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80)});return s}
+function warmupSets(wt,bar=BAR,vw=VW){if(!wt||wt<=bar)return[];const s=[{wt:bar,reps:8,l:'Bar only'}];const w60=snapW(bar+(wt-bar)*.5,vw),w80=snapW(bar+(wt-bar)*.8,vw);if(w60>bar&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60,bar)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80,bar)});return s}
 
 // Discomfort analysis
 function getDiscomfortTrend(exId,joint){const recent=D.discomfort.filter(d=>d.exId===exId&&d.joint===joint).slice(-5);
@@ -1185,7 +1204,7 @@ h+=`</div>`;el.innerHTML=h}
 // Seed a LOG row for one exercise (prefilled from last session / smart suggestion).
 // Idempotent — used by beginW and by the swap flow when a new movement enters the day.
 function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=getSmartSugg(ex);
-const defWt=ex.tp==='bb'?BAR:'';
+const defWt=ex.tp==='bb'?barOf(ex):'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
@@ -1317,14 +1336,14 @@ for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=
 
 h+=`<div class="ex-expand">`;
 // Weight/band input
-if(ex.tp==='bb'){const cur=Number(log.wt)||BAR,ix=VW.indexOf(cur);
+if(ex.tp==='bb'){const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar,ix=vw.indexOf(cur);
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
 <div class="stp-b${ix<=0?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${ix>=VW.length-1?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
-h+=plateH(cur)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${esc(fmtPl(cur))}</div>`;
-if(log.wu){const wu=warmupSets(cur);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
+<div class="stp-b${ix>=vw.length-1?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
+if(log.wu){const wu=warmupSets(cur,bar,vw);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`;
 } else if(ex.tp==='db'){
@@ -1401,8 +1420,8 @@ h+=`</div>`;el.innerHTML=h;
 setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scrollIntoView({behavior:'smooth',block:'nearest'})},80)}
 
 // ─── HELPERS ───────────────────────────────────
-function stepWt(id,dir){const c=Number(LOG[id].wt)||BAR,ix=VW.indexOf(c);
-const ni=Math.max(0,Math.min(VW.length-1,ix+dir));LOG[id].wt=VW[ni];LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
+function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id),vw=vwOf(ex),c=Number(LOG[id].wt)||barOf(ex),ix=vw.indexOf(c);
+const ni=Math.max(0,Math.min(vw.length-1,ix+dir));LOG[id].wt=vw[ni];LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 function setL(id,f,v){LOG[id][f]=v;LOG[id].touched=true}
 function setRep(id,i,v){LOG[id].reps[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW();
 const ex=ALL_EX.find(e=>e.id===id);if(ex){const filled=LOG[id].reps.filter(r=>r!==''&&Number(r)>0).length;
@@ -1971,7 +1990,7 @@ ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
 <div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+e.band:''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
-if(e.wt&&e.wt>BAR)h+=plateH(e.wt);h+=`</div>`}
+if(e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def));h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 h+=`<button class="btn-sm btn-rd" style="margin-top:6px" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button></div>`}
 h+=`</div>`}h+=`</div>`;el.innerHTML=h}
