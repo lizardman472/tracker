@@ -93,6 +93,7 @@ T('2 stalls → cluster hold', sg.type === 'stay' && /cluster/i.test(sg.text), s
 d.sessions.push({ id: 'z3', date: '2026-06-03', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [4, 3, 3], band: '' }] });
 sg = getSmartSugg(ohp);
 T('3 stalls → drop weight', sg.type === 'dn' && sg.wt < 31, JSON.stringify(sg));
+T('3 stalls → deload is a real ~10% cut (not one micro-rung)', sg.wt <= 31 * 0.9 + 0.001, JSON.stringify(sg));
 
 // ── KB progression (was a bare "Continue" fallback) ──
 d = freshD();

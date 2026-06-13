@@ -820,8 +820,15 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     return{text:`↑ ${nxt}kg${ex.tp==='db'?'/DB':''}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
-    if(stalls>=3){const d=ex.tp==='bb'?nxDn(last.wt,vwOf(ex)):Math.max(0,Math.round((last.wt-dbInc)*10)/10);
-      return{text:`↓ ${d}kg`,type:'dn',wt:d,traj,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — reset ~10% and rebuild`,regress}}
+    if(stalls>=3){
+      // True deload: back off ~10% (the prior one-rung step was <2% on a micro-plate
+      // ladder, so it sent you straight back into the same wall). bb snaps to the
+      // nearest valid weight ≤90% (never below the bar); micro-load lifts round to 0.5kg.
+      let d;
+      if(ex.tp==='bb'){const vw=vwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else d=Math.max(0,Math.round(last.wt*0.9*2)/2);
+      const cut=Math.round((last.wt-d)*10)/10;
+      return{text:`↓ ${d}kg${ex.tp==='db'?'/DB':''}`,type:'dn',wt:d,traj,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — deload to ${d}kg (−${cut}kg, ~10%) and rebuild`,regress}}
     if(stalls===2){
       // Before the reset: try a cluster/rep-scheme tweak (GZCLP-style) to break through
       return{text:`→ ${last.wt}kg (cluster)`,type:'stay',wt:last.wt,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}

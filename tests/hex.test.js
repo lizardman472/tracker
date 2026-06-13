@@ -95,6 +95,12 @@ dd.sessions = [
 sg = getSmartSugg(hx);
 T('hex_dl confirmed → up lands on a VALID hex weight', sg.type === 'up' && VWH.includes(sg.wt) && sg.wt > 40, JSON.stringify(sg));
 
+// hex_dl 3 stalls → deload ~10% on the HEX ladder (40 → 36), a valid hex weight
+const ds = freshD();
+ds.sessions = [1, 2, 3].map(i => ({ id: 'st' + i, date: '2026-06-0' + i, day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [2, 2, 2], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl'));
+T('hex_dl 3 stalls → real ~10% deload on hex ladder', sg.type === 'dn' && VWH.includes(sg.wt) && sg.wt <= 40 * 0.9 + 0.001 && sg.wt === 36, JSON.stringify(sg));
+
 // ── MG volume: hex lifts count, hex carry excluded from tonnage ──
 T('hex_dl has an MG map', !!MG.hex_dl);
 T('hex_squat_b + hex_carry have MG maps', !!MG.hex_squat_b && !!MG.hex_carry);
