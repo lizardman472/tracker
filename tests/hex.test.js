@@ -63,10 +63,14 @@ T('hex warm-up rungs are valid hex weights', wu.every(s => VWH.includes(s.wt)));
 const A = getProgram(1, 'home').A, B = getProgram(1, 'home').B, C = getProgram(1, 'home').C;
 T('Day A: hex_dl replaces deadlift', A.some(e => e.id === 'hex_dl') && !A.some(e => e.id === 'deadlift'));
 T('Day B: hex_squat_b replaces zercher_b', B.some(e => e.id === 'hex_squat_b') && !B.some(e => e.id === 'zercher_b'));
-T('Day C: hex_squat_c replaces zercher_a', C.some(e => e.id === 'hex_squat_c') && !C.some(e => e.id === 'zercher_a'));
 T('Day C: hex_carry replaces suitcase_march', C.some(e => e.id === 'hex_carry') && !C.some(e => e.id === 'suitcase_march'));
+T('Day C: Zercher Moderate KEPT straight-bar', C.some(e => e.id === 'zercher_a') && C.find(e => e.id === 'zercher_a').bar === undefined && !C.some(e => /^hex_squat/.test(e.id)));
+T('Day C: RDL KEPT straight-bar', C.find(e => e.id === 'rdl').bar === undefined);
+T('no hex_squat_c exists (Day C squat not swapped)', !ALL_EX.some(e => e.id === 'hex_squat_c'));
 T('hex_dl carries bar:7', A.find(e => e.id === 'hex_dl').bar === 7);
+T('hex_squat_b carries bar:7', B.find(e => e.id === 'hex_squat_b').bar === 7);
 T('OHP stays barbell (landmine pending)', B.find(e => e.id === 'ohp').bar === undefined);
+T('Barbell Row KEPT straight-bar', B.find(e => e.id === 'bb_row').bar === undefined);
 
 // ── partner program is untouched ──
 const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);
@@ -75,25 +79,27 @@ T('partner program has no hex lifts', !pAll.some(e => /^hex_/.test(e.id)));
 // ── seeding: new hex lifts start at their seed (no carry-over) ──
 freshD();
 let sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl'));
-T('hex_dl seeds as new lift', sg.type === 'new' && sg.wt === 47);
-sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_squat_c'));
-T('hex_squat_c seeds lighter (37kg)', sg.type === 'new' && sg.wt === 37);
+T('hex_dl seeds at 40kg (valid hex weight)', sg.type === 'new' && sg.wt === 40 && VWH.includes(40));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'hex_squat_b'));
+T('hex_squat_b seeds at 48kg (valid hex weight)', sg.type === 'new' && sg.wt === 48 && VWH.includes(48));
+sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_carry'));
+T('hex_carry seeds at 30kg', sg.type === 'new' && sg.wt === 30);
 
 // ── progression resolves the 7kg ladder ──
 const dd = freshD();
 const hx = getProgram(1, 'home').A.find(e => e.id === 'hex_dl');
 dd.sessions = [
-  { id: 'h1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] },
-  { id: 'h2', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }
+  { id: 'h1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] },
+  { id: 'h2', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }
 ];
 sg = getSmartSugg(hx);
-T('hex_dl confirmed → up lands on a VALID hex weight', sg.type === 'up' && VWH.includes(sg.wt) && sg.wt > 47, JSON.stringify(sg));
+T('hex_dl confirmed → up lands on a VALID hex weight', sg.type === 'up' && VWH.includes(sg.wt) && sg.wt > 40, JSON.stringify(sg));
 
 // ── MG volume: hex lifts count, hex carry excluded from tonnage ──
 T('hex_dl has an MG map', !!MG.hex_dl);
-T('hex_squat_b/c + hex_carry have MG maps', !!MG.hex_squat_b && !!MG.hex_squat_c && !!MG.hex_carry);
-T('hex_dl counts toward tonnage (bb)', calcExVol('hex_dl', 47, [5, 5, 5]) === 47 * 15);
-T('hex_carry excluded from tonnage (carry)', calcExVol('hex_carry', 47, [40, 40, 40]) === 0);
+T('hex_squat_b + hex_carry have MG maps', !!MG.hex_squat_b && !!MG.hex_carry);
+T('hex_dl counts toward tonnage (bb)', calcExVol('hex_dl', 40, [5, 5, 5]) === 40 * 15);
+T('hex_carry excluded from tonnage (carry)', calcExVol('hex_carry', 30, [40, 40, 40]) === 0);
 
 // ── legacy: swapped-out straight-bar ids still resolve for old sessions ──
 T('deadlift legacy stub resolves', !!ALL_EX.find(e => e.id === 'deadlift'));

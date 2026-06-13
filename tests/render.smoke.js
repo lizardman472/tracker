@@ -57,7 +57,7 @@ function tryRender(label, fn) {
 const D = structuredClone(R.SEED);
 D.location = 'home';
 D.sessions.push({ id: 'hxs', date: '2026-06-12', day: 'A', loc: 'home',
-  ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] });
+  ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] });
 R.setD(D);
 
 // ── Home (home location) ──
@@ -75,9 +75,9 @@ tryRender('workout (Day A, hex_dl current)', () => R.beginW('A'));
 const work = R.getA();
 T('workout shows the hex lift name', /Hex Bar Deadlift/.test(work), work.slice(0, 120));
 T('stepper labels the 7kg hex bar', /Hex bar 7kg/.test(work));
-T('stepper hero shows the seeded 47kg', /47<sub>kg<\/sub>/.test(work));
-T('plate math is correct for 47kg on 7kg bar (2×10kg)', /2×10kg/.test(work));
-T('plate visual shows two 10kg plates per side', (work.match(/pl pl-10/g) || []).length === 2);
+T('stepper hero shows the seeded 40kg', /40<sub>kg<\/sub>/.test(work));
+T('plate math is correct for 40kg on 7kg bar (1×10 + 1×5 + 1×1 + 1×0.5/side)', /1×10kg \+ 1×5kg \+ 1×1kg \+ 1×0\.5kg/.test(work));
+T('plate visual shows one 10kg plate per side', (work.match(/pl pl-10/g) || []).length === 1);
 
 // ── Progress tab ──
 tryRender('Progress (stats)', () => R.go('stats'));

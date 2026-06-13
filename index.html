@@ -304,7 +304,7 @@ function nxDn(c,vw=VW){for(let i=vw.length-1;i>=0;i--)if(vw[i]<c)return vw[i];re
 // Jump n discrete plate-steps up from current weight (AMRAP-sized, joint-capped)
 function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw===w)break;w=nw}return w}
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
-const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b','hex_squat_c']);
+const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b']);
 function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
 function plateH(t,bar=BAR){if(!t||t<=bar)return'';const ps=perSide(t,bar);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
@@ -312,11 +312,11 @@ function plateH(t,bar=BAR){if(!t||t<=bar)return'';const ps=perSide(t,bar);if(!ps
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},hex_squat_c:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
+  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},hex_squat_c:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
+  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},hex_squat_c:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
 // load on a phase transition. (Partner DB exercises aren't here, so their targets
@@ -340,7 +340,7 @@ B:[
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'2nd weekly rear-delt exposure. Wide/high pull, elbows flare, squeeze rear delts. Target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'hex_squat_c',nm:'Hex Bar Squat (High Handle, Mod)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',bar:7,rl:'2nd weekly quad exposure. High handles, lighter than Day B. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
+{id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
 {id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'pushups',nm:'Push-ups (Bar Grip)',s:4,rp:'8-15',rst:'1:30',rir:'1-2',tp:'bw',rl:'Parallel bars, neutral grip. Band = resistance (across back). Band off to finish.',tg:15,rstS:90,tempo:'3-1-2-1',perSide:false},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
@@ -349,9 +349,10 @@ C:[
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'band',rl:'Finisher. Pause at full extension, resist rotation. Anti-rotation. Target → thicker band.',tg:10,rstS:60,tempo:'2-2-1-0',bandMode:'resist',perSide:true}]};
 
 // ═══════════════ HEX BAR (owned) + LANDMINE (pending) ═══════════════
-// Hex bar arrived → integrated as a STRAIGHT SWAP (not a rotation): hex_dl (Day A),
-// hex_squat_b (Day B), hex_squat_c (Day C), hex_carry (Day C) replace the straight-bar
-// deadlift / Zercher / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
+// Hex bar arrived → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
+// hex_squat_b heavy (Day B), hex_carry (Day C) replace the straight-bar deadlift /
+// Zercher-heavy / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
+// KEPT straight-bar: Zercher Moderate (Day C core squat), RDL, Barbell Row, all presses.
 // Landmine NOT yet owned — OHP stays barbell. Landmine press/row/SL-RDL go here when it lands.
 const HEX_LM_EX=[];
 
@@ -438,7 +439,7 @@ const MG={
   // Home compounds
   deadlift:{back:0.5,hams:1,glutes:1},
   hex_dl:{back:0.5,hams:1,glutes:1,quads:0.5}, // hex DL is slightly more quad-dominant than straight
-  hex_squat_b:{quads:1,back:0.5}, hex_squat_c:{quads:1,back:0.5}, hex_carry:{core:1},
+  hex_squat_b:{quads:1,back:0.5}, hex_carry:{core:1},
   rdl:{hams:1,glutes:1,back:0.5},
   b_stance_rdl:{hams:1,glutes:1}, 
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5},
@@ -656,10 +657,9 @@ const RELATED_EX={
   // Home program new exercises
   // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
   // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
-  'hex_dl':         {id:null,               seedWt:47, note:'NEW — hex DL ≠ straight deadlift. Feel-out set, start light on the 7kg bar.'},
-  'hex_squat_b':    {id:null,               seedWt:47, note:'NEW — high-handle hex squat ≠ Zercher. Feel-out set, build from light.'},
-  'hex_squat_c':    {id:null,               seedWt:37, note:'NEW — moderate hex squat, lighter than Day B. Feel-out set first.'},
-  'hex_carry':      {id:null,               seedWt:47, note:'NEW — hex farmer carry on the 7kg bar. Start manageable, push distance then load.'},
+  'hex_dl':         {id:null,               seedWt:40, note:'NEW — hex DL ≠ straight deadlift. Feel-out set on the 7kg bar.'},
+  'hex_squat_b':    {id:null,               seedWt:48, note:'NEW — high-handle hex squat (heavy) ≠ Zercher. Feel-out set, build from here.'},
+  'hex_carry':      {id:null,               seedWt:30, note:'NEW — hex farmer carry on the 7kg bar (30kg total). Push distance, then load.'},
   'b_stance_rdl':   {id:'rdl',              mult:0.7,  seedWt:32, note:'~70% of bilateral RDL, front-foot loaded'},
   'inverted_row':   {id:'inv_rows_a',       mult:1.0,            note:'similar BW row at partner'},
   'band_er':        {id:'ext_rot',          mult:1.0,            note:'same movement, renamed v12'},
