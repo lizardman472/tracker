@@ -1,0 +1,16 @@
+{
+  "name": "tracker",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Workout tracker — legacy single-file PWA + new Vite/TS/Svelte app (migration in progress)",
+  "workspaces": [
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace app",
+    "build": "npm run build --workspace app",
+    "preview": "npm run preview --workspace app",
+    "check": "npm run check --workspace app",
+    "test": "node scripts/run-tests.mjs"
+  }
+}
