@@ -1971,7 +1971,7 @@ let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">Body Tracking
 if(wStat){const wc=wStat.change;
 h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${wStat.last.v}<span style="font-size:10px;color:var(--mu)">kg</span></div><div class="estrip-lbl">Current</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:${wc>0?'var(--gr)':wc<0?'var(--bl)':'var(--tx)'}">${wc!=null?(wc>0?'+':'')+wc:'—'}</div><div class="estrip-lbl">Change</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--tx)">${wc!=null?(wc>0?'+':'')+wc:'—'}</div><div class="estrip-lbl">Change</div></div>
 <div class="estrip-cell"><div class="estrip-num">${bl.length}</div><div class="estrip-lbl">Logs</div></div></div>`}
 // input card — prefilled with today's stored values so a re-log edits in place
 const t=today();const todayE=bl.find(b=>b.date===t)||{};
@@ -2003,10 +2003,9 @@ h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">All Measurements</
 <div class="cd" style="overflow-x:auto"><table class="pr-tbl"><tr><th>Site</th><th>Current</th><th>Change</th><th>Logs</th></tr>`;
 for(const{m,st} of tracked){const ch=st.change;
 const chTxt=ch==null?'—':(ch>0?'+':'')+ch+m.u;
-const chCol=ch==null?'var(--dm)':ch>0?'var(--gr)':ch<0?'var(--bl)':'var(--mu)';
 h+=`<tr><td style="font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${m.c};margin-right:6px"></span>${m.lb}</td>
 <td style="color:var(--pr);font-weight:700">${st.last.v}${m.u}</td>
-<td style="color:${chCol};font-weight:700">${chTxt}</td>
+<td style="color:${ch==null?'var(--dm)':'var(--tx)'};font-weight:700">${chTxt}</td>
 <td class="dm">${st.n}</td></tr>`}
 h+=`</table></div>`;
 // Derived: waist-to-hip ratio when both are on record
