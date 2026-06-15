@@ -106,4 +106,17 @@ tryRender('Settings', () => R.go('settings'));
 tryRender('All Valid Weights (plates)', () => R.go('plates'));
 T('plates screen renders the ladder', /All Valid Weights/.test(R.getA()));
 
+// ── Body tracking — empty, then with weight + circumference logs ──
+tryRender('Body (empty)', () => R.go('body'));
+T('empty body screen prompts to log', /Body Tracking/.test(R.getA()));
+R.getD().bodyLog = [
+  { date: '2026-05-01', weight: 80, waist: 86, hips: 98, arms: 36 },
+  { date: '2026-06-01', weight: 78.5, waist: 84, hips: 97, arms: 36.5 },
+];
+tryRender('Body (with logs)', () => R.go('body'));
+const body = R.getA();
+T('body shows current bodyweight', /78\.5/.test(body));
+T('body summary lists a tape-measure site', /Waist/.test(body));
+T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
+
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -1026,7 +1026,7 @@ el.innerHTML=`<div class="timer-pill${TIMER.done?' done':''}"><span class="t-tim
 let CIV=null;
 function render(){const n=document.getElementById('nav');
 if(['workout','summary','cardio','logpast'].includes(VIEW))n.innerHTML='';
-else{const ts=[['home','Today'],['history','History'],['stats','Progress'],['settings','Settings']];
+else{const ts=[['home','Today'],['history','History'],['stats','Progress'],['body','Body'],['settings','Settings']];
 n.innerHTML=ts.map(([v,l])=>`<button class="${VIEW===v?'a':''}" onclick="go('${v}')">${l}</button>`).join('')}
 const a=document.getElementById('app');if(CIV){clearInterval(CIV);CIV=null}
 const fn={home:rHome,workout:rWork,warmup:()=>beginW(ADAY),summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast};
@@ -1938,49 +1938,108 @@ h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="g
 h+=`</div>`;el.innerHTML=h}
 
 // ─── BODY ────────────────────────────────────
+// Body-composition tracking: bodyweight (scale) + circumference sites (tape
+// measure). Every field is optional per log, so you record only what you
+// measured that day. Legacy entries stored weight/waist/arms/chest/thigh — those
+// keys are preserved, the rest are additive, so old data renders unchanged.
+const BODY_METRICS=[
+  {k:'weight',    lb:'Weight',    u:'kg', c:'#38bdf8', step:'0.1'},
+  {k:'neck',      lb:'Neck',      u:'cm', c:'#a78bfa', step:'0.5'},
+  {k:'shoulders', lb:'Shoulders', u:'cm', c:'#f5a524', step:'0.5'},
+  {k:'chest',     lb:'Chest',     u:'cm', c:'#34d399', step:'0.5'},
+  {k:'arms',      lb:'Arms',      u:'cm', c:'#fb7185', step:'0.5'},
+  {k:'forearms',  lb:'Forearms',  u:'cm', c:'#f59e0b', step:'0.5'},
+  {k:'waist',     lb:'Waist',     u:'cm', c:'#60a5fa', step:'0.5'},
+  {k:'hips',      lb:'Hips',      u:'cm', c:'#c084fc', step:'0.5'},
+  {k:'thigh',     lb:'Thigh',     u:'cm', c:'#2dd4bf', step:'0.5'},
+  {k:'calf',      lb:'Calf',      u:'cm', c:'#94a3b8', step:'0.5'}
+];
+let BODY_METRIC='weight';
+// Ordered {date,v} series for one metric (oldest→newest), only the logs that
+// actually recorded it — so a chart never plots a gap as a zero.
+function bodySeries(k){return (D.bodyLog||[]).filter(b=>b[k]!=null&&b[k]!=='').map(b=>({date:b.date,v:Number(b[k])}))}
+function bodyStat(k){const s=bodySeries(k);if(!s.length)return null;
+  const first=s[0],last=s[s.length-1];
+  const change=s.length>=2?Math.round((last.v-first.v)*10)/10:null;
+  return{first,last,change,n:s.length}}
+
 function rBody(el){
 const bl=D.bodyLog||[];
-const wEntries=bl.filter(b=>b.weight);
-const firstW=wEntries[0],lastW=wEntries[wEntries.length-1];
-const wChange=firstW&&lastW&&wEntries.length>=2?Math.round((lastW.weight-firstW.weight)*10)/10:null;
+const wStat=bodyStat('weight');
 let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">Body Tracking</div>`;
-// stat strip if we have data
-if(wEntries.length){h+=`<div class="estrip">
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${lastW.weight}<span style="font-size:10px;color:var(--mu)">kg</span></div><div class="estrip-lbl">Current</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:${wChange>0?'var(--gr)':wChange<0?'var(--bl)':'var(--tx)'}">${wChange!=null?(wChange>0?'+':'')+wChange:'—'}</div><div class="estrip-lbl">Change</div></div>
-<div class="estrip-cell"><div class="estrip-num">${wEntries.length}</div><div class="estrip-lbl">Logs</div></div></div>`}
-// input card
-h+=`<div class="cd"><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-<div><div class="lb">Weight (kg)</div><input type="number" step="0.1" class="body-input" id="bw" placeholder="—" inputmode="decimal"></div>
-<div><div class="lb">Waist (cm)</div><input type="number" step="0.5" class="body-input" id="bwa" placeholder="—" inputmode="decimal"></div>
-<div><div class="lb">Arms (cm)</div><input type="number" step="0.5" class="body-input" id="bar" placeholder="—" inputmode="decimal"></div>
-<div><div class="lb">Chest (cm)</div><input type="number" step="0.5" class="body-input" id="bch" placeholder="—" inputmode="decimal"></div>
-<div><div class="lb">Thigh (cm)</div><input type="number" step="0.5" class="body-input" id="bth" placeholder="—" inputmode="decimal"></div></div>
-<button class="btn btn-pr" style="padding:12px" onclick="saveBod()">Log Today</button></div>`;
-// chart or prompt
-if(wEntries.length>=2){const bD=wEntries.map(b=>({v:b.weight,l:new Date(b.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(bD,360,170,'#38bdf8','Bodyweight (kg)')}</div>`;
-// waist chart if present
-const waEntries=bl.filter(b=>b.waist);if(waEntries.length>=2){const waD=waEntries.map(b=>({v:b.waist,l:new Date(b.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(waD,360,150,'#60a5fa','Waist (cm)')}</div>`}
-}else{h+=`<div class="cd" style="text-align:center;padding:20px"><div style="font-size:24px;margin-bottom:6px">📏</div><div class="dm">Log your bodyweight a couple of times and a trend chart appears here. Weigh in at the same time of day (e.g. morning) for clean data.</div></div>`}
-// history
-if(bl.length){h+=`<div class="lb" style="margin-top:12px;margin-bottom:6px">History</div>`;
-for(const b of[...bl].reverse().slice(0,12)){
-const parts=[];if(b.weight)parts.push(`<b style="color:var(--pr)">${b.weight}kg</b>`);if(b.waist)parts.push(`W ${b.waist}`);if(b.arms)parts.push(`A ${b.arms}`);if(b.chest)parts.push(`C ${b.chest}`);if(b.thigh)parts.push(`T ${b.thigh}`);
-h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:12px">${parts.join(' · ')}</span>
-<span class="dm">${fmtD(b.date)}</span></div></div>`}}
+// headline strip — bodyweight is the anchor metric
+if(wStat){const wc=wStat.change;
+h+=`<div class="estrip">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${wStat.last.v}<span style="font-size:10px;color:var(--mu)">kg</span></div><div class="estrip-lbl">Current</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:${wc>0?'var(--gr)':wc<0?'var(--bl)':'var(--tx)'}">${wc!=null?(wc>0?'+':'')+wc:'—'}</div><div class="estrip-lbl">Change</div></div>
+<div class="estrip-cell"><div class="estrip-num">${bl.length}</div><div class="estrip-lbl">Logs</div></div></div>`}
+// input card — prefilled with today's stored values so a re-log edits in place
+const t=today();const todayE=bl.find(b=>b.date===t)||{};
+const loggedToday=BODY_METRICS.some(m=>todayE[m.k]!=null&&todayE[m.k]!=='');
+h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Log Today · <span class="dm" style="text-transform:none;letter-spacing:0">${fmtD(t)}</span></div>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
+for(const m of BODY_METRICS){const val=todayE[m.k]!=null?todayE[m.k]:'';
+h+=`<div><div class="lb">${m.lb} <span style="color:var(--dm)">${m.u}</span></div>
+<input type="number" step="${m.step}" class="body-input" id="bm_${m.k}" value="${val}" placeholder="—" inputmode="decimal"></div>`}
+h+=`</div><button class="btn btn-pr" style="padding:12px" onclick="saveBod()">${loggedToday?'Update Today':'Log Today'}</button>
+<div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Leave a field blank to skip it.</div></div>`;
+// ── DATA PRESENTATION ──
+// Trend: pick any tracked metric to chart. Chips show only metrics with data.
+const charted=BODY_METRICS.filter(m=>bodySeries(m.k).length>=1);
+if(charted.length){
+if(!bodySeries(BODY_METRIC).length)BODY_METRIC=charted[0].k;
+const sel=BODY_METRICS.find(m=>m.k===BODY_METRIC)||charted[0];
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:8px">Trend</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">`;
+for(const m of charted){const on=m.k===sel.k;
+h+=`<button onclick="setBodyMetric('${m.k}')" style="font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.3px;padding:5px 11px;border-radius:20px;cursor:pointer;border:1.5px solid ${on?m.c:'var(--cb)'};background:${on?m.c:'var(--cd)'};color:${on?'var(--ink)':'var(--mu)'}">${m.lb}</button>`}
+h+=`</div>`;
+const data=bodySeries(sel.k).map(s=>({v:s.v,l:new Date(s.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+h+=`<div class="cd">${svgLine(data,360,180,sel.c,sel.lb+' ('+sel.u+')')}</div>`}
+// Summary table — current value + change-since-first for every tracked site
+const tracked=BODY_METRICS.map(m=>({m,st:bodyStat(m.k)})).filter(x=>x.st);
+if(tracked.length){
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">All Measurements</div>
+<div class="cd" style="overflow-x:auto"><table class="pr-tbl"><tr><th>Site</th><th>Current</th><th>Change</th><th>Logs</th></tr>`;
+for(const{m,st} of tracked){const ch=st.change;
+const chTxt=ch==null?'—':(ch>0?'+':'')+ch+m.u;
+const chCol=ch==null?'var(--dm)':ch>0?'var(--gr)':ch<0?'var(--bl)':'var(--mu)';
+h+=`<tr><td style="font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${m.c};margin-right:6px"></span>${m.lb}</td>
+<td style="color:var(--pr);font-weight:700">${st.last.v}${m.u}</td>
+<td style="color:${chCol};font-weight:700">${chTxt}</td>
+<td class="dm">${st.n}</td></tr>`}
+h+=`</table></div>`;
+// Derived: waist-to-hip ratio when both are on record
+const hSt=bodyStat('hips'),waSt=bodyStat('waist');
+if(hSt&&waSt){const r=Math.round(waSt.last.v/hSt.last.v*100)/100;
+h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px">
+<span style="font-size:12px;font-weight:600">Waist-to-Hip Ratio</span>
+<span class="std-ratio" style="color:var(--pr)">${r}</span></div>`}
+}else{h+=`<div class="cd" style="text-align:center;padding:20px"><div style="font-size:24px;margin-bottom:6px">📏</div><div class="dm">Log a few measurements and trend charts plus a summary table appear here. Weigh in and measure at a consistent time of day for clean data.</div></div>`}
+// history with per-entry delete
+if(bl.length){h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">History · ${bl.length}</div>`;
+for(const b of[...bl].reverse().slice(0,20)){
+const parts=[];for(const m of BODY_METRICS){const v=b[m.k];if(v==null||v==='')continue;
+if(m.k==='weight')parts.unshift(`<b style="color:var(--pr)">${v}kg</b>`);
+else parts.push(`<span class="dm">${m.lb} ${v}</span>`)}
+h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+<span style="font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${parts.join('')}</span>
+<span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="dm">${fmtD(b.date)}</span>
+<button onclick="delBod('${b.date}')" title="Delete" style="border:none;background:var(--ib);color:var(--rd);width:24px;height:24px;border-radius:6px;font-size:12px;cursor:pointer">✕</button></span></div></div>`}}
 h+=`<button class="btn btn-wh" style="margin-top:10px;font-size:13px" onclick="go('stats')">← Back to Progress</button>`;
 h+=`</div>`;el.innerHTML=h}
-window.saveBod=function(){const g=id=>parseFloat(document.getElementById(id)?.value)||null;
-const wt=g('bw'),wa=g('bwa'),ar=g('bar'),ch=g('bch'),th=g('bth');
-if(!wt&&!wa&&!ar&&!ch&&!th){alert('Enter at least one measurement');return}
-// replace today's entry if it exists, else add
-const t=today();const ex=D.bodyLog.findIndex(b=>b.date===t);
-const entry={date:t,weight:wt,waist:wa,arms:ar,chest:ch,thigh:th};
-if(ex>=0)D.bodyLog[ex]=entry;else D.bodyLog.push(entry);
+window.setBodyMetric=function(k){BODY_METRIC=k;render()}
+window.saveBod=function(){
+const t=today();const ix=D.bodyLog.findIndex(b=>b.date===t);
+// Merge onto today's existing entry so a partial re-log doesn't wipe earlier fields.
+const entry=ix>=0?{...D.bodyLog[ix]}:{date:t};
+for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);const v=el?parseFloat(el.value):NaN;
+if(!isNaN(v))entry[m.k]=Math.round(v*100)/100}
+if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){alert('Enter at least one measurement');return}
+if(ix>=0)D.bodyLog[ix]=entry;else D.bodyLog.push(entry);
 D.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));save();render()}
+window.delBod=function(date){if(!confirm('Delete this measurement log?'))return;
+D.bodyLog=(D.bodyLog||[]).filter(b=>b.date!==date);save();render()}
 
 // ─── HISTORY ─────────────────────────────────
 function rHist(el){const ss=[...D.sessions].reverse();
