@@ -321,6 +321,9 @@ function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
 const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b']);
 function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
+// Tolerant weight equality — ladder weights are exact, but a manually-typed "38.0" vs a
+// stored 38 (or re-anchor dust) must still bucket together for stall/confirm counting.
+const wEq=(a,b)=>Math.abs((a||0)-(b||0))<0.001;
 function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,bar,lm);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
@@ -481,11 +484,9 @@ const MG={
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, 
   dips:{chest:1,triceps:1}, pushups:{chest:1,triceps:0.5},
   pullup_a:{back:1,biceps:0.5}, pullup_c:{back:1,biceps:0.5},
-  bb_row:{back:1,biceps:0.5}, 
-  inverted_row:{back:1,biceps:0.5},
+  bb_row:{back:1,biceps:0.5},
   face_pull:{reardelt:1,cuff:0.5}, band_er:{cuff:1}, rear_delt:{reardelt:1},
   bb_rear_row:{reardelt:1,back:0.5}, lm_lateral:{sidedelt:1},
-  band_lateral:{sidedelt:1},
   lateral_raise:{sidedelt:1}, kb_curl:{biceps:1}, band_pushdown:{triceps:1},
   kb_swing:{glutes:0.5,hams:0.5},
   // Core / carries / clubs — the program is deliberately core-heavy (anti-extension,
@@ -627,7 +628,7 @@ const pr=getCurPR();const allDays=Object.values(pr);
 let stalledEx=0,totalEx=0,progressingEx=0;
 for(const day of allDays)for(const ex of day){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;
-  if(sg.type==='dn')stalledEx++;
+  if(sg.type==='dn'||sg.stalled)stalledEx++;
   if(sg.type==='up'||sg.type==='cf')progressingEx++}
 const timerDue=wksSince>=p.wk;
 const stallDue=stalledEx>=2; // 2+ exercises genuinely stalling (below min range)
@@ -703,12 +704,10 @@ const RELATED_EX={
   'lm_pallof':      {id:null,               seedWt:11, note:'NEW — landmine anti-rotation replaces band Pallof. Start bar-only (11kg), then load the free end.'},
   'lm_180':         {id:null,               seedWt:11, note:'NEW — landmine 180 finisher. Start bar-only (11kg), drive from hips, load the free end slowly.'},
   'b_stance_rdl':   {id:'rdl',              mult:0.7,  seedWt:32, note:'~70% of bilateral RDL, front-foot loaded'},
-  'inverted_row':   {id:'inv_rows_a',       mult:1.0,            note:'similar BW row at partner'},
   'band_er':        {id:'ext_rot',          mult:1.0,            note:'same movement, renamed v12'},
   'pallof_press':   {id:'pallof',           mult:1.0,            note:'same movement, renamed v12'},
   // Delts / arms — no clean peer lift, use validated starting loads from audit prescription
   'lateral_raise':  {id:null,               seedBand:'Red',      note:'never trained — start lightest band (Red), strict to 15, then → thicker band'},
-  'band_lateral':   {id:null,               seedBand:'Red',      note:'band resistance; mirrors home lateral. Start Red → thicker as you progress'},
   'rear_delt':      {id:null,               seedBand:'Red',      note:'new movement — start lightest band (Red), build up. Do NOT inherit maxed face-pull band'},
   'kb_curl':        {id:null,               seedWt:16,           note:'neutral-grip KB by horns, soft elbow'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
@@ -716,7 +715,6 @@ const RELATED_EX={
   'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},
   'db_floor_press': {id:'db_floor_press_v', mult:1.0, addKg:0.5, note:'heavy slot, +0.5kg over volume slot'},
   'db_sl_rdl':      {id:'db_lunge',         mult:1.0,            note:'similar unilateral DB load'},
-  'inv_rows_a':     {id:'inverted_row',     mult:1.0,            note:'similar BW row at home'},
   'cb_mills':       {id:'cb_shield',        mult:1.0,            note:'same clubbell weight class'}
 };
 
@@ -790,12 +788,15 @@ if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
 }
 if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const mn=getRepMin(ex);
-  const atW=hist.filter(h=>h.wt===last.wt);
+  const atW=hist.filter(h=>wEq(h.wt,last.wt));
   const hitTarget=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=ex.tg)};
   const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=mn)};
   const stalls=atW.filter(h=>!inRange(h)).length;
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
-  const hitsAtW=atW.filter(h=>hitTarget(h)&&sessClean(h)).length;
+  // Confirm brake counts CONSECUTIVE recent clean target-hits at the current weight ending
+  // now — not lifetime hits — so re-approaching a previously-confirmed weight (after a
+  // deload) still requires a fresh confirm session rather than advancing immediately.
+  const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(h.wt,last.wt)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
   const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
     const ps=effectiveReps(ex,p.reps).reduce((a,b)=>a+b,0),cs=effectiveReps(ex,h.reps).reduce((a,b)=>a+b,0);
@@ -805,23 +806,22 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,curr.reps).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${last.wt}kg`}
   if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
-    if(prev.wt&&last.wt&&last.wt<prev.wt)regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
-    else if(prev.wt===last.wt){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,last.reps).reduce((a,b)=>a+b,0);
+    if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
+    else if(wEq(prev.wt,last.wt)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,last.reps).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(discWarn)regress=discWarn;
   const dbInc=ex.tp==='db'?0.5:1;
   // Discomfort override — hold weight if moderate pain trending
   if(modDisc>=2){return{text:`→ ${last.wt}kg (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress}}
-  // Phase-transition re-anchor: if the last session predates the current phase and
-  // this lift's rep target changed, re-derive the working load from e1RM for the new
-  // target. Higher-rep phases (Hypertrophy) land lighter; low-rep phases (Strength)
-  // land heavier — closing the "Phase 2 promises −15% but nothing does it" gap and
-  // avoiding a stall when Phase-1 loads meet Phase-2 rep targets. No-op if you were
-  // already at the right load. Ratio = e1rmF(oldReps)/e1rmF(newTg) — same curve in
-  // both directions, so the formula's absolute inaccuracy largely cancels.
+  // Phase-transition re-anchor: if the last session predates the current phase and this
+  // lift's rep target changed, re-derive the working load from e1RM for the new target.
+  // The achieved reps are CAPPED at the new target so a strong over-target AMRAP can't
+  // inflate the anchor heavier: higher-rep phases (Hypertrophy) land lighter, while a
+  // lower-rep phase holds at the proven load (tgt===last.wt → no-op) and progresses up
+  // from there. Ratio = e1rmF(min(oldReps,newTg))/e1rmF(newTg), so it only ever drops.
   if(PHASE_ADJ_IDS.has(ex.id)&&D.phaseStart&&last.date<D.phaseStart){
     const eRl=effectiveReps(ex,last.reps);
-    const repsAch=eRl.length?Math.min(...eRl):ex.tg;
+    const repsAch=eRl.length?Math.min(Math.min(...eRl),ex.tg):ex.tg;
     if(last.wt>0){
       const raw=last.wt*e1rmF(repsAch)/e1rmF(ex.tg);
       const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
@@ -869,8 +869,14 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
       let d;
       if(ex.tp==='bb'){const vw=vwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
       else d=Math.max(0,Math.round(last.wt*0.9*2)/2);
+      // At/near the lightest load (bar-only) there is no lower rung — a "deload" would be a
+      // phantom 0kg cut. Switch to rep/tempo rebuild instead of printing a fake percentage.
+      if(d>=last.wt){
+        return{text:`→ ${last.wt}kg${ex.tp==='db'?'/DB':''} (rebuild)`,type:'stay',wt:last.wt,traj,stalled:true,
+          detail:`${stalls} stalls at ${last.wt}kg — already the lightest load. Add tempo/pauses and rebuild ${ex.s}×${mn}${ex.perSide?'/side':''} reps before adding load.`,regress}}
       const cut=Math.round((last.wt-d)*10)/10;
-      return{text:`↓ ${d}kg${ex.tp==='db'?'/DB':''}`,type:'dn',wt:d,traj,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — deload to ${d}kg (−${cut}kg, ~10%) and rebuild`,regress}}
+      const pct=Math.round((last.wt-d)/last.wt*100);
+      return{text:`↓ ${d}kg${ex.tp==='db'?'/DB':''}`,type:'dn',wt:d,traj,stalled:true,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — deload to ${d}kg (−${cut}kg, ~${pct}%) and rebuild`,regress}}
     if(stalls===2){
       // Before the reset: try a cluster/rep-scheme tweak (GZCLP-style) to break through
       return{text:`→ ${last.wt}kg (cluster)`,type:'stay',wt:last.wt,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}

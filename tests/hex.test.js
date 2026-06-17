@@ -147,4 +147,28 @@ T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'u
 T('landmine lifts + bb_rear_row have MG maps', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row);
 T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13, [10, 10, 10]) === 13 * 2 * 30);
 
+// ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
+let cd = freshD();
+cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
+let cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+T('stall at bar-only floor → rebuild hold (not a fake deload)', cdSg.type === 'stay' && cdSg.wt === 11 && !/%/.test(cdSg.detail), JSON.stringify(cdSg));
+// Above the floor, the deload reports the ACTUAL percent cut, not a hardcoded ~10%.
+cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
+cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+T('low-weight deload reports honest percent (12→11 ≈ 8%)', cdSg.type === 'dn' && cdSg.wt === 11 && /~8%/.test(cdSg.detail), JSON.stringify(cdSg));
+// A heavier lift still gets a real ~10% deload (regression guard).
+cd = freshD();
+cd.sessions = [1, 2, 3].map(i => ({ id: 'cm' + i, date: '2026-06-0' + i, day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [2, 2, 2], band: '', form: [5, 5, 5] }] }));
+cdSg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('heavy lift still deloads a real ~10% (41→≤36.9)', cdSg.type === 'dn' && cdSg.wt <= 41 * 0.9 + 0.001, JSON.stringify(cdSg));
+
+// ── AUDIT FIX P1: dangling/orphan references removed ──
+T('inverted_row orphan removed from MG', !MG.inverted_row);
+T('band_lateral orphan removed from MG', !MG.band_lateral);
+T('inv_rows_a (active partner lift) keeps its MG map', !!MG.inv_rows_a);
+const irD = freshD({ location: 'partner' });
+irD.sessions = [];
+const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'inv_rows_a'));
+T('inv_rows_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
+
 console.log(`\n${pass} passed, ${fail} failed`);

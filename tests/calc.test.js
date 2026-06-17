@@ -218,5 +218,49 @@ d.cardioLog[0].intensity = 'easy'; const fEasy = getFatigue().score;
 d.cardioLog[0].intensity = 'hard'; const fHard = getFatigue().score;
 T('moderate cardio between easy and hard', fEasy < fMod && fMod < fHard, JSON.stringify({ fEasy, fMod, fHard }));
 
+// ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+// A strong over-target AMRAP in the old phase must NOT re-anchor heavier into the new phase.
+d.sessions = [{ id: 'ra1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 40, reps: [15, 15, 15], band: '' }] }];
+let raSg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('strong AMRAP does not re-anchor heavier on phase change', raSg.type !== 'new' || raSg.wt <= 40, JSON.stringify(raSg));
+// A sub-target prior session still re-anchors lighter (documented intent intact).
+d.sessions = [{ id: 'ra2', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 40, reps: [5, 5, 5], band: '' }] }];
+raSg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('sub-target prior session still re-anchors lighter', raSg.type === 'new' && raSg.wt < 40, JSON.stringify(raSg));
+
+// ── AUDIT FIX M3: confirm brake re-arms on re-approach after a deload ──
+d = freshD();
+d.sessions = [
+  { id: 'cf1', date: '2026-05-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] },
+  { id: 'cf2', date: '2026-05-03', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] },
+  { id: 'cf3', date: '2026-05-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] },
+  { id: 'cf4', date: '2026-05-20', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
+T('confirm brake re-arms when re-approaching a previously-confirmed weight', getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl')).type === 'cf');
+d.sessions.push({ id: 'cf5', date: '2026-05-22', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] });
+T('two consecutive confirms then advance', getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl')).type === 'up');
+
+// ── AUDIT FIX M4: float-dust weights bucket as the same load ──
+d = freshD();
+d.sessions = [
+  { id: 'fd1', date: '2026-05-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47.0000001, reps: [5, 5, 5], band: '' }] },
+  { id: 'fd2', date: '2026-05-03', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
+T('float-dust weights bucket together (47.0000001 ≡ 47 → confirmed, advances)', getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl')).type === 'up');
+// Float-dust must NOT fire a phantom "weight dropped" advisory (regress uses wEq now).
+d = freshD();
+d.sessions = [
+  { id: 'rg1', date: '2026-05-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47.0000001, reps: [5, 5, 5], band: '' }] },
+  { id: 'rg2', date: '2026-05-03', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
+T('float-dust does not trigger a phantom "weight dropped" advisory', !/Weight dropped/.test(getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl')).regress || ''));
+
+// ── AUDIT FIX C1 follow-up: a floor-stall still registers for phase reassessment ──
+// The new 'stay' rebuild carries stalled:true, so getPhaseInfo's stall counter is unchanged.
+d = freshD({ phaseStart: '2026-01-01' });
+d.sessions = [];
+for (const id of ['lm_pallof', 'lm_180']) for (let i = 1; i <= 3; i++)
+  d.sessions.push({ id: id + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id, wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] });
+const pi = getPhaseInfo();
+T('two floor-stalled lifts still count toward phase reassessment', pi.stalledEx >= 2 && pi.stallDue === true, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
