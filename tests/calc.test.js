@@ -32,8 +32,8 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
 // ── ALL_EX integrity ──
 const ids = ALL_EX.map(e => e.id);
 T('ALL_EX ids unique', new Set(ids).size === ids.length);
-// lateral_raise appears on Day A (s:3) and Day B (s:4); dedup must keep the first (active) def.
-T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lateral_raise').s === 3);
+// lm_lateral appears on Day A (s:3) and Day B (s:4); dedup must keep the first (active) def.
+T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').s === 3);
 // Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
 T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
 
@@ -67,8 +67,8 @@ d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 
 let sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'cossack_squat'));
 T('per-side hit-target → up', sg.type === 'up', JSON.stringify(sg));
 
-d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'pallof_press', wt: null, reps: [10, 10, 10], band: 'Purple' }] }];
-sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'pallof_press'));
+d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [15, 15], band: 'Purple' }] }];
+sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'band_er'));
 T('per-side band hit-target → up', sg.type === 'up', sg.text);
 
 const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp');
