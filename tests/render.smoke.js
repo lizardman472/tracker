@@ -105,6 +105,8 @@ if (histOk) {
 tryRender('Settings', () => R.go('settings'));
 tryRender('All Valid Weights (plates)', () => R.go('plates'));
 T('plates screen renders the ladder', /All Valid Weights/.test(R.getA()));
+T('plates screen has both bar sections', /Straight Bar/.test(R.getA()) && /Landmine — load 1 end/.test(R.getA()));
+T('plates screen lists the finer 11.25kg landmine rung', /11\.25/.test(R.getA()));
 
 // ── Body tracking — empty, then with weight + circumference logs ──
 tryRender('Body (empty)', () => R.go('body'));

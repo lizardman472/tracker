@@ -2176,13 +2176,25 @@ const last=D.sessions[D.sessions.length-1];
 D.nextDay=NEXT_DAY[last.day]||'A';
 save();go('history')}
 // ─── PLATES ──────────────────────────────────
-function rPlates(el){let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">All Valid Weights (${VW.length})</div>`;
-let prev=null;for(const w of VW){const j=prev!==null?`+${w-prev}kg`:'';
-h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:8px;margin-bottom:2px;${VW.indexOf(w)%2?'':'background:var(--cd)'}">
-<div><span style="font-size:15px;font-weight:700">${w}</span><span class="dm"> kg</span></div>
-<div style="text-align:right"><div style="font-size:10px;color:var(--mu)">${esc(fmtPl(w))}</div>
-${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
-h+=`</div>`;el.innerHTML=h}
+function rPlates(el){
+  // Render one weight ladder as a labelled section. lm=true → single-end (landmine) plate
+  // breakdown; otherwise symmetric per-side. Reused for the straight bar and the landmine.
+  const ladder=(title,sub,vw,lm)=>{
+    let h=`<div class="lb" style="margin:16px 0 4px">${title} <span class="dm" style="font-weight:400">· ${vw.length}</span></div>`;
+    if(sub)h+=`<div style="font-size:11px;color:var(--mu);margin-bottom:8px">${sub}</div>`;
+    let prev=null;
+    for(let i=0;i<vw.length;i++){const w=vw[i],j=prev!==null?`+${Math.round((w-prev)*100)/100}kg`:'';
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:8px;margin-bottom:2px;${i%2?'':'background:var(--cd)'}">
+      <div><span style="font-size:15px;font-weight:700">${w}</span><span class="dm"> kg</span></div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--mu)">${esc(fmtPl(w,BAR,lm))}</div>
+      ${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
+    return h;
+  };
+  let h=`<div class="sec"><div class="lb" style="margin-bottom:2px">All Valid Weights</div>`;
+  h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false);
+  h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true);
+  h+=`</div>`;el.innerHTML=h;
+}
 
 // ─── SETTINGS ────────────────────────────────
 function rSet(el){const sz=(new Blob([JSON.stringify(D)])).size;const phi=getPhaseInfo();
