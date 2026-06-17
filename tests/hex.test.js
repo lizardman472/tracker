@@ -13,13 +13,13 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,VW,VWH,BAR,HEXBAR,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,VW,VWH,VWL,BAR,HEXBAR,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, VW, VWH, BAR, HEXBAR, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, VW, VWH, VWL, BAR, HEXBAR, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -112,5 +112,39 @@ T('deadlift legacy stub resolves', !!ALL_EX.find(e => e.id === 'deadlift'));
 T('zercher_b legacy stub resolves', !!ALL_EX.find(e => e.id === 'zercher_b'));
 T('suitcase_march legacy stub resolves', !!ALL_EX.find(e => e.id === 'suitcase_march'));
 T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
+
+// ── LANDMINE single-sided model (VWL) ──
+// Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
+// single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
+// two-handed barbell row and must stay symmetric.
+const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_180'];
+T('landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
+T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
+T('VWL floor is the 11kg bar', VWL[0] === 11);
+T('VWL is finer than VW — includes 11.25 (lone 0.25 on one end)', VWL.includes(11.25) && !VW.includes(11.25));
+T('VWL includes 11.75 (lone 0.75); VW (mirrored pairs) cannot', VWL.includes(11.75) && !VW.includes(11.75));
+T('every symmetric VW weight is also single-side loadable (VW ⊆ VWL)', VW.every(w => VWL.includes(w)));
+T('vwOf routes a landmine lift to VWL', vwOf(ALL_EX.find(e => e.id === 'lm_pallof')) === VWL);
+T('vwOf routes bb_rear_row to symmetric VW', vwOf(ALL_EX.find(e => e.id === 'bb_rear_row')) === VW);
+T('vwOf still routes the hex bar to VWH', vwOf({ bar: 7 }) === VWH);
+// Same total, different breakdown: single-end stacks the pair on one sleeve (no ÷2).
+T('single-end fmtPl(13) = 2×1kg (both on one end)', fmtPl(13, 11, true) === '2×1kg');
+T('symmetric fmtPl(13) = 1×1kg (per side)', fmtPl(13, 11, false) === '1×1kg');
+T('single-end fmtPl(16) = 1×5kg (one plate on the end)', fmtPl(16, 11, true) === '1×5kg');
+T('symmetric fmtPl(16) = 1×2.5kg (per side)', fmtPl(16, 11, false) === '1×2.5kg');
+T('single-end perSide(11.25) = one lone 0.25 plate', JSON.stringify(perSide(11.25, 11, true)) === JSON.stringify([{ w: 0.25, c: 1 }]));
+T('single-end perSide(11.25) impossible symmetric (null)', perSide(11.25, 11, false) === null);
+T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5, 11, true)));
+// Seeding: landmine lifts seed at the 11kg bar-only floor (a valid VWL weight).
+let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && lsg.wt === 11 && VWL.includes(11));
+// Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
+const dlm = freshD();
+dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
+lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
+// Volume: landmine lifts have MG maps and count on the bb tonnage path (perSide doubles).
+T('landmine lifts + bb_rear_row have MG maps', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row);
+T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13, [10, 10, 10]) === 13 * 2 * 30);
 
 console.log(`\n${pass} passed, ${fail} failed`);

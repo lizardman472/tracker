@@ -294,11 +294,26 @@ function buildVW(barW){
 }
 const VW=buildVW(BAR);      // 11kg straight bar (default)
 const VWH=buildVW(HEXBAR);  // 7kg hex/trap bar
-// Resolve the bar weight + valid-weight ladder an exercise loads on (hex lifts carry bar:7).
+// Landmine lifts (lm:true) load ONE end only — the other pivots on the floor — so plates
+// are NOT mirrored: each plate type can fill the single sleeve up to its FULL owned count,
+// and total = bar + that single-side load. This is a finer ladder than the symmetric one
+// (a lone 0.25kg micro plate → 11.25kg, which mirrored pairs can't make). Bar is still 11kg.
+function buildVWL(barW){
+  let combos=[0];
+  for(const p of PL){const next=[];for(const base of combos)for(let c=0;c<=p.q;c++)next.push(base+c*p.w);combos=[...new Set(next)]}
+  const set=new Set([barW]);
+  for(const side of combos){const t=Math.round((barW+side)*100)/100;if(t<=MAX_BB)set.add(t)}
+  return [...set].sort((a,b)=>a-b);
+}
+const VWL=buildVWL(BAR);    // 11kg straight bar, single-end (landmine) loading
+// Resolve the bar weight + valid-weight ladder an exercise loads on (hex lifts carry bar:7,
+// landmine lifts carry lm:true and load one end on the 11kg bar's single-sided ladder).
 function barOf(ex){return ex&&ex.bar?ex.bar:BAR}
-function vwOf(ex){return ex&&ex.bar===HEXBAR?VWH:VW}
-function perSide(t,bar=BAR){let r=(t-bar)/2;if(r<0)return null;const o=[];for(const p of PL){const m=p.q/2;let c=Math.min(Math.floor(r/p.w),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}return Math.abs(r)<.01?o:null}
-function fmtPl(t,bar=BAR){if(t<=bar)return'Bar only';const p=perSide(t,bar);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
+function vwOf(ex){return ex&&ex.lm?VWL:ex&&ex.bar===HEXBAR?VWH:VW}
+// Plate breakdown. lm=true → single loaded end (no ÷2, plates available up to full count);
+// otherwise symmetric per-side (÷2, capped at half the owned pairs).
+function perSide(t,bar=BAR,lm=false){let r=lm?(t-bar):(t-bar)/2;if(r<0)return null;const o=[];for(const p of PL){const m=lm?p.q:p.q/2;let c=Math.min(Math.floor(r/p.w),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}return Math.abs(r)<.01?o:null}
+function fmtPl(t,bar=BAR,lm=false){if(t<=bar)return'Bar only';const p=perSide(t,bar,lm);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
 function nxUp(c,vw=VW){for(const w of vw)if(w>c)return w;return c}
 function nxDn(c,vw=VW){for(let i=vw.length-1;i>=0;i--)if(vw[i]<c)return vw[i];return c}
 // Jump n discrete plate-steps up from current weight (AMRAP-sized, joint-capped)
@@ -306,7 +321,7 @@ function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
 const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b']);
 function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
-function plateH(t,bar=BAR){if(!t||t<=bar)return'';const ps=perSide(t,bar);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
+function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,bar,lm);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
@@ -329,14 +344,14 @@ const BASE_PR={A:[
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'floor_press',nm:'Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. True plate weight on the 11kg bar (leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:3,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. True plate weight on the 11kg bar. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false}],
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
@@ -345,22 +360,26 @@ C:[
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40.',tg:40,rstS:90,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
-{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. True plate weight on the 11kg bar. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-2-1-0',perSide:true},
-{id:'lm_180',nm:'Landmine 180',s:2,rp:'8-10/side',rst:'1:00',rir:'2',tp:'bb',rl:'OPTIONAL finisher. Bar end at chest height, arms extended. Sweep the bar in an arc side to side, driving from the hips/trunk — NOT the arms. Controlled range, keep it light. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'controlled',perSide:true,optional:true}]};
+{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-2-1-0',perSide:true},
+{id:'lm_180',nm:'Landmine 180',s:2,rp:'8-10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'OPTIONAL finisher. Bar end at chest height, arms extended. Sweep the bar in an arc side to side, driving from the hips/trunk — NOT the arms. Controlled range, keep it light. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'controlled',perSide:true,optional:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
 // hex_squat_b heavy (Day B), hex_carry (Day C) replace the straight-bar deadlift /
 // Zercher-heavy / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
 // KEPT straight-bar: Zercher Moderate (Day C core squat), RDL, Barbell Row, all presses.
-// Landmine arrived → band→trackable accessory cleanup. Landmine lifts are MODELLED AS
-// NORMAL 11kg-bar barbell lifts on the standard VW ladder (true plate weight, no
-// effective-load math — leverage just makes them feel lighter, which is intended):
+// Landmine arrived → band→trackable accessory cleanup. The three landmine lifts carry
+// lm:true and load ONE end of the 11kg bar (the other pivots on the floor), so they ride
+// a dedicated SINGLE-SIDED ladder (VWL): plates fill the single sleeve up to full owned
+// count, total = 11kg bar + that load, with finer steps than mirrored pairs (e.g. 11.25kg).
+// Leverage still makes them feel lighter than the number — that's expected, not modelled.
 //   • lm_lateral  → Landmine Lateral Raise replaces Band Lateral Raise (Day A + Day B)
 //   • lm_pallof   → Landmine Anti-Rotation replaces Pallof Press (Day C)
 //   • lm_180      → Landmine 180 added as an OPTIONAL Day C finisher
-//   • bb_rear_row → Bent-Over Barbell Rear-Delt Row replaces Band Face Pull (Day A);
-//                   Band Rear-Delt / High Face Pull (Day B) dropped as now-redundant.
+// bb_rear_row (Bent-Over Barbell Rear-Delt Row, replaces Band Face Pull on Day A) is a
+// TRUE two-handed barbell row — loaded on both ends, so it stays on the symmetric VW ladder.
+//   • bb_rear_row → replaces Band Face Pull (Day A); Band Rear-Delt / High Face Pull (Day B)
+//                   dropped as now-redundant.
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
@@ -676,12 +695,13 @@ const RELATED_EX={
   'hex_squat_b':    {id:null,               seedWt:48, note:'NEW — high-handle hex squat (heavy) ≠ Zercher. Feel-out set, build from here.'},
   'hex_carry':      {id:null,               seedWt:30, note:'NEW — hex farmer carry on the 7kg bar (30kg total). Push distance, then load.'},
   // Landmine / barbell accessory swaps (NEW — loads do NOT carry from the band lifts they replace).
-  // Modelled as normal 11kg-bar lifts: seed = TRUE total plate weight, feel-out then progress.
-  // The 11kg bar IS the floor — landmine lifts start bar-only (11kg); leverage makes that feel light.
+  // Landmine lifts load ONE end of the 11kg bar, so 11kg (bar only) is the floor — seed there
+  // and add plates to the free end up the single-sided ladder. bb_rear_row is a true two-handed
+  // barbell row, seeded as a normal symmetric lift.
   'bb_rear_row':    {id:null,               seedWt:15, note:'NEW — barbell rear-delt row replaces band face pull. Feel-out at 15kg (1kg/side), build from there.'},
-  'lm_lateral':     {id:null,               seedWt:11, note:'NEW — landmine lateral. Start bar-only (11kg); leverage makes it feel light. Add plates as it gets easy.'},
-  'lm_pallof':      {id:null,               seedWt:11, note:'NEW — landmine anti-rotation replaces band Pallof. Start bar-only (11kg), then load.'},
-  'lm_180':         {id:null,               seedWt:11, note:'NEW — landmine 180 finisher. Start bar-only (11kg), drive from hips, build slowly.'},
+  'lm_lateral':     {id:null,               seedWt:11, note:'NEW — landmine lateral. Start bar-only (11kg, no plates); leverage makes it feel light. Add plates to the free end as it gets easy.'},
+  'lm_pallof':      {id:null,               seedWt:11, note:'NEW — landmine anti-rotation replaces band Pallof. Start bar-only (11kg), then load the free end.'},
+  'lm_180':         {id:null,               seedWt:11, note:'NEW — landmine 180 finisher. Start bar-only (11kg), drive from hips, load the free end slowly.'},
   'b_stance_rdl':   {id:'rdl',              mult:0.7,  seedWt:32, note:'~70% of bilateral RDL, front-foot loaded'},
   'inverted_row':   {id:'inv_rows_a',       mult:1.0,            note:'similar BW row at partner'},
   'band_er':        {id:'ext_rot',          mult:1.0,            note:'same movement, renamed v12'},
@@ -945,7 +965,7 @@ if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');if(vol>pr.bestVol&&pr.bestVol>0)p
 // Shared with the phase re-anchor so load translation uses one curve both ways.
 function e1rmF(reps){return reps<=1?1:Math.min(1+reps/30,Math.pow(reps,0.10))}
 function e1rm(wt,reps){return reps<=0||!wt?0:Math.round(wt*e1rmF(reps)*10)/10}
-function warmupSets(wt,bar=BAR,vw=VW){if(!wt||wt<=bar)return[];const s=[{wt:bar,reps:8,l:'Bar only'}];const w60=snapW(bar+(wt-bar)*.5,vw),w80=snapW(bar+(wt-bar)*.8,vw);if(w60>bar&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60,bar)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80,bar)});return s}
+function warmupSets(wt,bar=BAR,vw=VW,lm=false){if(!wt||wt<=bar)return[];const s=[{wt:bar,reps:8,l:'Bar only'}];const w60=snapW(bar+(wt-bar)*.5,vw),w80=snapW(bar+(wt-bar)*.8,vw);if(w60>bar&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60,bar,lm)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80,bar,lm)});return s}
 
 // Discomfort analysis
 function getDiscomfortTrend(exId,joint){const recent=D.discomfort.filter(d=>d.exId===exId&&d.joint===joint).slice(-5);
@@ -1371,8 +1391,8 @@ h+=`<div class="stp-big">
 <div class="stp-row">
 <div class="stp-b${ix<=0?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
 <div class="stp-b${ix>=vw.length-1?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
-h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
-if(log.wu){const wu=warmupSets(cur,bar,vw);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
+h+=plateH(cur,bar,ex.lm)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${ex.lm?'Landmine · load 1 end · ':bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar,ex.lm))}</div>`;
+if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`;
 } else if(ex.tp==='db'){
@@ -2077,7 +2097,7 @@ ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
 <div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+e.band:''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
-if(e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def));h+=`</div>`}
+if(e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 h+=`<button class="btn-sm btn-rd" style="margin-top:6px" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button></div>`}
 h+=`</div>`}h+=`</div>`;el.innerHTML=h}
