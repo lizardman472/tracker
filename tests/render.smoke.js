@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,setD:d=>{D=d},getD:()=>D,go,beginW,render,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -78,6 +78,17 @@ T('stepper labels the 7kg hex bar', /Hex bar 7kg/.test(work));
 T('stepper hero shows the seeded 40kg', /40<sub>kg<\/sub>/.test(work));
 T('plate math is correct for 40kg on 7kg bar (1×10 + 1×5 + 1×1 + 1×0.5/side)', /1×10kg \+ 1×5kg \+ 1×1kg \+ 1×0\.5kg/.test(work));
 T('plate visual shows one 10kg plate per side', (work.match(/pl pl-10/g) || []).length === 1);
+
+// ── Bar-loaded carry (hex_carry, Day C) shows the plate diagram like barbell lifts ──
+tryRender('workout (Day C)', () => R.beginW('C'));
+const dcIds = R.dayExs('C').map(e => e.id);
+R.setCIDX(dcIds.indexOf('hex_carry'));
+R.getLOG()['hex_carry'].wt = 30;
+tryRender('Day C hex_carry current', () => R.render());
+const carry = R.getA();
+T('hex_carry workout shows a plate visual', /class="pl /.test(carry));
+T('hex_carry workout labels the 7kg hex bar', /Hex bar 7kg/.test(carry));
+T('hex_carry plate math for 30kg on the 7kg bar', /1×10kg \+ 1×1kg \+ 1×0\.5kg/.test(carry));
 
 // ── Progress tab (default exercise) ──
 tryRender('Progress (stats)', () => R.go('stats'));

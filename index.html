@@ -1412,7 +1412,10 @@ h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="w
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
 } else if(ex.tp==='carry'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`
+<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`;
+// Bar-loaded carries (e.g. the 7kg hex bar) get the same plate-loading diagram as barbell
+// lifts; dumbbell/suitcase carries have no bar field and skip it.
+if(ex.bar){const cur=Number(log.wt)||0;if(cur>barOf(ex))h+=plateH(cur,barOf(ex))+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${barOf(ex)===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,barOf(ex)))}</div>`}
 } else if(ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
 <input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`}
