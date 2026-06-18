@@ -257,7 +257,8 @@ T('float-dust does not trigger a phantom "weight dropped" advisory', !/Weight dr
 // The new 'stay' rebuild carries stalled:true, so getPhaseInfo's stall counter is unchanged.
 d = freshD({ phaseStart: '2026-01-01' });
 d.sessions = [];
-for (const id of ['lm_pallof', 'lm_180']) for (let i = 1; i <= 3; i++)
+// lm_pallof (Day C) and lm_lateral (Day A/B) both seed at the 11kg bar-only floor.
+for (const id of ['lm_pallof', 'lm_lateral']) for (let i = 1; i <= 3; i++)
   d.sessions.push({ id: id + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id, wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] });
 const pi = getPhaseInfo();
 T('two floor-stalled lifts still count toward phase reassessment', pi.stalledEx >= 2 && pi.stallDue === true, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));

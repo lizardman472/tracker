@@ -117,8 +117,9 @@ T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5,
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_180'];
-T('landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
+const lmLifts = ['lm_lateral', 'lm_pallof']; // active landmine lifts (lm_180 retired in Day-C trim)
+T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
+T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
 T('VWL floor is the 11kg bar', VWL[0] === 11);
 T('VWL is finer than VW — includes 11.25 (lone 0.25 on one end)', VWL.includes(11.25) && !VW.includes(11.25));
@@ -144,7 +145,7 @@ dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id
 lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
 // Volume: landmine lifts have MG maps and count on the bb tonnage path (perSide doubles).
-T('landmine lifts + bb_rear_row have MG maps', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row);
+T('landmine lifts + bb_rear_row have MG maps (incl. retired lm_180 for history)', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row && !!MG.lm_180);
 T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13, [10, 10, 10]) === 13 * 2 * 30);
 
 // ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
