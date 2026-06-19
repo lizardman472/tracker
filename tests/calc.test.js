@@ -71,12 +71,12 @@ d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'band_er'));
 T('per-side band hit-target → up', sg.type === 'up', sg.text);
 
-const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp');
-d.sessions = [{ id: 'x3', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 80, reps: [7, 7, 7], band: '' }] }];
+const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
+d.sessions = [{ id: 'x3', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 80, reps: [7, 7, 7, 7], band: '' }] }];
 sg = getSmartSugg(ohp);
 T('at plate ceiling → maxed', sg.maxed === true && sg.type === 'st', JSON.stringify(sg));
 
-d.sessions = [{ id: 'x4', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7], band: '' }] }];
+d.sessions = [{ id: 'x4', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
 sg = getSmartSugg(ohp);
 T('normal hit-target → up', sg.type === 'up' && sg.wt > 21, JSON.stringify(sg));
 
@@ -204,6 +204,10 @@ T('rejects bad date', validSession({ id: 'x', date: 'tuesday', ex: [] }) === nul
 T('rejects missing ex array', validSession({ id: 'x', date: '2026-06-01' }) === null);
 const vs = validSession({ id: 7, date: '2026-06-01', ex: [{ id: 'deadlift', wt: '60', reps: ['5', 'x', 5] }, { bad: true }, null] });
 T('coerces id/wt/reps and drops bad ex entries', vs && vs.id === '7' && vs.ex.length === 1 && vs.ex[0].wt === 60 && JSON.stringify(vs.ex[0].reps) === '[5,0,5]', JSON.stringify(vs));
+
+// ── reset gives a clean empty slate, not the bundled demo SEED ──
+const empty = freshState();
+T('reset (freshState) yields an empty program, not demo data', empty.sessions.length === 0 && empty.phase === 1 && empty.location === 'home' && Array.isArray(empty.bodyLog) && empty.bodyLog.length === 0 && !!empty.notify);
 
 // ── resume program-drift guard ──
 d = freshD();

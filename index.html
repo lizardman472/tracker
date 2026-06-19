@@ -355,7 +355,7 @@ const BASE_PR={A:[
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
-{id:'ohp',nm:'Barbell OHP',s:3,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
+{id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
@@ -366,7 +366,7 @@ C:[
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
 {id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40.',tg:40,rstS:90,tempo:'controlled',perSide:false},
+{id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:90,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-2-1-0',perSide:true}]};
 
@@ -587,6 +587,9 @@ return d}
 function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 let d=s?JSON.parse(s):structuredClone(SEED);
+// Guard the load path like import does — drop malformed sessions so a partially corrupted
+// (but still parseable) store can't crash render. Good data passes through unchanged.
+d.sessions=Array.isArray(d.sessions)?d.sessions.map(validSession).filter(Boolean):[];
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
@@ -598,6 +601,9 @@ d=migrateData(d);
 d=migrateToV12(d);
 D=d}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw)}catch(_){}D=structuredClone(SEED)}}
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
+// A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
+// rather than restoring the bundled demo sessions in SEED.
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),confirmed:{},discomfort:[],location:'home',trainingWeek:1,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
 function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
@@ -720,7 +726,7 @@ const RELATED_EX={
   // Delts / arms — no clean peer lift, use validated starting loads from audit prescription
   'lateral_raise':  {id:null,               seedBand:'Red',      note:'never trained — start lightest band (Red), strict to 15, then → thicker band'},
   'rear_delt':      {id:null,               seedBand:'Red',      note:'new movement — start lightest band (Red), build up. Do NOT inherit maxed face-pull band'},
-  'kb_curl':        {id:null,               seedWt:16,           note:'neutral-grip KB by horns, soft elbow'},
+  'kb_curl':        {id:null,               seedWt:12,           note:'neutral-grip KB by horns, soft elbow — start ~12kg for 8-12 reps'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program new/never-logged exercises
   'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},
@@ -2091,7 +2097,7 @@ else parts.push(`<span class="dm">${m.lb} ${v}</span>`)}
 h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
 <span style="font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${parts.join('')}</span>
 <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="dm">${fmtD(b.date)}</span>
-<button onclick="delBod('${b.date}')" title="Delete" style="border:none;background:var(--ib);color:var(--rd);width:24px;height:24px;border-radius:6px;font-size:12px;cursor:pointer">✕</button></span></div></div>`}}
+<button onclick="delBod('${b.date}')" title="Delete" aria-label="Delete measurement" style="border:none;background:var(--ib);color:var(--rd);width:34px;height:34px;border-radius:8px;font-size:14px;cursor:pointer">✕</button></span></div></div>`}}
 h+=`<button class="btn btn-wh" style="margin-top:10px;font-size:13px" onclick="go('stats')">← Back to Progress</button>`;
 h+=`</div>`;el.innerHTML=h}
 window.setBodyMetric=function(k){BODY_METRIC=k;render()}
@@ -2269,7 +2275,7 @@ else h+=`<div class="dm">No cues yet</div>`;
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thickest → thinnest)</div>
 <div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips): band helps you. Thinner = harder = progress. Move right.</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Danger Zone</div>
-<button class="btn btn-rd" id="resetBtn" onclick="if(this.dataset.armed==='1'){D=structuredClone(SEED);save();this.dataset.armed='0';go('home')}else{this.dataset.armed='1';this.textContent='Tap again to confirm reset';setTimeout(()=>{this.dataset.armed='0';this.textContent='Reset All Data'},3000)}">Reset All Data</button>
+<button class="btn btn-rd" id="resetBtn" onclick="if(this.dataset.armed==='1'){D=freshState();save();this.dataset.armed='0';go('home')}else{this.dataset.armed='1';this.textContent='Tap again to confirm reset';setTimeout(()=>{this.dataset.armed='0';this.textContent='Reset All Data'},3000)}">Reset All Data</button>
 </div>`;el.innerHTML=h}
 
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
@@ -2340,7 +2346,18 @@ load();render();
 // Register the real same-origin service worker file. Blob-URL workers are
 // rejected by all browsers, so offline support needs an actual ./sw.js.
 if('serviceWorker'in navigator){
-  window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{})})}
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').then(reg=>{
+    // When a new SW finishes installing AND a worker already controls the page, a fresh
+    // version is ready — prompt to reload rather than swapping code mid-session.
+    reg.addEventListener('updatefound',()=>{const nw=reg.installing;if(!nw)return;
+      nw.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller)showUpdateToast()})})
+  }).catch(()=>{})})}
+function showUpdateToast(){if(document.getElementById('upd-toast'))return;
+  const t=document.createElement('div');t.id='upd-toast';
+  t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:300;background:var(--cd);border:1px solid var(--pr);border-radius:30px;padding:9px 10px 9px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.55);font-size:12px;color:var(--tx)';
+  t.innerHTML='<span>New version available</span><button style="background:var(--pr);color:var(--ink);border:none;border-radius:20px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer">Reload</button><button aria-label="Dismiss update" style="background:0;border:none;color:var(--mu);font-size:17px;cursor:pointer;line-height:1;padding:4px 8px">✕</button>';
+  const b=t.querySelectorAll('button');b[0].onclick=()=>location.reload();b[1].onclick=()=>t.remove();
+  document.body.appendChild(t)}
 
 </script>
 </body>
