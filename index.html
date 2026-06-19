@@ -239,15 +239,15 @@ svg text{font-family:var(--body)}
 /* Progress tab: at-a-glance status header */
 .status-hd{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--cb);border:1px solid var(--cb);border-radius:var(--rad);overflow:hidden;margin-bottom:10px;box-shadow:var(--sh)}
 .status-cell{background:linear-gradient(180deg,var(--cd),var(--bg2));padding:14px 8px;text-align:center}
-.status-k{font-family:var(--disp);font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mu);font-weight:700;margin-bottom:6px}
-.status-v{font-family:var(--disp);font-size:16px;font-weight:900;line-height:1;letter-spacing:.2px}
+.status-k{font-family:var(--disp);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mu);font-weight:700;margin-bottom:6px}
+.status-v{font-family:var(--disp);font-size:17px;font-weight:900;line-height:1;letter-spacing:.2px}
 .status-s{font-size:9px;color:var(--dm);margin-top:5px;line-height:1.3}
 /* Progress tab: strength-level rows */
 .std-row{margin-bottom:11px}.std-row:last-of-type{margin-bottom:2px}
 .std-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .std-lift{font-size:12px;font-weight:700;color:var(--tx)}
 .std-ratio{font-family:var(--disp);font-size:14px;font-weight:900;color:var(--tx);font-variant-numeric:tabular-nums}
-.std-tier{font-family:var(--disp);font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border:1px solid;border-radius:5px;padding:2px 6px}
+.std-tier{font-family:var(--disp);font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border:1px solid;border-radius:5px;padding:2px 6px}
 .std-bar{height:7px;background:var(--ib);border-radius:4px;overflow:hidden;border:1px solid var(--cb)}
 .std-fill{height:100%;border-radius:4px;transition:width .4s ease}
 .std-sub{font-size:9px;color:var(--dm);margin-top:3px}
@@ -256,11 +256,11 @@ svg text{font-family:var(--body)}
 .snap-cell{background:var(--ib);border-radius:var(--rad-sm);padding:11px 8px;text-align:center}
 .snap-num{font-family:var(--disp);font-size:25px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 0 18px rgba(var(--prRGB),.25)}
 .snap-num.alt{color:var(--bl);text-shadow:0 0 18px rgba(96,165,250,.25)}.snap-num.alt2{color:var(--gr);text-shadow:0 0 18px rgba(52,211,153,.25)}
-.snap-lbl{font-family:var(--disp);font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:4px}
+.snap-lbl{font-family:var(--disp);font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
 .estrip{display:flex;gap:8px;margin-bottom:10px}
 .estrip-cell{flex:1;background:var(--ib);border-radius:var(--rad-sm);padding:9px 6px;text-align:center}
 .estrip-num{font-family:var(--disp);font-size:16px;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1}
-.estrip-lbl{font-size:8px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-top:3px;font-weight:600}
+.estrip-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-top:3px;font-weight:600}
 
 /* PR celebration flash */
 @keyframes prflash{0%{transform:scale(.5);opacity:0}40%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
@@ -1170,7 +1170,7 @@ if(restDay){
     :`Suggested rest day. Easy zone-2 row (15-20min), walk, or mobility work fits well here.`;
   h+=`<div class="cd" style="background:linear-gradient(135deg,var(--grl),var(--cd));border:2px solid var(--gr);border-radius:var(--rad);padding:18px;margin-bottom:10px;text-align:center;box-shadow:0 4px 16px rgba(52,211,153,.15)">
   <div style="font-size:28px;margin-bottom:4px">🌿</div>
-  <div style="font-size:17px;font-weight:800;color:var(--gr);margin-bottom:4px">Rest Day</div>
+  <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:var(--gr);margin-bottom:4px;letter-spacing:.5px">Rest Day</div>
   <div style="font-size:12px;color:var(--tx);margin-bottom:10px;line-height:1.4">${recoMsg}</div>
   <div style="font-size:10px;color:var(--mu);margin-bottom:12px;padding:6px 10px;background:var(--ib);border-radius:8px;display:inline-block">
     <span class="bg bg-${restDay.last.day.toLowerCase()}" style="font-size:9px">Day ${restDay.last.day}${lastLoc}</span>
@@ -1524,7 +1524,7 @@ SDIFF=0;clearAW();VIEW='summary';render();window.scrollTo(0,0)}
 
 function rSumm(el){const S=window._S;
 let h=`<div class="sec"><div class="summary-card">
-<div style="font-size:17px;font-weight:800;margin-bottom:6px">Session Complete ✓</div>
+<div style="font-family:var(--disp);font-size:20px;font-weight:900;margin-bottom:6px;letter-spacing:.5px">Session Complete ✓</div>
 <span class="bg bg-${S.day.toLowerCase()}">Day ${S.day}</span>
 <div style="display:flex;justify-content:center;gap:16px;margin:14px 0">
 <div><div class="summary-num">${S.dur}</div><div class="summary-label">min</div></div>
