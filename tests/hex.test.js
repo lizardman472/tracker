@@ -13,13 +13,13 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,VW,VWH,VWL,BAR,HEXBAR,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, VW, VWH, VWL, BAR, HEXBAR, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -171,5 +171,16 @@ const irD = freshD({ location: 'partner' });
 irD.sessions = [];
 const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'inv_rows_a'));
 T('inv_rows_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
+
+// ── PROGRAM VOLUME: home weekly effective sets meet MEV for the muscles we restored ──
+const homePr = getProgram(1, 'home');
+const wkVol = {};
+for (const day of ['A', 'B', 'C']) for (const ex of homePr[day]) { const m = MG[ex.id] || {}; for (const k in m) wkVol[k] = (wkVol[k] || 0) + ex.s * m[k]; }
+const mevOf = key => (MG_INFO.find(r => r[0] === key) || [])[2];
+T('chest weekly volume ≥ MEV', wkVol.chest >= mevOf('chest'), `${wkVol.chest} vs ${mevOf('chest')}`);
+T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevOf('reardelt'), `${wkVol.reardelt} vs ${mevOf('reardelt')}`);
+T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
+T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
+T('home days balanced at 7 exercises each', homePr.A.length === 7 && homePr.B.length === 7 && homePr.C.length === 7);
 
 console.log(`\n${pass} passed, ${fail} failed`);

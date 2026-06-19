@@ -138,6 +138,12 @@ d = freshD();
 d.sessions = [{ id: 'g1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'deadlift', wt: 100, reps: [1], band: '' }] }];
 T('getPRs e1rm single = weight (not ×1.033)', getPRs('deadlift').bestE1RM === 100);
 
+// ── checkPR awards an e1RM PR for more reps at the same load (not just weight/volume) ──
+d = freshD();
+d.sessions = [{ id: 'pr1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 50, reps: [5, 5, 5], band: '' }] }];
+T('more reps at same load → e1RM PR badge', checkPR('ohp', 50, [8, 8, 8]).includes('E1RM'));
+T('heavier load → WT badge, not double-counted as e1RM', checkPR('ohp', 55, [5, 5, 5]).includes('WT') && !checkPR('ohp', 55, [5, 5, 5]).includes('E1RM'));
+
 // ── migrateData recomputes stored volume ──
 let dd = { sessions: [{ id: 'm1', date: '2026-06-01', day: 'C', loc: 'home', volume: 99999, ex: [{ id: 'cossack_squat', wt: 21, reps: [8, 8, 8], band: '' }, { id: 'suitcase_march', wt: 32, reps: [40, 40, 40], band: '' }] }] };
 migrateData(dd);

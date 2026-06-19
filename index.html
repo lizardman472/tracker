@@ -18,7 +18,7 @@
 :root{
 /* Slate dark — cool neutral base, electric sky-cyan accent. Clean, modern, punchy. */
 --bg:#0a0d13;--bg2:#0e131c;--cd:#141b27;--cd2:#1c2535;--cb:#2a3444;--ib:#121823;--ibr:#2d3949;
---tx:#eef3fa;--mu:#8b97ab;--dm:#586577;
+--tx:#eef3fa;--mu:#8b97ab;--dm:#747f93;
 /* sky-cyan signature accent */
 --prRGB:56,189,248;--pr:#38bdf8;--prl:#07242f;--prg:#0ea5e9;--ink:#05131c;
 --gr:#34d399;--grl:#08251c;--am:#f5a524;--aml:#2a200d;--rd:#fb7185;--rdl:#2c1622;
@@ -349,7 +349,7 @@ const BASE_PR={A:[
 {id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
 {id:'b_stance_rdl',nm:'B-Stance RDL',s:3,rp:'8/side',rst:'2:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'floor_press',nm:'Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
+{id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
@@ -358,7 +358,9 @@ B:[
 {id:'ohp',nm:'Barbell OHP',s:3,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false}],
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
+{id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'kb',rl:'Finisher — the program\'s only direct elbow flexion. KB by the horns, neutral grip, soft elbow, controlled. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
@@ -385,8 +387,11 @@ C:[
 //  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.)
 // bb_rear_row (Bent-Over Barbell Rear-Delt Row, replaces Band Face Pull on Day A) is a
 // TRUE two-handed barbell row — loaded on both ends, so it stays on the symmetric VW ladder.
-//   • bb_rear_row → replaces Band Face Pull (Day A); Band Rear-Delt / High Face Pull (Day B)
-//                   dropped as now-redundant.
+//   • bb_rear_row → replaces Band Face Pull (Day A).
+// VOLUME AUDIT corrections: dropping the Day-B rear-delt + Day-C push-ups pulled rear delts
+// (3/6) and chest (7/8) under MEV. Restored on the light Day B: rear_delt (band, superset
+// w/ lm_lateral → rear delts back to 6, 2×/wk) + kb_curl (the only direct biceps work);
+// floor_press bumped to 4 sets → chest back to MEV. A=B=C=7 exercises.
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
@@ -424,7 +429,6 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
 
 const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
-{id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',tg:12,rstS:60,tp:'kb',rl:'Legacy (Day D retired — arms covered by compounds)',perSide:false},
 {id:'band_pushdown',nm:'Band Triceps Pushdown',s:3,rp:'10-12',tg:12,rstS:60,tp:'band',rl:'Legacy (Day D retired)',bandMode:'resist',perSide:false},
 // Legacy exercises — complete stub fields to prevent crashes in getSmartSugg/getRepMin
 // These are no longer in active program but appear in historical sessions
@@ -436,7 +440,6 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 // Band accessories swapped to landmine / barbell variants — kept so pre-swap history/charts resolve
 {id:'face_pull',nm:'Face Pull',s:3,rp:'15-20',tg:20,rstS:60,tp:'band',rl:'Legacy — replaced by Bent-Over Barbell Rear-Delt Row',bandMode:'resist',perSide:false},
 {id:'lateral_raise',nm:'Band Lateral Raise',s:3,rp:'12-15',tg:15,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Lateral Raise',bandMode:'resist',perSide:false},
-{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',tg:20,rstS:60,tp:'band',rl:'Legacy — dropped (redundant with Barbell Rear-Delt Row)',bandMode:'resist',perSide:false},
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',tg:10,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Anti-Rotation',bandMode:'resist',perSide:true},
 // Day C trimmed (too busy): push-ups dropped (4th weekly press — floor press + OHP + dips
 // already cover pushing) and Landmine 180 dropped (redundant anti-rotation with lm_pallof).
@@ -592,7 +595,7 @@ if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d
 if(!d.dismissed)d.dismissed={};
 d=migrateData(d);
 d=migrateToV12(d);
-D=d}catch(e){D=structuredClone(SEED)}}
+D=d}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw)}catch(_){}D=structuredClone(SEED)}}
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
 function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
@@ -971,7 +974,11 @@ if(e.wt>bw)bw=e.wt;if(vol>bv)bv=vol;{const x=e1rm(e.wt,mx);if(x>be)be=x}}
 return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
 function checkPR(exId,wt,reps){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
 const vol=calcExVol(exId,wt,reps);
-if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
+// e1RM PR catches a strength gain that isn't a top-weight PR (e.g. more reps at the same load).
+const def=ALL_EX.find(x=>x.id===exId),eR=effectiveReps(def,reps),mx=eR.length?Math.max(...eR):0,e=e1rm(wt,mx);
+if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');
+else if(wt&&e>pr.bestE1RM&&pr.bestE1RM>0)ps.push('E1RM');
+if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
 // Rep→1RM multiplier. Epley (1+r/30) tracks well at low reps but turns optimistic
 // past ~10; Lombardi (r^0.1) is the conservative curve there. min() of the two is
 // continuous (crossover ≈7 reps) and keeps 10–20-rep accessory e1RMs honest.
@@ -1410,26 +1417,26 @@ for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`;
 } else if(ex.tp==='db'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg/DB</span></div>`
+<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg/DB</span></div>`
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
 } else if(ex.tp==='carry'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`;
+<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Total weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`;
 // Bar-loaded carries (e.g. the 7kg hex bar) get the same plate-loading diagram as barbell
 // lifts; dumbbell/suitcase carries have no bar field and skip it.
 if(ex.bar){const cur=Number(log.wt)||0;if(cur>barOf(ex))h+=plateH(cur,barOf(ex))+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${barOf(ex)===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,barOf(ex)))}</div>`}
 } else if(ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`}
+<input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`}
 
 // Sets
 if(!log.setDone)log.setDone=Array(ex.s).fill(false);
 h+=`<div style="display:flex;gap:4px;justify-content:center;margin:6px 0">`;
 for(let i=0;i<ex.s;i++){const v=log.reps[i],dn=log.setDone[i];
 h+=`<div style="text-align:center"><div style="font-size:9px;color:var(--mu);margin-bottom:2px;font-weight:600">S${i+1}</div>
-<input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—"
+<input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
 <div class="set-tick${dn?' done':''}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</div></div>`}
 h+=`</div>`;
@@ -2292,25 +2299,32 @@ if(!Array.isArray(d.bodyLog))d.bodyLog=[];
 if(!Array.isArray(d.cardioLog))d.cardioLog=[];
 if(!Array.isArray(d.discomfort))d.discomfort=[];
 // Patch 10: Merge sessions — REPLACE same-ID, ADD new
+const wasFresh=D.sessions.length===0; // no existing data → migrating into a fresh device
 const existingMap=new Map(D.sessions.map(s=>[s.id,s]));
 let added=0,replaced=0;
 for(const s of d.sessions){if(existingMap.has(s.id))replaced++;else added++;existingMap.set(s.id,s)}
 D.sessions=[...existingMap.values()];
 D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
-// Merge cardio, discomfort, body logs (additive)
+// Merge cardio, discomfort, body logs (additive) — re-sort body log so date-ordered
+// readers (current weight, change, trend chart, W:H ratio, relative strength) stay correct.
 const cIds=new Set(D.cardioLog.map(c=>c.id));
 for(const c of d.cardioLog){if(!cIds.has(c.id))D.cardioLog.push(c)}
+D.cardioLog.sort((a,b)=>a.date.localeCompare(b.date));
 const dKeys=new Set(D.discomfort.map(x=>x.date+x.exId+x.joint));
 for(const x of d.discomfort){if(!dKeys.has(x.date+x.exId+x.joint))D.discomfort.push(x)}
 const bKeys=new Set(D.bodyLog.map(x=>x.date));
 for(const x of d.bodyLog){if(!bKeys.has(x.date))D.bodyLog.push(x)}
+D.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));
 for(const[k,v] of Object.entries(d.cues))D.cues[k]=v;
-// Patch 10: Adopt global metadata from import
-if(d.phase)D.phase=d.phase;
-if(d.phaseStart)D.phaseStart=d.phaseStart;
 if(d.lastDeload!==undefined)D.lastDeload=d.lastDeload;
-if(d.trainingWeek)D.trainingWeek=d.trainingWeek;
-if(d.location)D.location=d.location;
+// Adopt global metadata (phase clock / venue) ONLY when migrating into a fresh device.
+// Merging a backup into existing data must NOT rewind the current phase/week/location.
+if(wasFresh){
+  if(d.phase)D.phase=d.phase;
+  if(d.phaseStart)D.phaseStart=d.phaseStart;
+  if(d.trainingWeek)D.trainingWeek=d.trainingWeek;
+  if(d.location)D.location=d.location;
+}
 // Update nextDay from latest session — location aware
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
 D.nextDay=NEXT_DAY[last.day]||D.nextDay}
