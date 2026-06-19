@@ -1750,7 +1750,7 @@ const hist=getHist(STAT_EX,20);
 // here" read as one section instead of two separately-computed ones.
 const wv=getWeeklyVolume(10);
 let mh=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Weekly Volume by Muscle</div>
-<div class="dm" style="margin-bottom:8px">Last 10 days (full rotation) · all locations · effective sets vs MEV–MAV · 8-wk history</div>`;
+<div class="dm" style="margin-bottom:14px">Last 10 days (full rotation) · all locations · effective sets vs MEV–MAV · 8-wk history</div>`;
 let anyVol=false;
 for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
@@ -1761,20 +1761,20 @@ for(const[key,label,mev,mav] of MG_INFO){
     else{col='var(--pr)';tag='high volume';}
   }
   const pct=mav?Math.min(100,Math.round(v/mav*100)):(v>0?60:0);
-  mh+=`<div style="margin-bottom:10px">
-  <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+  mh+=`<div style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
   <span style="font-weight:600">${label}</span>
   <span style="color:${col}">${v} sets${mev!=null?` · ${tag}`:''}</span></div>
-  <div style="height:6px;background:var(--ib);border-radius:3px;overflow:hidden">
+  <div style="height:7px;background:var(--ib);border-radius:3px;overflow:hidden">
   <div style="height:100%;width:${pct}%;background:${col}"></div>
-  ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-6px;left:${Math.round(mev/mav*100)}%;width:1px;height:6px;background:var(--tx);opacity:.4"></div></div>`:''}</div>`;
+  ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-7px;left:${Math.round(mev/mav*100)}%;width:1px;height:7px;background:var(--tx);opacity:.4"></div></div>`:''}</div>`;
   if(mev!=null){
     const series=muscleWeekly(key,8);const mxv=Math.max(...series.map(s=>s.v),mav,1);
     let bars='';for(const s of series){
       const empty=s.v<=0;const bh=empty?5:Math.max(12,Math.round(s.v/mxv*100));
       const bc=empty?'var(--ib)':(s.v<mev?'var(--am)':'var(--gr)');
       bars+=`<div title="${empty?'no sets':s.v}" style="flex:1;height:${bh}%;background:${bc};border-radius:2px;min-height:2px"></div>`}
-    if(series.length)mh+=`<div style="display:flex;align-items:flex-end;gap:2px;height:18px;margin-top:3px;opacity:.85">${bars}</div>`;
+    if(series.length)mh+=`<div style="display:flex;align-items:flex-end;gap:2px;height:15px;margin-top:8px;opacity:.5">${bars}</div>`;
   }
   mh+=`</div>`;
 }
