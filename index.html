@@ -226,7 +226,9 @@ input[type=number]{-moz-appearance:textfield}
 svg text{font-family:var(--body)}
 .hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .hm-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--dm)}
-.pr-tbl{width:100%}.pr-tbl td,.pr-tbl th{padding:6px 6px;text-align:left;font-size:11px;border-bottom:1px solid var(--cb)}
+.pr-tbl{width:100%}.pr-tbl td,.pr-tbl th{padding:7px 8px;text-align:left;font-size:11px;border-bottom:1px solid var(--cb)}
+.pr-tbl td:not(:first-child),.pr-tbl th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.pr-tbl tr:nth-child(even) td{background:rgba(255,255,255,.015)}
 .pr-tbl th{color:var(--mu);font-size:9px;text-transform:uppercase;font-weight:700;font-family:var(--disp);letter-spacing:.5px}
 .ex-sel{width:100%;padding:11px;font-size:13px;background:var(--ib);border:1px solid var(--ibr);border-radius:var(--rad-sm);color:var(--pr);font-weight:700;outline:none;margin-bottom:10px}
 .warmup{background:var(--ib);border-radius:var(--rad-sm);padding:9px 11px;margin-bottom:6px;font-size:11px;color:var(--mu)}
@@ -1468,8 +1470,8 @@ h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><butt
 h+=`</div>`; // ex-expand
 
 // Next button
-if(idx<exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:6px;padding:10px;font-size:13px" onclick="CIDX=${idx+1};saveAW();render();setTimeout(()=>document.getElementById('ex-cur')?.scrollIntoView({behavior:'smooth',block:'start'}),80)">Next → ${esc(exs[idx+1].nm)}</button>`;
-else h+=`<button class="btn btn-pr" style="margin-top:6px;padding:10px;font-size:13px" onclick="finishW()">Finish ✓</button>`;
+if(idx<exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:10px;padding:15px;font-size:14px" onclick="CIDX=${idx+1};saveAW();render();setTimeout(()=>document.getElementById('ex-cur')?.scrollIntoView({behavior:'smooth',block:'start'}),80)">Next → ${esc(exs[idx+1].nm)}</button>`;
+else h+=`<button class="btn btn-pr" style="margin-top:10px;padding:15px;font-size:14px" onclick="finishW()">Finish ✓</button>`;
 h+=`</div>`; // ex-row cur
 }}
 
