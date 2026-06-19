@@ -129,6 +129,8 @@ input[type=number]{-moz-appearance:textfield}
 .ex-row.done-row{border-color:var(--gr);background:linear-gradient(135deg,var(--grl),var(--cd))}
 .ex-row.upcoming{opacity:.45}
 .ex-row.upcoming:active{opacity:.65}
+.ex-row:not(.cur):hover{border-color:var(--ibr)}
+.ex-row.upcoming:hover{opacity:.7}
 .ex-expand{padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--cb)}
 
 /* Set tick */
@@ -215,7 +217,7 @@ input[type=number]{-moz-appearance:textfield}
 .preview-row:last-child{border:none}
 .prev2{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--cb);cursor:pointer;transition:background .15s}
 .prev2:last-child{border:none}
-.prev2:active{background:var(--ib)}
+.prev2:active,.prev2:hover{background:var(--ib)}
 .prev2-ic{width:30px;height:30px;border-radius:9px;background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
 .prev2-load{font-family:var(--disp);font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .prev2-arr{font-family:var(--disp);font-size:13px;font-weight:800;width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center}
