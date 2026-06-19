@@ -225,7 +225,7 @@ input[type=number]{-moz-appearance:textfield}
 .ch{display:inline-block;font-size:9px;padding:3px 7px;border-radius:6px;background:var(--ib);color:var(--mu);margin:0 2px 3px 0;font-weight:600}
 svg text{font-family:var(--body)}
 .hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.hm-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--dm)}
+.hm-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--dm);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
 .pr-tbl{width:100%}.pr-tbl td,.pr-tbl th{padding:7px 8px;text-align:left;font-size:11px;border-bottom:1px solid var(--cb)}
 .pr-tbl td:not(:first-child),.pr-tbl th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .pr-tbl tr:nth-child(even) td{background:rgba(255,255,255,.015)}
@@ -260,7 +260,7 @@ svg text{font-family:var(--body)}
 .snap-num.alt{color:var(--bl);text-shadow:0 0 18px rgba(96,165,250,.25)}.snap-num.alt2{color:var(--gr);text-shadow:0 0 18px rgba(52,211,153,.25)}
 .snap-lbl{font-family:var(--disp);font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
 .estrip{display:flex;gap:8px;margin-bottom:10px}
-.estrip-cell{flex:1;background:var(--ib);border-radius:var(--rad-sm);padding:9px 6px;text-align:center}
+.estrip-cell{flex:1;background:var(--ib);border-radius:var(--rad-sm);padding:11px 7px;text-align:center}
 .estrip-num{font-family:var(--disp);font-size:16px;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1}
 .estrip-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-top:3px;font-weight:600}
 
@@ -1926,15 +1926,16 @@ const hm=(()=>{const d=[];const now=new Date(),st=new Date(now);st.setDate(st.ge
 for(let i=0;i<84;i++){const x=new Date(st);x.setDate(x.getDate()+i);const ds=ymd(x);
 const s=D.sessions.filter(z=>z.date===ds),c=D.cardioLog.filter(z=>z.date===ds);
 let day=null;s.forEach(z=>{day=z.day});d.push({date:ds,day,isC:c.length>0&&!s.length,d:x.getDate()})}return d})();
-h+=`<div class="cd"><div class="hm-grid">`;['M','T','W','T','F','S','S'].forEach(d=>h+=`<div style="font-size:9px;color:var(--mu);text-align:center">${d}</div>`);
+h+=`<div class="cd"><div class="hm-grid" style="margin-bottom:6px">`;['M','T','W','T','F','S','S'].forEach(d=>h+=`<div style="font-size:9px;color:var(--mu);text-align:center;font-weight:700;letter-spacing:.5px">${d}</div>`);
+h+=`</div><div class="hm-grid">`;
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
-for(let i=0;i<off;i++)h+=`<div class="hm-cell"></div>`;
+for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
 for(const d of hm){let bg='var(--ib)';
 // cardio is amber to match the legend — it was green-tinted, indistinguishable from Day C
 if(d.isC)bg='rgba(245,165,36,.30)';else if(d.day==='A')bg='rgba(var(--prRGB),.4)';else if(d.day==='B')bg='rgba(96,165,250,.4)';
 else if(d.day==='C')bg='rgba(52,211,153,.4)';else if(d.day==='D')bg='rgba(245,165,36,.4)';
-h+=`<div class="hm-cell" style="background:${bg}">${d.d===1?d.d:''}</div>`}
-h+=`</div><div class="dm" style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap"><span style="color:var(--pr)">■ A</span><span style="color:var(--bl)">■ B</span><span style="color:var(--gr)">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
+h+=`<div class="hm-cell" style="background:${bg}"></div>`}
+h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span style="color:var(--pr)">■ A</span><span style="color:var(--bl)">■ B</span><span style="color:var(--gr)">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
 
 // Weekly charts — complete weeks only. The in-progress week is reported as a
 // "so far" line instead of charted, so mid-week never reads as a volume crash.
