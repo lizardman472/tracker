@@ -117,7 +117,7 @@ T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5,
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof']; // active landmine lifts (lm_180 retired in Day-C trim)
+const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_row']; // active landmine lifts (lm_180 retired in Day-C trim)
 T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
 T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
