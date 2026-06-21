@@ -350,7 +350,7 @@ const BASE_PR={A:[
 {id:'b_stance_rdl',nm:'B-Stance RDL',s:3,rp:'8/side',rst:'2:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
-{id:'lm_row',nm:'Landmine Rear-Delt Row',s:3,rp:'10-12/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Single-arm. Brace your free hand on your thigh/knee. Hold the bar end and row to your ribs with the elbow HIGH AND WIDE — bias the rear delt, don\'t tuck and pull with the lat. Load the free end only. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-1-2-1',perSide:true},
+{id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
@@ -360,7 +360,7 @@ B:[
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'kb',rl:'Finisher — the program\'s only direct elbow flexion. KB by the horns, neutral grip, soft elbow, controlled. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
+{id:'hex_curl',nm:'Hex Bar Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'Finisher — the program\'s only direct elbow flexion. Stand inside the hex bar, neutral grip on the handles, curl with the elbows pinned (minimal swing). ⚠ Hex bar is 7kg. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
@@ -382,15 +382,12 @@ C:[
 // Leverage still makes them feel lighter than the number — that's expected, not modelled.
 //   • lm_lateral  → Landmine Lateral Raise replaces Band Lateral Raise (Day A + Day B)
 //   • lm_pallof   → Landmine Anti-Rotation replaces Pallof Press (Day C)
-//   • lm_row      → Single-arm Landmine Rear-Delt Row (Day A) — replaced the bent-over
-//                   barbell rear-delt row (which stacked a 3rd hinge onto the heavy hinge day).
-// (lm_180 Landmine 180 was a Day-C finisher but dropped in the Day-C trim — redundant
-//  anti-rotation with lm_pallof; kept only as a legacy stub. Push-ups likewise dropped
-//  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.
-//  bb_rear_row — the prior Day-A barbell rear-delt row — is now a legacy stub too.)
+// (lm_180 + lm_row are retired landmine stubs: lm_180 dropped in the Day-C trim; lm_row
+//  was tried on Day A then reverted to the bent-over barbell rear-delt row. Push-ups dropped
+//  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.)
 // VOLUME AUDIT corrections: dropping the Day-B rear-delt + Day-C push-ups pulled rear delts
 // (3/6) and chest (7/8) under MEV. Restored on the light Day B: rear_delt (band, superset
-// w/ lm_lateral → rear delts back to 6, 2×/wk) + kb_curl (the only direct biceps work);
+// w/ lm_lateral → rear delts back to 6, 2×/wk) + hex_curl (the only direct biceps work);
 // floor_press bumped to 4 sets → chest back to MEV. A=B=C=7 exercises.
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
@@ -439,7 +436,8 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'suitcase_march',nm:'Suitcase March',s:3,rp:'30-40 steps/side',tg:40,rstS:90,tp:'carry',rl:'Legacy — replaced by Hex Bar Farmer\'s Carry',perSide:true},
 // Band accessories swapped to landmine / barbell variants — kept so pre-swap history/charts resolve
 {id:'face_pull',nm:'Face Pull',s:3,rp:'15-20',tg:20,rstS:60,tp:'band',rl:'Legacy — replaced by Bent-Over Barbell Rear-Delt Row',bandMode:'resist',perSide:false},
-{id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',tg:15,rstS:60,tp:'bb',rl:'Legacy — replaced by Landmine Rear-Delt Row (bent-barbell stacked too much spinal load on the hinge-heavy Day A)',perSide:false},
+{id:'lm_row',nm:'Landmine Rear-Delt Row',s:3,rp:'10-12/side',tg:12,rstS:60,tp:'bb',lm:true,rl:'Legacy — tried briefly on Day A, reverted to the bent-over barbell rear-delt row',perSide:true},
+{id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',tg:12,rstS:60,tp:'kb',rl:'Legacy — replaced by Hex Bar Curl',perSide:false},
 {id:'lateral_raise',nm:'Band Lateral Raise',s:3,rp:'12-15',tg:15,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Lateral Raise',bandMode:'resist',perSide:false},
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',tg:10,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Anti-Rotation',bandMode:'resist',perSide:true},
 // Day C trimmed (too busy): push-ups dropped (4th weekly press — floor press + OHP + dips
@@ -499,7 +497,7 @@ const MG={
   bb_row:{back:1,biceps:0.5},
   face_pull:{reardelt:1,cuff:0.5}, band_er:{cuff:1}, rear_delt:{reardelt:1},
   bb_rear_row:{reardelt:1,back:0.5}, lm_row:{reardelt:1,back:0.5}, lm_lateral:{sidedelt:1},
-  lateral_raise:{sidedelt:1}, kb_curl:{biceps:1}, band_pushdown:{triceps:1},
+  lateral_raise:{sidedelt:1}, kb_curl:{biceps:1}, hex_curl:{biceps:1}, band_pushdown:{triceps:1},
   kb_swing:{glutes:0.5,hams:0.5},
   // Core / carries / clubs — the program is deliberately core-heavy (anti-extension,
   // anti-rotation, anti-lateral-flexion), so the balance dashboard must see it.
@@ -717,7 +715,7 @@ const RELATED_EX={
   // Landmine lifts load ONE end of the 11kg bar, so 11kg (bar only) is the floor — seed there
   // and add plates to the free end up the single-sided ladder. bb_rear_row is a true two-handed
   // barbell row, seeded as a normal symmetric lift.
-  'lm_row':         {id:null,               seedWt:11, note:'NEW — single-arm landmine rear-delt row. Start bar-only (11kg) on the free end; high wide elbow, build slowly.'},
+  'bb_rear_row':    {id:null,               seedWt:15, note:'NEW — barbell rear-delt row. Feel-out at 15kg (1kg/side), build from there.'},
   'lm_lateral':     {id:null,               seedWt:11, note:'NEW — landmine lateral. Start bar-only (11kg, no plates); leverage makes it feel light. Add plates to the free end as it gets easy.'},
   'lm_pallof':      {id:null,               seedWt:11, note:'NEW — landmine anti-rotation replaces band Pallof. Start bar-only (11kg), then load the free end.'},
   'b_stance_rdl':   {id:'rdl',              mult:0.7,  seedWt:32, note:'~70% of bilateral RDL, front-foot loaded'},
@@ -726,7 +724,7 @@ const RELATED_EX={
   // Delts / arms — no clean peer lift, use validated starting loads from audit prescription
   'lateral_raise':  {id:null,               seedBand:'Red',      note:'never trained — start lightest band (Red), strict to 15, then → thicker band'},
   'rear_delt':      {id:null,               seedBand:'Red',      note:'new movement — start lightest band (Red), build up. Do NOT inherit maxed face-pull band'},
-  'kb_curl':        {id:null,               seedWt:12,           note:'neutral-grip KB by horns, soft elbow — start ~12kg for 8-12 reps'},
+  'hex_curl':       {id:null,               seedWt:11,           note:'NEW — hex bar curl (neutral grip). Start light (~11kg total) for 8-12 reps, build up.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program new/never-logged exercises
   'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},

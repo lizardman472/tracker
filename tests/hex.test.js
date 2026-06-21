@@ -117,7 +117,7 @@ T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5,
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_row']; // active landmine lifts (lm_180 retired in Day-C trim)
+const lmLifts = ['lm_lateral', 'lm_pallof']; // active landmine lifts (lm_180, lm_row retired)
 T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
 T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
@@ -128,6 +128,7 @@ T('every symmetric VW weight is also single-side loadable (VW ⊆ VWL)', VW.ever
 T('vwOf routes a landmine lift to VWL', vwOf(ALL_EX.find(e => e.id === 'lm_pallof')) === VWL);
 T('vwOf routes bb_rear_row to symmetric VW', vwOf(ALL_EX.find(e => e.id === 'bb_rear_row')) === VW);
 T('vwOf still routes the hex bar to VWH', vwOf({ bar: 7 }) === VWH);
+T('hex_curl is a symmetric 7kg hex-bar lift on VWH (seed 11 on-ladder)', (() => { const e = ALL_EX.find(x => x.id === 'hex_curl'); return e && e.bar === 7 && !e.lm && vwOf(e) === VWH && VWH.includes(11); })());
 // Same total, different breakdown: single-end stacks the pair on one sleeve (no ÷2).
 T('single-end fmtPl(13) = 2×1kg (both on one end)', fmtPl(13, 11, true) === '2×1kg');
 T('symmetric fmtPl(13) = 1×1kg (per side)', fmtPl(13, 11, false) === '1×1kg');
