@@ -73,8 +73,9 @@ T('OHP stays barbell (landmine pending)', B.find(e => e.id === 'ohp').bar === un
 // Day B v20: hex_row replaces the straight Barbell Row; arm superset is straight-bar.
 T('Day B: hex_row replaces bb_row', B.some(e => e.id === 'hex_row') && !B.some(e => e.id === 'bb_row'));
 T('hex_row carries bar:7', B.find(e => e.id === 'hex_row').bar === 7);
-T('Day B: bb_curl replaces hex_curl (straight bar)', B.some(e => e.id === 'bb_curl') && B.find(e => e.id === 'bb_curl').bar === undefined && !B.some(e => e.id === 'hex_curl'));
-T('Day B: bb_skullcr direct-triceps slot present (straight bar)', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined);
+// v21 rebalance: curl → Day A (pull day), triceps stays Day B (push day), hex_curl retired.
+T('curl swap lands on Day A as straight bar; hex_curl retired everywhere', A.some(e => e.id === 'bb_curl') && A.find(e => e.id === 'bb_curl').bar === undefined && !A.some(e => e.id === 'hex_curl') && !B.some(e => e.id === 'hex_curl'));
+T('Day B keeps direct triceps (bb_skullcr, straight bar), curl moved off', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined && !B.some(e => e.id === 'bb_curl'));
 
 // ── partner program is untouched ──
 const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);
@@ -190,6 +191,6 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days: A=C=7, Day B=8 (arm superset added)', homePr.A.length === 7 && homePr.B.length === 8 && homePr.C.length === 7);
+T('home days: B=C=7, Day A=8 (curl moved to pull day, rebalanced)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 7);
 
 console.log(`\n${pass} passed, ${fail} failed`);

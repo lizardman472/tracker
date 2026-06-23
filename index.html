@@ -352,6 +352,7 @@ const BASE_PR={A:[
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
@@ -360,8 +361,7 @@ B:[
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'⚡ Superset with the triceps extension. Direct elbow flexion on the straight bar — curl with the elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
-{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'⚡ Superset with the barbell curl. The program\'s only direct elbow extension. Lie on the floor/bench, elbows tucked and pointing up, lower the bar to the forehead (or just behind the head), extend without flaring the elbows. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing). Lie on the floor/bench, elbows tucked and pointing up, lower the bar to the forehead (or just behind the head), extend without flaring the elbows. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
@@ -377,7 +377,8 @@ C:[
 // Zercher-heavy / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
 // hex_row (Day B) also rides the hex bar — swapped in for the straight Barbell Row (v20,
 // neutral-grip hex row was preferred). KEPT straight-bar: Zercher Moderate (Day C core
-// squat), RDL, Barbell Curl + lying triceps extension (Day B arms), all presses.
+// squat), RDL, Barbell Curl (Day A pull-day arm) + lying triceps extension (Day B
+// push-day arm), all presses.
 // Landmine arrived → band→trackable accessory cleanup. The three landmine lifts carry
 // lm:true and load ONE end of the 11kg bar (the other pivots on the floor), so they ride
 // a dedicated SINGLE-SIDED ladder (VWL): plates fill the single sleeve up to full owned
@@ -390,9 +391,11 @@ C:[
 //  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.)
 // VOLUME AUDIT corrections: dropping the Day-B rear-delt + Day-C push-ups pulled rear delts
 // (3/6) and chest (7/8) under MEV. Restored on the light Day B: rear_delt (band, superset
-// w/ lm_lateral → rear delts back to 6, 2×/wk) + the bb_curl ⚡ bb_skullcr arm superset
-// (direct biceps AND direct triceps — triceps were 0 direct sets before, MEV 6 came only
-// from pressing); floor_press bumped to 4 sets → chest back to MEV. Day B = 8 (A=C=7).
+// w/ lm_lateral → rear delts back to 6, 2×/wk) + direct arms: bb_curl on Day A (pull-day
+// finisher, backs the pull-ups/rows) and bb_skullcr on Day B (push-day finisher — triceps
+// were 0 direct sets before, MEV 6 came only from pressing); floor_press bumped to 4 sets
+// → chest back to MEV. v21 rebalance split the arms across pull/push days so no single day
+// is overloaded: Day A = 8, Day B = Day C = 7.
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
