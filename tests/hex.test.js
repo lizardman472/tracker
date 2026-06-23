@@ -70,7 +70,11 @@ T('no hex_squat_c exists (Day C squat not swapped)', !ALL_EX.some(e => e.id === 
 T('hex_dl carries bar:7', A.find(e => e.id === 'hex_dl').bar === 7);
 T('hex_squat_b carries bar:7', B.find(e => e.id === 'hex_squat_b').bar === 7);
 T('OHP stays barbell (landmine pending)', B.find(e => e.id === 'ohp').bar === undefined);
-T('Barbell Row KEPT straight-bar', B.find(e => e.id === 'bb_row').bar === undefined);
+// Day B v20: hex_row replaces the straight Barbell Row; arm superset is straight-bar.
+T('Day B: hex_row replaces bb_row', B.some(e => e.id === 'hex_row') && !B.some(e => e.id === 'bb_row'));
+T('hex_row carries bar:7', B.find(e => e.id === 'hex_row').bar === 7);
+T('Day B: bb_curl replaces hex_curl (straight bar)', B.some(e => e.id === 'bb_curl') && B.find(e => e.id === 'bb_curl').bar === undefined && !B.some(e => e.id === 'hex_curl'));
+T('Day B: bb_skullcr direct-triceps slot present (straight bar)', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined);
 
 // ── partner program is untouched ──
 const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);
@@ -111,6 +115,9 @@ T('hex_carry excluded from tonnage (carry)', calcExVol('hex_carry', 30, [40, 40,
 T('deadlift legacy stub resolves', !!ALL_EX.find(e => e.id === 'deadlift'));
 T('zercher_b legacy stub resolves', !!ALL_EX.find(e => e.id === 'zercher_b'));
 T('suitcase_march legacy stub resolves', !!ALL_EX.find(e => e.id === 'suitcase_march'));
+T('bb_row legacy stub resolves (swapped for hex_row)', !!ALL_EX.find(e => e.id === 'bb_row'));
+T('hex_curl legacy stub resolves (swapped for bb_curl)', !!ALL_EX.find(e => e.id === 'hex_curl'));
+T('old bb_row history still computes volume', calcExVol('bb_row', 30, [10, 9, 8]) === 30 * 27);
 T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
 
 // ── LANDMINE single-sided model (VWL) ──
@@ -181,7 +188,8 @@ const mevOf = key => (MG_INFO.find(r => r[0] === key) || [])[2];
 T('chest weekly volume ≥ MEV', wkVol.chest >= mevOf('chest'), `${wkVol.chest} vs ${mevOf('chest')}`);
 T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevOf('reardelt'), `${wkVol.reardelt} vs ${mevOf('reardelt')}`);
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
+T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days balanced at 7 exercises each', homePr.A.length === 7 && homePr.B.length === 7 && homePr.C.length === 7);
+T('home days: A=C=7, Day B=8 (arm superset added)', homePr.A.length === 7 && homePr.B.length === 8 && homePr.C.length === 7);
 
 console.log(`\n${pass} passed, ${fail} failed`);

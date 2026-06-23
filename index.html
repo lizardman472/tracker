@@ -334,11 +334,11 @@ function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,ba
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
+  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
+  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},zercher_a:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},zercher_a:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
 // load on a phase transition. (Partner DB exercises aren't here, so their targets
@@ -357,10 +357,11 @@ B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
+{id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'hex_curl',nm:'Hex Bar Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'Finisher — the program\'s only direct elbow flexion. Stand inside the hex bar, neutral grip on the handles, curl with the elbows pinned (minimal swing). ⚠ Hex bar is 7kg. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
+{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'⚡ Superset with the triceps extension. Direct elbow flexion on the straight bar — curl with the elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'⚡ Superset with the barbell curl. The program\'s only direct elbow extension. Lie on the floor/bench, elbows tucked and pointing up, lower the bar to the forehead (or just behind the head), extend without flaring the elbows. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
@@ -374,7 +375,9 @@ C:[
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
 // hex_squat_b heavy (Day B), hex_carry (Day C) replace the straight-bar deadlift /
 // Zercher-heavy / suitcase-march above. The 7kg hex bar loads on its own VWH ladder.
-// KEPT straight-bar: Zercher Moderate (Day C core squat), RDL, Barbell Row, all presses.
+// hex_row (Day B) also rides the hex bar — swapped in for the straight Barbell Row (v20,
+// neutral-grip hex row was preferred). KEPT straight-bar: Zercher Moderate (Day C core
+// squat), RDL, Barbell Curl + lying triceps extension (Day B arms), all presses.
 // Landmine arrived → band→trackable accessory cleanup. The three landmine lifts carry
 // lm:true and load ONE end of the 11kg bar (the other pivots on the floor), so they ride
 // a dedicated SINGLE-SIDED ladder (VWL): plates fill the single sleeve up to full owned
@@ -387,8 +390,9 @@ C:[
 //  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.)
 // VOLUME AUDIT corrections: dropping the Day-B rear-delt + Day-C push-ups pulled rear delts
 // (3/6) and chest (7/8) under MEV. Restored on the light Day B: rear_delt (band, superset
-// w/ lm_lateral → rear delts back to 6, 2×/wk) + hex_curl (the only direct biceps work);
-// floor_press bumped to 4 sets → chest back to MEV. A=B=C=7 exercises.
+// w/ lm_lateral → rear delts back to 6, 2×/wk) + the bb_curl ⚡ bb_skullcr arm superset
+// (direct biceps AND direct triceps — triceps were 0 direct sets before, MEV 6 came only
+// from pressing); floor_press bumped to 4 sets → chest back to MEV. Day B = 8 (A=C=7).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
@@ -438,6 +442,9 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'face_pull',nm:'Face Pull',s:3,rp:'15-20',tg:20,rstS:60,tp:'band',rl:'Legacy — replaced by Bent-Over Barbell Rear-Delt Row',bandMode:'resist',perSide:false},
 {id:'lm_row',nm:'Landmine Rear-Delt Row',s:3,rp:'10-12/side',tg:12,rstS:60,tp:'bb',lm:true,rl:'Legacy — tried briefly on Day A, reverted to the bent-over barbell rear-delt row',perSide:true},
 {id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',tg:12,rstS:60,tp:'kb',rl:'Legacy — replaced by Hex Bar Curl',perSide:false},
+// Day B v20 swaps: hex curl → straight Barbell Curl, barbell row → Hex Bar Row (kept so pre-swap history/charts resolve)
+{id:'hex_curl',nm:'Hex Bar Curl',s:3,rp:'8-12',tg:12,rstS:60,tp:'bb',bar:7,rl:'Legacy — replaced by straight Barbell Curl (hex bar inconvenient)',perSide:false},
+{id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',tg:10,rstS:120,tp:'bb',rl:'Legacy — replaced by Hex Bar Row',perSide:false},
 {id:'lateral_raise',nm:'Band Lateral Raise',s:3,rp:'12-15',tg:15,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Lateral Raise',bandMode:'resist',perSide:false},
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',tg:10,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Anti-Rotation',bandMode:'resist',perSide:true},
 // Day C trimmed (too busy): push-ups dropped (4th weekly press — floor press + OHP + dips
@@ -494,10 +501,11 @@ const MG={
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, 
   dips:{chest:1,triceps:1}, pushups:{chest:1,triceps:0.5},
   pullup_a:{back:1,biceps:0.5}, pullup_c:{back:1,biceps:0.5},
-  bb_row:{back:1,biceps:0.5},
+  bb_row:{back:1,biceps:0.5}, hex_row:{back:1,biceps:0.5},
   face_pull:{reardelt:1,cuff:0.5}, band_er:{cuff:1}, rear_delt:{reardelt:1},
   bb_rear_row:{reardelt:1,back:0.5}, lm_row:{reardelt:1,back:0.5}, lm_lateral:{sidedelt:1},
   lateral_raise:{sidedelt:1}, kb_curl:{biceps:1}, hex_curl:{biceps:1}, band_pushdown:{triceps:1},
+  bb_curl:{biceps:1}, bb_skullcr:{triceps:1},
   kb_swing:{glutes:0.5,hams:0.5},
   // Core / carries / clubs — the program is deliberately core-heavy (anti-extension,
   // anti-rotation, anti-lateral-flexion), so the balance dashboard must see it.
@@ -725,6 +733,10 @@ const RELATED_EX={
   'lateral_raise':  {id:null,               seedBand:'Red',      note:'never trained — start lightest band (Red), strict to 15, then → thicker band'},
   'rear_delt':      {id:null,               seedBand:'Red',      note:'new movement — start lightest band (Red), build up. Do NOT inherit maxed face-pull band'},
   'hex_curl':       {id:null,               seedWt:11,           note:'NEW — hex bar curl (neutral grip). Start light (~11kg total) for 8-12 reps, build up.'},
+  // Day B v20 swaps — carry the load from the slot each one replaces (logged under the old id).
+  'hex_row':        {id:'bb_row',           mult:1.0,            note:'Continues from the barbell-row slot — your hex-row numbers were logged there. Same total weight carries; now tracked on the 7kg hex-bar ladder.'},
+  'bb_curl':        {id:'hex_curl',         mult:1.0,            note:'Straight-bar curl continues from the hex-bar curl load (same total weight, now on the 11kg straight bar).'},
+  'bb_skullcr':     {id:null,               seedWt:15,           note:'NEW — lying barbell triceps extension. Feel-out at ~15kg total (2kg/side on the 11kg bar) for 8-12 reps, build up.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program new/never-logged exercises
   'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},
