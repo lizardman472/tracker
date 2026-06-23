@@ -191,6 +191,9 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days: B=C=7, Day A=8 (curl moved to pull day, rebalanced)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 7);
+T('home days after v22: A=8, B=7, C=8 (push-ups restored to Day C)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 8);
+T('Day C carries a chest exposure (push-ups) — was zero pressing before', homePr.C.some(e => e.id === 'pushups') && (MG.pushups || {}).chest > 0);
+const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
+T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
 console.log(`\n${pass} passed, ${fail} failed`);

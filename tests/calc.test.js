@@ -32,8 +32,9 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
 // ── ALL_EX integrity ──
 const ids = ALL_EX.map(e => e.id);
 T('ALL_EX ids unique', new Set(ids).size === ids.length);
-// lm_lateral appears on Day A (s:3) and Day B (s:4); dedup must keep the first (active) def.
-T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').s === 3);
+// lm_lateral appears on both Day A and Day B (same 4 sets, different cue); dedup must keep
+// the first (Day A) def — identified by its distinct coaching cue.
+T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').rl.startsWith('Hold the bar end'));
 // Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
 T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
 

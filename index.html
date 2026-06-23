@@ -351,7 +351,7 @@ const BASE_PR={A:[
 {id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
 {id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
@@ -360,13 +360,14 @@ B:[
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
-{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
+{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
 {id:'bb_skullcr',nm:'Lying Barbell Triceps Extension',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing). Lie on the floor/bench, elbows tucked and pointing up, lower the bar to the forehead (or just behind the head), extend without flaring the elbows. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'rdl',nm:'Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'zercher_a',nm:'Zercher Squat (Moderate)',s:3,rp:'6-8',rst:'2:30',rir:'2',tp:'bb',rl:'2nd weekly quad exposure (core squat — stays straight-bar). Lighter than Day B. Confirm → ↑ weight.',tg:8,rstS:150,tempo:'3-1-2-0',isoWU:'Zercher hold at 90° 2×10s',perSide:false},
 {id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pushups',nm:'Push-ups (Weighted / Deficit)',s:3,rp:'10-15',rst:'1:30',rir:'1-2',tp:'bw',rl:'3rd weekly chest exposure — Day C had no pressing, and chest was sitting at MEV. Bar-grip handles for a deficit (deeper stretch) or a plate on the upper back for load. Chest toward the floor, elbows ~45°, full lockout. Hit 15 across all sets → add load / deeper deficit.',tg:15,rstS:90,tempo:'3-1-1-0',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:90,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-2-1-0',perSide:true}]};
@@ -387,8 +388,9 @@ C:[
 //   • lm_lateral  → Landmine Lateral Raise replaces Band Lateral Raise (Day A + Day B)
 //   • lm_pallof   → Landmine Anti-Rotation replaces Pallof Press (Day C)
 // (lm_180 + lm_row are retired landmine stubs: lm_180 dropped in the Day-C trim; lm_row
-//  was tried on Day A then reverted to the bent-over barbell rear-delt row. Push-ups dropped
-//  from Day C as the 4th weekly press — floor press + OHP + dips already cover pushing.)
+//  was tried on Day A then reverted to the bent-over barbell rear-delt row.)
+// Push-ups RESTORED to Day C (v22 audit) as a 3rd weekly chest exposure — chest was at MEV
+// with only 2×/wk frequency, and Day C had no pressing at all.
 // VOLUME AUDIT corrections: dropping the Day-B rear-delt + Day-C push-ups pulled rear delts
 // (3/6) and chest (7/8) under MEV. Restored on the light Day B: rear_delt (band, superset
 // w/ lm_lateral → rear delts back to 6, 2×/wk) + direct arms: bb_curl on Day A (pull-day
@@ -396,6 +398,9 @@ C:[
 // were 0 direct sets before, MEV 6 came only from pressing); floor_press bumped to 4 sets
 // → chest back to MEV. v21 rebalance split the arms across pull/push days so no single day
 // is overloaded: Day A = 8, Day B = Day C = 7.
+// v22 audit additions (lift the muscles still sitting at their MEV floor): chest 8→11 via
+// Day-C push-ups (freq 2×→3×); side delts 9→10 via Day-A lateral 3→4 sets; rear delts 6→7
+// via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
@@ -450,9 +455,8 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',tg:10,rstS:120,tp:'bb',rl:'Legacy — replaced by Hex Bar Row',perSide:false},
 {id:'lateral_raise',nm:'Band Lateral Raise',s:3,rp:'12-15',tg:15,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Lateral Raise',bandMode:'resist',perSide:false},
 {id:'pallof_press',nm:'Pallof Press',s:3,rp:'10/side',tg:10,rstS:60,tp:'band',rl:'Legacy — replaced by Landmine Anti-Rotation',bandMode:'resist',perSide:true},
-// Day C trimmed (too busy): push-ups dropped (4th weekly press — floor press + OHP + dips
-// already cover pushing) and Landmine 180 dropped (redundant anti-rotation with lm_pallof).
-{id:'pushups',nm:'Push-ups (Bar Grip)',s:4,rp:'8-15',tg:15,rstS:90,tp:'bw',rl:'Legacy — dropped from Day C (redundant 4th weekly press)',perSide:false},
+// Day C: Landmine 180 dropped (redundant anti-rotation with lm_pallof). Push-ups were also
+// trimmed here once, but RESTORED in the v22 audit as the 3rd weekly chest exposure (see above).
 {id:'lm_180',nm:'Landmine 180',s:2,rp:'8-10/side',tg:10,rstS:60,tp:'bb',lm:true,rl:'Legacy — dropped from Day C (redundant anti-rotation with Landmine Anti-Rotation)',perSide:true,optional:true},
 {id:'kb_swing',nm:'KB Swing',s:3,rp:'12-15',tg:15,rstS:90,tp:'kb',rl:'Legacy (removed v12)',perSide:false},
 {id:'zercher_a',nm:'Zercher (Moderate)',s:3,rp:'6-8',tg:8,rstS:120,tp:'bb',rl:'Legacy (removed v12)',perSide:false},
