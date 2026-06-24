@@ -58,6 +58,8 @@ const D = structuredClone(R.SEED);
 D.location = 'home';
 D.sessions.push({ id: 'hxs', date: '2026-06-12', day: 'A', loc: 'home',
   ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] });
+// Bodyweight log unlocks the Strength Level card (relStrength needs a recent bodyweight).
+D.bodyLog = [{ date: '2026-06-12', weight: 80 }];
 R.setD(D);
 
 // ── Home (home location) ──
@@ -92,7 +94,11 @@ T('hex_carry plate math for 30kg on the 7kg bar', /1×10kg \+ 1×1kg \+ 1×0\.5k
 
 // ── Progress tab (default exercise) ──
 tryRender('Progress (stats)', () => R.go('stats'));
-T('progress produced non-empty markup', R.getA().length > 200);
+const stats = R.getA();
+T('progress produced non-empty markup', stats.length > 200);
+// Strength-level card tracks the CURRENT main lifts, not the retired straight-bar ones.
+T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(stats));
+T('strength card has no retired Zercher/straight-deadlift rows', !/std-lift">Zercher/.test(stats) && !/std-lift">Deadlift</.test(stats));
 
 // ── Progress tab with a hex lift selected ──
 R.setSTAT('hex_dl');

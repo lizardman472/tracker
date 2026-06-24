@@ -323,7 +323,7 @@ function nxDn(c,vw=VW){for(let i=vw.length-1;i>=0;i--)if(vw[i]<c)return vw[i];re
 // Jump n discrete plate-steps up from current weight (AMRAP-sized, joint-capped)
 function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw===w)break;w=nw}return w}
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
-const CONFIRM_LIFTS=new Set(['deadlift','zercher_b','zercher_a','hex_dl','hex_squat_b','lm_squat']);
+const CONFIRM_LIFTS=new Set(['hex_dl','hex_squat_b','lm_squat']);
 function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
 // Tolerant weight equality — ladder weights are exact, but a manually-typed "38.0" vs a
 // stored 38 (or re-anchor dust) must still bucket together for stall/confirm counting.
@@ -573,7 +573,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='deadlift',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -1665,16 +1665,18 @@ const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
 out.sort((a,b)=>b.slope-a.slope);return out}
 // ── Strength standards: bodyweight-relative e1RM thresholds marking the start of
 // each tier. Approximate, calibrated for these specific (often unconventional)
-// rack-free lifts — Zercher ≈ ¾ back-squat, floor press ≈ bench, strict OHP. Meant
-// as motivational signposts, not a certified standards table. ──
-const STD={deadlift:[1.0,1.5,2.0,2.5],zercher_b:[0.75,1.1,1.4,1.75],ohp:[0.5,0.7,0.9,1.1],floor_press:[0.75,1.0,1.25,1.5]};
+// rack-free lifts — hex-bar deadlift runs ~10% over a conventional pull, the
+// high-handle hex squat is loaded much heavier than the old Zercher (≈ back-squat
+// territory), floor press ≈ bench, strict OHP. Motivational signposts, not a
+// certified standards table. ──
+const STD={hex_dl:[1.1,1.6,2.1,2.6],hex_squat_b:[1.0,1.5,2.0,2.5],ohp:[0.5,0.7,0.9,1.1],floor_press:[0.75,1.0,1.25,1.5]};
 const TIERS=['Beginner','Novice','Intermediate','Advanced','Elite'];
 const TIER_C=['var(--mu)','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
 // ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
 function relStrength(){
 const bw=[...(D.bodyLog||[])].reverse().find(b=>b.weight)?.weight;if(!bw)return null;
 const cut=ymd(new Date(Date.now()-60*864e5));
-const lifts=[['deadlift','Deadlift'],['zercher_b','Zercher'],['ohp','OHP'],['floor_press','Floor Press']];
+const lifts=[['hex_dl','Hex Bar Deadlift'],['hex_squat_b','Hex Bar Squat'],['ohp','OHP'],['floor_press','Floor Press']];
 const out=[];
 for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
 for(const h of getHist(id,200)){if(h.date<cut||!h.wt)continue;
