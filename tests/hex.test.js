@@ -64,9 +64,10 @@ const A = getProgram(1, 'home').A, B = getProgram(1, 'home').B, C = getProgram(1
 T('Day A: hex_dl replaces deadlift', A.some(e => e.id === 'hex_dl') && !A.some(e => e.id === 'deadlift'));
 T('Day B: hex_squat_b replaces zercher_b', B.some(e => e.id === 'hex_squat_b') && !B.some(e => e.id === 'zercher_b'));
 T('Day C: hex_carry replaces suitcase_march', C.some(e => e.id === 'hex_carry') && !C.some(e => e.id === 'suitcase_march'));
-T('Day C: Zercher Moderate KEPT straight-bar', C.some(e => e.id === 'zercher_a') && C.find(e => e.id === 'zercher_a').bar === undefined && !C.some(e => /^hex_squat/.test(e.id)));
-T('Day C: RDL KEPT straight-bar', C.find(e => e.id === 'rdl').bar === undefined);
-T('no hex_squat_c exists (Day C squat not swapped)', !ALL_EX.some(e => e.id === 'hex_squat_c'));
+T('Day C: lm_squat (landmine) replaces Zercher Moderate', C.some(e => e.id === 'lm_squat') && C.find(e => e.id === 'lm_squat').lm === true && !C.some(e => e.id === 'zercher_a'));
+T('Day C: hex_rdl replaces straight RDL', C.some(e => e.id === 'hex_rdl') && C.find(e => e.id === 'hex_rdl').bar === 7 && !C.some(e => e.id === 'rdl'));
+T('Day C: hex_floor_press replaces push-ups', C.some(e => e.id === 'hex_floor_press') && C.find(e => e.id === 'hex_floor_press').bar === 7 && !C.some(e => e.id === 'pushups'));
+T('Day C squat went to the landmine, not a hex squat variant', !ALL_EX.some(e => e.id === 'hex_squat_c') && !C.some(e => /^hex_squat/.test(e.id)));
 T('hex_dl carries bar:7', A.find(e => e.id === 'hex_dl').bar === 7);
 T('hex_squat_b carries bar:7', B.find(e => e.id === 'hex_squat_b').bar === 7);
 T('OHP stays barbell (landmine pending)', B.find(e => e.id === 'ohp').bar === undefined);
@@ -89,6 +90,10 @@ sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'hex_squat_b'));
 T('hex_squat_b seeds at 48kg (valid hex weight)', sg.type === 'new' && sg.wt === 48 && VWH.includes(48));
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_carry'));
 T('hex_carry seeds at 30kg', sg.type === 'new' && sg.wt === 30);
+sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_rdl'));
+T('hex_rdl seeds at 43kg (valid hex weight)', sg.type === 'new' && sg.wt === 43 && VWH.includes(43));
+sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_floor_press'));
+T('hex_floor_press seeds at 28kg (valid hex weight)', sg.type === 'new' && sg.wt === 28 && VWH.includes(28));
 
 // ── progression resolves the 7kg ladder ──
 const dd = freshD();
@@ -120,12 +125,18 @@ T('bb_row legacy stub resolves (swapped for hex_row)', !!ALL_EX.find(e => e.id =
 T('hex_curl legacy stub resolves (swapped for bb_curl)', !!ALL_EX.find(e => e.id === 'hex_curl'));
 T('old bb_row history still computes volume', calcExVol('bb_row', 30, [10, 9, 8]) === 30 * 27);
 T('old deadlift history still computes volume', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
+// Day C swaps: straight RDL → hex_rdl, Zercher Moderate → lm_squat, push-ups → hex_floor_press
+T('rdl legacy stub resolves (swapped for hex_rdl)', !!ALL_EX.find(e => e.id === 'rdl'));
+T('zercher_a legacy stub resolves (swapped for lm_squat)', !!ALL_EX.find(e => e.id === 'zercher_a'));
+T('pushups legacy stub resolves (swapped for hex_floor_press)', !!ALL_EX.find(e => e.id === 'pushups'));
+T('Day C new lifts all have MG maps', !!MG.hex_rdl && !!MG.lm_squat && !!MG.hex_floor_press);
+T('old rdl history still computes volume', calcExVol('rdl', 43, [10, 10, 10]) === 43 * 30);
 
 // ── LANDMINE single-sided model (VWL) ──
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof']; // active landmine lifts (lm_180, lm_row retired)
+const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_squat']; // active landmine lifts (lm_180, lm_row retired)
 T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
 T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
@@ -148,6 +159,9 @@ T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5,
 // Seeding: landmine lifts seed at the 11kg bar-only floor (a valid VWL weight).
 let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && lsg.wt === 11 && VWL.includes(11));
+const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
+T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
+T('lm_squat routes to the VWL ladder', vwOf(ALL_EX.find(e => e.id === 'lm_squat')) === VWL);
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
@@ -191,8 +205,8 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days after v22: A=8, B=7, C=8 (push-ups restored to Day C)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 8);
-T('Day C carries a chest exposure (push-ups) — was zero pressing before', homePr.C.some(e => e.id === 'pushups') && (MG.pushups || {}).chest > 0);
+T('home days stay A=8, B=7, C=8 after Day C swaps', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 8);
+T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id === 'hex_floor_press') && (MG.hex_floor_press || {}).chest > 0);
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
