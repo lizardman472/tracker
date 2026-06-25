@@ -113,12 +113,14 @@ T('phase 2 re-anchors lighter', sg.type === 'new' && sg.wt < 41, JSON.stringify(
 d.sessions.push({ id: 'p2', date: '2026-06-10', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 36, reps: [8, 8, 8], band: '' }] });
 sg = getSmartSugg(ohp2);
 T('after logging in-phase, no re-anchor', sg.type !== 'new', JSON.stringify(sg));
-// DB partner exercise has no phase adj → must NOT re-anchor.
-T('db_ohp not in PHASE_ADJ_IDS', !global.__X.PHASE_ADJ_IDS.has('db_ohp'));
+// v23: partner DB lifts now periodize like home — db_ohp IS in PHASE_ADJ and re-anchors.
+T('db_ohp in PHASE_ADJ_IDS (partner periodizes now)', global.__X.PHASE_ADJ_IDS.has('db_ohp'));
 d = freshD({ phase: 2, phaseStart: '2026-06-09', location: 'partner' });
-d.sessions = [{ id: 'p3', date: '2026-06-01', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 12, reps: [10, 10, 10], band: '' }] }];
+d.sessions = [{ id: 'p3', date: '2026-06-01', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 12, reps: [6, 6, 6], band: '' }] }];
 sg = getSmartSugg(getProgram(2, 'partner').B.find(e => e.id === 'db_ohp'));
-T('db exercise does not re-anchor on phase change', sg.type !== 'new', JSON.stringify(sg));
+T('db lift re-anchors lighter into Hypertrophy', sg.type === 'new' && sg.wt < 12, JSON.stringify(sg));
+// Bodyweight/clubbell/carry partner moves stay static (like home pull-ups/dips).
+T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE_ADJ_IDS.has('inv_rows_a'));
 
 // ── weekly muscle volume: location-agnostic ──
 d = freshD();

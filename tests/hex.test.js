@@ -210,4 +210,14 @@ T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id ==
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
+// ── PROGRAM VOLUME: partner weekly effective sets meet MEV (v23 partner audit) ──
+const partPr = getProgram(1, 'partner');
+const pVol = {};
+for (const day of ['A', 'B', 'C']) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
+T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (pVol[k] || 0) >= mev), JSON.stringify(pVol));
+T('partner rear delts ≥ MEV (2nd db_rear_fly exposure)', pVol.reardelt >= mevOf('reardelt'), `${pVol.reardelt} vs ${mevOf('reardelt')}`);
+T('partner biceps ≥ MEV (direct db_curl restored)', pVol.biceps >= mevOf('biceps'), `${pVol.biceps} vs ${mevOf('biceps')}`);
+T('partner core ≥ MEV (loaded db_dead_bug added)', pVol.core >= mevOf('core'), `${pVol.core} vs ${mevOf('core')}`);
+T('partner rear delts hit 2× frequency', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).reardelt > 0)).length >= 2);
+
 console.log(`\n${pass} passed, ${fail} failed`);

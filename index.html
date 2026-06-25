@@ -334,15 +334,19 @@ function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,ba
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}},
+  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10',tg:10},db_row_c:{rp:'10-12',tg:12},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20}}},
+  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
+  db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12',tg:12},db_row_c:{rp:'12-15',tg:15},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15}}}};
+  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8',tg:8},db_row_c:{rp:'8-10',tg:10},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
-// load on a phase transition. (Partner DB exercises aren't here, so their targets
-// and loads carry across phases unchanged.)
+// load on a phase transition. (v23 partner audit: the main partner DB lifts now
+// periodize too — see the db_* entries in each phase's adj above. Bodyweight,
+// clubbell and carry partner moves stay static, like home pull-ups/dips/carries.)
 const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
 
 const BASE_PR={A:[
@@ -408,27 +412,38 @@ C:[
 // Landmine OHP press still PENDING — OHP stays barbell for now.
 const HEX_LM_EX=[];
 
-// Location B exercises — pattern-matched to home, no-band fallback
+// Location B (partner's: DBs + bands + clubbells + parallel bars) — pattern-matched to home.
+// v23 PARTNER AUDIT: the partner program was originally pattern-matched but never got the
+// home volume audit, so several muscles sat under MEV. Corrections (one A+B+C week):
+//   • rear delts 3→6 (2×/wk): 2nd db_rear_fly exposure on Day B, supersetted with the lateral
+//   • biceps 5.5→8.5: NEW db_curl on Day A — there was no direct elbow flexion at all
+//   • core 4.5→7.5: NEW db_dead_bug on Day C — no full-credit anti-extension move before
+//   • chest 7.5→8.5 (db_floor_press 3→4), quads 7→8 (db_lunge 3→4), side delts 7.5→8.5 (db_lateral 3→4)
+// All hypertrophy targets now meet MEV. The main DB lifts also periodize across phases now
+// (see PHASES.adj above); clubbells/carries/inverted rows/dead-bugs stay static.
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_sl_rdl',nm:'DB Single-Leg RDL',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'db',rl:'Closes SL posterior chain gap. Start lighter than B-stance equivalent.',tg:8,rstS:90,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_floor_press',nm:'DB Floor Press',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'inv_rows_a',nm:'Inverted Rows (Vertical Bias)',s:4,rp:'8-12',rst:'2:00',rir:'2',tp:'bw',rl:'Parallel bars neutral grip. Feet elevated, steep angle, pull chest to hands. Bias vertical.',tg:12,rstS:120,tempo:'3-1-2-1',perSide:false},
-{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Mirrors home delt work. Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'db_lateral',nm:'DB Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Primary delt slot — 4 sets (mirrors home Day A). Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
 {id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'db',rl:'Pull-day finisher — direct elbow flexion to back up the rows (the partner program had none; mirrors home Barbell Curl). Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:90,tempo:'controlled',perSide:true}],
 B:[
 {id:'db_bss',nm:'DB Bulgarian Split Squat',s:4,rp:'8/leg',rst:'2:00',rir:'1-2',tp:'db',rl:'Confirm → ↑1-2kg goblet',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true,loadUnit:'per_db'},
 {id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'2:30',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:150,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:90,tempo:'controlled',perSide:true},
 {id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true}],
 C:[
 {id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'2:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'db_row_c',nm:'DB Single-Arm Row (Vol)',s:3,rp:'10-12',rst:'1:30',rir:'2',tp:'db',rl:'Lighter than B2. Higher reps.',tg:12,rstS:90,tempo:'3-1-2-0',perSide:false},
-{id:'db_lunge',nm:'DB Walking Lunges',s:3,rp:'10/leg',rst:'1:30',rir:'2',tp:'db',rl:'Load→deficit',tg:10,rstS:90,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
+{id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:30',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:90,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
 {id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:30',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry.',tg:1,rstS:90,tempo:'—',perSide:false},
+{id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg/DB.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true,loadUnit:'per_db'},
 {id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
 
 // getProgram — apply phase adjustment + week B swaps
@@ -532,7 +547,8 @@ const MG={
   db_ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, db_bss:{quads:1,glutes:0.5},
   db_row_b:{back:1,biceps:0.5}, db_row_c:{back:1,biceps:0.5}, db_row_a:{back:1,biceps:0.5},
   db_lunge:{quads:1,glutes:0.5}, inv_rows_a:{back:1,biceps:0.5},
-  db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5,core:0.5}
+  db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5,core:0.5},
+  db_curl:{biceps:1}, db_dead_bug:{core:1}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
 const MG_INFO=[
@@ -580,7 +596,7 @@ const AW_KEY='rft-active';
 function migrateData(d){
 const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp','db_row_a','db_row_b','db_row_c',
 'db_bss','db_lunge','db_carry','cb_mills','cb_shield','cb_arm_cast','dand_baithak_a','dand_baithak_b',
-'dead_bugs_b','band_prehab','inv_rows_a']);
+'dead_bugs_b','band_prehab','inv_rows_a','db_curl','db_dead_bug','db_rear_fly']);
 for(const s of d.sessions){
   if(!s.loc)s.loc=s.ex.some(e=>partnerIds.has(e.id))?'partner':'home';
   // Always re-derive stored volume so history stays consistent with the
@@ -758,7 +774,9 @@ const RELATED_EX={
   'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},
   'db_floor_press': {id:'db_floor_press_v', mult:1.0, addKg:0.5, note:'heavy slot, +0.5kg over volume slot'},
   'db_sl_rdl':      {id:'db_lunge',         mult:1.0,            note:'similar unilateral DB load'},
-  'cb_mills':       {id:'cb_shield',        mult:1.0,            note:'same clubbell weight class'}
+  'cb_mills':       {id:'cb_shield',        mult:1.0,            note:'same clubbell weight class'},
+  'db_curl':        {id:null,               seedWt:8,            note:'NEW — DB biceps curl (partner program had no direct arm work). Feel-out ~8kg/DB for 8-12, build up.'},
+  'db_dead_bug':    {id:null,               seedWt:5,            note:'NEW — loaded dead bug. Start light (~5kg) and prioritise control over load.'}
 };
 
 function getRelatedSuggestion(ex){
