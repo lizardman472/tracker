@@ -122,6 +122,27 @@ T('db lift re-anchors lighter into Hypertrophy', sg.type === 'new' && sg.wt < 12
 // Bodyweight/clubbell/carry partner moves stay static (like home pull-ups/dips).
 T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE_ADJ_IDS.has('inv_rows_a'));
 
+// ── v24: home periodization realigned with the program ──
+const PA = global.__X.PHASE_ADJ_IDS;
+// Regression guard: every phase-adjust id must belong to an ACTIVE program at some
+// location. A "dead" entry (pointing at a swapped-out lift) silently never fires and
+// is how lm_lateral/lm_pallof lost their periodization in the landmine swap.
+const activeProgIds = new Set();
+for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) activeProgIds.add(ex.id);
+T('no dead PHASE_ADJ entries (all map to an active lift)', [...PA].every(id => activeProgIds.has(id)), [...PA].filter(id => !activeProgIds.has(id)).join(','));
+// Landmine swap periodization restored on the current ids.
+T('lm_lateral periodizes (restored from lateral_raise)', PA.has('lm_lateral'));
+T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
+// Swapped-out ids are gone from the adj map.
+T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
+// Loaded accessories now periodize like their partner counterparts.
+T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('bb_skullcr') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+// lm_lateral actually re-anchors lighter into Hypertrophy (proves the swap-id wiring works).
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [{ id: 'll1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'lm_lateral', wt: 16, reps: [8, 8, 8, 8], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').A.find(e => e.id === 'lm_lateral'));
+T('lm_lateral re-anchors on phase change', sg.type === 'new' && sg.wt < 16, JSON.stringify(sg));
+
 // ── weekly muscle volume: location-agnostic ──
 d = freshD();
 const t = today();

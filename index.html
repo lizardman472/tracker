@@ -334,19 +334,31 @@ function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,ba
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{deadlift:{rp:'5',tg:5},hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},zercher_b:{rp:'5-6',tg:6},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},bb_row:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},lateral_raise:{rp:'12-15',tg:15},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},cossack_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'8-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10',tg:10},db_row_c:{rp:'10-12',tg:12},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
-  adj:{deadlift:{rp:'8',tg:8},hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},zercher_b:{rp:'8',tg:8},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},bb_row:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},lateral_raise:{rp:'15-20',tg:20},pallof_press:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
+  adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},cossack_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12',tg:12},db_row_c:{rp:'12-15',tg:15},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{deadlift:{rp:'3-5',tg:5},hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},zercher_b:{rp:'4-5',tg:5},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},bb_row:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},lateral_raise:{rp:'10-12',tg:12},pallof_press:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},cossack_squat:{rp:'6/side',tg:6},lm_lateral:{rp:'10-12',tg:12},bb_rear_row:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},bb_skullcr:{rp:'6-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8',tg:8},db_row_c:{rp:'8-10',tg:10},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
 // load on a phase transition. (v23 partner audit: the main partner DB lifts now
 // periodize too — see the db_* entries in each phase's adj above. Bodyweight,
 // clubbell and carry partner moves stay static, like home pull-ups/dips/carries.)
+// v24 home periodization realignment: the adj map had drifted from the program.
+// (a) Removed 5 DEAD entries pointing at swapped-out lifts (deadlift→hex_dl,
+//     zercher_b→hex_squat_b, bb_row→hex_row already carry their own adj; lateral_raise
+//     and pallof_press were migrated, see below) — they never fired against the active
+//     program and only misled.
+// (b) The landmine swap (v19+) renamed lateral_raise→lm_lateral and pallof_press→lm_pallof
+//     but never moved their adj entries, so both silently STOPPED periodizing. Restored
+//     on the current ids.
+// (c) Added periodization to the loaded accessories that arrived after the map was first
+//     written (bb_rear_row, bb_curl, bb_skullcr, hex_floor_press, cossack_squat) — now
+//     consistent with the partner DB accessories. Bands (rear_delt) progress by thickness
+//     and band-assisted bodyweight (pull-ups/dips) by assistance, so they stay static.
 const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
 
 const BASE_PR={A:[
