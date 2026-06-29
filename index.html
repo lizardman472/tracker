@@ -464,8 +464,8 @@ C:[
 {id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg/DB.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true,loadUnit:'per_db'},
 {id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
 
-// getProgram — apply phase adjustment + week B swaps
-function getProgram(phase,loc,week){
+// getProgram — apply phase adjustment for the location's base program
+function getProgram(phase,loc){
 const base=loc==='partner'?LOC_B_PR:BASE_PR;
 const p=PHASES[phase]||PHASES[1],pr={};
 for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
@@ -607,7 +607,7 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',confirmed:{},discomfort:[],location:'home',trainingWeek:1};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',confirmed:{},discomfort:[],location:'home'};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -651,7 +651,6 @@ if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
-if(!d.trainingWeek)d.trainingWeek=1;
 if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d.lastBackupCount=0;
 if(!d.dismissed)d.dismissed={};
 d=migrateData(d);
@@ -660,7 +659,7 @@ D=d}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),confirmed:{},discomfort:[],location:'home',trainingWeek:1,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),confirmed:{},discomfort:[],location:'home',notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
 function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
@@ -691,7 +690,7 @@ function dismissBanner(key,sig){if(!D.dismissed)D.dismissed={};D.dismissed[key]=
 function fmtD(d){return new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}
 function dAgo(d){const x=Math.floor((new Date()-new Date(d+'T00:00:00'))/864e5);return x===0?'Today':x===1?'Yesterday':`${x}d ago`}
 function elapsed(){if(!SS)return'';const s=Math.floor((Date.now()-SS)/1000),m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`}
-function getCurPR(){return getProgram(D.phase,D.location,D.trainingWeek)}
+function getCurPR(){return getProgram(D.phase,D.location)}
 
 // ═══════════════ PERIODIZATION ═══════════════
 function getPhaseInfo(){
@@ -1125,7 +1124,7 @@ const sc=Math.round(Math.min(10,f*1.2+ad*.9+tv/(1200*Math.max(1,f)))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
-function getDeload(){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
+function getDeload(stalledEx=0){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
 const sc=D.lastDeload?D.sessions.filter(s=>s.date>D.lastDeload).length:D.sessions.length;
 // Signal-driven: don't deload on timer alone — check for actual fatigue signals.
 // Average RPE over the last 14 days (not the last 5 sessions whenever they were)
@@ -1138,8 +1137,18 @@ const avgDiff=rated.length?rated.reduce((a,s)=>a+s.difficulty,0)/rated.length:0;
 const highFatigue=avgDiff>=4;
 // For beginners (<30 sessions), extend timer to 8 weeks and require signals
 const isBeginner=D.sessions.length<30;const timerThresh=isBeginner?8:6;
-const due=wk>=timerThresh&&highFatigue;const consider=wk>=timerThresh&&!highFatigue;
-return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10}}
+// Two independent fatigue signals: self-reported RPE (subjective, often under-rated) OR
+// 2+ lifts genuinely stalling/regressing (objective, from getSmartSugg). Either one, with
+// the timer met, recommends a deload — so an athlete who under-rates effort but is clearly
+// grinding to a halt still gets caught. Timer met with neither signal = optional checkpoint.
+const stallDue=stalledEx>=2;
+const timerMet=wk>=timerThresh;
+const due=timerMet&&(highFatigue||stallDue);
+const consider=timerMet&&!due;
+const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledEx} lifts stalling`
+  :highFatigue?`RPE avg ${Math.round(avgDiff*10)/10}/5 high`
+  :stallDue?`${stalledEx} lifts stalling`:'';
+return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledEx,reason}}
 
 // ═══════════════ TIMER ═══════════════
 // Wall-clock based: setInterval is throttled/paused with the screen off on
@@ -1213,7 +1222,7 @@ return{order,recent,done,next,sinceLast,avgGap}}
 function rHome(el){
 const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
 const nd=!['A','B','C'].includes(nd0)?'A':nd0;
-const pr=getCurPR(),exs=pr[nd]||pr['A'],dl=getDeload(),fat=getFatigue(),phi=getPhaseInfo();
+const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledEx);
 const resume=checkResume();
 let h='<div class="sec">';
 
@@ -1248,8 +1257,8 @@ const wuSk=rLS.filter(s=>s.warmup!==undefined&&s.warmup===0).length;
 const wuSig=D.sessions.length+'-'+wuSk;
 if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#4a2236;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 const dlT=dl?.isBeginner?8:6;
-const dlSig=dl?'wk'+dl.wk:'';
-if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Wk ${dl.wk} · RPE avg ${dl.avgDiff}/5 — fatigue high, deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
+if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Wk ${dl.wk} · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>Wk ${dl.wk} checkpoint · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 
 // Hero — show rest-day card if last session was today or yesterday
@@ -1647,7 +1656,7 @@ h+=`</div></div></div>
 <button class="btn btn-pr" style="${SDIFF?'':'opacity:0.35;pointer-events:none'}" onclick="saveSumm()">${SDIFF?'Save':'Select RPE to save'}</button></div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S;
-D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,trainingWeek:D.trainingWeek||1,notes:S.notes||''});
+D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,trainingWeek:getPhaseInfo().wk,notes:S.notes||''});
 D.nextDay=NEXT_DAY[S.day]||'A';
 save();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();go('home')}
 
@@ -2415,7 +2424,6 @@ if(d.lastDeload!==undefined)D.lastDeload=d.lastDeload;
 if(wasFresh){
   if(d.phase)D.phase=d.phase;
   if(d.phaseStart)D.phaseStart=d.phaseStart;
-  if(d.trainingWeek)D.trainingWeek=d.trainingWeek;
   if(d.location)D.location=d.location;
 }
 // Update nextDay from latest session — location aware

@@ -117,6 +117,22 @@ d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id:
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
 
+// ── deload trigger uses objective stalls, not just self-rated RPE ──
+// Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
+// call it "optional". With 2+ lifts stalling it should now be RECOMMENDED.
+d = freshD();
+d.lastDeload = ymd(new Date(Date.now() - 70 * 864e5));
+d.sessions = [{ id: 'dl1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', difficulty: 2, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }];
+T('timer + 2 stalling lifts → deload DUE despite low RPE', getDeload(2).due === true, JSON.stringify(getDeload(2)));
+T('deload reason names the stall signal', /stalling/.test(getDeload(2).reason), getDeload(2).reason);
+T('timer + no stalls + low RPE → optional only (not due)', getDeload(0).due === false && getDeload(0).consider === true);
+T('one stalling lift is not enough to force a deload', getDeload(1).due === false);
+
+// ── phase week is DERIVED from phaseStart (no stored counter to drift) ──
+d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
+T('phase week derives from phaseStart (~wk5 at 28 days)', getPhaseInfo().wk === 5, getPhaseInfo().wk);
+T('trainingWeek removed from fresh state (derived, not stored)', d.trainingWeek === undefined);
+
 // ── Phase-transition re-anchor ──
 // OHP at 80kg×5 in Phase 1 (target 7), advance to Phase 2 (target 10) → lighter.
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
