@@ -102,6 +102,19 @@ d.sessions = [{ id: 'k1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'));
 T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt > 8, JSON.stringify(sg));
 
+// ── big rep-target overshoot re-anchors the load (not a +1kg crawl) ──
+// b_stance_rdl target is 8/side; logging 20/side means the load is ~2x too light. The old
+// engine added one micro-rung (+1kg); now it jumps proportionally (capped ~12%).
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [{ id: 'bo1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+T('big overshoot jumps proportionally, not one micro-rung', sg.type === 'up' && sg.wt >= 35 && sg.wt <= 36, JSON.stringify(sg));
+T('big-overshoot jump is capped (≤ +12%)', sg.wt <= 32 * 1.12 + 0.5, JSON.stringify(sg));
+// modest overshoot (1 over) is unchanged — still the small confirmed step.
+d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [9, 9, 9], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
+
 // ── Phase-transition re-anchor ──
 // OHP at 80kg×5 in Phase 1 (target 7), advance to Phase 2 (target 10) → lighter.
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });

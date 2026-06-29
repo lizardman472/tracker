@@ -931,6 +931,21 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     const eRl=effectiveReps(ex,last.reps);
     const minRep=eRl.length?Math.min(...eRl):ex.tg;
     const over=minRep-ex.tg; // 0 = just hit target; higher = lots in reserve
+    // BIG-OVERSHOOT re-anchor: a single plate/micro step moves ~0.5-1kg, which can never
+    // catch up to a load you're beating by many reps (e.g. a 3×8 slot logged at 20/side
+    // crawls +1kg/session for ~15 sessions). When the LOWEST working set clears target by
+    // ≥4 reps, jump proportionally — ≈2.5% per rep over, capped at +12%/session for joint
+    // safety — and snap to a valid load. Keyed off the lowest set (not one hot AMRAP set),
+    // so it only fires when EVERY set is well over target. Re-fires until you land in range.
+    if(over>=4){
+      const pct=Math.min(0.12,0.025*over);
+      const raw=last.wt*(1+pct);
+      const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
+      if(nxt>last.wt){
+        const jump=Math.round((nxt-last.wt)*10)/10;
+        return{text:`↑ ${nxt}kg${ex.tp==='db'?'/DB':''}`,type:'up',wt:nxt,traj,
+          detail:`Hit ${ex.s}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
+    }
     if(ex.tp==='bb'){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
