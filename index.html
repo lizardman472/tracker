@@ -659,7 +659,7 @@ D=d}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(
 function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),confirmed:{},discomfort:[],location:'home',notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:12,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
 function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
@@ -882,8 +882,14 @@ if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
 if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const mn=getRepMin(ex);
   const atW=hist.filter(h=>wEq(h.wt,last.wt));
+  // hitTarget gates a weight INCREASE — you must complete ALL prescribed sets at/above target.
+  // inRange gates STALL detection — judge only the sets actually performed: a session with a
+  // skipped/blank trailing set (stored as 0, then dropped by effectiveReps) whose performed
+  // sets all clear the minimum must NOT count as a stall (that produced phantom deloads on
+  // clearly strong, over-target sessions). A genuine stall (full or partial sets BELOW min)
+  // still fails this and accrues toward the deload.
   const hitTarget=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=ex.tg)};
-  const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=ex.s&&v.every(r=>r>=mn)};
+  const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=1&&v.every(r=>r>=mn)};
   const stalls=atW.filter(h=>!inRange(h)).length;
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
   // Confirm brake counts CONSECUTIVE recent clean target-hits at the current weight ending
@@ -899,7 +905,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,curr.reps).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${last.wt}kg`}
   if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
-    if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
+    if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt)&&!inRange(last))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
     else if(wEq(prev.wt,last.wt)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,last.reps).reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(discWarn)regress=discWarn;
@@ -1634,7 +1640,11 @@ const pr=getCurPR(),exs=pr[ADAY];
 const logged=Object.entries(LOG).filter(([,v])=>(v.touched||!v.pf)&&v.reps.some(r=>r!==''&&Number(r)>0))
   .map(([id,v])=>({id,wt:v.wt?Number(v.wt):null,reps:v.reps.map(r=>r===''?0:Number(r)),band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes}));
 if(!logged.length)return;
-for(const[id,v] of Object.entries(LOG)){if(v.disc&&v.disc!=='none'&&v.discJoints.length){
+// Only record discomfort for exercises that actually made it into the saved session —
+// otherwise flagging a joint on an exercise you leave blank orphans a discomfort row
+// pointing at a lift with no sets in this session.
+const loggedIds=new Set(logged.map(e=>e.id));
+for(const[id,v] of Object.entries(LOG)){if(loggedIds.has(id)&&v.disc&&v.disc!=='none'&&v.discJoints.length){
   for(const j of v.discJoints)D.discomfort.push({date:today(),exId:id,level:v.disc,joint:j})}}
 const prs=[];for(const e of logged){const p=checkPR(e.id,e.wt,e.reps);if(p.length)prs.push({nm:ALL_EX.find(x=>x.id===e.id)?.nm||e.id})}
 let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.length;tr+=vr.reduce((a,b)=>a+b,0);tv+=calcExVol(e.id,e.wt,e.reps)}
@@ -2053,7 +2063,7 @@ for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
 for(const d of hm){let bg='var(--ib)';
 // cardio is amber to match the legend — it was green-tinted, indistinguishable from Day C
 if(d.isC)bg='rgba(245,165,36,.30)';else if(d.day==='A')bg='rgba(var(--prRGB),.4)';else if(d.day==='B')bg='rgba(96,165,250,.4)';
-else if(d.day==='C')bg='rgba(52,211,153,.4)';else if(d.day==='D')bg='rgba(245,165,36,.4)';
+else if(d.day==='C')bg='rgba(52,211,153,.4)';
 h+=`<div class="hm-cell" style="background:${bg}"></div>`}
 h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span style="color:var(--pr)">■ A</span><span style="color:var(--bl)">■ B</span><span style="color:var(--gr)">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
 
@@ -2162,7 +2172,7 @@ h+=`</div><button class="btn btn-pr" style="padding:12px" onclick="saveBod()">${
 <div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Leave a field blank to skip it.</div></div>`;
 // ── DATA PRESENTATION ──
 // Trend: pick any tracked metric to chart. Chips show only metrics with data.
-const charted=BODY_METRICS.filter(m=>bodySeries(m.k).length>=1);
+const charted=BODY_METRICS.filter(m=>bodySeries(m.k).length>=2);
 if(charted.length){
 if(!bodySeries(BODY_METRIC).length)BODY_METRIC=charted[0].k;
 const sel=BODY_METRICS.find(m=>m.k===BODY_METRIC)||charted[0];
@@ -2253,7 +2263,7 @@ let h=`<div class="sec"><div style="font-size:18px;font-weight:800;margin-bottom
 <div class="cd" style="margin-bottom:10px">
 <div style="display:flex;gap:8px;margin-bottom:8px">
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Date</div>
-<input type="date" class="bs" value="${LP.date||today()}" onchange="LP.date=this.value;render()"></div>
+<input type="date" class="bs" value="${LP.date||today()}" max="${today()}" onchange="LP.date=this.value;render()"></div>
 <div><div class="dm" style="margin-bottom:3px">Location</div>
 <div style="display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--cb)">
 <button style="padding:6px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${LP.loc==='home'?'var(--pr)':'var(--cd)'};color:${LP.loc==='home'?'var(--ink)':'var(--mu)'}" onclick="LP.loc='home';render()">🏠</button>
@@ -2300,9 +2310,12 @@ const band=bEl?bEl.value:'';
 if(wt)hasData=true;if(band)hasData=true;
 if(hasData)logged.push({id:ex.id,wt,reps,band,notes:'(logged retroactively)'})}
 if(!logged.length){alert('No data entered');return}
+const dt=LP.date||today();
+// Reject future dates: a future session becomes the "latest" and drives nextDay + the
+// cycle/streak math off today(), yielding negative "days ago" and a wrong next day.
+if(dt>today()){alert('Cannot log a session dated in the future.');return}
 // Patch 9: Compute volume
 let tv=0;for(const e of logged){tv+=calcExVol(e.id,e.wt,e.reps)}
-const dt=LP.date||today();
 D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,ex:logged,volume:tv,duration:null,difficulty:null,warmup:0});
 // Sort sessions by date
 D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
@@ -2399,7 +2412,11 @@ for(const e of s.ex){
   const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
   const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
   ex.push({...e,reps,wt})}
-return{...s,id:String(s.id),ex}}
+// `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
+// s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a
+// malformed/hand-edited backup can't crash the Home/History screens it lands on.
+const day=['A','B','C'].includes(s.day)?s.day:'A';
+return{...s,id:String(s.id),day,ex}}
 function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
 r.onload=e=>{try{const d=JSON.parse(e.target.result);
 if(!d||typeof d!=='object'||!Array.isArray(d.sessions))throw 0;

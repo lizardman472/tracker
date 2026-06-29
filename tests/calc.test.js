@@ -148,6 +148,38 @@ d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
 T('phase week derives from phaseStart (~wk5 at 28 days)', getPhaseInfo().wk === 5, getPhaseInfo().wk);
 T('trainingWeek removed from fresh state (derived, not stored)', d.trainingWeek === undefined);
 
+// ── audit fix: a skipped trailing set must NOT read as a stall/phantom deload ──
+// ohp is s:4, tg:7, rp '5-7'. Three sessions of [10,10,10,0] (4th set blank) crush target on
+// every PERFORMED set; before the fix the set-count gate misread them as 3 stalls → ~11% deload.
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [40, 35, 30].map((off, i) => ({ id: 'sk' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [10, 10, 10, 0], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('skipped trailing set is not a phantom deload', sg.type !== 'dn', JSON.stringify(sg));
+T('strong-but-incomplete sessions raise no stall signal', getPhaseInfo().stalledEx === 0 && getPhaseInfo().stalledMajor === 0, JSON.stringify({ e: getPhaseInfo().stalledEx, m: getPhaseInfo().stalledMajor }));
+// a genuine all-sets-below-min stall still deloads (regression guard)
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [4, 4, 4, 4], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
+
+// ── audit fix: a successful (in-range) deload is not flagged as a "Weight dropped" regression ──
+d = freshD();
+d.sessions = [
+  { id: 're1', date: ymd(new Date(Date.now() - 10 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 33, reps: [6, 6, 6], band: '' }] },
+  { id: 're2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 30, reps: [10, 10, 10], band: '' }] },
+];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'floor_press'));
+T('successful deload not flagged as a regression', !/Weight dropped/.test(sg.regress || ''), JSON.stringify(sg.regress));
+
+// ── audit fix: validSession normalizes a missing/invalid day (render-crash chokepoint) ──
+T('validSession defaults a missing day to A', validSession({ id: 'x', date: '2026-06-01', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5] }] }).day === 'A');
+T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', day: 'B', ex: [] }).day === 'B');
+T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
+
+// ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
+T('freshState carries programVersion 12 (no migrate re-fire)', freshState().programVersion === 12);
+T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
+
 // ── Phase-transition re-anchor ──
 // OHP at 80kg×5 in Phase 1 (target 7), advance to Phase 2 (target 10) → lighter.
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
