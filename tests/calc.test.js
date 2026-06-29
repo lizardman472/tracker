@@ -46,8 +46,11 @@ T('legacy carry excluded', calcExVol('carry', 32, [1, 1, 1]) === 0);
 T('bilateral barbell 46×15', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
 T('per_db doubles', calcExVol('db_ohp', 10, [10, 10, 10]) === 600);
 T('perSide doubles', calcExVol('cossack_squat', 21, [8, 8, 8]) === 21 * 2 * 24);
-T('per_db+perSide ×4', calcExVol('db_bss', 10, [8, 8, 8, 8]) === 10 * 4 * 32);
+T('per_db+perSide ×4 (two-DB single-leg RDL)', calcExVol('db_sl_rdl', 10, [8, 8, 8]) === 10 * 4 * 24);
 T('single-arm press not per_db', calcExVol('db_1arm_press', 8, [10, 10, 10]) === 8 * 2 * 30);
+// Goblet / single-DB holds are perSide-only (×2), NOT per_db (×4) — fixed after the audit.
+T('db_bss goblet = perSide only, not per_db', calcExVol('db_bss', 10, [8, 8, 8, 8]) === 10 * 2 * 32);
+T('db_dead_bug single-DB = perSide only, not per_db', calcExVol('db_dead_bug', 5, [8, 8, 8]) === 5 * 2 * 24);
 
 // ── effectiveReps: per-side convention (no halving) ──
 T('no halving for perSide', JSON.stringify(effectiveReps({ perSide: true }, [8, 8, 8])) === '[8,8,8]');
