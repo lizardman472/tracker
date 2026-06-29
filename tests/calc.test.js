@@ -37,6 +37,8 @@ T('ALL_EX ids unique', new Set(ids).size === ids.length);
 T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').rl.startsWith('Hold the bar end'));
 // Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
 T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
+// Coach notes (📌) surface manual-progression reminders + band tips on the lifts the user is stuck on.
+T('coach notes present on the flagged lifts', ['hex_dl','bb_rear_row','pullup_a','pullup_c','dips'].every(id => { const e = ALL_EX.find(x => x.id === id); return e && typeof e.note === 'string' && e.note.length > 10; }));
 
 // ── tonnage (calcExVol) ──
 T('carry excluded from tonnage', calcExVol('suitcase_march', 32, [40, 40, 40]) === 0);
