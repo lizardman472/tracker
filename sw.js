@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v40';
+const C = 'rft-v47';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -27,7 +27,10 @@ self.addEventListener('fetch', e => {
   if (isNav) {
     e.respondWith(
       fetch(req)
-        .then(r => { caches.open(C).then(c => c.put(req, r.clone())); return r; })
+        // Only cache a SUCCESSFUL same-origin shell. Caching an error (503 during a deploy,
+        // edge 5xx/404) would overwrite the good cached shell and break the next offline load
+        // — the exact failure this SW exists to prevent. Mirrors the asset branch's guard.
+        .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; })
         .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
     );
     return;

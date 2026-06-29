@@ -189,11 +189,15 @@ T('heavy lift still deloads a real ~10% (41→≤36.9)', cdSg.type === 'dn' && c
 // ── AUDIT FIX P1: dangling/orphan references removed ──
 T('inverted_row orphan removed from MG', !MG.inverted_row);
 T('band_lateral orphan removed from MG', !MG.band_lateral);
-T('inv_rows_a (active partner lift) keeps its MG map', !!MG.inv_rows_a);
+// inv_rows_a retired to a legacy stub (v25 → neutral-grip pull-ups), but keeps its MG map
+// and ALL_EX def so pre-swap partner history still resolves.
+T('inv_rows_a kept as legacy stub with MG map', !!MG.inv_rows_a && !!ALL_EX.find(e => e.id === 'inv_rows_a'));
+T('inv_rows_a no longer in the active partner program', !getProgram(1, 'partner').A.some(e => e.id === 'inv_rows_a'));
+// The active replacement — band-assisted neutral-grip pull-up — seeds cleanly off its band.
 const irD = freshD({ location: 'partner' });
 irD.sessions = [];
-const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'inv_rows_a'));
-T('inv_rows_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
+const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'pb_pullup_a'));
+T('pb_pullup_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
 
 // ── PROGRAM VOLUME: home weekly effective sets meet MEV for the muscles we restored ──
 const homePr = getProgram(1, 'home');
@@ -209,5 +213,20 @@ T('home days stay A=8, B=7, C=8 after Day C swaps', homePr.A.length === 8 && hom
 T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id === 'hex_floor_press') && (MG.hex_floor_press || {}).chest > 0);
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
+
+// ── PROGRAM VOLUME: partner weekly effective sets meet MEV (v23 partner audit) ──
+const partPr = getProgram(1, 'partner');
+const pVol = {};
+for (const day of ['A', 'B', 'C']) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
+T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (pVol[k] || 0) >= mev), JSON.stringify(pVol));
+T('partner rear delts ≥ MEV (2nd db_rear_fly exposure)', pVol.reardelt >= mevOf('reardelt'), `${pVol.reardelt} vs ${mevOf('reardelt')}`);
+T('partner biceps ≥ MEV (direct db_curl restored)', pVol.biceps >= mevOf('biceps'), `${pVol.biceps} vs ${mevOf('biceps')}`);
+T('partner core ≥ MEV (loaded db_dead_bug added)', pVol.core >= mevOf('core'), `${pVol.core} vs ${mevOf('core')}`);
+T('partner rear delts hit 2× frequency', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).reardelt > 0)).length >= 2);
+// v25: partner pull pattern mirrors home — vertical pull (pull-ups) on Day A + Day C.
+const vertPullDays = ['A', 'B', 'C'].filter(d => partPr[d].some(e => /^pb_pullup/.test(e.id)));
+T('partner has vertical pull on 2 days (A + C, mirrors home)', vertPullDays.join('') === 'AC', vertPullDays.join(','));
+T('partner hamstrings hit 2× frequency (db_sl_rdl moved A→C)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 2);
+T('partner back still ≥ MEV after row→pull-up swap (volume-neutral)', pVol.back >= mevOf('back'), `${pVol.back} vs ${mevOf('back')}`);
 
 console.log(`\n${pass} passed, ${fail} failed`);

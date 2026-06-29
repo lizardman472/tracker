@@ -37,6 +37,8 @@ T('ALL_EX ids unique', new Set(ids).size === ids.length);
 T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').rl.startsWith('Hold the bar end'));
 // Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
 T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
+// Coach notes (📌) surface manual-progression reminders + band tips on the lifts the user is stuck on.
+T('coach notes present on the flagged lifts', ['hex_dl','bb_rear_row','pullup_a','pullup_c','dips'].every(id => { const e = ALL_EX.find(x => x.id === id); return e && typeof e.note === 'string' && e.note.length > 10; }));
 
 // ── tonnage (calcExVol) ──
 T('carry excluded from tonnage', calcExVol('suitcase_march', 32, [40, 40, 40]) === 0);
@@ -44,8 +46,11 @@ T('legacy carry excluded', calcExVol('carry', 32, [1, 1, 1]) === 0);
 T('bilateral barbell 46×15', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
 T('per_db doubles', calcExVol('db_ohp', 10, [10, 10, 10]) === 600);
 T('perSide doubles', calcExVol('cossack_squat', 21, [8, 8, 8]) === 21 * 2 * 24);
-T('per_db+perSide ×4', calcExVol('db_bss', 10, [8, 8, 8, 8]) === 10 * 4 * 32);
+T('per_db+perSide ×4 (two-DB single-leg RDL)', calcExVol('db_sl_rdl', 10, [8, 8, 8]) === 10 * 4 * 24);
 T('single-arm press not per_db', calcExVol('db_1arm_press', 8, [10, 10, 10]) === 8 * 2 * 30);
+// Goblet / single-DB holds are perSide-only (×2), NOT per_db (×4) — fixed after the audit.
+T('db_bss goblet = perSide only, not per_db', calcExVol('db_bss', 10, [8, 8, 8, 8]) === 10 * 2 * 32);
+T('db_dead_bug single-DB = perSide only, not per_db', calcExVol('db_dead_bug', 5, [8, 8, 8]) === 5 * 2 * 24);
 
 // ── effectiveReps: per-side convention (no halving) ──
 T('no halving for perSide', JSON.stringify(effectiveReps({ perSide: true }, [8, 8, 8])) === '[8,8,8]');
@@ -102,6 +107,79 @@ d.sessions = [{ id: 'k1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'));
 T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt > 8, JSON.stringify(sg));
 
+// ── big rep-target overshoot re-anchors the load (not a +1kg crawl) ──
+// b_stance_rdl target is 8/side; logging 20/side means the load is ~2x too light. The old
+// engine added one micro-rung (+1kg); now it jumps proportionally (capped ~12%).
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [{ id: 'bo1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+T('big overshoot jumps proportionally, not one micro-rung', sg.type === 'up' && sg.wt >= 35 && sg.wt <= 36, JSON.stringify(sg));
+T('big-overshoot jump is capped (≤ +12%)', sg.wt <= 32 * 1.12 + 0.5, JSON.stringify(sg));
+// modest overshoot (1 over) is unchanged — still the small confirmed step.
+d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [9, 9, 9], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
+
+// ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
+// Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
+// call it "optional". With 2+ COMPOUND lifts stalling it should now be RECOMMENDED.
+d = freshD();
+d.lastDeload = ymd(new Date(Date.now() - 70 * 864e5));
+d.sessions = [{ id: 'dl1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', difficulty: 2, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }];
+T('timer + 2 compound stalls → deload DUE despite low RPE', getDeload(2).due === true, JSON.stringify(getDeload(2)));
+T('deload reason names the stall signal', /stalling/.test(getDeload(2).reason), getDeload(2).reason);
+T('timer + no stalls + low RPE → optional only (not due)', getDeload(0).due === false && getDeload(0).consider === true);
+T('one stalling lift is not enough to force a deload', getDeload(1).due === false);
+
+// ── stall classification: isolation dips don't count; compound stalls do ──
+// (this is the #1-audit tightening — only compound, repeated stalls feed the deload)
+const stall3 = (id, wt, reps) => [22, 19, 16].map((off, i) => ({ id: 'st_' + id + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id, wt, reps, band: '' }] }));
+d = freshD(); d.sessions = stall3('lm_lateral', 11.25, [8, 8, 8, 8]); // isolation (side delt only), stalled 3x
+let dlpi = getPhaseInfo();
+// lm_lateral is on BOTH Day A and Day B — dedupe must count the stall ONCE, not twice.
+T('multi-day lift stall counted once (dedup)', dlpi.stalledEx === 1, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+T('isolation stall does NOT feed the compound/deload signal', dlpi.stalledMajor === 0, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+d = freshD(); d.sessions = stall3('floor_press', 30, [6, 6, 6]); // compound (chest+triceps), stalled 3x
+dlpi = getPhaseInfo();
+T('compound stall feeds the major-stall deload signal', dlpi.stalledMajor >= 1, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+
+// ── phase week is DERIVED from phaseStart (no stored counter to drift) ──
+d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
+T('phase week derives from phaseStart (~wk5 at 28 days)', getPhaseInfo().wk === 5, getPhaseInfo().wk);
+T('trainingWeek removed from fresh state (derived, not stored)', d.trainingWeek === undefined);
+
+// ── audit fix: a skipped trailing set must NOT read as a stall/phantom deload ──
+// ohp is s:4, tg:7, rp '5-7'. Three sessions of [10,10,10,0] (4th set blank) crush target on
+// every PERFORMED set; before the fix the set-count gate misread them as 3 stalls → ~11% deload.
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [40, 35, 30].map((off, i) => ({ id: 'sk' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [10, 10, 10, 0], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('skipped trailing set is not a phantom deload', sg.type !== 'dn', JSON.stringify(sg));
+T('strong-but-incomplete sessions raise no stall signal', getPhaseInfo().stalledEx === 0 && getPhaseInfo().stalledMajor === 0, JSON.stringify({ e: getPhaseInfo().stalledEx, m: getPhaseInfo().stalledMajor }));
+// a genuine all-sets-below-min stall still deloads (regression guard)
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [4, 4, 4, 4], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
+
+// ── audit fix: a successful (in-range) deload is not flagged as a "Weight dropped" regression ──
+d = freshD();
+d.sessions = [
+  { id: 're1', date: ymd(new Date(Date.now() - 10 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 33, reps: [6, 6, 6], band: '' }] },
+  { id: 're2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 30, reps: [10, 10, 10], band: '' }] },
+];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'floor_press'));
+T('successful deload not flagged as a regression', !/Weight dropped/.test(sg.regress || ''), JSON.stringify(sg.regress));
+
+// ── audit fix: validSession normalizes a missing/invalid day (render-crash chokepoint) ──
+T('validSession defaults a missing day to A', validSession({ id: 'x', date: '2026-06-01', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5] }] }).day === 'A');
+T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', day: 'B', ex: [] }).day === 'B');
+T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
+
+// ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
+T('freshState carries programVersion 12 (no migrate re-fire)', freshState().programVersion === 12);
+T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
+
 // ── Phase-transition re-anchor ──
 // OHP at 80kg×5 in Phase 1 (target 7), advance to Phase 2 (target 10) → lighter.
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
@@ -113,12 +191,35 @@ T('phase 2 re-anchors lighter', sg.type === 'new' && sg.wt < 41, JSON.stringify(
 d.sessions.push({ id: 'p2', date: '2026-06-10', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 36, reps: [8, 8, 8], band: '' }] });
 sg = getSmartSugg(ohp2);
 T('after logging in-phase, no re-anchor', sg.type !== 'new', JSON.stringify(sg));
-// DB partner exercise has no phase adj → must NOT re-anchor.
-T('db_ohp not in PHASE_ADJ_IDS', !global.__X.PHASE_ADJ_IDS.has('db_ohp'));
+// v23: partner DB lifts now periodize like home — db_ohp IS in PHASE_ADJ and re-anchors.
+T('db_ohp in PHASE_ADJ_IDS (partner periodizes now)', global.__X.PHASE_ADJ_IDS.has('db_ohp'));
 d = freshD({ phase: 2, phaseStart: '2026-06-09', location: 'partner' });
-d.sessions = [{ id: 'p3', date: '2026-06-01', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 12, reps: [10, 10, 10], band: '' }] }];
+d.sessions = [{ id: 'p3', date: '2026-06-01', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 12, reps: [6, 6, 6], band: '' }] }];
 sg = getSmartSugg(getProgram(2, 'partner').B.find(e => e.id === 'db_ohp'));
-T('db exercise does not re-anchor on phase change', sg.type !== 'new', JSON.stringify(sg));
+T('db lift re-anchors lighter into Hypertrophy', sg.type === 'new' && sg.wt < 12, JSON.stringify(sg));
+// Bodyweight/clubbell/carry partner moves stay static (like home pull-ups/dips).
+T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE_ADJ_IDS.has('inv_rows_a'));
+
+// ── v24: home periodization realigned with the program ──
+const PA = global.__X.PHASE_ADJ_IDS;
+// Regression guard: every phase-adjust id must belong to an ACTIVE program at some
+// location. A "dead" entry (pointing at a swapped-out lift) silently never fires and
+// is how lm_lateral/lm_pallof lost their periodization in the landmine swap.
+const activeProgIds = new Set();
+for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) activeProgIds.add(ex.id);
+T('no dead PHASE_ADJ entries (all map to an active lift)', [...PA].every(id => activeProgIds.has(id)), [...PA].filter(id => !activeProgIds.has(id)).join(','));
+// Landmine swap periodization restored on the current ids.
+T('lm_lateral periodizes (restored from lateral_raise)', PA.has('lm_lateral'));
+T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
+// Swapped-out ids are gone from the adj map.
+T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
+// Loaded accessories now periodize like their partner counterparts.
+T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('bb_skullcr') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+// lm_lateral actually re-anchors lighter into Hypertrophy (proves the swap-id wiring works).
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [{ id: 'll1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'lm_lateral', wt: 16, reps: [8, 8, 8, 8], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').A.find(e => e.id === 'lm_lateral'));
+T('lm_lateral re-anchors on phase change', sg.type === 'new' && sg.wt < 16, JSON.stringify(sg));
 
 // ── weekly muscle volume: location-agnostic ──
 d = freshD();
