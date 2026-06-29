@@ -133,7 +133,9 @@ T('one stalling lift is not enough to force a deload', getDeload(1).due === fals
 const stall3 = (id, wt, reps) => [22, 19, 16].map((off, i) => ({ id: 'st_' + id + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id, wt, reps, band: '' }] }));
 d = freshD(); d.sessions = stall3('lm_lateral', 11.25, [8, 8, 8, 8]); // isolation (side delt only), stalled 3x
 let dlpi = getPhaseInfo();
-T('isolation stall counts as a stall but NOT a compound/deload stall', dlpi.stalledEx >= 1 && dlpi.stalledMajor === 0, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+// lm_lateral is on BOTH Day A and Day B — dedupe must count the stall ONCE, not twice.
+T('multi-day lift stall counted once (dedup)', dlpi.stalledEx === 1, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+T('isolation stall does NOT feed the compound/deload signal', dlpi.stalledMajor === 0, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
 d = freshD(); d.sessions = stall3('floor_press', 30, [6, 6, 6]); // compound (chest+triceps), stalled 3x
 dlpi = getPhaseInfo();
 T('compound stall feeds the major-stall deload signal', dlpi.stalledMajor >= 1, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));

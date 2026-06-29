@@ -697,10 +697,14 @@ function getPhaseInfo(){
 const wksSince=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5)+1);
 const sessSince=D.sessions.filter(s=>s.date>=D.phaseStart).length;
 const p=PHASES[D.phase]||PHASES[1];
-// Intelligent phase assessment: check how many exercises are stalling
-const pr=getCurPR();const allDays=Object.values(pr);
+// Intelligent phase assessment: check how many exercises are stalling.
+// Dedupe by id first — a lift on two days (e.g. lm_lateral on A+B) is ONE exercise
+// and must be counted once, or a single stall/progress reads as two and skews the
+// phase-change + deload signals.
+const pr=getCurPR();const seenEx=new Set();const uniqEx=[];
+for(const day of Object.values(pr))for(const ex of day){if(seenEx.has(ex.id))continue;seenEx.add(ex.id);uniqEx.push(ex)}
 let stalledEx=0,stalledMajor=0,totalEx=0,progressingEx=0;
-for(const day of allDays)for(const ex of day){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
+for(const ex of uniqEx){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;
   if(sg.type==='dn'||sg.stalled)stalledEx++;
   // Deload-grade stall (stricter than the phase-change signal): a REAL repeated stall
