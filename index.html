@@ -699,17 +699,22 @@ const sessSince=D.sessions.filter(s=>s.date>=D.phaseStart).length;
 const p=PHASES[D.phase]||PHASES[1];
 // Intelligent phase assessment: check how many exercises are stalling
 const pr=getCurPR();const allDays=Object.values(pr);
-let stalledEx=0,totalEx=0,progressingEx=0;
+let stalledEx=0,stalledMajor=0,totalEx=0,progressingEx=0;
 for(const day of allDays)for(const ex of day){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;
   if(sg.type==='dn'||sg.stalled)stalledEx++;
+  // Deload-grade stall (stricter than the phase-change signal): a REAL repeated stall
+  // (sg.stalled = 3 sessions below range) on a COMPOUND lift (MG recruits ≥2 muscles).
+  // A lateral raise or curl dipping is not systemic fatigue; two compounds grinding to a
+  // halt is. stalledEx (any stall) still drives phase-change logic, untouched.
+  if(sg.stalled&&Object.keys(MG[ex.id]||{}).length>=2)stalledMajor++;
   if(sg.type==='up'||sg.type==='cf')progressingEx++}
 const timerDue=wksSince>=p.wk;
 const stallDue=stalledEx>=2; // 2+ exercises genuinely stalling (below min range)
 // Phase change recommended if: timer AND stalls, OR early if lots of stalls
 const recommend=timerDue&&stallDue?'due':timerDue&&!stallDue?'timer_only':!timerDue&&stallDue?'early_stall':'not_due';
 return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSince,
-  recommend,stalledEx,progressingEx,totalEx,timerDue,stallDue}}
+  recommend,stalledEx,stalledMajor,progressingEx,totalEx,timerDue,stallDue}}
 function advancePhase(){const next=D.phase>=3?1:D.phase+1;D.phase=next;D.phaseStart=today();save()}
 
 // ═══════════════ PROGRESSION ═══════════════
@@ -1124,7 +1129,7 @@ const sc=Math.round(Math.min(10,f*1.2+ad*.9+tv/(1200*Math.max(1,f)))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
-function getDeload(stalledEx=0){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
+function getDeload(stalledMajor=0){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
 const sc=D.lastDeload?D.sessions.filter(s=>s.date>D.lastDeload).length:D.sessions.length;
 // Signal-driven: don't deload on timer alone — check for actual fatigue signals.
 // Average RPE over the last 14 days (not the last 5 sessions whenever they were)
@@ -1141,14 +1146,14 @@ const isBeginner=D.sessions.length<30;const timerThresh=isBeginner?8:6;
 // 2+ lifts genuinely stalling/regressing (objective, from getSmartSugg). Either one, with
 // the timer met, recommends a deload — so an athlete who under-rates effort but is clearly
 // grinding to a halt still gets caught. Timer met with neither signal = optional checkpoint.
-const stallDue=stalledEx>=2;
+const stallDue=stalledMajor>=2;
 const timerMet=wk>=timerThresh;
 const due=timerMet&&(highFatigue||stallDue);
 const consider=timerMet&&!due;
-const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledEx} lifts stalling`
+const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledMajor} key lifts stalling`
   :highFatigue?`RPE avg ${Math.round(avgDiff*10)/10}/5 high`
-  :stallDue?`${stalledEx} lifts stalling`:'';
-return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledEx,reason}}
+  :stallDue?`${stalledMajor} key lifts stalling`:'';
+return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledMajor,reason}}
 
 // ═══════════════ TIMER ═══════════════
 // Wall-clock based: setInterval is throttled/paused with the screen off on
@@ -1222,7 +1227,7 @@ return{order,recent,done,next,sinceLast,avgGap}}
 function rHome(el){
 const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
 const nd=!['A','B','C'].includes(nd0)?'A':nd0;
-const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledEx);
+const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledMajor);
 const resume=checkResume();
 let h='<div class="sec">';
 
