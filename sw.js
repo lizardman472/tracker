@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v47';
+const C = 'rft-v48';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -22,6 +22,23 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Web fonts (Google Fonts CSS + woff2) are cross-origin ('cors'/'opaque'), so the
+  // same-origin type==='basic' guard below never cached them — offline, the entire
+  // display typography silently fell back to system fonts. Cache-first, runtime-filled.
+  let host = '';
+  try { host = new URL(req.url).hostname; } catch (_) {}
+  if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+    e.respondWith(
+      caches.match(req).then(r => r || fetch(req).then(resp => {
+        if (resp && (resp.ok || resp.type === 'opaque')) {
+          const clone = resp.clone();
+          caches.open(C).then(c => c.put(req, clone)).catch(() => {});
+        }
+        return resp;
+      }).catch(() => new Response('', { status: 504 })))
+    );
+    return;
+  }
   const isNav = req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
   if (isNav) {
