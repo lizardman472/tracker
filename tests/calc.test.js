@@ -18,13 +18,13 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, setD, getD } = global.__X;
+const { ALL_EX, SEED, VW, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -101,11 +101,21 @@ sg = getSmartSugg(ohp);
 T('3 stalls → drop weight', sg.type === 'dn' && sg.wt < 31, JSON.stringify(sg));
 T('3 stalls → deload is a real ~10% cut (not one micro-rung)', sg.wt <= 31 * 0.9 + 0.001, JSON.stringify(sg));
 
-// ── KB progression (was a bare "Continue" fallback) ──
+// ── KB progression (was a bare "Continue" fallback) — legacy kb_curl is the remaining kb specimen ──
 d = freshD();
-d.sessions = [{ id: 'k1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
-sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'));
-T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt > 8, JSON.stringify(sg));
+d.sessions = [{ id: 'k1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'kb_curl', wt: 8, reps: [12, 12, 12], band: '' }] }];
+sg = getSmartSugg(ALL_EX.find(e => e.id === 'kb_curl'));
+T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt === 9, JSON.stringify(sg));
+
+// ── dead bugs kb→bb conversion (v26): plate-loaded barbell like the other bar lifts ──
+const dbug = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
+T('dead_bugs_a is barbell on the 11kg straight-bar ladder', dbug.tp === 'bb' && dbug.bar === undefined && vwOf(dbug) === VW);
+d.sessions = [{ id: 'k2', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
+sg = getSmartSugg(dbug);
+T('legacy sub-bar KB load re-anchors to the empty bar', sg.type === 'new' && sg.wt === 11, JSON.stringify(sg));
+d.sessions.push({ id: 'k3', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [8, 8, 8], band: '' }] });
+sg = getSmartSugg(dbug);
+T('dead bugs progress on the plate ladder once on the bar', sg.type === 'up' && sg.wt > 11 && VW.includes(sg.wt), JSON.stringify(sg));
 
 // ── big rep-target overshoot re-anchors the load (not a +1kg crawl) ──
 // b_stance_rdl target is 8/side; logging 20/side means the load is ~2x too light. The old

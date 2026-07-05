@@ -369,7 +369,7 @@ const BASE_PR={A:[
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
-{id:'dead_bugs_a',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'kb',rl:'Control first. Anti-extension focus.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
+{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
@@ -422,6 +422,11 @@ C:[
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
+// v26 dead-bug conversion: Dead Bugs (Day A) moved kb→bb — bar held at arm's length over
+// the chest on the 11kg straight bar, so the load rides the same plate system as every
+// other bar lift (stepper + plate breakdown + VW ladder + warm-up). Legacy KB history
+// sits BELOW the bar weight; the engine re-anchors those sessions to bar-only once
+// (see the sub-bar guard in getSmartSugg). Partner db_dead_bug stays DB — no bar there.
 const HEX_LM_EX=[];
 
 // Location B (partner's: DBs + bands + clubbells + parallel bars) — pattern-matched to home.
@@ -868,7 +873,7 @@ else if(modDisc>=1)discWarn='⚠ Moderate discomfort last session — consider h
 else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor closely';
 
 // ─── WEIGHT-BASED (bb, mace, db, kb) — handle null wt fallback for type migrations (e.g., Cossack bw→bb) ───
-// kb (loaded dead bugs etc.) progresses like db: rep-first double progression with
+// kb (legacy kettlebell moves) progresses like db: rep-first double progression with
 // micro-load steps, rather than falling through to a bare "Continue".
 if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
   // Find most recent session with a valid weight; if none, treat as a brand-new exercise
@@ -878,6 +883,12 @@ if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
   // If most recent session had no weight but earlier ones did, use the earlier weight as reference
   if(!last.wt){
     return{text:`→ ${lastWithWt.wt}kg`,type:'stay',wt:lastWithWt.wt,traj:[],detail:`Last weighted: ${lastWithWt.wt}kg on ${lastWithWt.date}`,regress:discWarn}}
+  // kb→bb conversion (dead bugs v26): legacy kettlebell history sits BELOW the bar
+  // weight, which isn't a loadable barbell number — the empty bar is the floor.
+  // Re-anchor there once; the normal plate ladder takes over from the next session.
+  if(ex.tp==='bb'&&last.wt<barOf(ex)){
+    return{text:`→ ${barOf(ex)}kg (bar only)`,type:'new',wt:barOf(ex),traj:[],
+      detail:`Now on the barbell — the empty bar (${barOf(ex)}kg) already outweighs the old ${last.wt}kg load. Control first, then progress on the plate ladder.`,regress:discWarn}}
 }
 if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const mn=getRepMin(ex);
