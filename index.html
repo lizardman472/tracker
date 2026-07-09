@@ -2761,6 +2761,9 @@ for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/
 if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
 // Adopt global metadata (phase clock / venue) ONLY when migrating into a fresh device,
 // and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted verbatim.
+// Deliberately DEVICE-LOCAL (never imported): `notify` mirrors THIS device's Notification
+// permission; `dismissed` banners are situational; `lastBackup`/`lastBackupCount` must stay
+// unset so a fresh device is nagged into its own first backup.
 if(wasFresh){
   if([1,2,3].includes(d.phase))W.phase=d.phase;
   if(typeof d.phaseStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.phaseStart))W.phaseStart=d.phaseStart;
@@ -2769,6 +2772,9 @@ if(wasFresh){
 // Update nextDay from latest session — location aware
 if(W.sessions.length){const last=W.sessions[W.sessions.length-1];
 W.nextDay=NEXT_DAY[last.day]||W.nextDay}
+// On a fresh restore the backup's own nextDay wins over the re-derive — it captures a
+// manual rotation override, and same-date A+B sessions make last-by-date ambiguous.
+if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
 // Run migration on imported data
 migrateData(W);
 delete W.seeded;

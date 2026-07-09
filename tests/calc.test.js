@@ -594,7 +594,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   fix.discomfort = [{ date: '2026-05-03', exId: 'ohp', level: 'mild', joint: 'Shoulder' }];
   fix.cues = { hex_dl: 'push the floor away' };
   fix.lastDeload = '2026-04-20';
-  fix.phase = 2; fix.phaseStart = '2026-04-28'; fix.location = 'partner'; fix.nextDay = 'A';
+  fix.phase = 2; fix.phaseStart = '2026-04-28'; fix.location = 'partner';
+  fix.nextDay = 'B'; // manual rotation override — differs from the C→A re-derive on purpose
   const exported = JSON.stringify(fix, null, 2); // byte-for-byte what expD writes
   const rt = mergeImport(freshState(), JSON.parse(exported));
   T('round-trip: all sessions restored, none skipped', rt.added === 3 && rt.replaced === 0 && rt.skipped === 0, `a${rt.added} r${rt.replaced} s${rt.skipped}`);
@@ -605,7 +606,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('round-trip: cues identical', deepEq(rt.W.cues, fix.cues));
   T('round-trip: lastDeload restored', rt.W.lastDeload === '2026-04-20');
   T('round-trip: phase/phaseStart/location adopted on fresh device', rt.W.phase === 2 && rt.W.phaseStart === '2026-04-28' && rt.W.location === 'partner');
-  T('round-trip: nextDay re-derived from last session (C→A)', rt.W.nextDay === 'A');
+  T('round-trip: backup nextDay override adopted on fresh device', rt.W.nextDay === 'B');
   T('round-trip: unknown session fields survive the import guard', rt.W.sessions[1].customFlag === 'survives-roundtrip');
   T('round-trip: merged state carries no seeded flag', rt.W.seeded === undefined);
 
@@ -618,6 +619,11 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('merge-existing: replaced session takes the imported version', m2.W.sessions.find(s => s.id === 'rt1').ex[0].wt === 61);
   T('merge-existing: bodyLog additive by date', m2.W.bodyLog.length === 3);
   T('merge-existing: phase/location NOT adopted onto a non-fresh device', m2.W.phase === 1 && m2.W.location === 'home');
+  T('merge-existing: nextDay re-derived, backup override ignored on non-fresh device', m2.W.nextDay === 'A');
+  {
+    const invalid = JSON.parse(exported); invalid.nextDay = 'Z';
+    T('fresh import: invalid nextDay falls back to re-derive', mergeImport(freshState(), invalid).W.nextDay === 'A');
+  }
 
   // Seeded (demo) store: demo rows dropped, backup metadata adopted.
   const seededCur = { ...freshState(), sessions: structuredClone(SEED.sessions), seeded: true };
