@@ -78,9 +78,13 @@ sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'band_er'));
 T('per-side band hit-target → up', sg.type === 'up', sg.text);
 
 const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
-d.sessions = [{ id: 'x3', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 80, reps: [7, 7, 7, 7], band: '' }] }];
+// 85kg = the straight bar + all plates (37/side). One rung below (84.5) must still climb.
+d.sessions = [{ id: 'x3', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 85, reps: [7, 7, 7, 7], band: '' }] }];
 sg = getSmartSugg(ohp);
-T('at plate ceiling → maxed', sg.maxed === true && sg.type === 'st', JSON.stringify(sg));
+T('at plate ceiling (85kg) → maxed', sg.maxed === true && sg.type === 'st', JSON.stringify(sg));
+d.sessions = [{ id: 'x3b', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 80, reps: [7, 7, 7, 7], band: '' }] }];
+sg = getSmartSugg(ohp);
+T('80kg is no longer the ceiling — still climbs toward 85', sg.type === 'up' && sg.wt > 80 && sg.wt <= 85, JSON.stringify(sg));
 
 d.sessions = [{ id: 'x4', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
 sg = getSmartSugg(ohp);

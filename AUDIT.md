@@ -162,13 +162,16 @@ The user chose the recommended default for every open decision. Applied and test
 - **A1 · Cadence-aware clocks** — phase timer now fires on `min(8 calendar weeks, 24
   in-phase sessions)`; the deload timer likewise on weeks **or** ~3×/week-equivalent
   sessions. A training break no longer silently eats a chunk of a block.
+- **Plate ceiling `MAX_BB` 80 → 85 kg** — uncapped to the true inventory limit (bar + all
+  plates), so the last loadable rungs are no longer hidden behind a false "🔒 MAX".
 
-### Still open (need input or deliberately deferred)
+- **MAX_BB cap raised 80 → 85 kg** — the true inventory-loadable ceiling (11 kg straight
+  bar + all 74 kg of plates = 37 kg/side mirrored). The straight-bar ladder now exposes its
+  last rungs (top 85 kg), the hex tops at 81 kg and the landmine at 85 kg single-end, each a
+  valid plate combo. "🔒 MAX" now fires only at the genuine plate ceiling.
 
-- **MAX_BB = 80 kg cap** — UNCHANGED, pending your bar's load rating. Your plates total
-  74 kg → true ceilings are 85 kg (straight) / 81 kg (hex), so the app shows "🔒 MAX" at
-  80 even though more is loadable. If 80 isn't a real bar/safety limit, say so and it's a
-  one-constant change. **I did not guess a safety limit.**
+### Still open (deliberately deferred)
+
 - **iOS home-screen icon** (deferred) — SVG-emoji manifest icons; iOS wants a PNG. Only
   matters if you install on an iPhone.
 - **Permanent swaps** (A2, deferred) — session-scoped by design; making a swap stick is a
@@ -180,10 +183,10 @@ The user chose the recommended default for every open decision. Applied and test
 
 ## 5 · Verification
 
-- **316/316 tests pass** — calc 136, hex 126, render.smoke 54 — including 20 new v27
+- **317/317 tests pass** — calc 137, hex 126, render.smoke 54 — including 22 new v27
   regression tests (calf raises exist/seed/track/tonnage at both venues, partner dips,
   MEV-floor buffer set counts, Phase-3 quality-slot ranges, `lm_pallof` tempo, cadence-aware
-  phase + deload clocks) on top of both prior rounds' suites.
+  phase + deload clocks, and the 85 kg plate ceiling) on top of both prior rounds' suites.
 - Live render check: home Day C renders the calf raise (seeds "Try 8kg"), partner Day B
   renders dips, partner Day C renders the DB calf raise, and the Progress → Balance
   dashboard shows the new Calves row.

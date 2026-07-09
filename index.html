@@ -271,7 +271,11 @@ svg text{font-family:var(--body)}
 <div id="timer-root"></div>
 <script>
 // ═══════════════ EQUIPMENT ═══════════════
-const BAR=11,HEXBAR=7,MAX_BB=80;
+// MAX_BB = the true inventory-loadable ceiling: the 11kg straight bar + all 74kg of plates
+// (37kg/side, mirrored) = 85kg. The hex (7kg) and landmine ladders top out lower on the same
+// plates (81kg / 85kg single-end) and are naturally bounded below this. Raised from a prior
+// arbitrary 80 so the last few loadable rungs aren't hidden behind a false "🔒 MAX".
+const BAR=11,HEXBAR=7,MAX_BB=85;
 // Plate inventory: {w: plate weight kg, q: total count owned (pairs loaded symmetrically)}
 // Mains + micro set (pairs of 0.25/0.5/0.75/1kg). q must be even to load evenly.
 const PL=[{w:10,q:4},{w:5,q:4},{w:2.5,q:2},{w:1,q:6},{w:0.75,q:2},{w:0.5,q:2},{w:0.25,q:2}];
