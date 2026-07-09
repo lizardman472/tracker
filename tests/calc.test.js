@@ -778,6 +778,29 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('periodCompare: empty prior window reports zero sessions (render hides strip)', periodCompare(28).prev.sessions === 0);
 }
 
+// ── Deeper stats D4: big4Weekly — summed best e1RM with carry-forward ──
+{
+  const db4 = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  const mk = (id, exId, n, wt) => ({ id, date: wkAgo(n), day: 'A', loc: 'home', ex: [{ id: exId, wt, reps: [5, 5, 5], band: '' }] });
+  // All four big lifts seen in week -3; hex_dl trains again in week -1 only.
+  db4.sessions = [
+    mk('b1', 'hex_dl', 3, 60), mk('b2', 'hex_squat_b', 3, 55), mk('b3', 'ohp', 3, 25), mk('b4', 'floor_press', 3, 30),
+    mk('b5', 'hex_dl', 1, 64)];
+  const b4 = big4Weekly(12);
+  const wk3 = b4.find(w => w.wk === weekKey(wkAgo(3)));
+  const wk2 = b4.find(w => w.wk === weekKey(wkAgo(2)));
+  const wk1 = b4.find(w => w.wk === weekKey(wkAgo(1)));
+  const sum3 = [60, 55, 25, 30].reduce((a, w) => a + e1rm(w, 5), 0);
+  T('big4: series starts once all four lifts are known', b4.length && b4[0].wk === weekKey(wkAgo(3)), JSON.stringify(b4.map(w => w.wk)));
+  T('big4: baseline week sums the four best e1RMs', wk3 && Math.abs(wk3.v - sum3) < 0.11, `${wk3 && wk3.v} vs ${sum3}`);
+  T('big4: untrained week carries every value forward', wk2 && wk2.v === wk3.v);
+  T('big4: retrained lift raises the sum, others carried', wk1 && Math.abs(wk1.v - (sum3 - e1rm(60, 5) + e1rm(64, 5))) < 0.11, wk1 && wk1.v);
+  // Only three of four lifts ever trained → no series at all.
+  db4.sessions = db4.sessions.filter(s => s.id !== 'b4');
+  T('big4: incomplete lift coverage yields an empty series', big4Weekly(12).length === 0);
+}
+
 // ── Progress rebuild A7: quirk fixes ──
 {
   // Club lifts mint e1RM PRs (E1RM_TYPES includes club) — the momentum board now

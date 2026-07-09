@@ -2192,6 +2192,28 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
+// ── Big-4 combined e1RM (the STD strength-tier lifts): weekly sum of each lift's
+// best-session e1RM. A week a lift wasn't trained carries FORWARD its last known
+// e1RM — a missed exposure is not strength loss. The series starts at the first
+// week where all four lifts have been seen at least once. ──
+function big4Weekly(weeks){
+const ids=Object.keys(STD);
+const perWk={};
+for(const id of ids){const def=ALL_EX.find(e=>e.id===id);
+  for(const hh of getHist(id,200)){if(!hh.wt)continue;
+  const eR=effectiveReps(def,hh.reps);if(!eR.length)continue;
+  const wk=weekKey(hh.date),v=e1rm(hh.wt,Math.max(...eR));
+  (perWk[wk]=perWk[wk]||{});if(!perWk[wk][id]||v>perWk[wk][id])perWk[wk][id]=v}}
+if(!Object.keys(perWk).length)return[];
+const disp=new Set(weekKeys(weeks||12));
+const all=[...new Set([...Object.keys(perWk),...disp])].sort();
+const lastKnown={};const out=[];
+for(const wk of all){
+  const w=perWk[wk];if(w)for(const id in w)lastKnown[id]=w[id];
+  if(disp.has(wk)&&ids.every(id=>lastKnown[id]!=null))
+    out.push({wk,v:Math.round(ids.reduce((a,id)=>a+lastKnown[id],0)*10)/10,
+      lbl:new Date(wk+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})})}
+return out}
 // ── Last-N-days vs prior-N-days training block comparison (Overview strip).
 // noProg sessions still count — this is analytics, not the progression engine. ──
 function periodCompare(days){
@@ -2404,6 +2426,11 @@ for(const m of moving)h+=`<div style="display:flex;justify-content:space-between
 for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
 h+=`</div>`}
+
+// Big-4 combined e1RM — one line answering "am I getting stronger overall?"
+{const b4=big4Weekly(12);
+if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,150,'#c9f24b','Big-4 e1RM Total (kg)')}
+<div class="dm" style="text-align:center;margin-top:4px">Hex DL + Hex Squat + OHP + Floor Press · best weekly e1RM each · skipped weeks carry the last known value</div></div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
 
 // Priority nudge — the ONE canonical "what to fix" line (it used to be restated
