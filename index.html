@@ -37,6 +37,9 @@ html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-heigh
 body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.12),transparent 58%),radial-gradient(90% 50% at 100% 8%,rgba(167,139,250,.10),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
+/* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
+button.set-tick,button.disc-btn,button.disc-joint{-webkit-appearance:none;appearance:none}
+:focus-visible{outline:2px solid var(--pr);outline-offset:2px}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 input[type=number]{-moz-appearance:textfield}
 ::selection{background:var(--pr);color:var(--ink)}
@@ -267,8 +270,8 @@ svg text{font-family:var(--body)}
 </head>
 <body>
 <div class="hdr"><h1>RACK-FREE TRACKER</h1></div>
-<div class="nav" id="nav"></div>
-<div id="app"></div>
+<nav class="nav" id="nav" aria-label="Main"></nav>
+<main id="app"></main>
 <div id="timer-root"></div>
 <script>
 // ═══════════════ EQUIPMENT ═══════════════
@@ -1294,7 +1297,7 @@ const bw=w/data.length,gap=Math.min(6,bw*0.25);
 // Sub-8 ranges get 1-decimal tick labels — integer rounding printed duplicate rows
 // ("3 3 3 4") on small-range charts.
 const fmtT=v=>mx>=8?Math.round(v):Math.round(v*10)/10;
-let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">`;
+let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} bar chart, ${data.length} points, max ${fmtT(mx)}">`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-(mx/3)*i);
 s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#2a3444" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="#8b97ab" font-size="9">${v}</text>`}
 data.forEach((d,i)=>{const bh=Math.max(1,(d.v/mx)*h);const x=pad.l+i*bw+gap/2,y=pad.t+h-bh;
@@ -1312,7 +1315,7 @@ const gid='g'+Math.random().toString(36).slice(2,7);
 // 1-decimal ticks on narrow ranges (bodyweight moves <1kg between logs — integer
 // rounding printed "82 82 82 81" style duplicate labels).
 const fmtT=v=>rng>=8?Math.round(v):Math.round(v*10)/10;
-let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">`;
+let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} line chart, ${data.length} points, ${fmtT(mn)} to ${fmtT(mx)}">`;
 s+=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.22"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-((mx-mn)/3)*i);
 s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#2a3444" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="#8b97ab" font-size="9">${v}</text>`}
@@ -1846,7 +1849,7 @@ for(let i=0;i<ex.s;i++){const v=log.reps[i],dn=log.setDone[i];
 h+=`<div style="text-align:center"><div style="font-size:9px;color:var(--mu);margin-bottom:2px;font-weight:600">S${i+1}</div>
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
-<div class="set-tick${dn?' done':''}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</div></div>`}
+<button type="button" class="set-tick${dn?' done':''}" aria-label="Set ${i+1} done" aria-pressed="${!!dn}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</button></div>`}
 h+=`</div>`;
 
 // Form rating — exercise-level stamp (one tap) + optional per-set editor. Gates progression.
@@ -1875,9 +1878,9 @@ h+=`<div style="text-align:center;margin:4px 0">
 // Discomfort — available any time on the active exercise (mid-set flagging for joint safety)
 h+=`<div style="text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--cb)">
 <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Discomfort?${isDone?'':' <span style="opacity:.7">(flag any time)</span>'}</div><div class="disc-row">`;
-for(const lv of['none','mild','moderate'])h+=`<div class="disc-btn${log.disc===lv?' sel-'+lv:''}" onclick="LOG['${ex.id}'].disc='${lv}';${lv==='none'?"LOG['"+ex.id+"'].discJoints=[];":""}saveAW();render()">${lv==='none'?'None ✓':lv[0].toUpperCase()+lv.slice(1)}</div>`;
+for(const lv of['none','mild','moderate'])h+=`<button type="button" class="disc-btn${log.disc===lv?' sel-'+lv:''}" aria-pressed="${log.disc===lv}" onclick="LOG['${ex.id}'].disc='${lv}';${lv==='none'?"LOG['"+ex.id+"'].discJoints=[];":""}saveAW();render()">${lv==='none'?'None ✓':lv[0].toUpperCase()+lv.slice(1)}</button>`;
 h+=`</div>`;if(log.disc&&log.disc!=='none'){h+=`<div class="disc-joints">`;
-for(const j of JOINTS)h+=`<div class="disc-joint${log.discJoints.includes(j)?' sel':''}" onclick="toggleJoint('${ex.id}','${j}')">${j}</div>`;
+for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoints.includes(j)?' sel':''}" aria-pressed="${log.discJoints.includes(j)}" onclick="toggleJoint('${ex.id}','${j}')">${j}</button>`;
 h+=`</div>`}h+=`</div>`;
 
 // Notes
