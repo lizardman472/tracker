@@ -33,7 +33,7 @@
 --body:'Archivo',-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
-/* atmospheric backdrop: subtle volt glow top, deep fade */
+/* atmospheric backdrop: subtle cyan glow top, deep fade */
 body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.12),transparent 58%),radial-gradient(90% 50% at 100% 8%,rgba(167,139,250,.10),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
@@ -1288,6 +1288,10 @@ function getDiscomfortTrend(exId,joint){const recent=D.discomfort.filter(d=>d.ex
 return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').length}}
 
 // Bar chart for weekly series; data=[{v,lbl}], optional target line
+// Chart palette — JS mirrors of the CSS tokens (string-built SVG can't reach CSS vars
+// without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
+// CH_TARGET=--rd.
+const CH_GRID='#2a3444',CH_TXT='#8b97ab',CH_DOT='#0e131c',CH_TARGET='#fb7185';
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
@@ -1299,11 +1303,11 @@ const bw=w/data.length,gap=Math.min(6,bw*0.25);
 const fmtT=v=>mx>=8?Math.round(v):Math.round(v*10)/10;
 let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} bar chart, ${data.length} points, max ${fmtT(mx)}">`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-(mx/3)*i);
-s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#2a3444" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="#8b97ab" font-size="9">${v}</text>`}
+s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
 data.forEach((d,i)=>{const bh=Math.max(1,(d.v/mx)*h);const x=pad.l+i*bw+gap/2,y=pad.t+h-bh;
 s+=`<rect x="${x}" y="${y}" width="${bw-gap}" height="${bh}" rx="3" fill="${color}"/>`;
-if(data.length<=12)s+=`<text x="${x+(bw-gap)/2}" y="${H-12}" text-anchor="middle" fill="#8b97ab" font-size="7.5">${d.lbl}</text>`});
-if(opts.target){const ty=pad.t+h-(opts.target/mx)*h;s+=`<line x1="${pad.l}" y1="${ty}" x2="${W-pad.r}" y2="${ty}" stroke="#fb7185" stroke-width="1" stroke-dasharray="4 3"/>`}
+if(data.length<=12)s+=`<text x="${x+(bw-gap)/2}" y="${H-12}" text-anchor="middle" fill="${CH_TXT}" font-size="7.5">${d.lbl}</text>`});
+if(opts.target){const ty=pad.t+h-(opts.target/mx)*h;s+=`<line x1="${pad.l}" y1="${ty}" x2="${W-pad.r}" y2="${ty}" stroke="${CH_TARGET}" stroke-width="1" stroke-dasharray="4 3"/>`}
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function svgLine(data,W,H,color,label){
@@ -1318,13 +1322,13 @@ const fmtT=v=>rng>=8?Math.round(v):Math.round(v*10)/10;
 let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} line chart, ${data.length} points, ${fmtT(mn)} to ${fmtT(mx)}">`;
 s+=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.22"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-((mx-mn)/3)*i);
-s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#2a3444" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="#8b97ab" font-size="9">${v}</text>`}
+s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
 // area fill under the line
 const area=`${pts.map(p=>`${p.x},${p.y}`).join(' ')} ${pts[pts.length-1].x},${pad.t+h} ${pts[0].x},${pad.t+h}`;
 s+=`<polygon points="${area}" fill="url(#${gid})"/>`;
 s+=`<polyline points="${pts.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" stroke="#0e131c" stroke-width="2"/>`;
-if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="#8b97ab" font-size="8">${p.l}</text>`;
+for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" stroke="${CH_DOT}" stroke-width="2"/>`;
+if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="${CH_TXT}" font-size="8">${p.l}</text>`;
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function getFatigue(){const now=new Date(),scores=[];
@@ -1549,9 +1553,13 @@ if(restDay){
   for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
   picker+=`</div>`;
   const overridden=nd!==sugg;
+  // Repeating yesterday's day stacks the same movement patterns (pressing especially)
+  // back-to-back — the fixed A→B→C rotation normally prevents that, so warn on override.
+  const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
+  const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
   h+=`<div class="start-hero"><h2>Day ${nd}${ls}${isP?" · Partner's":''}</h2>
   <div class="meta">P${phi.phase} ${phi.name} · Wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
-  ${picker}
+  ${repeatHint}${picker}
   <button onclick="beginW('${nd}')">Start Workout</button></div>`;
 }
 

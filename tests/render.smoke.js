@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -70,6 +70,25 @@ T('home produced non-empty markup', R.getA().length > 200);
 R.getD().location = 'partner';
 tryRender('home (partner)', () => R.go('home'));
 T('partner home produced non-empty markup', R.getA().length > 200);
+
+// ── Repeat-day override hint (ultra audit C11) ──
+// The fixture's last logged session is 'hxs' (Day A). With the rotation suggesting B,
+// manually re-picking A must warn about stacking the same patterns; the suggested day
+// and a non-repeat override must not.
+{
+  R.getD().location = 'home';
+  R.getD().nextDay = 'B';
+  R.setPICK('A');
+  tryRender('home (manual repeat-day pick)', () => R.render());
+  T('re-picking the last-logged day shows the stacking hint', /was your last session/.test(R.getA()));
+  R.setPICK('C');
+  R.render();
+  T('a non-repeat override shows no stacking hint', !/was your last session/.test(R.getA()));
+  R.setPICK(null);
+  R.render();
+  T('suggested day shows no stacking hint', !/was your last session/.test(R.getA()));
+  R.getD().nextDay = 'A';
+}
 
 // ── Workout screen showing a hex lift ──
 R.getD().location = 'home';
