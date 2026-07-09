@@ -301,6 +301,35 @@ stated once (Overview) instead of three times; balance numbers hedged with ≈ a
 Chromium e2e (core loop, all five segments, band view, chart aria, resume card,
 noProg, two-tab gen sidecar — zero console errors at 360px). SW cache → `rft-v52`.
 
+---
+
+## 8 · Volt reskin + deeper stats (9 Jul 2026, third pass)
+
+- **Momentum decimals** — slopes display at uniform 1 decimal (raw 2-dp rounding
+  printed `+2.4` beside `+2.34`); comparisons keep full precision.
+- **Volt reskin** (user-picked from four rendered palette mockups): lime `#c9f24b`
+  accent on warm graphite/olive-black surfaces. Every token + hardcoded mirror moved
+  together (CH_* chart consts, chart series literals, DAY_COLORS.A, header/nav
+  backdrop rgba, theme-color meta, manifest colors/icons). Day palette re-validated
+  for colorblind separation (lime/purple/green/amber — weakest pair ΔE 13.7 deutan,
+  above the 12 target; heatmap day letters retained as secondary encoding).
+- **Deeper stats** (all four user-selected):
+  - `periodCompare` — Overview "Last 4 wk vs prior 4 wk" strip (tonnage %, sessions,
+    sets, neutral-colored RPE delta); hidden until a full prior window exists.
+  - `big4Weekly` — Overview "Big-4 e1RM Total" line: summed weekly best e1RM of the
+    four tier lifts, carry-forward on untrained weeks, starts only when all four
+    have data.
+  - `e1rmProjection` — Lifts detail: next 5kg e1RM milestone + straight-line ETA
+    (null on flat/negative trends or ETA >12 wk); hedged copy. `recentPRs` entries
+    gained an `id`, powering a "Last PR · Nd ago" line.
+  - **Recent Sessions log** — Lifts detail table of the last 10 sessions (date, load
+    or band, reps, worst-set form chip, ▲PR marker, ✓/– at-target marker judged only
+    against current-phase sessions).
+
+**Verification: 457 tests** (calc 228 · hex 134 · render 95) + 28-assertion Chromium
+e2e (adds: momentum decimal check, live volt token, session log, all segments).
+SW cache → `rft-v53`.
+
 ### Deferred (with reasons)
 - **Committed-session editing** (user chose defer) — delete + re-log remains the fix
   path; a good inline editor is its own feature, a `prompt()` one is poor phone UX.
