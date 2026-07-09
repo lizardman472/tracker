@@ -2227,6 +2227,19 @@ if(nextS)out.push({icon:'🎯',label:`${nextS} sessions (${nextS-snap.sessions} 
 if(snap.streak>=4)out.push({icon:'🔥',label:`${snap.streak}-week streak`,done:true});
 return out;
 }
+// ── Per-exercise weekly form quality (1 Negatives … 5 Strict): mean of each
+// session's sessForm (worst rated working set), bucketed by week. Sessions with
+// no rated sets are skipped — unrated is not bad form. Weeks with rated sessions
+// only; a lift with no ratings at all returns []. ──
+function formWeekly(exId,weeks){
+const buckets={};let any=false,first=null;
+for(const h of getHist(exId,200)){const f=sessForm(h);if(!f)continue;any=true;
+const wk=weekKey(h.date);if(!first||wk<first)first=wk;(buckets[wk]=buckets[wk]||[]).push(f)}
+if(!any)return[];
+return weekKeys(weeks||8).filter(k=>k>=first).map(k=>({wk:k,
+v:buckets[k]?Math.round(buckets[k].reduce((a,b)=>a+b,0)/buckets[k].length*10)/10:null,
+lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+}
 // ── Per-muscle weekly volume history (for trend bars) ──
 // Same zero-fill rule as weeklySeries: untrained weeks show as 0, not skipped.
 function muscleWeekly(muscleKey,weeks){
@@ -2408,6 +2421,11 @@ h+=`<div class="estrip">
 h+=`<div class="cd">${svgLine(wtD,360,170,'#38bdf8','Weight (kg)')}</div>`;
 if(['bb','db','kb','mace'].includes(selEx?.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
 }
+
+// Form trend — per-set form ratings gate progression but were never charted.
+// Skipped-week nulls are dropped: the line shows rated weeks only.
+{const fw=formWeekly(STAT_EX,8).filter(w=>w.v!=null);
+if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,'#34d399','Form (5 = strict)')}</div>`}
 
 // Discomfort summary for selected exercise
 const discData=D.discomfort.filter(d=>d.exId===STAT_EX);

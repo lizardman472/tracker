@@ -722,6 +722,26 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('empty series → no marks, no throw', weeklyMarks([]).length === 0);
 }
 
+// ── Progress rebuild A4: formWeekly — weekly mean of worst-rated working set ──
+{
+  const d4 = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  d4.sessions = [
+    { id: 'fw1', date: wkAgo(2), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', form: [3, 4, 5] }] },
+    { id: 'fw2', date: wkAgo(2), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] },
+    { id: 'fw3', date: wkAgo(1), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 52, reps: [5, 5, 5], band: '', form: [] }] },
+    { id: 'fw4', date: wkAgo(0), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 52, reps: [5, 5, 5], band: '', form: [4, 4, 0] }] }];
+  const fw = formWeekly('hex_dl', 8);
+  const wk2 = fw.find(w => w.wk === weekKey(wkAgo(2)));
+  const wk1 = fw.find(w => w.wk === weekKey(wkAgo(1)));
+  const wk0 = fw.find(w => w.wk === weekKey(wkAgo(0)));
+  T('formWeekly averages sessForm per week (worst-set 3 + 5 → 4)', wk2 && wk2.v === 4, JSON.stringify(fw));
+  T('unrated sessions leave a null week, not a zero', wk1 && wk1.v === null);
+  T('zero form entries (unrated sets) are ignored within a session', wk0 && wk0.v === 4);
+  d4.sessions.forEach(s => { s.ex[0].form = []; });
+  T('a lift with no ratings at all returns []', formWeekly('hex_dl', 8).length === 0);
+}
+
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 12', SEED.programVersion === 12);

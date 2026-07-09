@@ -174,6 +174,22 @@ R.setSEG('overview');
 R.render();
 T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.getA().match(/Phase \d[^<]*/) || [])[0]);
 
+// ── Form trend renders only when the selected lift has rated sets across ≥2 weeks ──
+{
+  const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const added = [
+    { id: 'fm1', date: wkAgo(2), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', form: [4, 4, 4] }] },
+    { id: 'fm2', date: wkAgo(1), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 52, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] }];
+  R.getD().sessions.push(...added);
+  R.setSEG('lifts'); R.setSTAT('hex_dl');
+  tryRender('Progress (lifts w/ form data)', () => R.render());
+  T('form trend chart renders for a rated lift', /Form \(5 = strict\)/.test(R.getA()));
+  R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
+  R.setSTAT('pullup_c'); R.render();
+  T('form trend absent when the lift has no ratings', !/Form \(5 = strict\)/.test(R.getA()));
+  R.setSTAT('deadlift'); R.setSEG('overview');
+}
+
 // ── Phase markers on the weekly tonnage chart (fixture spans two stamped phases) ──
 {
   const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
