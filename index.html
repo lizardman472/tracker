@@ -28,7 +28,7 @@
 /* --p1 lightened from #586577: its --ink label text sat at 3.2:1 (illegible micro-chip) */
 --p10:#fb7185;--p5:#60a5fa;--p25:#34d399;--p1:#8b97ab;
 --sh:0 1px 3px rgba(0,0,0,.45);--shm:0 10px 32px rgba(0,0,0,.6);--sab:env(safe-area-inset-bottom,0px);
---rad:16px;--rad-sm:10px;
+--rad:16px;--rad-sm:10px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;
 --disp:'Archivo Expanded',-apple-system,system-ui,sans-serif;
 --body:'Archivo',-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -63,7 +63,10 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Badges */
 .bg{display:inline-block;padding:3px 9px;border-radius:6px;font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
-.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--bll);color:var(--bl)}.bg-c{background:var(--grl);color:var(--gr)}
+/* Day identity: A cyan / B PURPLE / C green. B was blue — cyan↔blue is a deutan/tritan
+   colorblind collision (ΔE ~9-10); purple clears tritan and every colored day surface
+   also carries its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
+.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--pul);color:var(--pu)}.bg-c{background:var(--grl);color:var(--gr)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
@@ -1302,6 +1305,10 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
 // CH_TARGET=--rd.
 const CH_GRID='#2a3444',CH_TXT='#8b97ab',CH_DOT='#0e131c',CH_TARGET='#fb7185';
+// Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
+// .bg-a/-b/-c badge hues. B is PURPLE, not blue: cyan↔blue failed the colorblind
+// separation check (deutan ΔE ~10); every colored day cell also shows its letter.
+const DAY_COLORS={A:'#38bdf8',B:'#a78bfa',C:'#34d399',cardio:'#f5a524'};
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
@@ -2519,12 +2526,14 @@ h+=`<div class="cd"><div class="hm-grid" style="margin-bottom:6px">`;['M','T','W
 h+=`</div><div class="hm-grid">`;
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
 for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
-for(const d of hm){let bg='var(--ib)';
-// cardio is amber to match the legend — it was green-tinted, indistinguishable from Day C
-if(d.isC)bg='rgba(245,165,36,.35)';else if(d.day==='A')bg='rgba(var(--prRGB),.55)';else if(d.day==='B')bg='rgba(96,165,250,.55)';
-else if(d.day==='C')bg='rgba(52,211,153,.55)';
-h+=`<div class="hm-cell" style="background:${bg}"></div>`}
-h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span style="color:var(--pr)">■ A</span><span style="color:var(--bl)">■ B</span><span style="color:var(--gr)">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
+// Day hues from DAY_COLORS (B is purple — see const) at .55 alpha over the card;
+// each trained cell also shows its day LETTER so identity never rides on color alone.
+const dayBg=c=>`rgba(${parseInt(c.slice(1,3),16)},${parseInt(c.slice(3,5),16)},${parseInt(c.slice(5,7),16)},.55)`;
+for(const d of hm){let bg='var(--ib)',mark='';
+if(d.isC){bg='rgba(245,165,36,.35)';mark='·'}
+else if(d.day){bg=dayBg(DAY_COLORS[d.day]||DAY_COLORS.A);mark=d.day}
+h+=`<div class="hm-cell" style="background:${bg};${mark&&mark!=='·'?'color:var(--ink);font-weight:800;':''}">${mark}</div>`}
+h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span style="color:${DAY_COLORS.A}">■ A</span><span style="color:${DAY_COLORS.B}">■ B</span><span style="color:${DAY_COLORS.C}">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
 
 // Weekly charts — complete weeks only. The in-progress week is reported as a
 // "so far" line instead of charted, so mid-week never reads as a volume crash.
