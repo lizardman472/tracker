@@ -21,7 +21,7 @@
 /* Volt dark — warm graphite/olive base, lime-volt accent. High-energy, gym-lit. */
 --bg:#0b0d08;--bg2:#0f120b;--cd:#161a11;--cd2:#1e2416;--cb:#303826;--ib:#12160d;--ibr:#38412c;
 --tx:#f2f5ea;--mu:#9aa38b;--dm:#8f9a80;
-/* sky-cyan signature accent */
+/* volt-lime signature accent */
 --prRGB:201,242,75;--pr:#c9f24b;--prl:#252d08;--prg:#a3e635;--ink:#131700;
 --gr:#34d399;--grl:#08251c;--am:#f5a524;--aml:#2a200d;--rd:#fb7185;--rdl:#2c1622;
 --pu:#a78bfa;--pul:#1d1936;--bl:#60a5fa;--bll:#0f1d33;
@@ -2192,6 +2192,20 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
+// ── Last-N-days vs prior-N-days training block comparison (Overview strip).
+// noProg sessions still count — this is analytics, not the progression engine. ──
+function periodCompare(days){
+const n=days||28;
+const cut1=daysAgoStr(n),cut2=daysAgoStr(2*n);
+const mk=()=>({vol:0,sets:0,sessions:0,rpe:[]});
+const cur=mk(),prev=mk();
+for(const s of D.sessions){
+  const b=s.date>=cut1?cur:(s.date>=cut2?prev:null);if(!b)continue;
+  b.sessions++;if(s.difficulty)b.rpe.push(s.difficulty);
+  for(const e of s.ex){b.vol+=calcExVol(e.id,e.wt,e.reps);b.sets+=(e.reps||[]).filter(r=>Number(r)>0).length}}
+const fin=b=>({vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions,
+  rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null});
+return{cur:fin(cur),prev:fin(prev)}}
 // ── Weekly cardio minutes by intensity — same Mon-anchored bucketing as
 // weeklySeries. The Consistency card previously surfaced only a 7-day total. ──
 function cardioWeekly(weeks){
@@ -2352,6 +2366,25 @@ const wk=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6
 h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px">
 <span style="font-size:12px;font-weight:700;white-space:nowrap">Phase ${D.phase} · ${p.name}</span>
 <span class="dm" style="white-space:nowrap">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span></div>`}
+// 4-week block comparison — is this training block bigger than the last?
+// Hidden until a full prior window exists (no '+∞%' on young histories).
+{const pc=periodCompare(28);
+if(pc.prev.sessions>0){
+const dAbs=(c,p)=>{if(c==null||p==null)return'';const d=Math.round((c-p)*10)/10;
+  return d===0?`<span style="color:var(--mu)">→</span>`:`<span style="color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'↑':'↓'}${Math.abs(d)}</span>`};
+const dPct=(c,p)=>{if(!p)return'';const d=Math.round((c-p)/p*100);
+  return Math.abs(d)<3?`<span style="color:var(--mu)">→</span>`:`<span style="color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'↑':'↓'}${Math.abs(d)}%</span>`};
+// RPE delta stays neutral-colored: harder is not automatically better or worse.
+const dRpe=(c,p)=>{if(c==null||p==null)return'';const d=Math.round((c-p)*10)/10;
+  return`<span style="color:var(--mu)">${d===0?'→':d>0?'↑':'↓'}${d?Math.abs(d):''}</span>`};
+h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Last 4 wk vs prior 4 wk</div>
+<div class="estrip">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${(pc.cur.vol/1000).toFixed(1)}t</div><div class="estrip-lbl">Tonnage ${dPct(pc.cur.vol,pc.prev.vol)}</div></div>
+<div class="estrip-cell"><div class="estrip-num">${pc.cur.sessions}</div><div class="estrip-lbl">Sessions ${dAbs(pc.cur.sessions,pc.prev.sessions)}</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${pc.cur.sets}</div><div class="estrip-lbl">Sets ${dAbs(pc.cur.sets,pc.prev.sets)}</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${pc.cur.rpe!=null?pc.cur.rpe:'—'}</div><div class="estrip-lbl">Avg RPE ${dRpe(pc.cur.rpe,pc.prev.rpe)}</div></div>
+</div></div>`}}
+
 const rprs=recentPRs(30);
 if(rprs.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">New PRs · last 30 days</div>`;
 for(const p of rprs.slice(0,8)){h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--cb)">

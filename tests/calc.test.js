@@ -763,6 +763,21 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('no cardio history → empty series', cardioWeekly(8).length === 0);
 }
 
+// ── Deeper stats D3: periodCompare — last-4wk vs prior-4wk windows ──
+{
+  const dp = freshD();
+  const mkS = (id, daysAgo, wt, rpe) => ({ id, date: ymd(new Date(Date.now() - daysAgo * 864e5)), day: 'A', loc: 'home', difficulty: rpe,
+    ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '' }] });
+  dp.sessions = [mkS('pc1', 5, 60, 3), mkS('pc2', 20, 58, 3), mkS('pc3', 35, 50, 4), mkS('pc4', 50, 48, 4), mkS('pc5', 70, 40, 2)];
+  const pc = periodCompare(28);
+  T('periodCompare: current window holds the two recent sessions', pc.cur.sessions === 2 && pc.cur.vol === (60 + 58) * 15, JSON.stringify(pc.cur));
+  T('periodCompare: prior window holds the two mid sessions', pc.prev.sessions === 2 && pc.prev.vol === (50 + 48) * 15, JSON.stringify(pc.prev));
+  T('periodCompare: 70-day-old session outside both windows', pc.cur.sessions + pc.prev.sessions === 4);
+  T('periodCompare: per-window avg RPE', pc.cur.rpe === 3 && pc.prev.rpe === 4);
+  dp.sessions = [mkS('pc6', 5, 60, 3)];
+  T('periodCompare: empty prior window reports zero sessions (render hides strip)', periodCompare(28).prev.sessions === 0);
+}
+
 // ── Progress rebuild A7: quirk fixes ──
 {
   // Club lifts mint e1RM PRs (E1RM_TYPES includes club) — the momentum board now
