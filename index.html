@@ -2715,8 +2715,11 @@ const day=['A','B','C'].includes(s.day)?s.day:'A';
 const id=String(s.id).replace(/[^\w.-]/g,'');
 if(!id)return null;
 return{...s,id,day,ex}}
-function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
-r.onload=e=>{try{const d=JSON.parse(e.target.result);
+// Pure merge core for imports — extracted from impD so the export→clear→import
+// round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
+// Takes the current state `cur` and a parsed backup `d`; returns {W,added,replaced,skipped}
+// without touching D or storage. Throws on unsalvageable input.
+function mergeImport(cur,d){
 if(!d||typeof d!=='object'||!Array.isArray(d.sessions))throw 0;
 let skipped=0;d.sessions=d.sessions.map(validSession).filter(s=>s?true:(skipped++,false));
 if(!d.sessions.length&&skipped)throw 0; // nothing salvageable — reject outright
@@ -2731,7 +2734,7 @@ d.discomfort=(Array.isArray(d.discomfort)?d.discomfort:[]).filter(x=>x&&typeof x
 // ATOMIC merge: all work happens on a clone — a throw mid-merge used to leave D
 // partially mutated with the drift persisted by the next save(). D is only replaced
 // once the whole merge succeeded.
-const W=structuredClone(D);
+const W=structuredClone(cur);
 // Fresh device = truly empty OR still on the bundled demo SEED (load() marks that with
 // `seeded`) — the old sessions.length===0 test was unreachable because an empty store
 // always loads the demo. On a fresh restore, demo rows are dropped, and phase/venue
@@ -2769,6 +2772,10 @@ W.nextDay=NEXT_DAY[last.day]||W.nextDay}
 // Run migration on imported data
 migrateData(W);
 delete W.seeded;
+return{W,added,replaced,skipped}}
+function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+r.onload=e=>{try{const d=JSON.parse(e.target.result);
+const{W,added,replaced,skipped}=mergeImport(D,d);
 D=W;
 if(!save())alert('⚠ Import merged but could not be written to storage (quota?). Export a backup before closing.');
 render();

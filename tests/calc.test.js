@@ -556,5 +556,84 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('saveAW payload includes notes+wu fields (source check)', /notes:SNOTES,wu:WU_CHECKS/.test(String(saveAW)), String(saveAW).slice(0, 200));
 }
 
+// ── Ultra audit C1: export→clear→import ROUND-TRIP PROOF ──
+// Build a rich state exactly as the app holds it, stringify it exactly as expD
+// exports it, merge into a fresh (post-reset) state exactly as impD imports it,
+// and assert every training-data field survives identically. Device-local fields
+// (notify, dismissed, lastBackup*) are deliberately not adopted — see mergeImport.
+{
+  const deepEq = (a, b) => {
+    if (a === b) return true;
+    if (typeof a !== typeof b || a == null || b == null) return false;
+    if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((v, i) => deepEq(v, b[i]));
+    if (typeof a === 'object') { const ka = Object.keys(a), kb = Object.keys(b); return ka.length === kb.length && ka.every(k => deepEq(a[k], b[k])); }
+    return false;
+  };
+  const mk = (id, date, day, loc, ex, extra) => {
+    const s = { id, date, day, loc, ex, ...extra };
+    s.volume = ex.reduce((t, e) => t + calcExVol(e.id, e.wt, e.reps), 0);
+    return s;
+  };
+  const fix = freshState();
+  fix.sessions = [
+    mk('rt1', '2026-05-01', 'A', 'home', [
+      { id: 'hex_dl', wt: 61, reps: [5, 5, 5], band: '', notes: 'strap cue', form: [5, 5, 4] },
+      { id: 'b_stance_rdl', wt: 31, reps: [8, 8, 8], band: '', notes: '' },
+      { id: 'pullup_a', wt: null, reps: [6, 5, 5, 4], band: 'Green', notes: '' }],
+      { difficulty: 3, duration: 75, warmup: true, notes: 'good session', phase: 1 }),
+    mk('rt2', '2026-05-03', 'B', 'home', [
+      { id: 'ohp', wt: 26, reps: [7, 6, 6, 5], band: '', notes: '' },
+      { id: 'lm_lateral', wt: 12.25, reps: [14, 13, 12, 12], band: '', notes: '' }],
+      { difficulty: 4, duration: 80, warmup: false, phase: 1, customFlag: 'survives-roundtrip' }),
+    mk('rt3', '2026-05-05', 'C', 'partner', [
+      { id: 'db_sl_rdl', wt: 12, reps: [8, 8, 8, 8], band: '', notes: '' },
+      { id: 'db_calf_raise', wt: 14, reps: [18, 16, 15], band: '', notes: '' }],
+      { difficulty: 2, duration: 60, warmup: true, phase: 2 })];
+  fix.bodyLog = [{ date: '2026-05-01', weight: 82.5, waist: 88 }, { date: '2026-05-08', weight: 82.1 }];
+  fix.cardioLog = [{ id: 'c2026-05-02', date: '2026-05-02', type: 'Walk', duration: 30, intensity: 'easy' }];
+  fix.discomfort = [{ date: '2026-05-03', exId: 'ohp', level: 'mild', joint: 'Shoulder' }];
+  fix.cues = { hex_dl: 'push the floor away' };
+  fix.lastDeload = '2026-04-20';
+  fix.phase = 2; fix.phaseStart = '2026-04-28'; fix.location = 'partner'; fix.nextDay = 'A';
+  const exported = JSON.stringify(fix, null, 2); // byte-for-byte what expD writes
+  const rt = mergeImport(freshState(), JSON.parse(exported));
+  T('round-trip: all sessions restored, none skipped', rt.added === 3 && rt.replaced === 0 && rt.skipped === 0, `a${rt.added} r${rt.replaced} s${rt.skipped}`);
+  T('round-trip: sessions field-for-field identical', deepEq(rt.W.sessions, fix.sessions), JSON.stringify(rt.W.sessions).slice(0, 300));
+  T('round-trip: bodyLog identical', deepEq(rt.W.bodyLog, fix.bodyLog));
+  T('round-trip: cardioLog identical', deepEq(rt.W.cardioLog, fix.cardioLog));
+  T('round-trip: discomfort identical', deepEq(rt.W.discomfort, fix.discomfort));
+  T('round-trip: cues identical', deepEq(rt.W.cues, fix.cues));
+  T('round-trip: lastDeload restored', rt.W.lastDeload === '2026-04-20');
+  T('round-trip: phase/phaseStart/location adopted on fresh device', rt.W.phase === 2 && rt.W.phaseStart === '2026-04-28' && rt.W.location === 'partner');
+  T('round-trip: nextDay re-derived from last session (C→A)', rt.W.nextDay === 'A');
+  T('round-trip: unknown session fields survive the import guard', rt.W.sessions[1].customFlag === 'survives-roundtrip');
+  T('round-trip: merged state carries no seeded flag', rt.W.seeded === undefined);
+
+  // Merge into an EXISTING store: id collisions replace, logs are additive, metadata kept.
+  const cur = freshState();
+  cur.sessions = [mk('rt1', '2026-05-01', 'A', 'home', [{ id: 'hex_dl', wt: 56, reps: [5, 5, 4], band: '', notes: '' }], { phase: 1 })];
+  cur.phase = 1; cur.location = 'home'; cur.bodyLog = [{ date: '2026-04-01', weight: 83 }];
+  const m2 = mergeImport(cur, JSON.parse(exported));
+  T('merge-existing: collision replaces, rest added', m2.replaced === 1 && m2.added === 2, `a${m2.added} r${m2.replaced}`);
+  T('merge-existing: replaced session takes the imported version', m2.W.sessions.find(s => s.id === 'rt1').ex[0].wt === 61);
+  T('merge-existing: bodyLog additive by date', m2.W.bodyLog.length === 3);
+  T('merge-existing: phase/location NOT adopted onto a non-fresh device', m2.W.phase === 1 && m2.W.location === 'home');
+
+  // Seeded (demo) store: demo rows dropped, backup metadata adopted.
+  const seededCur = { ...freshState(), sessions: structuredClone(SEED.sessions), seeded: true };
+  const m3 = mergeImport(seededCur, JSON.parse(exported));
+  T('seeded store: demo rows dropped on restore', m3.W.sessions.length === 3 && m3.W.sessions.every(s => s.id.startsWith('rt')));
+  T('seeded store: backup metadata adopted', m3.W.phase === 2 && m3.W.location === 'partner');
+
+  // Unsalvageable input throws; caller state is untouched (merge works on a clone).
+  let threw = false;
+  const before = JSON.stringify(cur);
+  try { mergeImport(cur, { sessions: 'garbage' }); } catch (e) { threw = true; }
+  T('garbage import throws', threw);
+  T('failed import leaves current state untouched', JSON.stringify(cur) === before);
+  try { threw = false; mergeImport(cur, { sessions: [{ bad: true }, null] }); } catch (e) { threw = true; }
+  T('all-malformed sessions rejected outright', threw);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
