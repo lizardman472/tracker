@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -134,18 +134,33 @@ R.stepWt('hex_carry', 1);
 T('stepWt snaps an off-ladder 31.3 up to 31.5', R.getLOG()['hex_carry'].wt === 31.5, R.getLOG()['hex_carry'].wt);
 R.getLOG()['hex_carry'].wt = 30;
 
-// ── Progress tab (default exercise) ──
-tryRender('Progress (stats)', () => R.go('stats'));
+// ── Progress tab (segmented: Overview default, chips switch sub-views) ──
+tryRender('Progress (stats, Overview)', () => R.go('stats'));
 const stats = R.getA();
 T('progress produced non-empty markup', stats.length > 200);
-// Strength-level card tracks the CURRENT main lifts, not the retired straight-bar ones.
-T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(stats));
-T('strength card has no retired Zercher/straight-deadlift rows', !/std-lift">Zercher/.test(stats) && !/std-lift">Deadlift</.test(stats));
+T('segment chip row renders with all five chips', ['Overview', 'Lifts', 'Balance', 'Consistency', 'Lifetime'].every(s => new RegExp(`seg-chip[^>]*>${s}<`).test(stats)));
+T('Overview is the active default chip', /seg-chip on[^>]*aria-selected="true"[^>]*>Overview</.test(stats), stats.match(/seg-chip[^>]*Overview</) && stats.match(/seg-chip[^>]*Overview</)[0]);
+T('status header renders on Overview', /status-hd/.test(stats));
+
+// Each segment renders without error and with real content.
+for (const seg of ['lifts', 'balance', 'consistency', 'lifetime']) {
+  R.setSEG(seg);
+  tryRender(`Progress (${seg} segment)`, () => R.render());
+  T(`${seg} segment produced non-empty markup`, R.getA().length > 600);
+}
+// Strength-level card (Lifts segment) tracks the CURRENT main lifts, not retired ones.
+R.setSEG('lifts');
+R.render();
+const liftsSeg = R.getA();
+T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
+T('strength card has no retired Zercher/straight-deadlift rows', !/std-lift">Zercher/.test(liftsSeg) && !/std-lift">Deadlift</.test(liftsSeg));
+T('balance muscle card is NOT rendered on the Lifts segment', !/Weekly Volume by Muscle/.test(liftsSeg));
 
 // ── Progress tab with a hex lift selected ──
 R.setSTAT('hex_dl');
 tryRender('Progress (stats, hex_dl selected)', () => R.go('stats'));
 R.setSTAT('deadlift');
+R.setSEG('overview');
 
 // ── History with the stored hex session expanded — exercises session-detail plate breakdown ──
 let histOk = tryRender('History (list)', () => R.go('history'));
