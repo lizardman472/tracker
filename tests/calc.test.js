@@ -641,5 +641,48 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('all-malformed sessions rejected outright', threw);
 }
 
+// ── Ultra audit C3: resume blobs with logged work are never silently purged ──
+{
+  const store3 = {};
+  global.localStorage = { getItem: k => store3[k] ?? null, setItem: (k, v) => { store3[k] = v }, removeItem: k => { delete store3[k] } };
+  const d3 = freshD();
+  const curIds = dayExs('A', {}).map(e => e.id);
+  const mkBlob = (over) => JSON.stringify({
+    day: 'A', log: { hex_dl: { reps: ['5', '5', ''], wt: 61, setDone: [], form: [], discJoints: [], disc: 'none', notes: '' } },
+    start: Date.now() - 3 * 3600e3, cidx: 0, ts: Date.now() - 3 * 3600e3, loc: 'home', phase: 1, exIds: curIds, swaps: {}, notes: '', wu: [false, false, false], ...over });
+
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3 });
+  let r = checkResume();
+  T('fresh blob with reps resumes, unflagged', r && r.day === 'A' && !r.stale && !r.drifted, JSON.stringify(r));
+
+  store3['rft-active'] = mkBlob(); // 3h old, has logged reps
+  r = checkResume();
+  T('3h-old blob WITH reps survives, flagged stale', r && r.stale === true, JSON.stringify(r));
+  T('3h-old blob WITH reps not deleted from storage', store3['rft-active'] != null);
+
+  store3['rft-active'] = mkBlob({ log: { hex_dl: { reps: ['', '', ''], wt: 61 } } }); // 3h old, zero reps
+  r = checkResume();
+  T('3h-old blob with NO reps is purged', r === null && store3['rft-active'] == null);
+
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, exIds: ['some_removed_ex'] }); // drifted, has reps
+  r = checkResume();
+  T('drifted blob WITH reps survives, flagged drifted', r && r.drifted === true, JSON.stringify(r));
+  T('drifted blob WITH reps not deleted from storage', store3['rft-active'] != null);
+
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, exIds: ['some_removed_ex'], log: {} }); // drifted, no work
+  r = checkResume();
+  T('drifted blob with NO reps is purged', r === null && store3['rft-active'] == null);
+
+  // Location/phase mismatch stays hidden-not-deleted (unchanged behavior).
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, loc: 'partner' });
+  r = checkResume();
+  T('location-mismatched blob hidden but kept', r === null && store3['rft-active'] != null);
+
+  // Lock in two behaviors the fix depends on (source checks, same style as the saveAW guard):
+  T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
+  T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));
+  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

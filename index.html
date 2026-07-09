@@ -715,16 +715,20 @@ function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
 loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}))}catch(e){}}
 function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
-// Patch 11: checkResume validates loc and phase match
-function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
-// Stale (>2h) or program-drifted blobs are permanently unusable — delete rather than
-// letting a dead blob squat in storage. Location/phase mismatches are NOT deleted:
+// Patch 11: checkResume validates loc and phase match.
+// Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
+// program-drift check) used to destroy real logged sets after any interruption longer
+// than a phone call. Only zero-rep blobs are purged on age/drift; anything with work
+// is surfaced with computed `stale`/`drifted` flags (never persisted) and waits for an
+// explicit Resume/Discard. Location/phase mismatches stay hidden-not-deleted:
 // switching back makes them resumable again.
-if(Date.now()-d.ts>7200000){clearAW();return null}
+function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+const hasReps=d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0));
+if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
 if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.id);
-if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){clearAW();return null}}
+if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){clearAW();return null}d.drifted=true}}
 return d}catch(e){return null}}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
@@ -1421,10 +1425,13 @@ const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=g
 const resume=checkResume();
 let h='<div class="sec">';
 
-if(resume)h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:4px">Resume Day ${resume.day}?</div>
-<div class="dm" style="margin-bottom:8px">${Math.round((Date.now()-resume.start)/60000)} min ago</div>
+if(resume){const ageMin=Math.max(0,Math.round((Date.now()-resume.start)/60000));
+const ageLbl=ageMin<120?`${ageMin} min ago`:ageMin<2880?`${Math.round(ageMin/60)}h ago`:`${Math.round(ageMin/1440)}d ago`;
+h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:4px">Resume Day ${resume.day}?</div>
+<div class="dm" style="margin-bottom:8px">Started ${ageLbl} — logged sets are kept until you Resume or Discard.</div>
+${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">⚠ The plan changed since this session started — already-logged exercises still save with it.</div>`:''}
 <div style="display:flex;gap:6px"><button class="btn btn-pr" style="flex:1;padding:10px;font-size:13px" onclick="resumeW()">Resume</button>
-<button class="btn btn-wh" style="flex:1;padding:10px;font-size:13px" onclick="clearAW();render()">Discard</button></div></div>`;
+<button class="btn btn-wh" style="flex:1;padding:10px;font-size:13px" onclick="clearAW();render()">Discard</button></div></div>`}
 
 // Corrupt-store rescue: load() parked the unparseable raw store under SK+'-corrupt' and
 // fell back to demo data — but never told the user. Surface it with a way out.
@@ -1664,6 +1671,9 @@ if(!Array.isArray(row.form))row.form=[];
 if(!Array.isArray(row.discJoints))row.discJoints=[];
 if(row.disc==null)row.disc='none';if(row.notes==null)row.notes=''}
 for(const ex of dayExs(ADAY))ensureLog(ex);
+// A drifted blob may carry a cidx beyond the current day's exercise count — clamp so
+// the workout screen never opens on a nonexistent slot.
+CIDX=Math.min(CIDX,Math.max(0,dayExs(ADAY).length-1));
 VIEW='workout';render();window.scrollTo(0,0)}
 
 function rWork(el){
