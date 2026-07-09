@@ -259,6 +259,48 @@ errors). SW cache bumped `rft-v50` → `rft-v51` with this pass.
 - Timezone-safe local-date math, week bucketing, `validSession` import guards,
   corrupt-store rescue path.
 
+---
+
+## 7 · Progress-tab rebuild + UI elevation (9 Jul 2026, second pass)
+
+**Progress tab rebuilt around five segments** — Overview / Lifts / Balance /
+Consistency / Lifetime chips under the always-visible status header — replacing one
+~6–8-screen scroll. Every shared helper now computes once per render (statSnapshot
+ran 3×, momentum/consistency 2× each) and segment-only work (per-exercise PR walk,
+muscleWeekly loop, weeklySeries, exercise deep-dive) runs only when its segment is
+open. `STAT_SEG`/`STAT_PRS_ALL` are in-memory only — zero stored-data changes.
+
+**New insights (all four chosen):**
+- **Band progression** — pull-ups/dips progress by band+reps but showed a permanently
+  dead weight chart. Band lifts now get a band-ladder row (current rung highlighted;
+  assist reads toward None, resist toward the heaviest band), a total-reps chart, and
+  a reps-trend stat via `repsSlope` (e1rmSlope's guards, reps domain).
+- **Phase/deload markers** — `svgBars` gained `opts.marks`; `weeklyMarks` maps stamped
+  phase transitions + the deload week onto the tonnage chart; Overview opens with a
+  "Phase N · name · week X/Y" context card.
+- **Form trend** — `formWeekly` charts each lift's weekly mean worst-rated set (1–5).
+- **Cardio trend** — `cardioWeekly` charts minutes/week with an intensity split.
+
+**Quirk fixes:** momentum + e1RM-chart gates unified on `E1RM_TYPES` (club lifts
+could PR but never trend); `consistency().perWk` now spans to *today* (a layoff
+finally lowers the cadence the ≥3/wk verdict judges); the below-MEV priority nudge is
+stated once (Overview) instead of three times; balance numbers hedged with ≈ and
+"directional, not precise"; All-Time PRs collapse to top-8 with Show-all.
+
+**UI elevation (dataviz-guided, current identity kept):**
+- **Day B is purple, not blue** — A-cyan↔B-blue failed the colorblind separation
+  check (deutan ΔE ~10, tritan ~9, validated with a palette checker). Shared
+  `DAY_COLORS` const + `.bg-b`; heatmap cells now also carry their day letter
+  (secondary encoding), cardio a dot.
+- Chart craft: titles wear text ink (never series color), native `<title>` tooltips
+  on bars/dots, recessive grid, 2px lines, 8px markers, flat-series tick-dedup fix.
+- Screenshot review at 360px found the other screens already solid; targeted fixes
+  only (nav tracking so SETTINGS can't clip, phase-card span fusing, PR badge wrap).
+
+**Verification: 436 tests** (calc 213 · hex 134 · render 89) plus a 25-assertion
+Chromium e2e (core loop, all five segments, band view, chart aria, resume card,
+noProg, two-tab gen sidecar — zero console errors at 360px). SW cache → `rft-v52`.
+
 ### Deferred (with reasons)
 - **Committed-session editing** (user chose defer) — delete + re-log remains the fix
   path; a good inline editor is its own feature, a `prompt()` one is poor phone UX.
