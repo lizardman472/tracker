@@ -174,6 +174,19 @@ R.setSEG('overview');
 R.render();
 T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.getA().match(/Phase \d[^<]*/) || [])[0]);
 
+// ── Momentum slopes render at uniform 1-decimal precision ──
+{
+  const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const added = [0, 1, 2, 3].map(n => ({ id: 'dm' + n, date: wkAgo(3 - n), day: 'B', loc: 'home',
+    ex: [{ id: 'ohp', wt: 20 + n * 1.25, reps: [7, 7, 7, 7], band: '' }] })); // 1.25 steps → 2dp raw slope
+  R.getD().sessions.push(...added);
+  R.render();
+  const ov = R.getA();
+  T('momentum slopes show exactly one decimal', /[+↓→] ?\+?\d+\.\d kg\/wk/.test(ov), (ov.match(/kg\/wk[^<]*/) || [])[0]);
+  T('no 2-decimal slope leaks into the card', !/\d\.\d{2} kg\/wk/.test(ov), (ov.match(/\d\.\d{2} kg\/wk/) || [])[0]);
+  R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
+}
+
 // ── Form trend renders only when the selected lift has rated sets across ≥2 weeks ──
 {
   const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };

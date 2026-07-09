@@ -2365,8 +2365,10 @@ const moving=mom.filter(m=>m.slope>0.05).slice(0,3);
 const stalled=mom.filter(m=>m.slope<=0.05).sort((a,b)=>a.slope-b.slope).slice(0,2);
 h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum</div>
 <div class="dm" style="margin-bottom:5px">e1RM trend over 8 weeks · needs 3+ weighted sessions per lift</div>`;
-for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:var(--gr);font-weight:700">↑ +${m.slope} kg/wk</span></div>`;
-for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope} kg/wk</span></div>`;
+// Uniform 1-decimal display (raw slopes carry 2dp rounding — '+2.4' next to '+2.34'
+// read as inconsistent precision); comparisons keep full precision.
+for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:var(--gr);font-weight:700">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
+for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
 h+=`</div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
@@ -2450,7 +2452,7 @@ h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${es.pr.bestWt?es.pr.bestWt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':'—'}</div><div class="estrip-lbl">Best</div></div>
 <div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.wt?es.last.wt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':(es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'BW')}</div><div class="estrip-lbl">Last</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
+<div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend.toFixed(1)+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
 }
 h+=`<div class="cd">${svgLine(wtD,360,170,'#38bdf8','Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
