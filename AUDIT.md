@@ -195,3 +195,77 @@ The user chose the recommended default for every open decision. Applied and test
 - CI (`.github/workflows/test.yml`) runs all suites on every push.
 
 Run locally: `node tests/calc.test.js && node tests/hex.test.js && node tests/render.smoke.js`
+
+---
+
+## 6 · Ultra-audit pass (9 Jul 2026) — residual findings
+
+A further full-layer pass over the already-audited branch. Every anchor in the audit
+brief was re-verified against the code first; the genuinely-open findings below were
+fixed in order P0 → P1 → P2, one behavioral change per commit. **384 tests pass**
+(calc 192 · hex 134 · render 58) plus an 18-assertion real-Chromium end-to-end run
+(boot → log → finish → save → history toggle → resume card → charts, zero console
+errors). SW cache bumped `rft-v50` → `rft-v51` with this pass.
+
+### Brief drift (brief said / code is)
+- ~~SW cache `rft-v13`~~ → was already `rft-v50`, network-first + update toast; healthy.
+- ~~`buildVW` interrupted mid-implementation~~ → finished long ago: `VW` (11 kg), `VWH`
+  (7 kg hex), `VWL` (landmine single-end) + coarse warm-up ladders, all callers wired.
+- ~~volt-green `#c4f82a` theme~~ → deliberately reskinned to sky-cyan `#38bdf8` on main
+  (commit `3656488`, the day after volt landed). Kept cyan; fixed the stale comment.
+- ~~`workout-CLEAN-import.json` canonical state~~ → not in the repo (live data lives on
+  the device); ~~glitch-session exclusion~~ → no such mechanism existed — **built now**
+  (noProg, below) per user decision.
+
+### Fixed (P0)
+| Finding | Fix |
+|---|---|
+| **Export→clear→import round-trip was unprovable** — the merge logic lived inside FileReader-bound `impD` | Extracted pure `mergeImport(cur,d)` (identical behavior, `impD` is a thin wrapper); round-trip proof now in calc.test: rich state → `JSON.stringify` (what `expD` writes) → `freshState()` → `mergeImport` → field-for-field equality across sessions/body/cardio/discomfort/cues/lastDeload/phase/phaseStart/location. Device-local by design (documented): `notify`, `dismissed`, `lastBackup*`, `gen`. Fresh restores now also adopt a validated `nextDay` (manual rotation overrides used to be lost). |
+| **Resume blob silently purged with logged work inside** — `checkResume` deleted any `rft-active` blob >2h old or program-drifted, destroying uncommitted sets | Blobs with ≥1 logged rep are never auto-deleted: surfaced with age label (`3h ago`/`2d ago`) + drift note and an explicit Resume/Discard; only zero-rep blobs are purged. `resumeW` clamps `CIDX`; session date still stamps from workout start (locked by test). |
+
+### Fixed (P1)
+| Finding | Fix |
+|---|---|
+| **Two open tabs clobbered each other's writes** (whole-store last-writer-wins, no cross-tab signal) | `D.gen` + `rft-v12-gen` sidecar: a conflicting write is detected in `save()` and unioned in via pure `mergeStores` (sessions/cardio by id, body by date, discomfort by composite; scalars keep the in-memory tab). Happy path = one extra `getItem`. `resetAll` adopts the sidecar gen so a wipe can't be un-done by the merge. |
+| **MG attribution inconsistencies**: `b_stance_rdl` missing the `back:0.5` its RDL siblings carry; `hex_carry` core 1.0 vs the identical bilateral `db_carry` 0.5 | Fixed both; carry rule documented (unilateral 1.0 / bilateral farmer 0.5). Home core stays 7.5 ≥ MEV 6; back ≤ MAV. Exact-value tests added so drift fails loud. |
+| **No way to exclude bad sessions from progression** (the "glitch session" gap) | Per-session **noProg** toggle in History (⏸ badge): invisible to `getSmartSugg`/`getRelatedSuggestion` only — still counts for rotation, history, tonnage, analytics. Additive field; survives import/round-trip. |
+| **CI SW-bump check warned on every push** — depth-1 clone has no `HEAD~1`, both diffs failed into the warning branch | `fetch-depth: 0` + diff against the PR base sha / `event.before` with a rev-parse-guarded fallback. |
+
+### Fixed (P2)
+- **SEED hygiene**: demo state now carries `programVersion:12` and no dead `confirmed`
+  field (coupled — the v12 migration no longer runs on it); `load()` stamps
+  `phaseStart=today()` on seeding so fresh installs don't boot into "phase overdue".
+- **Zoom + contrast + tap targets**: `user-scalable=no` removed; `--p1` plate chip
+  3.2:1 → ~6:1 (`#8b97ab`); set ticks 36→44 px, warm-up boxes 28→36, form buttons
+  32→40 (per-set 24→30), timer ✕ 34→44, banner/update ✕ get padded hit areas.
+  (`--dm` on `--bg` measured ≈6:1 — checked, passes, unchanged.)
+- **A11y light touch** (user-chosen scope): set ticks / discomfort chips are real
+  `<button>`s with `aria-pressed`; charts get `role="img"` + descriptive labels;
+  `<nav>`/`<main>` landmarks; global `:focus-visible` ring.
+- **Chart palette consts** (`CH_GRID/CH_TXT/CH_DOT/CH_TARGET`) replace repeated hexes,
+  documented as mirrors of the CSS tokens; stale "volt glow" comment fixed.
+- **Repeat-day hint**: manually re-picking the day you just logged warns that it stacks
+  the same movement patterns (the fixed A→B→C rotation otherwise prevents pressing
+  from stacking across consecutive sessions — verified static-by-design).
+
+### Verified sound, no change needed
+- Confirmation brake: exactly two consecutive at-load target hits (`hitsAtW<2`,
+  float-tolerant buckets, re-arms after deloads) — no off-by-one.
+- Phase clocks (8 wk **or** 24 sessions), deload gating (timer AND fatigue/stall
+  signals), overshoot-before-brake ordering, return-from-disruption snapping to the
+  pre-deload peak. Plate math on all three ladders vs the real inventory (`MAX_BB` 85).
+- Side delts ≥ MEV at both venues (~10 home / ~8.5 partner effective sets); calves
+  tracked-not-gated per the explicit v27 decision.
+- Timezone-safe local-date math, week bucketing, `validSession` import guards,
+  corrupt-store rescue path.
+
+### Deferred (with reasons)
+- **Committed-session editing** (user chose defer) — delete + re-log remains the fix
+  path; a good inline editor is its own feature, a `prompt()` one is poor phone UX.
+- **iOS PNG icon / apple-touch-icon** — previously deferred by explicit decision.
+- **Analytics memoization** — Progress tab is O(muscles×sessions) per render, but at
+  this data volume (100s of sessions) it's milliseconds; complexity > benefit.
+- **Full a11y sweep** (every div-onclick → button) — user chose light touch.
+- **Timezone-change week re-bucketing** — inherent to the local-date design; one device.
+- **Gap-aware swap-picker badges** — picker already filters by primary muscle; deemed
+  clutter for the value.
