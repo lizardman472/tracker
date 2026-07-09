@@ -1304,7 +1304,7 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // Chart palette — JS mirrors of the CSS tokens (string-built SVG can't reach CSS vars
 // without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
 // CH_TARGET=--rd.
-const CH_GRID='#2a3444',CH_TXT='#8b97ab',CH_DOT='#0e131c',CH_TARGET='#fb7185';
+const CH_GRID='#2a3444',CH_TXT='#8b97ab',CH_DOT='#0e131c',CH_TARGET='#fb7185',CH_TITLE='#eef3fa';
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // .bg-a/-b/-c badge hues. B is PURPLE, not blue: cyan↔blue failed the colorblind
 // separation check (deutan ΔE ~10); every colored day cell also shows its letter.
@@ -1320,9 +1320,9 @@ const bw=w/data.length,gap=Math.min(6,bw*0.25);
 const fmtT=v=>mx>=8?Math.round(v):Math.round(v*10)/10;
 let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} bar chart, ${data.length} points, max ${fmtT(mx)}">`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-(mx/3)*i);
-s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
+s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1" stroke-opacity=".6"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
 data.forEach((d,i)=>{const bh=Math.max(1,(d.v/mx)*h);const x=pad.l+i*bw+gap/2,y=pad.t+h-bh;
-s+=`<rect x="${x}" y="${y}" width="${bw-gap}" height="${bh}" rx="3" fill="${color}"/>`;
+s+=`<rect x="${x}" y="${y}" width="${bw-gap}" height="${bh}" rx="4" fill="${color}"><title>${d.lbl}: ${d.v}</title></rect>`;
 if(data.length<=12)s+=`<text x="${x+(bw-gap)/2}" y="${H-12}" text-anchor="middle" fill="${CH_TXT}" font-size="7.5">${d.lbl}</text>`});
 if(opts.target){const ty=pad.t+h-(opts.target/mx)*h;s+=`<line x1="${pad.l}" y1="${ty}" x2="${W-pad.r}" y2="${ty}" stroke="${CH_TARGET}" stroke-width="1" stroke-dasharray="4 3"/>`}
 // Vertical event markers (opts.marks=[{i,label,color?}]) — phase changes / deload
@@ -1331,7 +1331,9 @@ if(Array.isArray(opts.marks))for(const m of opts.marks){if(m.i==null||m.i<0||m.i
 const mxp=pad.l+m.i*bw+gap/2-1,mc=m.color||CH_TXT;
 s+=`<line x1="${mxp}" y1="${pad.t-2}" x2="${mxp}" y2="${pad.t+h}" stroke="${mc}" stroke-width="1" stroke-dasharray="2 3"/>`;
 if(m.label)s+=`<text x="${mxp+3}" y="${pad.t+6}" fill="${mc}" font-size="7.5" font-weight="700">${m.label}</text>`}
-s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
+// Title wears text ink, not the series color — colored text is a legibility/CVD
+// smell; the mark itself carries the hue (dataviz guidance).
+s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function svgLine(data,W,H,color,label){
 if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Need 2+ data points</div>`;
@@ -1345,14 +1347,15 @@ const fmtT=v=>rng>=8?Math.round(v):Math.round(v*10)/10;
 let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="${esc(label)} line chart, ${data.length} points, ${fmtT(mn)} to ${fmtT(mx)}">`;
 s+=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.22"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
 for(let i=0;i<=3;i++){const y=pad.t+(h/3)*i,v=fmtT(mx-((mx-mn)/3)*i);
-s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
+s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${CH_GRID}" stroke-width="1" stroke-opacity=".6"/><text x="${pad.l-4}" y="${y+3}" text-anchor="end" fill="${CH_TXT}" font-size="9">${v}</text>`}
 // area fill under the line
 const area=`${pts.map(p=>`${p.x},${p.y}`).join(' ')} ${pts[pts.length-1].x},${pad.t+h} ${pts[0].x},${pad.t+h}`;
 s+=`<polygon points="${area}" fill="url(#${gid})"/>`;
-s+=`<polyline points="${pts.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" stroke="${CH_DOT}" stroke-width="2"/>`;
+s+=`<polyline points="${pts.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="4" fill="${color}" stroke="${CH_DOT}" stroke-width="2"><title>${p.l}: ${p.v}</title></circle>`;
 if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="${CH_TXT}" font-size="8">${p.l}</text>`;
-s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
+// Title in text ink — the line itself carries the series hue.
+s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
