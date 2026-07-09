@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#0a0d13">
+<meta name="theme-color" content="#0b0d08">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Rack-Free Tracker v12</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
@@ -18,11 +18,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 :root{
-/* Slate dark — cool neutral base, electric sky-cyan accent. Clean, modern, punchy. */
---bg:#0a0d13;--bg2:#0e131c;--cd:#141b27;--cd2:#1c2535;--cb:#2a3444;--ib:#121823;--ibr:#2d3949;
---tx:#eef3fa;--mu:#8b97ab;--dm:#8290a6;
+/* Volt dark — warm graphite/olive base, lime-volt accent. High-energy, gym-lit. */
+--bg:#0b0d08;--bg2:#0f120b;--cd:#161a11;--cd2:#1e2416;--cb:#303826;--ib:#12160d;--ibr:#38412c;
+--tx:#f2f5ea;--mu:#9aa38b;--dm:#8f9a80;
 /* sky-cyan signature accent */
---prRGB:56,189,248;--pr:#38bdf8;--prl:#07242f;--prg:#0ea5e9;--ink:#05131c;
+--prRGB:201,242,75;--pr:#c9f24b;--prl:#252d08;--prg:#a3e635;--ink:#131700;
 --gr:#34d399;--grl:#08251c;--am:#f5a524;--aml:#2a200d;--rd:#fb7185;--rdl:#2c1622;
 --pu:#a78bfa;--pul:#1d1936;--bl:#60a5fa;--bll:#0f1d33;
 /* --p1 lightened from #586577: its --ink label text sat at 3.2:1 (illegible micro-chip) */
@@ -45,10 +45,10 @@ input[type=number]{-moz-appearance:textfield}
 ::selection{background:var(--pr);color:var(--ink)}
 
 /* Layout */
-.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:rgba(10,13,19,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
+.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:rgba(11,13,8,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
 .hdr h1{font-family:var(--disp);font-size:15px;font-weight:900;color:var(--tx);letter-spacing:1.5px;text-transform:uppercase}
 .hdr h1::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pr);margin-right:9px;vertical-align:middle;box-shadow:0 0 14px var(--pr),0 0 4px var(--pr)}
-.nav{display:flex;background:rgba(10,13,19,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
+.nav{display:flex;background:rgba(11,13,8,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
 .nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:.6px;text-transform:uppercase;transition:color .2s}
 .nav button.a{color:var(--pr);border-bottom-color:var(--pr);text-shadow:0 0 14px rgba(var(--prRGB),.6)}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
@@ -1304,11 +1304,11 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // Chart palette — JS mirrors of the CSS tokens (string-built SVG can't reach CSS vars
 // without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
 // CH_TARGET=--rd.
-const CH_GRID='#2a3444',CH_TXT='#8b97ab',CH_DOT='#0e131c',CH_TARGET='#fb7185',CH_TITLE='#eef3fa';
+const CH_GRID='#303826',CH_TXT='#9aa38b',CH_DOT='#0f120b',CH_TARGET='#fb7185',CH_TITLE='#f2f5ea';
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // .bg-a/-b/-c badge hues. B is PURPLE, not blue: cyan↔blue failed the colorblind
 // separation check (deutan ΔE ~10); every colored day cell also shows its letter.
-const DAY_COLORS={A:'#38bdf8',B:'#a78bfa',C:'#34d399',cardio:'#f5a524'};
+const DAY_COLORS={A:'#c9f24b',B:'#a78bfa',C:'#34d399',cardio:'#f5a524'};
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
@@ -2442,7 +2442,7 @@ h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">
 h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
 if(bHist.length){
 const repD=bHist.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(repD,360,170,'#38bdf8','Total Reps / Session')}</div>`;
+h+=`<div class="cd">${svgLine(repD,360,170,'#c9f24b','Total Reps / Session')}</div>`;
 }
 }else{
 // stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
@@ -2454,7 +2454,7 @@ h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend.toFixed(1)+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
 }
-h+=`<div class="cd">${svgLine(wtD,360,170,'#38bdf8','Weight (kg)')}</div>`;
+h+=`<div class="cd">${svgLine(wtD,360,170,'#c9f24b','Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
 }
 
@@ -2557,7 +2557,7 @@ let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
 const marks=weeklyMarks(ws);
-h+=`<div class="cd">${svgBars(volData,360,150,'#38bdf8','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(volData,360,150,'#c9f24b','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
 h+=`<div class="cd">${svgBars(sessData,360,130,'#60a5fa','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
 // RPE trend if data exists
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels
@@ -2626,7 +2626,7 @@ h+=`</div>`;el.innerHTML=h}
 // measured that day. Legacy entries stored weight/waist/arms/chest/thigh — those
 // keys are preserved, the rest are additive, so old data renders unchanged.
 const BODY_METRICS=[
-  {k:'weight',    lb:'Weight',    u:'kg', c:'#38bdf8', step:'0.1'},
+  {k:'weight',    lb:'Weight',    u:'kg', c:'#c9f24b', step:'0.1'},
   {k:'neck',      lb:'Neck',      u:'cm', c:'#a78bfa', step:'0.5'},
   {k:'shoulders', lb:'Shoulders', u:'cm', c:'#f5a524', step:'0.5'},
   {k:'chest',     lb:'Chest',     u:'cm', c:'#34d399', step:'0.5'},
