@@ -671,7 +671,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -2581,14 +2581,18 @@ ${m.done?'<span style="color:var(--pr);font-weight:800;font-size:13px">✓</span
 ${!m.done&&m.pct!=null?`<div class="fg-bar"><div class="fg-fill" style="width:${m.pct}%;background:var(--pr)"></div></div>`:''}`}
 h+=`</div>`}
 
-// PRs — only exercises with real history
+// PRs — only exercises with real history. Top 8 by default: the full table was
+// ~900px of mostly-static rows dominating the segment; expand on demand.
 const allPrs=[];for(const ex of ALL_EX){if(!logged.has(ex.id))continue;const pr=getPRs(ex.id);if(pr.bestWt||pr.bestVol)allPrs.push({nm:ex.nm,...pr})}
-allPrs.sort((a,b)=>(b.bestE1RM||0)-(a.bestE1RM||0));
-if(allPrs.length){h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">All-Time PRs · ${allPrs.length} lifts</div>
+allPrs.sort((a,b)=>(b.bestE1RM||b.bestWt||0)-(a.bestE1RM||a.bestWt||0));
+if(allPrs.length){const shown=STAT_PRS_ALL?allPrs:allPrs.slice(0,8);
+h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">All-Time PRs · ${allPrs.length} lifts</div>
 <div class="cd" style="overflow-x:auto"><table class="pr-tbl"><tr><th>Exercise</th><th>Best</th><th>E1RM</th><th>Vol</th></tr>`;
-for(const p of allPrs)h+=`<tr><td style="font-weight:600">${esc(p.nm)}</td><td style="color:var(--pr)">${p.bestWt?p.bestWt+'kg':'—'}</td>
+for(const p of shown)h+=`<tr><td style="font-weight:600">${esc(p.nm)}</td><td style="color:var(--pr)">${p.bestWt?p.bestWt+'kg':'—'}</td>
 <td style="color:var(--pu)">${p.bestE1RM?p.bestE1RM+'kg':'—'}</td><td class="dm">${p.bestVol?(p.bestVol>=1000?(p.bestVol/1000).toFixed(1)+'t':p.bestVol+'kg'):'—'}</td></tr>`;
-h+=`</table></div>`}
+h+=`</table>`;
+if(allPrs.length>8)h+=`<div style="text-align:center;margin-top:4px"><button class="btn-ghost" style="font-size:10px" onclick="STAT_PRS_ALL=!STAT_PRS_ALL;render()">${STAT_PRS_ALL?'Show top 8':`Show all (${allPrs.length})`}</button></div>`;
+h+=`</div>`}
 h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="go('body')">📏 Body Tracking</button>`;
 }
 h+=`</div>`;el.innerHTML=h}

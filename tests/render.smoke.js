@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -211,6 +211,29 @@ T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.get
   tryRender('Progress (consistency w/ cardio history)', () => R.render());
   T('cardio weekly chart renders with intensity split', /Cardio Minutes \/ Week/.test(R.getA()) && /easy 30/.test(R.getA()) && /hard 20/.test(R.getA()));
   R.getD().cardioLog = [];
+  R.setSEG('overview');
+}
+
+// ── All-Time PRs: top 8 collapsed with Show-all toggle (needs >8 logged lifts) ──
+{
+  const added = [];
+  const lifts = ['ohp', 'floor_press', 'hex_rdl', 'lm_squat', 'bb_curl', 'bb_skullcr', 'hex_row', 'b_stance_rdl', 'hex_squat_b'];
+  lifts.forEach((id, i) => added.push({ id: 'pr' + i, date: '2026-05-0' + (i + 1), day: 'A', loc: 'home', ex: [{ id, wt: 20 + i, reps: [5, 5, 5], band: '' }] }));
+  R.getD().sessions.push(...added);
+  R.setSEG('lifetime');
+  R.setPRALL(false);
+  tryRender('Progress (lifetime, PRs collapsed)', () => R.render());
+  const collapsed = R.getA();
+  const rowCount = html => (html.match(/<tr><td style="font-weight:600"/g) || []).length;
+  T('collapsed PR table shows exactly 8 rows', rowCount(collapsed) === 8, rowCount(collapsed));
+  T('Show-all toggle present with total count', /Show all \(\d+\)/.test(collapsed));
+  R.setPRALL(true);
+  R.render();
+  const expanded = R.getA();
+  T('expanded PR table shows all lifts', rowCount(expanded) > 8, rowCount(expanded));
+  T('expanded state offers Show top 8', /Show top 8/.test(expanded));
+  R.setPRALL(false);
+  R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
   R.setSEG('overview');
 }
 
