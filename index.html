@@ -821,7 +821,7 @@ if(checkResume()&&!confirm('You have an unfinished workout at the other location
 D.location=l;save();render()}
 
 // ═══════════════ PROGRESSION ═══════════════
-function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const e=D.sessions[i].ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:D.sessions[i].date,phase:D.sessions[i].phase})}return h}
+function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const e=D.sessions[i].ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:D.sessions[i].date,phase:D.sessions[i].phase,...(D.sessions[i].noProg?{noProg:true}:{})})}return h}
 function getLast(exId){const h=getHist(exId,1);return h.length?h[0]:null}
 function getRepMin(ex){const parts=ex.rp.replace(/\/.*/, '').split('-');return parseInt(parts[0])||ex.tg}
 // Discomfort signal for the progression gate. Two audit fixes baked in:
@@ -935,7 +935,7 @@ function getRelatedSuggestion(ex){
     if(rel.seedWt!=null)return{wt:rel.seedWt,band:'',note:rel.note,relName:'starting load'};
     return null;
   }
-  const relHist=getHist(rel.id,5);
+  const relHist=getHist(rel.id,5).filter(h=>!h.noProg); // user-excluded sessions can't seed peers either
   const relLast=relHist.length?relHist[relHist.length-1]:null;
   // Peer lift has no history — fall back to seed if one is provided
   if(!relLast){
@@ -962,6 +962,10 @@ function getRelatedSuggestion(ex){
 
 function getSmartSugg(ex){
 let hist=getHist(ex.id,8);
+// Sessions the user flagged in History ("ignore for progression" — e.g. a glitch session
+// logged at submaximal loads after a data mishap) are invisible to the engine only:
+// they still count for rotation, history, tonnage and every analytics view.
+hist=hist.filter(h=>!h.noProg);
 // Deload-week sessions are deliberately light — drop them from progression memory so
 // (a) post-deload suggestions resume from the pre-deload load, not the deload load, and
 // (b) an easy deload session can't read as a fresh confirm or an overshoot. They still
@@ -2553,7 +2557,8 @@ h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP===
 <div style="display:flex;justify-content:space-between;align-items:center">
 <div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}${s.loc==='partner'?'2':'1'}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
-${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}</div>
+${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
+${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}</div>
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
@@ -2562,8 +2567,16 @@ h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-s
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
 if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
-h+=`<button class="btn-sm btn-rd" style="margin-top:6px" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button></div>`}
+h+=`<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+<button class="btn-sm btn-rd" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button>
+<button class="btn-sm btn-wh" onclick="event.stopPropagation();toggleNoProg('${s.id}')">${s.noProg?'▶ Include in progression':'⏸ Ignore for progression'}</button></div>
+${s.noProg?`<div style="font-size:10px;color:var(--am);margin-top:4px">Ignored by weight suggestions — still counts for rotation, history &amp; charts.</div>`:''}</div>`}
 h+=`</div>`}h+=`</div>`;el.innerHTML=h}
+// Per-session progression exclusion — for bad data (e.g. a glitch session logged at
+// submaximal loads) that should stay in the rotation/history record but never anchor
+// a weight suggestion. Additive flag: old backups without it import unchanged.
+window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)return;
+if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];

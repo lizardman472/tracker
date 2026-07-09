@@ -588,7 +588,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     mk('rt3', '2026-05-05', 'C', 'partner', [
       { id: 'db_sl_rdl', wt: 12, reps: [8, 8, 8, 8], band: '', notes: '' },
       { id: 'db_calf_raise', wt: 14, reps: [18, 16, 15], band: '', notes: '' }],
-      { difficulty: 2, duration: 60, warmup: true, phase: 2 })];
+      { difficulty: 2, duration: 60, warmup: true, phase: 2, noProg: true })];
   fix.bodyLog = [{ date: '2026-05-01', weight: 82.5, waist: 88 }, { date: '2026-05-08', weight: 82.1 }];
   fix.cardioLog = [{ id: 'c2026-05-02', date: '2026-05-02', type: 'Walk', duration: 30, intensity: 'easy' }];
   fix.discomfort = [{ date: '2026-05-03', exId: 'ohp', level: 'mild', joint: 'Shoulder' }];
@@ -682,6 +682,25 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
   T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
+// ── Ultra audit C6: per-session "ignore for progression" (noProg) ──
+{
+  const d6 = freshD();
+  d6.sessions = [
+    { id: 'np1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [7, 7, 7, 7], band: '' }] },
+    { id: 'np2', date: '2026-06-05', day: 'B', loc: 'home', noProg: true, ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  let sg6 = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+  T('noProg session invisible to the engine — anchors on the prior 41kg', sg6.wt == null || sg6.wt >= 41, JSON.stringify(sg6));
+  d6.sessions.forEach(s => s.noProg = true);
+  sg6 = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+  T('all history noProg → engine treats the lift as new', sg6.type === 'new', JSON.stringify(sg6));
+  // Rotation/analytics untouched: weekly volume still counts a noProg session's sets.
+  d6.sessions = [{ id: 'np3', date: ymd(new Date()), day: 'B', loc: 'home', noProg: true, ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  T('noProg session still counts for weekly muscle volume', (getWeeklyVolume(7).fdelt || 0) === 4, JSON.stringify(getWeeklyVolume(7)));
+  // The flag survives the import guard (validSession spreads unknown fields).
+  const vs6 = validSession({ id: 'np4', date: '2026-06-06', day: 'A', noProg: true, ex: [] });
+  T('noProg survives validSession', vs6 && vs6.noProg === true);
 }
 
 // ── Ultra audit C4: two-tab clobber guard (gen counter + mergeStores) ──
