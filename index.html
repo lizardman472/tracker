@@ -650,7 +650,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',confirmed:{},discomfort:[],location:'home'};
+// programVersion:12 keeps migrateToV12 a no-op on demo bootstraps (it exists for real
+// pre-v12 stores); the dead `confirmed` field is gone for the same reason — the
+// migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:12};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -689,7 +692,10 @@ function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
 // entered) — import treats it like a fresh device and adopts backup metadata wholesale.
-let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true}
+let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true;
+// Fresh install: start the phase clock now — the SEED literal's phaseStart is a fixed
+// demo date that would boot every new device straight into "phase overdue" banners.
+d.phaseStart=today()}
 // Guard the load path like import does — drop malformed sessions so a partially corrupted
 // (but still parseable) store can't crash render. Good data passes through unchanged.
 d.sessions=Array.isArray(d.sessions)?d.sessions.map(validSession).filter(Boolean):[];

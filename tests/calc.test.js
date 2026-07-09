@@ -684,6 +684,23 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 
+// ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
+{
+  T('SEED carries programVersion 12', SEED.programVersion === 12);
+  T('SEED has no dead confirmed field', SEED.confirmed === undefined);
+  const sClone = structuredClone(SEED);
+  migrateToV12(sClone);
+  T('migrateToV12 is a no-op on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
+  migrateToV12(v11);
+  T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
+  const st8 = {};
+  global.localStorage = { getItem: k => st8[k] ?? null, setItem: (k, v) => { st8[k] = v }, removeItem: k => { delete st8[k] } };
+  load();
+  T('fresh install seeds demo with phaseStart = today (no overdue banners)', getD().seeded === true && getD().phaseStart === today(), getD().phaseStart);
+  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
 // ── Ultra audit C6: per-session "ignore for progression" (noProg) ──
 {
   const d6 = freshD();
