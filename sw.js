@@ -22,6 +22,23 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Web fonts (Google Fonts CSS + woff2) are cross-origin ('cors'/'opaque'), so the
+  // same-origin type==='basic' guard below never cached them — offline, the entire
+  // display typography silently fell back to system fonts. Cache-first, runtime-filled.
+  let host = '';
+  try { host = new URL(req.url).hostname; } catch (_) {}
+  if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+    e.respondWith(
+      caches.match(req).then(r => r || fetch(req).then(resp => {
+        if (resp && (resp.ok || resp.type === 'opaque')) {
+          const clone = resp.clone();
+          caches.open(C).then(c => c.put(req, clone)).catch(() => {});
+        }
+        return resp;
+      }).catch(() => new Response('', { status: 504 })))
+    );
+    return;
+  }
   const isNav = req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
   if (isNav) {
@@ -37,11 +54,8 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith(
     caches.match(req).then(r => r || fetch(req).then(resp => {
-      // 'basic' = same-origin assets; 'cors' = the Google Fonts stylesheet (loaded with
-      // crossorigin) + woff2 files (font fetches are CORS-mode by spec). Both expose a
-      // real status, so the 200 guard still blocks caching errors. Opaque responses
-      // (status 0) stay uncacheable — offline typography needs the fonts cached.
-      if (resp && resp.status === 200 && (resp.type === 'basic' || resp.type === 'cors')) {
+      // Same-origin assets only — fonts are handled by their dedicated branch above.
+      if (resp && resp.status === 200 && resp.type === 'basic') {
         const clone = resp.clone();
         caches.open(C).then(c => c.put(req, clone));
       }

@@ -412,5 +412,124 @@ for (const id of ['lm_pallof', 'lm_lateral']) for (let i = 1; i <= 3; i++)
 const pi = getPhaseInfo();
 T('two floor-stalled lifts still count toward phase reassessment', pi.stalledEx >= 2 && pi.stallDue === true, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));
 
+// ═══════════ AUDIT ROUND 2 — regression tests for the comprehensive-audit fixes ═══════════
+
+// ── R2: phase re-anchor uses PURE Epley on both sides (no curve mixing) ──
+// ohp 41kg×5 (phase-1 tg 7) → phase-2 tg 10: 41 × (1+5/30)/(1+10/30) = 35.875 → snaps to 36.
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [{ id: 'ep1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [5, 5, 5], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('re-anchor drop matches pure Epley (~12.5%, not ~3%)', sg.type === 'new' && sg.wt === 36, JSON.stringify(sg));
+
+// ── R2: re-anchor gate reads the session phase STAMP when present ──
+// Same-day phase switch: session dated ON phaseStart but stamped phase 2 = already in-phase.
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [{ id: 'ps1', date: '2026-06-09', day: 'B', loc: 'home', phase: 2, ex: [{ id: 'ohp', wt: 36, reps: [8, 8, 8], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('phase-stamped in-phase session does not re-anchor', sg.type !== 'new', JSON.stringify(sg));
+d.sessions = [{ id: 'ps2', date: '2026-06-09', day: 'B', loc: 'home', phase: 1, ex: [{ id: 'ohp', wt: 41, reps: [5, 5, 5], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('phase-stamped OLD-phase session re-anchors even dated on phaseStart', sg.type === 'new' && sg.wt < 41, JSON.stringify(sg));
+
+// ── R2: re-anchor uses the BEST recent session at the weight, not one bad final day ──
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [
+  { id: 'ba1', date: '2026-05-28', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [5, 5, 5], band: '' }] },
+  { id: 'ba2', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [2, 2, 2], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('re-anchor anchors off the proven 5s, not the bad 2s (36, not 31)', sg.type === 'new' && sg.wt === 36, JSON.stringify(sg));
+
+// ── R2: stall counter is CONSECUTIVE — an old failure followed by clean sessions is history ──
+d = freshD();
+d.sessions = [
+  { id: 'cs1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [3, 3, 3], band: '' }] },
+  { id: 'cs2', date: '2026-06-03', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [6, 6, 6], band: '' }] },
+  { id: 'cs3', date: '2026-06-05', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [3, 3, 3], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('non-consecutive failures do not accumulate to a deload', sg.type === 'stay' && !/cluster/i.test(sg.text), JSON.stringify(sg.text));
+
+// ── R2: cross-day set counts — a clean 3/3 session reads as a hit on a 4-set day ──
+// db_lateral is 4 sets on partner Day A but 3 sets on Day B.
+d = freshD({ location: 'partner' });
+d.sessions = [{ id: 'xd1', date: '2026-06-08', day: 'B', loc: 'partner', ex: [{ id: 'db_lateral', wt: 5, reps: [15, 15, 15], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_lateral'));
+T('clean 3-set B session counts as a hit on the 4-set A day', sg.type === 'up', JSON.stringify(sg));
+
+// ── R2: big overshoot beats the confirm brake (hex_dl note behaviour) ──
+d = freshD();
+d.sessions = [{ id: 'ov1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [10, 10, 10], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl'));
+T('4+ rep overshoot on a confirm lift jumps instead of confirming', sg.type === 'up' && sg.wt > 47, JSON.stringify(sg));
+T('confirm-lift overshoot jump capped at ~+8% (± one ladder rung)', sg.wt <= 47 * 1.08 + 0.5, JSON.stringify(sg));
+
+// ── R2: band branch — 'None' band is already unassisted; stalls now flagged ──
+d = freshD();
+d.sessions = [{ id: 'bn1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'pullup_a', wt: null, reps: [8, 8, 8, 8], band: 'None' }] }];
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'pullup_a'));
+T("hitting target at band 'None' suggests load/reps, not 'try unassisted'", sg.type === 'up' && /Unassisted/.test(sg.text), sg.text);
+d.sessions = [1, 2, 3].map(i => ({ id: 'bs' + i, date: '2026-06-0' + i, day: 'A', loc: 'home', ex: [{ id: 'pullup_a', wt: null, reps: [2, 2, 2, 2], band: 'Green' }] }));
+sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'pullup_a'));
+T('3 below-min band sessions set the stalled flag (visible to phase/deload)', sg.stalled === true, JSON.stringify(sg));
+
+// ── R2: discomfort gate — one session flagging TWO joints is ONE session, not two ──
+d = freshD();
+d.sessions = [
+  { id: 'dj0', date: '2026-06-06', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [7, 7, 7, 7], band: '' }] },
+  { id: 'dj1', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [7, 7, 7, 7], band: '' }] }];
+const t8 = ymd(new Date());
+d.discomfort = [{ date: t8, exId: 'ohp', level: 'moderate', joint: 'Shoulder' }, { date: t8, exId: 'ohp', level: 'moderate', joint: 'Elbow' }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('two joints in one session do not trip the repeated-discomfort hold', !/hold\)/.test(sg.text), JSON.stringify(sg.text));
+// A months-old flag is outside the 30-day window entirely.
+d.discomfort = [{ date: '2026-01-05', exId: 'ohp', level: 'moderate', joint: 'Shoulder' }, { date: '2026-01-08', exId: 'ohp', level: 'moderate', joint: 'Shoulder' }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('months-old discomfort no longer warns or holds', !sg.regress && sg.type === 'up', JSON.stringify(sg));
+
+// ── R2: carries mint no e1RM PRs (steps are not reps) ──
+d = freshD();
+d.sessions = [{ id: 'ce1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'hex_carry', wt: 40, reps: [40, 40, 40], band: '' }] }];
+T('carry bestE1RM is zero', getPRs('hex_carry').bestE1RM === 0, JSON.stringify(getPRs('hex_carry')));
+T('carry checkPR never includes E1RM', !checkPR('hex_carry', 45, [40, 40, 40]).includes('E1RM'));
+T('carry produces no e1RM rows in recentPRs', !recentPRs(null).some(p => p.nm === "Hex Bar Farmer's Carry" && p.type === 'e1rm'));
+
+// ── R2: fatigue calibration — a normal training week is NOT red-lined ──
+d = freshD();
+d.sessions = [0, 2, 4].map((off, i) => ({ id: 'fc' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'ABC'[i], loc: 'home', difficulty: 3, ex: [{ id: 'ohp', wt: 31, reps: [7, 7, 7, 7], band: '' }] }));
+d.sessions.forEach(s => s.volume = 3000);
+const fN = getFatigue();
+T('3 sessions @RPE3 reads mid-scale, not Fatigued', fN.score <= 7 && fN.label !== 'Fatigued', JSON.stringify(fN));
+
+// ── R2: warm-up rungs use no micro plates (coarse ladder) ──
+const wuC = warmupSets(43, 7); // bar=7 routes to the coarse hex ladder internally
+T('hex warm-up rungs need no micro plates', wuC.every(s => { const ps = perSide(s.wt, 7) || []; return ps.every(p => p.w >= 1); }), JSON.stringify(wuC));
+
+// ── R2: deload-week sessions are excluded from progression memory ──
+d = freshD();
+const dlToday = ymd(new Date());
+d.lastDeload = dlToday;
+d.sessions = [
+  { id: 'dw1', date: ymd(new Date(Date.now() - 10 * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 41, reps: [7, 7, 7, 7], band: '' }] },
+  { id: 'dw2', date: dlToday, day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 36, reps: [7, 7, 7, 7], band: '' }] }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('suggestion anchors on the pre-deload 41kg, not the deload 36kg', sg.wt == null || sg.wt >= 41, JSON.stringify(sg));
+T('deload-week advisory is surfaced', /Deload week/i.test(sg.regress || ''), JSON.stringify(sg.regress));
+
+// ── R2: getPhaseInfo timer fires AFTER the phase length, not a week early ──
+d = freshD({ phaseStart: ymd(new Date(Date.now() - 50 * 864e5)) }); // day 50 → week 8 of 8
+d.sessions = [];
+T('week 8 of an 8-week phase is not yet timer-due', getPhaseInfo().timerDue === false, getPhaseInfo().wk);
+d.phaseStart = ymd(new Date(Date.now() - 57 * 864e5)); // day 57 → week 9
+T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
+
+// ── R2: resume blob now carries session notes + warm-up checks ──
+{
+  const store2 = {};
+  global.localStorage = { getItem: k => store2[k] ?? null, setItem: (k, v) => { store2[k] = v }, removeItem: k => { delete store2[k] } };
+  d = freshD();
+  global.__X.setAW && global.__X.setAW(); // no-op guard if helper absent
+  // saveAW reads module globals — drive it via the exported hooks instead:
+  T('saveAW payload includes notes+wu fields (source check)', /notes:SNOTES,wu:WU_CHECKS/.test(String(saveAW)), String(saveAW).slice(0, 200));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
