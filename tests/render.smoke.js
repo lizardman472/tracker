@@ -204,6 +204,13 @@ T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.get
   T('tonnage chart draws a P2 phase marker', />P2</.test(consSeg));
   T('marker legend line renders', /P# = phase change/.test(consSeg));
   R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
+  // Cardio weekly card renders with 2+ weeks of cardio history.
+  R.getD().cardioLog = [
+    { id: 'cq1', date: wkAgo(2), type: 'Row', duration: 30, intensity: 'easy' },
+    { id: 'cq2', date: wkAgo(1), type: 'Row', duration: 20, intensity: 'hard' }];
+  tryRender('Progress (consistency w/ cardio history)', () => R.render());
+  T('cardio weekly chart renders with intensity split', /Cardio Minutes \/ Week/.test(R.getA()) && /easy 30/.test(R.getA()) && /hard 20/.test(R.getA()));
+  R.getD().cardioLog = [];
   R.setSEG('overview');
 }
 

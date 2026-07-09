@@ -2176,6 +2176,16 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
+// ── Weekly cardio minutes by intensity — same Mon-anchored bucketing as
+// weeklySeries. The Consistency card previously surfaced only a 7-day total. ──
+function cardioWeekly(weeks){
+const buckets={};
+for(const c of D.cardioLog){const wk=weekKey(c.date);const b=buckets[wk]=buckets[wk]||{total:0,easy:0,moderate:0,hard:0};
+const m=Number(c.duration)||0;b.total+=m;b[['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy']+=m}
+const first=Object.keys(buckets).sort()[0];if(!first)return[];
+return weekKeys(weeks||8).filter(k=>k>=first).map(k=>{const b=buckets[k]||{total:0,easy:0,moderate:0,hard:0};
+return{wk:k,...b,lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
+}
 // ── Event markers for weekly charts: the week each phase change landed (first
 // session stamped with a new phase number) and the deload week (lastDeload),
 // mapped to bar indices of a weeklySeries slice. Sessions without a phase stamp
@@ -2544,6 +2554,13 @@ const c7=D.cardioLog.filter(c=>c.date>=ccut);
 const cMin=c7.reduce((a,c)=>a+(c.duration||0),0);
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span class="mu">Cardio · last 7 days</span><span style="color:${cMin>=60?'var(--gr)':'var(--mu)'};font-weight:700">${cMin?`${cMin} min · ${c7.length} session${c7.length===1?'':'s'}`:'—'}</span></div>`}
 h+=`</div>`;
+
+// Weekly cardio trend by intensity — the 7-day line above is only a snapshot.
+{const cw=cardioWeekly(8);
+if(cw.length>=2){
+const sum=k=>cw.reduce((a,w)=>a+w[k],0);
+h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#f5a524','Cardio Minutes / Week')}
+<div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">easy ${sum('easy')}</span> · <span style="color:var(--am)">moderate ${sum('moderate')}</span> · <span style="color:var(--rd)">hard ${sum('hard')}</span> min</div></div>`}}
 
 }else{
 // ═══ LIFETIME — motivation ═══

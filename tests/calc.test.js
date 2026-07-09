@@ -742,6 +742,27 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('a lift with no ratings at all returns []', formWeekly('hex_dl', 8).length === 0);
 }
 
+// ── Progress rebuild A5: cardioWeekly — minutes by intensity, zero-filled weeks ──
+{
+  const d5 = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  d5.cardioLog = [
+    { id: 'cw1', date: wkAgo(3), type: 'Row', duration: 30, intensity: 'easy' },
+    { id: 'cw2', date: wkAgo(3), type: 'Row', duration: 20, intensity: 'hard' },
+    { id: 'cw3', date: wkAgo(1), type: 'Walk', duration: 40, intensity: 'moderate' },
+    { id: 'cw4', date: wkAgo(0), type: 'Row', duration: 25, intensity: 'bogus' }];
+  const cw = cardioWeekly(8);
+  const w3 = cw.find(w => w.wk === weekKey(wkAgo(3)));
+  const w2 = cw.find(w => w.wk === weekKey(wkAgo(2)));
+  const w0 = cw.find(w => w.wk === weekKey(wkAgo(0)));
+  T('cardioWeekly sums minutes and splits by intensity', w3 && w3.total === 50 && w3.easy === 30 && w3.hard === 20, JSON.stringify(w3));
+  T('cardio-free week zero-filled, not skipped', w2 && w2.total === 0);
+  T('unknown intensity counted as easy, not dropped', w0 && w0.total === 25 && w0.easy === 25);
+  T('intensity split sums to total across the window', cw.reduce((a, w) => a + w.easy + w.moderate + w.hard, 0) === cw.reduce((a, w) => a + w.total, 0));
+  d5.cardioLog = [];
+  T('no cardio history → empty series', cardioWeekly(8).length === 0);
+}
+
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 12', SEED.programVersion === 12);
