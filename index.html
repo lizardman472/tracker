@@ -2111,7 +2111,9 @@ return{slope:Math.round(num/den*10)/10,n,latest:pts[pts.length-1].y}}
 function strengthMomentum(){
 const logged=loggedExIds();const out=[];
 for(const ex of ALL_EX){if(!logged.has(ex.id))continue;
-if(!['bb','db','kb','mace'].includes(ex.tp))continue;
+// Same gate as PR minting (E1RM_TYPES) — club lifts could set e1RM PRs but never
+// appeared here, so a PR'd lift was invisible to the momentum board.
+if(!E1RM_TYPES.has(ex.tp))continue;
 const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
 out.sort((a,b)=>b.slope-a.slope);return out}
 // ── Strength standards: bodyweight-relative e1RM thresholds marking the start of
@@ -2262,9 +2264,11 @@ return weekKeys(weeks||8).filter(k=>k>=first).map(k=>({wk:k,v:Math.round((bucket
 // ── Consistency metrics ──
 function consistency(){
 const ss=D.sessions;const dates=[...new Set(ss.map(s=>s.date))].sort();
-// avg sessions/week over active span
-const first=dates[0],last=dates[dates.length-1];
-const spanWk=first?Math.max(1,(new Date(last+'T00:00:00')-new Date(first+'T00:00:00'))/6048e5):1;
+// avg sessions/week over first-session → TODAY. Ending the span at the LAST session
+// meant a current layoff never lowered sessions/week — while the status header's
+// "On track" gate demands ≥3/wk. The denominator now sees the layoff too.
+const first=dates[0];
+const spanWk=first?Math.max(1,(new Date(today()+'T00:00:00')-new Date(first+'T00:00:00'))/6048e5):1;
 const perWk=Math.round(ss.length/spanWk*10)/10;
 // warmup compliance — null means "not recorded" (retro logs) and stays out of the rate
 const wuSessions=ss.filter(s=>s.warmup!=null);
@@ -2353,6 +2357,12 @@ if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Not
 h+=`</div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
 
+// Priority nudge — the ONE canonical "what to fix" line (it used to be restated
+// three times: here-ish, in the balance card, and in the status cell).
+{let worst=null,worstGap=0;
+for(const[key,label,mev] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
+if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set there first. Details in Balance.</span></div>`;}
+
 }else if(STAT_SEG==='lifts'){
 // ═══ LIFTS — strength level + per-exercise deep-dive ═══
 const prog=programExIds();
@@ -2429,7 +2439,7 @@ h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
 }
 h+=`<div class="cd">${svgLine(wtD,360,170,'#38bdf8','Weight (kg)')}</div>`;
-if(['bb','db','kb','mace'].includes(selEx?.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
+if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
 }
 
 // Form trend — per-set form ratings gate progression but were never charted.
@@ -2465,7 +2475,7 @@ for(const[key,label,mev,mav] of MG_INFO){
   h+=`<div style="margin-bottom:16px">
   <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
   <span style="font-weight:600">${label}</span>
-  <span style="color:${col}">${v} sets${mev!=null?` · ${tag}`:''}</span></div>
+  <span style="color:${col}">≈${v} sets${mev!=null?` · ${tag}`:''}</span></div>
   <div style="height:7px;background:var(--ib);border-radius:3px;overflow:hidden">
   <div style="height:100%;width:${pct}%;background:${col}"></div>
   ${mev!=null&&mav?`<div style="position:relative;height:0"><div style="position:absolute;top:-7px;left:${Math.round(mev/mav*100)}%;width:1px;height:7px;background:var(--tx);opacity:.4"></div></div>`:''}</div>`;
@@ -2480,12 +2490,7 @@ for(const[key,label,mev,mav] of MG_INFO){
   h+=`</div>`;
 }
 if(!anyVol)h+=`<div class="dm">No logged sets in the last 10 days.</div>`;
-// (verdict + priority nudge below share the same normalized per-week numbers)
-// Priority nudge: surface the muscle furthest below MEV (research: add volume to laggers, don't cap at MAV)
-else{let worst=null,worstGap=0;
-  for(const[key,label,mev,mav] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
-  if(worst)h+=`<div class="dm" style="margin-top:6px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set here first.</div>`;
-}
+// (The Priority nudge lives on Overview — one canonical statement, not three.)
 // Push:pull set ratio over the same window. Side delts and legs are excluded by
 // convention; ~1:1 (0.7–1.4) keeps shoulders happy in a pressing-biased program.
 {const push=(wv.chest||0)+(wv.fdelt||0)+(wv.triceps||0),pull=(wv.back||0)+(wv.reardelt||0)+(wv.biceps||0);
@@ -2493,7 +2498,7 @@ if(push||pull){const ratio=pull?Math.round(push/pull*100)/100:null;
 const ok=ratio!=null&&ratio>=0.7&&ratio<=1.4;
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid var(--cb)"><span style="font-weight:600">Push : Pull</span>
 <span style="color:${ok?'var(--gr)':'var(--am)'}">${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})${ok?' ✓':' — aim ~1:1'}`:''}</span></div>`}}
-h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
+h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half — these numbers are directional, not precise. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
 {const dcut=daysAgoStr(30);

@@ -763,6 +763,25 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('no cardio history → empty series', cardioWeekly(8).length === 0);
 }
 
+// ── Progress rebuild A7: quirk fixes ──
+{
+  // Club lifts mint e1RM PRs (E1RM_TYPES includes club) — the momentum board now
+  // uses the same gate instead of a hardcoded list that silently excluded them.
+  const d7 = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  d7.sessions = [0, 1, 2, 3].map(n => ({ id: 'cm' + n, date: wkAgo(3 - n), day: 'A', loc: 'partner',
+    ex: [{ id: 'cb_mills', wt: 4 + n, reps: [8, 8], band: '' }] }));
+  T('club lift appears on the momentum board', strengthMomentum().some(m => m.id === 'cb_mills'), JSON.stringify(strengthMomentum().map(m => m.id)));
+
+  // consistency().perWk denominator now runs to TODAY — a layoff after the last
+  // session lowers sessions/week instead of freezing it at the old cadence.
+  const d7b = freshD();
+  d7b.sessions = [0, 2, 4, 7].map(n => ({ id: 'pw' + n, date: ymd(new Date(Date.now() - (60 + n) * 864e5)), day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] }));
+  const pw = consistency().perWk;
+  T('perWk sees a current 2-month layoff (well under 1/wk)', pw < 1, pw);
+}
+
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 12', SEED.programVersion === 12);
