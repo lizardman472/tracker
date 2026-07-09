@@ -263,4 +263,17 @@ T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'h
 // ── v27: lm_pallof pause moved to the press-out (anti-rotation hold at full extension) ──
 T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').C.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
 
+// ── Ultra audit C5: MG attribution consistency (exact values, so silent drift fails loud) ──
+// Carry rule: unilateral/asymmetric carries core 1.0; bilateral farmer-style 0.5.
+T('hex_carry is a bilateral farmer carry → core 0.5', MG.hex_carry.core === 0.5, JSON.stringify(MG.hex_carry));
+T('db_carry stays core 0.5 (same farmer bucket)', MG.db_carry.core === 0.5);
+T('suitcase_march (unilateral legacy stub) stays core 1.0', MG.suitcase_march.core === 1);
+// RDL family: every bilateral/B-stance hinge credits erectors back 0.5.
+T('b_stance_rdl credits back 0.5 like its RDL siblings', MG.b_stance_rdl.back === 0.5, JSON.stringify(MG.b_stance_rdl));
+T('rdl/hex_rdl/db_rdl all carry back 0.5', [MG.rdl, MG.hex_rdl, MG.db_rdl].every(m => m.back === 0.5));
+T('db_sl_rdl deliberately back-free (true single-leg, balance-limited)', MG.db_sl_rdl.back === undefined);
+// The changes must not sink home core under MEV (dead bugs 3 + pallof 3 + carry 3×0.5 = 7.5).
+T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core'), `${wkVol.core} vs ${mevOf('core')}`);
+T('home back still ≤ MAV after b_stance_rdl +0.5', wkVol.back <= (MG_INFO.find(r => r[0] === 'back') || [])[3], `${wkVol.back}`);
+
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -570,9 +570,15 @@ const MG={
   hex_dl:{back:0.5,hams:1,glutes:1,quads:0.5}, // hex DL is slightly more quad-dominant than straight
   // Squat patterns credit glutes 0.5 like their partner counterparts (db_bss/db_lunge)
   // — the home ones were missing it, so the glute row undercounted every rotation.
-  hex_squat_b:{quads:1,glutes:0.5,back:0.5}, hex_carry:{core:1},
+  // Carry rule: unilateral/asymmetric carries score core 1.0 (anti-lateral-flexion is the
+  // stimulus); bilateral farmer-style carries score 0.5. hex_carry is ~2/3 farmer (its cue
+  // runs the LAST set single-side) — bucketed 0.5 with the other farmers, matching db_carry.
+  hex_squat_b:{quads:1,glutes:0.5,back:0.5}, hex_carry:{core:0.5},
   rdl:{hams:1,glutes:1,back:0.5}, hex_rdl:{hams:1,glutes:1,back:0.5},
-  b_stance_rdl:{hams:1,glutes:1},
+  // B-stance still loads the erectors like its RDL siblings — back 0.5 was missing, so
+  // every Day A undercounted the back row. (db_sl_rdl stays back-free deliberately: true
+  // single-leg, balance-limited, sub-threshold erector load.)
+  b_stance_rdl:{hams:1,glutes:1,back:0.5},
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,glutes:0.5,back:0.5},
   cossack_squat:{quads:0.5,glutes:0.5},
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
