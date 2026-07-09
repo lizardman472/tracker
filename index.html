@@ -2486,6 +2486,9 @@ if(newList.length){h+=`<optgroup label="Current program — not yet logged">`;fo
 if(legacyList.length){h+=`<optgroup label="Legacy / unused">`;for(const id of legacyList)h+=opt(id);h+=`</optgroup>`}
 h+=`</select>`;
 h+=`<div style="text-align:right;margin:-4px 0 8px"><button class="btn-ghost" style="font-size:10px" onclick="STAT_ALL=!STAT_ALL;render()">${STAT_ALL?'Hide legacy/unused':'Show all exercises'}</button></div>`;
+// This lift's PR history (newest first) — feeds the projection card and the
+// session-log PR markers without walking recentPRs twice.
+const liftPrs=recentPRs(null).filter(p=>p.id===STAT_EX);
 if(selEx?.tp==='band'){
 // ── Band lifts progress along the band ladder + total reps, not weight — the
 // weight/e1RM charts were permanently dead here ("Need 2+ data points"). ──
@@ -2528,7 +2531,7 @@ h+=`<div class="estrip">
 // Projection + PR recency — where this lift is headed and when it last moved.
 if(selEx&&E1RM_TYPES.has(selEx.tp)){
 const proj=e1rmProjection(STAT_EX);
-const lastPr=recentPRs(null).find(p=>p.id===STAT_EX);
+const lastPr=liftPrs[0];
 if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
 ${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
 ${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
@@ -2540,6 +2543,29 @@ if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#6
 // Skipped-week nulls are dropped: the line shows rated weeks only.
 {const fw=formWeekly(STAT_EX,8).filter(w=>w.v!=null);
 if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,'#34d399','Form (5 = strict)')}</div>`}
+
+// Recent-sessions log — the lift's full story at a glance. ▲PR replays history
+// like recentPRs; the ✓/– target marker only judges sessions stamped with the
+// CURRENT phase (targets shift across phases — old sessions aren't re-graded).
+if(es.sessions){
+const rows=es.history.slice(-10).reverse();
+const prDates=new Set(liftPrs.map(p=>p.date));
+const prNow=getProgram(D.phase,D.location);
+let curEx=null;for(const dd in prNow){const f=prNow[dd].find(e=>e.id===STAT_EX);if(f){curEx=f;break}}
+const repMin=curEx?getRepMin(curEx):null;
+h+=`<div class="cd" style="overflow-x:auto"><div class="lb" style="margin-bottom:6px">Recent Sessions</div>
+<table class="pr-tbl"><tr><th>Date</th><th>Load</th><th>Reps</th><th>Form</th><th></th></tr>`;
+for(const r of rows){
+const vr=(r.reps||[]).filter(x=>Number(x)>0);
+const load=r.wt?r.wt+'kg':(r.band?esc(r.band.replace(' (heaviest)','')):'BW');
+const fw=sessForm(r);
+const hit=repMin!=null&&r.phase===D.phase&&vr.length?(Math.min(...vr)>=repMin?'✓':'–'):'';
+const mark=prDates.has(r.date)?`<span style="color:var(--am);font-weight:800">▲PR</span>`:hit?`<span style="color:${hit==='✓'?'var(--gr)':'var(--mu)'};font-weight:700">${hit}</span>`:'';
+h+=`<tr><td class="dm" style="white-space:nowrap">${new Date(r.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}</td>
+<td style="font-weight:600;white-space:nowrap">${load}</td><td class="dm">${vr.join(',')}</td>
+<td>${fw?`<span style="color:${FORM_C[fw]};font-size:10px;font-weight:700">${FORM_LABELS[fw]}</span>`:''}</td>
+<td>${mark}</td></tr>`}
+h+=`</table><div class="dm" style="margin-top:4px">✓ = every set at target (current phase only) · ▲PR = set a best that day</div></div>`}
 
 // Discomfort summary for selected exercise
 const discData=D.discomfort.filter(d=>d.exId===STAT_EX);

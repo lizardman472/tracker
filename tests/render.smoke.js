@@ -203,6 +203,19 @@ T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.get
   R.setSTAT('deadlift'); R.setSEG('overview');
 }
 
+// ── D6: per-lift Recent Sessions log (band + weighted; PR + phase-gated hit markers) ──
+{
+  R.setSEG('lifts'); R.setSTAT('hex_dl');
+  R.render();
+  const log = R.getA();
+  T('lifts detail renders the Recent Sessions log', /Recent Sessions/.test(log));
+  T('session log rows show the load', /<td style="font-weight:600;white-space:nowrap">40kg<\/td>/.test(log));
+  T('a PR marker appears in the log (hxs session is hex_dl best)', /▲PR/.test(log));
+  R.setSTAT('pullup_a'); R.render();
+  T('band lift log shows the band as load', /Recent Sessions/.test(R.getA()) && /<td style="font-weight:600;white-space:nowrap">(Blue|Green|Purple)/.test(R.getA()));
+  R.setSTAT('deadlift'); R.setSEG('overview');
+}
+
 // ── Phase markers on the weekly tonnage chart (fixture spans two stamped phases) ──
 {
   const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
