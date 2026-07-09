@@ -695,19 +695,38 @@ if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d
 if(!d.dismissed)d.dismissed={};
 d=migrateData(d);
 d=migrateToV12(d);
+// Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
+d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
 // One-time hygiene: the old-version key was copied into SK above, so stale copies
 // under rft-v5..v11 are dead weight in the storage quota — clear them.
 try{for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
 }catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw)}catch(_){}D=structuredClone(SEED);D.seeded=true}}
 // Returns false on quota/write failure so callers can warn instead of losing data silently.
-function save(){try{localStorage.setItem(SK,JSON.stringify(D));return true}catch(e){return false}}
+// Two-tab guard: D.gen is the generation of the snapshot this tab loaded; a cheap sidecar
+// key mirrors the last-written gen. If another tab wrote since we loaded (sidecar > ours),
+// their store is merged in before writing — a second open tab used to be silently
+// clobbered whole by last-writer-wins. Happy path costs one tiny getItem, no parse.
+function save(){try{
+const sg=Number(localStorage.getItem(SK+'-gen'))||0;
+if(sg>(D.gen||0)){
+  // On any conflict-merge failure we still write OUR state: refusing would certainly
+  // lose this tab's just-logged work to protect a store that didn't parse anyway.
+  try{const theirs=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,theirs)}catch(_){}
+  D.gen=Math.max(D.gen||0,sg)}
+D.gen=(D.gen||0)+1;
+localStorage.setItem(SK,JSON.stringify(D));
+try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
+return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:12,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
-function resetAll(){D=freshState();clearAW();clearTimer();save();go('home')}
+// The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
+// can't resurrect the just-wiped sessions into the blank slate.
+function resetAll(){D=freshState();try{D.gen=Number(localStorage.getItem(SK+'-gen'))||0}catch(_){}
+clearAW();clearTimer();save();go('home')}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation.
 // Audit: session notes + warm-up checklist ride along too — they were silently
 // lost on an app kill while every set survived.
@@ -2725,6 +2744,25 @@ const day=['A','B','C'].includes(s.day)?s.day:'A';
 const id=String(s.id).replace(/[^\w.-]/g,'');
 if(!id)return null;
 return{...s,id,day,ex}}
+// Two-tab conflict merge (pure): union the append-only logs from another tab's store
+// into ours — sessions by id, cardio by id, body by date, discomfort by composite key —
+// while every scalar (phase, location, nextDay, prefs) keeps THIS tab's in-memory value.
+// Their rows pass the same validSession guard as imports so a mangled store can't
+// smuggle malformed sessions past the load-path validation.
+function mergeStores(mine,theirs){const W=structuredClone(mine);
+if(!theirs||typeof theirs!=='object')return W;
+const sIds=new Set(W.sessions.map(s=>s.id));
+for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(v&&!sIds.has(v.id))W.sessions.push(v)}
+W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+const cIds=new Set(W.cardioLog.map(c=>c.id));
+for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){if(c&&typeof c==='object'&&c.id&&!cIds.has(c.id))W.cardioLog.push(c)}
+W.cardioLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+const bKeys=new Set(W.bodyLog.map(x=>x.date));
+for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x==='object'&&x.date&&!bKeys.has(x.date))W.bodyLog.push(x)}
+W.bodyLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+const dKeys=new Set(W.discomfort.map(x=>x.date+x.exId+x.joint));
+for(const x of(Array.isArray(theirs.discomfort)?theirs.discomfort:[])){if(x&&typeof x==='object'&&!dKeys.has(x.date+x.exId+x.joint))W.discomfort.push(x)}
+return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
 // Takes the current state `cur` and a parsed backup `d`; returns {W,added,replaced,skipped}
@@ -2773,7 +2811,8 @@ if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4
 // and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted verbatim.
 // Deliberately DEVICE-LOCAL (never imported): `notify` mirrors THIS device's Notification
 // permission; `dismissed` banners are situational; `lastBackup`/`lastBackupCount` must stay
-// unset so a fresh device is nagged into its own first backup.
+// unset so a fresh device is nagged into its own first backup; `gen` is this device's
+// two-tab write generation (the clone of `cur` already carries the right one).
 if(wasFresh){
   if([1,2,3].includes(d.phase))W.phase=d.phase;
   if(typeof d.phaseStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.phaseStart))W.phaseStart=d.phaseStart;

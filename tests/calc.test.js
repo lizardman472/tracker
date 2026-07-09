@@ -684,5 +684,61 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 
+// ── Ultra audit C4: two-tab clobber guard (gen counter + mergeStores) ──
+{
+  const store4 = {};
+  let skReads = 0;
+  global.localStorage = {
+    getItem: k => { if (k === 'rft-v12') skReads++; return store4[k] ?? null; },
+    setItem: (k, v) => { store4[k] = v; },
+    removeItem: k => { delete store4[k]; }
+  };
+  const mkSess = (id, date, wt) => ({ id, date, day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '', notes: '' }] });
+
+  // Tab A boots and saves.
+  const dA = freshD();
+  dA.sessions = [mkSess('tt1', '2026-06-01', 56)];
+  dA.gen = 0;
+  skReads = 0;
+  T('clean save succeeds', save() === true);
+  T('clean save never parses the stored blob (sidecar only)', skReads === 0, `reads=${skReads}`);
+  T('clean save advances gen + sidecar', JSON.parse(store4['rft-v12']).gen === 1 && store4['rft-v12-gen'] === '1');
+
+  // Tab B (simulated) writes a newer generation with an extra session + a body entry.
+  const b = JSON.parse(store4['rft-v12']);
+  b.sessions.push(mkSess('tt2', '2026-06-03', 58));
+  b.bodyLog = [{ date: '2026-06-03', weight: 82 }];
+  b.gen = 2;
+  store4['rft-v12'] = JSON.stringify(b);
+  store4['rft-v12-gen'] = '2';
+
+  // Tab A (still holding gen 1 in memory) logs its own session and saves.
+  getD().sessions.push(mkSess('tt3', '2026-06-05', 58));
+  T('conflicted save succeeds', save() === true);
+  const fin = JSON.parse(store4['rft-v12']);
+  const finIds = fin.sessions.map(s => s.id);
+  T('conflict merge keeps BOTH tabs’ sessions', ['tt1', 'tt2', 'tt3'].every(id => finIds.includes(id)), JSON.stringify(finIds));
+  T('conflict merge unions the body log', fin.bodyLog.some(x => x.date === '2026-06-03'));
+  T('conflict merge date-sorts sessions', finIds.join() === 'tt1,tt2,tt3');
+  T('gen advances past both writers', fin.gen === 3 && store4['rft-v12-gen'] === '3');
+
+  // mergeStores is scalar-conservative: the in-memory tab's phase/location/nextDay win.
+  const mineS = { ...freshState(), phase: 2, location: 'partner', nextDay: 'C' };
+  const theirsS = { ...freshState(), phase: 1, location: 'home', nextDay: 'A', sessions: [mkSess('tt9', '2026-06-07', 60)] };
+  const ms = mergeStores(mineS, theirsS);
+  T('mergeStores: scalars keep in-memory values', ms.phase === 2 && ms.location === 'partner' && ms.nextDay === 'C');
+  T('mergeStores: their sessions still union in', ms.sessions.some(s => s.id === 'tt9'));
+  T('mergeStores: malformed their-session dropped by validSession', mergeStores(mineS, { sessions: [{ junk: 1 }] }).sessions.length === 0);
+
+  // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
+  T('resetAll adopts the sidecar gen (source check)', /D=freshState\(\);try\{D\.gen=Number\(localStorage\.getItem\(SK\+'-gen'\)\)/.test(String(resetAll)), String(resetAll));
+  store4['rft-v12-gen'] = '7';
+  setD(Object.assign(freshState(), { gen: 7 })); // what resetAll produces before its save()
+  T('reset-state save succeeds', save() === true);
+  const wiped = JSON.parse(store4['rft-v12']);
+  T('a wipe with adopted gen does not resurrect the old sessions', wiped.sessions.length === 0 && wiped.gen === 8, JSON.stringify({ n: wiped.sessions.length, gen: wiped.gen }));
+  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
