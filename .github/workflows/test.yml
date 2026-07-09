@@ -7,6 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The SW cache-bump check diffs against the push/PR base — the default
+          # shallow clone has no parent commits, which made every diff fail and
+          # the warning fire on every push, including docs-only ones.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -17,12 +22,22 @@ jobs:
       - name: Render smoke tests
         run: node tests/render.smoke.js
       - name: Service-worker cache version must change when app files change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          # If index.html changed in this push but sw.js's cache name didn't, stale
+          # If index.html changed since the base but sw.js's cache name didn't, stale
           # clients would keep the old shell. Warn loudly (non-blocking for docs-only edits).
-          if git diff --quiet HEAD~1 -- index.html 2>/dev/null; then
+          # Base = PR base for pull_request events, previous head for pushes. A zero/unknown
+          # SHA (new branch, force push) falls back to HEAD~1; if even that is missing, skip.
+          BASE="$BASE_SHA"
+          if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            BASE="HEAD~1"
+          fi
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "no base commit to diff against — skip"
+          elif git diff --quiet "$BASE" -- index.html; then
             echo "index.html unchanged — skip"
-          elif git diff HEAD~1 -- sw.js 2>/dev/null | grep -q "^[+-]const C"; then
+          elif git diff "$BASE" -- sw.js | grep -q "^[+-]const C"; then
             echo "cache version bumped ✓"
           else
             echo "::warning::index.html changed but sw.js cache version (const C) did not — installed PWAs may serve the stale shell"
