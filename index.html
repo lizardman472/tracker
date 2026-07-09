@@ -1771,6 +1771,60 @@ for(const ex of ALL_EX){if(!logged.has(ex.id))continue;
 if(!['bb','db','kb','mace'].includes(ex.tp))continue;
 const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
 out.sort((a,b)=>b.slope-a.slope);return out}
+
+// ── Plate runway ────────────────────────────────────────────────────────────
+// "When will I need more weights, and which?" — projects each loadable lift's
+// WORKING load (not e1RM) forward at its recent trend and compares to the heaviest
+// rung the app will load for that bar. Straight-line extrapolation is optimistic
+// (real strength gains decelerate near the top), so the dates read as "no sooner
+// than", not promises. Total plate mass the inventory can mount on a bar:
+//   symmetric  = 2 × Σ floor(q/2)·w  (mirrored, half the pairs per side)
+//   single-end = Σ q·w               (landmine — one sleeve takes the full count)
+const PLATE_MAX_SYM=Math.round(2*PL.reduce((a,p)=>a+Math.floor(p.q/2)*p.w,0)*100)/100;
+const PLATE_MAX_SINGLE=Math.round(PL.reduce((a,p)=>a+p.q*p.w,0)*100)/100;
+// Linear regression of top-set working weight vs weeks (12-week window). Mirrors
+// e1rmSlope but on the loaded weight itself, since that's what the plate ceiling caps.
+function wtSlope(exId,days){
+const def=ALL_EX.find(e=>e.id===exId);
+const cut=ymd(new Date(Date.now()-(days||84)*864e5));
+const pts=[];
+for(const h of getHist(exId,200)){if(h.date<cut||!h.wt)continue;
+const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
+pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y:h.wt})}
+if(pts.length<3)return null;
+const span=pts[pts.length-1].x-pts[0].x;if(span<2)return null;   // need ≥2 weeks of spread
+const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
+let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
+if(!den)return null;
+return{slope:num/den,latest:pts[pts.length-1].y,n,cadenceWk:span/(n-1)}}
+// Per loadable (bb) lift with a trend: current load, kg/wk, headroom to the bar's top
+// rung, weeks + sessions until it's reached, and which owned plate sizes are fully
+// deployed at that ceiling (the buy signal). Sorted soonest-to-cap first.
+function plateRunway(){
+const logged=loggedExIds();const out=[];
+for(const ex of ALL_EX){
+if(ex.tp!=='bb'||!logged.has(ex.id))continue;
+const s=wtSlope(ex.id);if(!s)continue;
+const vw=vwOf(ex),appCap=vw[vw.length-1],bar=barOf(ex),lm=!!ex.lm;
+const plateCap=Math.round((bar+(lm?PLATE_MAX_SINGLE:PLATE_MAX_SYM))*100)/100;
+const head=Math.round((appCap-s.latest)*100)/100;
+const atCap=head<=0.25;
+const rising=!atCap&&s.slope>0.02;
+const weeks=rising?Math.round(head/s.slope):null;
+const sessions=weeks!=null&&s.cadenceWk>0?Math.max(1,Math.round(weeks/s.cadenceWk)):null;
+// Plate sizes maxed out at the ceiling loadout (c hits the owned limit) → what to buy more of.
+const ps=perSide(appCap,bar,lm)||[];
+const maxed=ps.filter(p=>{const own=PL.find(x=>x.w===p.w);if(!own)return false;
+return p.c>=(lm?own.q:Math.floor(own.q/2))}).map(p=>p.w).sort((a,b)=>b-a);
+out.push({id:ex.id,nm:ex.nm,cur:Math.round(s.latest*10)/10,slope:Math.round(s.slope*100)/100,
+appCap,plateCap,head,atCap,rising,weeks,sessions,maxed,
+barLbl:lm?'landmine':bar===HEXBAR?'hex bar':'straight bar'})}
+out.sort((a,b)=>{if(a.rising!==b.rising)return a.rising?-1:1;
+if(a.rising)return a.weeks-b.weeks;
+if(a.atCap!==b.atCap)return a.atCap?-1:1;
+return a.head-b.head});
+return out}
+
 // ── Strength standards: bodyweight-relative e1RM thresholds marking the start of
 // each tier. Approximate, calibrated for these specific (often unconventional)
 // rack-free lifts — hex-bar deadlift runs ~10% over a conventional pull, the
@@ -2014,6 +2068,21 @@ for(const m of moving)h+=`<div style="display:flex;justify-content:space-between
 for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
 h+=`</div>`}
+
+// Plate runway: which lifts are climbing into the ceiling your plates can load, and when.
+{const rw=plateRunway();const rising=rw.filter(l=>l.rising&&l.weeks!=null);
+if(rising.length){
+const fmtWhen=w=>w>260?'5 yr+':new Date(Date.now()+w*6048e5).toLocaleDateString('en-NZ',{month:'short',year:'numeric'});
+const first=rising[0];
+h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Plate Runway</div>
+<div class="dm" style="margin-bottom:5px">Working-load trend vs the heaviest the bar holds on your plates · when you'll need more weight</div>`;
+for(const l of rising.slice(0,3)){const soon=l.weeks<=16;
+h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px">
+<span style="font-weight:600">${esc(l.nm)}</span>
+<span style="color:${soon?'var(--am)':'var(--mu)'};font-weight:700">${l.cur}→${l.appCap}kg · ~${l.weeks}wk${l.sessions?` · ${l.sessions} sess`:''} · ${fmtWhen(l.weeks)}</span></div>`}
+const heavy=[...new Set(rw.flatMap(l=>l.maxed))].filter(w=>w>=5).sort((a,b)=>b-a).map(w=>(w%1?w:w|0)+'kg').join(' & ');
+h+=`<div class="dm" style="margin-top:5px">${first.weeks<=16?'⚠ ':''}<b>${esc(first.nm)}</b> tops out your ${first.barLbl} first${heavy?` — you're maxing your ${heavy} plates there`:''}. <span onclick="go('plates')" style="color:var(--pr);cursor:pointer;font-weight:600">Plate runway + what to buy →</span></div>
+<div class="dm" style="margin-top:3px">Straight line from your recent rate — gains slow near the top, so treat these as "no sooner than".</div></div>`}}
 
 // Relative strength (only renders once a bodyweight is logged in Body Tracking)
 const rel=relStrength();
@@ -2360,7 +2429,49 @@ function rPlates(el){
       ${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
     return h;
   };
-  let h=`<div class="sec"><div class="lb" style="margin-bottom:2px">All Valid Weights</div>`;
+  const kg=w=>w%1?w:w|0;
+  const fmtWhen=w=>w>260?'5 yr+':new Date(Date.now()+w*6048e5).toLocaleDateString('en-NZ',{month:'short',year:'numeric'});
+  let h='';
+
+  // ── PLATE RUNWAY: projection — when each lift needs more weight, and what to buy ──
+  h+=`<div class="sec"><div class="lb" style="margin-bottom:2px">Plate Runway</div>
+  <div style="font-size:11px;color:var(--mu);margin-bottom:8px">When each lift's working weight climbs into the ceiling your plates can load — and what to buy to keep progressing.</div>`;
+  h+=`<div class="cd"><div class="lb" style="margin-bottom:4px">Your plates</div>
+  <div style="font-size:12px;line-height:1.7">${PL.map(p=>`${p.q}×${kg(p.w)}kg`).join(' · ')}</div>
+  <div class="dm" style="margin-top:6px;line-height:1.7">Max loadable — straight bar (11kg): <b>${11+PLATE_MAX_SYM}kg</b> · hex bar (7kg): <b>${7+PLATE_MAX_SYM}kg</b> · landmine, 1 end (11kg): <b>${11+PLATE_MAX_SINGLE}kg</b>.<br>The app caps loaded weight at <b>${MAX_BB}kg</b> (MAX_BB) — just under the physical plate limit, so that's the wall you hit first.</div></div>`;
+
+  const rw=plateRunway();
+  if(rw.length){
+    h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Projected ceiling by lift</div>`;
+    for(const l of rw){
+      const col=l.atCap?'var(--rd)':!l.rising?'var(--mu)':l.weeks<=16?'var(--am)':l.weeks<=40?'var(--gr)':'var(--mu)';
+      const tag=l.atCap?'at ceiling':l.rising?`~${l.weeks} wk → ${fmtWhen(l.weeks)}`:'holding';
+      h+=`<div style="padding:7px 0;border-bottom:1px solid var(--cb)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span style="font-size:12px;font-weight:600">${esc(l.nm)}</span>
+      <span style="font-size:11px;color:${col};font-weight:700">${tag}</span></div>
+      <div class="dm" style="margin-top:2px">${l.cur}kg now · ${l.rising?`+${l.slope}kg/wk · `:'rate flat · '}${l.head}kg to the ${l.appCap}kg ${l.barLbl} ceiling${l.rising&&l.sessions?` · ~${l.sessions} sessions`:''}</div></div>`;
+    }
+    h+=`</div>`;
+    const rising=rw.filter(l=>l.rising&&l.weeks!=null);
+    const heavy=[...new Set(rw.flatMap(l=>l.maxed))].filter(w=>w>=5).sort((a,b)=>b-a).map(w=>`${kg(w)}kg`).join(' & ');
+    if(rising.length||rw.some(l=>l.atCap)){
+      const first=rising[0]||rw.find(l=>l.atCap);
+      const when=first.atCap?'now':`in ~${first.weeks} wks`;
+      h+=`<div class="cd"><div class="lb" style="margin-bottom:4px">What to buy${(first.atCap||first.weeks<=16)?' — soon':''}</div>
+      <div style="font-size:12px;line-height:1.7">
+      <b>${esc(first.nm)}</b> reaches the ${first.appCap}kg ${first.barLbl} ceiling ${when}${heavy?` — at that load every ${heavy} plate you own is on the bar`:''}.<br>
+      To go past ~${11+PLATE_MAX_SYM}kg you need heavier plates: a <b>2×20kg</b> pair (or a second <b>2×10kg</b> pair) roughly doubles your heavy-plate headroom. Your micro plates (0.25–1kg) already give fine 0.5kg steps, so no need for more small ones.<br>
+      <span class="dm">You'd also raise <b>MAX_BB</b> (currently ${MAX_BB}kg) in the code once the plates can go higher, or the app will still stop you at ${MAX_BB}kg.</span></div></div>`;
+    }else{
+      h+=`<div class="cd"><div class="dm">No lift is trending up fast enough to project a ceiling yet — log a few more weighted sessions per lift and this fills in.</div></div>`;
+    }
+  }else{
+    h+=`<div class="cd"><div class="dm">Not enough weighted history yet. Log 3+ sessions on a barbell lift and its runway appears here.</div></div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="sec"><div class="lb" style="margin-bottom:2px">All Valid Weights</div>`;
   h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false);
   h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true);
   h+=`</div>`;el.innerHTML=h;

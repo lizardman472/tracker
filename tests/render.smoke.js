@@ -138,6 +138,21 @@ tryRender('All Valid Weights (plates)', () => R.go('plates'));
 T('plates screen renders the ladder', /All Valid Weights/.test(R.getA()));
 T('plates screen has both bar sections', /Straight Bar/.test(R.getA()) && /Landmine — load 1 end/.test(R.getA()));
 T('plates screen lists the finer 11.25kg landmine rung', /11\.25/.test(R.getA()));
+T('plates screen renders the Plate Runway projection header', /Plate Runway/.test(R.getA()));
+T('plates screen shows the inventory + max-loadable summary', /Your plates/.test(R.getA()) && /Max loadable/.test(R.getA()));
+
+// ── Plate Runway with a rising lift: projection + buy recommendation must populate ──
+const dOff = n => { const dt = new Date(Date.now() - n * 864e5); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`; };
+R.getD().sessions = [70, 56, 42, 28, 14, 0].map((off, i) => ({
+  id: 'sm' + i, date: dOff(off), day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: 50 + i * 2, reps: [6, 6, 6], band: '', form: [5, 5, 5] }]
+}));
+tryRender('Plate Runway (rising lift)', () => R.go('plates'));
+const runway = R.getA();
+T('runway projects the rising hex deadlift to its ceiling', /Hex Bar Deadlift/.test(runway) && /ceiling/.test(runway));
+T('runway shows a "what to buy" recommendation', /What to buy/.test(runway) && /20kg/.test(runway));
+tryRender('Progress (stats) with runway card', () => R.go('stats'));
+T('progress tab surfaces the Plate Runway card', /Plate Runway/.test(R.getA()));
 
 // ── Body tracking — empty, then with weight + circumference logs ──
 tryRender('Body (empty)', () => R.go('body'));

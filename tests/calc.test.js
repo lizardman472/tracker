@@ -18,13 +18,15 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,MAX_BB,PLATE_MAX_SYM,PLATE_MAX_SINGLE,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, setD, getD } = global.__X;
+// wtSlope / plateRunway are function declarations — they leak into global scope from the
+// sloppy-mode eval, so we reference them directly rather than through __X (const would clash).
+const { ALL_EX, SEED, VW, MAX_BB, PLATE_MAX_SYM, PLATE_MAX_SINGLE, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -384,6 +386,55 @@ for (const id of ['lm_pallof', 'lm_lateral']) for (let i = 1; i <= 3; i++)
   d.sessions.push({ id: id + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id, wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] });
 const pi = getPhaseInfo();
 T('two floor-stalled lifts still count toward phase reassessment', pi.stalledEx >= 2 && pi.stallDue === true, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));
+
+// ── PLATE RUNWAY (projection) ──
+// Inventory: 10×4,5×4,2.5×2,1×6,0.75×2,0.5×2,0.25×2 → per-side 37kg → 74kg symmetric.
+T('PLATE_MAX_SYM = 2×Σ floor(q/2)·w = 74kg', PLATE_MAX_SYM === 74);
+T('PLATE_MAX_SINGLE = Σ q·w = 74kg', PLATE_MAX_SINGLE === 74);
+T('MAX_BB app cap sits just under the physical plate limit (11+74=85)', MAX_BB === 80 && MAX_BB < 11 + PLATE_MAX_SYM);
+
+// Craft a rising hex-bar deadlift: +1kg/wk over ~10 weeks, ending ~60kg, all within the window.
+const dayOff = n => { const dt = new Date(Date.now() - n * 864e5); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`; };
+d = freshD();
+d.sessions = [70, 56, 42, 28, 14, 0].map((off, i) => ({
+  id: 'rw' + i, date: dayOff(off), day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: 50 + i * 2, reps: [6, 6, 6], band: '', form: [5, 5, 5] }]
+}));
+const ws = wtSlope('hex_dl');
+T('wtSlope tracks the working load (~1kg/wk)', ws && Math.abs(ws.slope - 1) < 0.15, JSON.stringify(ws));
+T('wtSlope reports the latest logged load', ws && ws.latest === 60);
+
+const rw = plateRunway();
+const hd = rw.find(l => l.id === 'hex_dl');
+T('plateRunway surfaces the rising lift', !!hd && hd.rising === true);
+T('runway ceiling = top rung the hex bar loads (80kg)', hd && hd.appCap === 80);
+T('runway headroom = ceiling − current (80−60)', hd && Math.abs(hd.head - 20) < 0.01);
+T('runway projects a finite, sensible ETA (~20 wks at 1kg/wk)', hd && hd.weeks >= 15 && hd.weeks <= 26, JSON.stringify(hd));
+T('runway estimates sessions from lift cadence', hd && hd.sessions > 0);
+T('at the ceiling the heavy plates (10 & 5kg) are the bottleneck', hd && hd.maxed.includes(10) && hd.maxed.includes(5));
+
+// A flat lift (no upward trend) must not project a false ceiling.
+d = freshD();
+d.sessions = [42, 28, 14, 0].map((off, i) => ({
+  id: 'fl' + i, date: dayOff(off), day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '', form: [5, 5, 5] }]
+}));
+const flat = plateRunway().find(l => l.id === 'hex_dl');
+T('flat lift is not marked rising and has no ETA', flat && flat.rising === false && flat.weeks === null);
+
+// A lift already at the app cap is flagged at-ceiling, not "rising".
+d = freshD();
+d.sessions = [42, 28, 14, 0].map((off, i) => ({
+  id: 'cp' + i, date: dayOff(off), day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: [74, 76, 78, 80][i], reps: [6, 6, 6], band: '', form: [5, 5, 5] }]
+}));
+const capped = plateRunway().find(l => l.id === 'hex_dl');
+T('lift at the ceiling is flagged atCap (not rising)', capped && capped.atCap === true && capped.rising === false);
+
+// Too little history → no projection (needs 3+ points spanning ≥2 weeks).
+d = freshD();
+d.sessions = [{ id: 'one', date: dayOff(0), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [6, 6, 6], band: '' }] }];
+T('single session yields no runway entry', !plateRunway().some(l => l.id === 'hex_dl'));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
