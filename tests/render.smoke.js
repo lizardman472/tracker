@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -81,7 +81,7 @@ T('stepper hero shows the seeded 40kg', /40<sub>kg<\/sub>/.test(work));
 T('plate math is correct for 40kg on 7kg bar (1×10 + 1×5 + 1×1 + 1×0.5/side)', /1×10kg \+ 1×5kg \+ 1×1kg \+ 1×0\.5kg/.test(work));
 T('plate visual shows one 10kg plate per side', (work.match(/pl pl-10/g) || []).length === 1);
 
-// ── Bar-loaded carry (hex_carry, Day C) shows the plate diagram like barbell lifts ──
+// ── Bar-loaded carry (hex_carry, Day C) logs like barbell lifts: +/− stepper + plates ──
 tryRender('workout (Day C)', () => R.beginW('C'));
 const dcIds = R.dayExs('C').map(e => e.id);
 R.setCIDX(dcIds.indexOf('hex_carry'));
@@ -91,6 +91,20 @@ const carry = R.getA();
 T('hex_carry workout shows a plate visual', /class="pl /.test(carry));
 T('hex_carry workout labels the 7kg hex bar', /Hex bar 7kg/.test(carry));
 T('hex_carry plate math for 30kg on the 7kg bar', /1×10kg \+ 1×1kg \+ 1×0\.5kg/.test(carry));
+T('hex_carry shows the big stepper hero at 30kg', /stp-hero">30<sub>kg<\/sub>/.test(carry));
+T('hex_carry has +/− stepper buttons wired to stepWt', /stepWt\('hex_carry',-1\)/.test(carry) && /stepWt\('hex_carry',1\)/.test(carry));
+T('hex_carry has no free-typed weight input', !/aria-label="Total weight/.test(carry));
+// Stepper walks the hex-bar (7kg) ladder: 30 → 30.5 with the 0.25kg micro pair.
+R.stepWt('hex_carry', 1);
+T('stepWt steps hex_carry up the 7kg-bar ladder (30 → 30.5)', R.getLOG()['hex_carry'].wt === 30.5, R.getLOG()['hex_carry'].wt);
+// Off-ladder legacy weight (free-typed before the stepper) snaps to the nearest rung.
+R.getLOG()['hex_carry'].wt = 31.3;
+R.stepWt('hex_carry', -1);
+T('stepWt snaps an off-ladder 31.3 down to 31', R.getLOG()['hex_carry'].wt === 31, R.getLOG()['hex_carry'].wt);
+R.getLOG()['hex_carry'].wt = 31.3;
+R.stepWt('hex_carry', 1);
+T('stepWt snaps an off-ladder 31.3 up to 31.5', R.getLOG()['hex_carry'].wt === 31.5, R.getLOG()['hex_carry'].wt);
+R.getLOG()['hex_carry'].wt = 30;
 
 // ── Progress tab (default exercise) ──
 tryRender('Progress (stats)', () => R.go('stats'));

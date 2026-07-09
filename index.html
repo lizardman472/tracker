@@ -1398,7 +1398,7 @@ h+=`</div>`;el.innerHTML=h}
 // Seed a LOG row for one exercise (prefilled from last session / smart suggestion).
 // Idempotent — used by beginW and by the swap flow when a new movement enters the day.
 function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=getSmartSugg(ex);
-const defWt=ex.tp==='bb'?barOf(ex):'';
+const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
@@ -1531,12 +1531,12 @@ for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=
 
 h+=`<div class="ex-expand">`;
 // Weight/band input
-if(ex.tp==='bb'){const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar,ix=vw.indexOf(cur);
+if(ex.tp==='bb'){const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar;
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
-<div class="stp-b${ix<=0?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${ix>=vw.length-1?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+<div class="stp-b${cur<=vw[0]?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
+<div class="stp-b${cur>=vw[vw.length-1]?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
 h+=plateH(cur,bar,ex.lm)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${ex.lm?'Landmine · load 1 end · ':bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar,ex.lm))}</div>`;
 if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
@@ -1547,12 +1547,20 @@ h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;m
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
+} else if(ex.tp==='carry'&&ex.bar){
+// Bar-loaded carries (the 7kg hex bar) log like the other bar lifts: same +/− ladder
+// stepper + plate diagram. Only the set targets differ (steps, not reps).
+const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar;
+h+=`<div class="stp-big">
+<div class="stp-hero">${cur}<sub>kg</sub></div>
+<div class="stp-row">
+<div class="stp-b${cur<=vw[0]?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
+<div class="stp-b${cur>=vw[vw.length-1]?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
 } else if(ex.tp==='carry'){
+// Dumbbell/suitcase carries have no bar to load — free weight entry like other DB/KB moves.
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
 <input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Total weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`;
-// Bar-loaded carries (e.g. the 7kg hex bar) get the same plate-loading diagram as barbell
-// lifts; dumbbell/suitcase carries have no bar field and skip it.
-if(ex.bar){const cur=Number(log.wt)||0;if(cur>barOf(ex))h+=plateH(cur,barOf(ex))+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${barOf(ex)===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,barOf(ex)))}</div>`}
 } else if(ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb'){
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
 <input type="number" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="numeric"><span class="dm">kg</span></div>`}
@@ -1619,7 +1627,10 @@ setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scroll
 
 // ─── HELPERS ───────────────────────────────────
 function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id),vw=vwOf(ex),c=Number(LOG[id].wt)||barOf(ex),ix=vw.indexOf(c);
-const ni=Math.max(0,Math.min(vw.length-1,ix+dir));LOG[id].wt=vw[ni];LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
+// Off-ladder weights (free-typed before the lift had a stepper, e.g. old carry logs)
+// step to the nearest rung in the pressed direction instead of snapping to the bar.
+LOG[id].wt=ix>=0?vw[Math.max(0,Math.min(vw.length-1,ix+dir))]:(dir>0?nxUp(c,vw):nxDn(c,vw));
+LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 function setL(id,f,v){LOG[id][f]=v;LOG[id].touched=true}
 function setRep(id,i,v){LOG[id].reps[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW();
 const ex=ALL_EX.find(e=>e.id===id);if(ex){const filled=LOG[id].reps.filter(r=>r!==''&&Number(r)>0).length;
