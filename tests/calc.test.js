@@ -190,6 +190,15 @@ T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06
 T('freshState carries programVersion 12 (no migrate re-fire)', freshState().programVersion === 12);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
+// ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
+// 40kg×7 (P1 target) into P2 (target 10): %1RM tables put the drop at ≈8-9%. Epley gives
+// 40×(1.2333/1.3333)=37.0; the old min(Epley,Lombardi) blend gave only −3.5% (38.5+),
+// leaving hypertrophy sets far too heavy for the new rep target.
+d = freshD({ phase: 2, phaseStart: '2026-06-09' });
+d.sessions = [{ id: 'tf1', date: '2026-06-01', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 40, reps: [7, 7, 7, 7], band: '' }] }];
+sg = getSmartSugg(getProgram(2, 'home').B.find(e => e.id === 'ohp'));
+T('re-anchor drop matches %1RM tables (40kg 7→10 reps ≈ 37kg)', sg.type === 'new' && sg.wt >= 36 && sg.wt <= 37.5, JSON.stringify(sg));
+
 // ── Phase-transition re-anchor ──
 // OHP at 80kg×5 in Phase 1 (target 7), advance to Phase 2 (target 10) → lighter.
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
@@ -316,6 +325,9 @@ T('rejects bad date', validSession({ id: 'x', date: 'tuesday', ex: [] }) === nul
 T('rejects missing ex array', validSession({ id: 'x', date: '2026-06-01' }) === null);
 const vs = validSession({ id: 7, date: '2026-06-01', ex: [{ id: 'deadlift', wt: '60', reps: ['5', 'x', 5] }, { bad: true }, null] });
 T('coerces id/wt/reps and drops bad ex entries', vs && vs.id === '7' && vs.ex.length === 1 && vs.ex[0].wt === 60 && JSON.stringify(vs.ex[0].reps) === '[5,0,5]', JSON.stringify(vs));
+// band is interpolated into markup at several render sites — must be coerced to a string.
+const vb = validSession({ id: 'b', date: '2026-06-01', ex: [{ id: 'pullup_a', wt: null, reps: [5], band: { evil: '<img onerror=x>' } }, { id: 'dips', wt: null, reps: [5], band: 'Green' }] });
+T('non-string band coerced to empty, string band kept', vb.ex[0].band === '' && vb.ex[1].band === 'Green', JSON.stringify(vb.ex.map(e => e.band)));
 
 // ── reset gives a clean empty slate, not the bundled demo SEED ──
 const empty = freshState();
@@ -339,6 +351,21 @@ const fMod = getFatigue().score;
 d.cardioLog[0].intensity = 'easy'; const fEasy = getFatigue().score;
 d.cardioLog[0].intensity = 'hard'; const fHard = getFatigue().score;
 T('moderate cardio between easy and hard', fEasy < fMod && fMod < fHard, JSON.stringify({ fEasy, fMod, fHard }));
+
+// ── fatigue calibration: the app's own target cadence must read mid-scale, not red ──
+// 3 sessions/wk at RPE 3 with ~2.9t each is exactly the dashed 3×/week chart target;
+// the old weights scored it 8.7/10 "Fatigued" — permanently red for normal training.
+const fatSess = (off, diff, wt, reps) => ({ id: 'fg' + off, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', difficulty: diff, ex: [{ id: 'deadlift', wt, reps, band: '' }] });
+d = freshD();
+d.sessions = [fatSess(1, 3, 64, [15, 15, 15]), fatSess(3, 3, 64, [15, 15, 15]), fatSess(5, 3, 64, [15, 15, 15])]; d.cardioLog = [];
+let fat = getFatigue();
+T('target cadence (3×/wk RPE3) reads mid-scale, not Fatigued', fat.label !== 'Fatigued' && fat.score >= 3.5 && fat.score <= 6.5, JSON.stringify(fat));
+d.sessions = [0, 1, 2, 3, 4].map(off => fatSess(off, off % 2 ? 4 : 5, 70, [17, 17, 16]));
+fat = getFatigue();
+T('a genuinely heavy week (5 hard sessions) still reads Fatigued', fat.label === 'Fatigued' && fat.score >= 7, JSON.stringify(fat));
+d.sessions = [fatSess(5, 2, 40, [10, 10, 10])];
+fat = getFatigue();
+T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
 
 // ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });

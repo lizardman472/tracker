@@ -114,6 +114,10 @@ T('hex_dl 3 stalls → real ~10% deload on hex ladder', sg.type === 'dn' && VWH.
 // ── MG volume: hex lifts count, hex carry excluded from tonnage ──
 T('hex_dl has an MG map', !!MG.hex_dl);
 T('hex_squat_b + hex_carry have MG maps', !!MG.hex_squat_b && !!MG.hex_carry);
+// Home squat patterns credit glutes 0.5 like the partner equivalents (db_bss/db_lunge)
+// — they were missing it, undercounting the glute row every rotation.
+T('hex_squat_b credits glutes 0.5 (parity with db_bss)', MG.hex_squat_b.glutes === 0.5);
+T('lm_squat credits glutes 0.5 (parity with db_lunge)', MG.lm_squat.glutes === 0.5);
 T('hex_dl counts toward tonnage (bb)', calcExVol('hex_dl', 40, [5, 5, 5]) === 40 * 15);
 T('hex_carry excluded from tonnage (carry)', calcExVol('hex_carry', 30, [40, 40, 40]) === 0);
 

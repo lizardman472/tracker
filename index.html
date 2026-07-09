@@ -13,7 +13,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- crossorigin makes the stylesheet response CORS (not opaque) so the service worker
+     can safely inspect + cache it — without it, offline loads fell back to system fonts. -->
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 :root{
 /* Slate dark — cool neutral base, electric sky-cyan accent. Clean, modern, punchy. */
@@ -57,11 +59,10 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Badges */
 .bg{display:inline-block;padding:3px 9px;border-radius:6px;font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
-.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--bll);color:var(--bl)}.bg-c{background:var(--grl);color:var(--gr)}.bg-d{background:var(--aml);color:var(--am)}
+.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--bll);color:var(--bl)}.bg-c{background:var(--grl);color:var(--gr)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
-.wk-1{background:var(--prl);color:var(--pr)}.wk-2{background:var(--pul);color:var(--pu)}
 .regress{font-size:10px;color:var(--rd);padding:3px 7px;background:var(--rdl);border-radius:6px;display:inline-block;font-weight:600}
 .pr-badge{font-family:var(--disp);font-size:10px;font-weight:800;color:var(--ink);background:var(--am);padding:3px 9px;border-radius:6px;letter-spacing:.5px}
 .max-badge{font-size:9px;font-weight:800;color:var(--rd);background:var(--rdl);padding:2px 7px;border-radius:5px;margin-left:4px}
@@ -224,7 +225,6 @@ input[type=number]{-moz-appearance:textfield}
 .sg-up-txt{color:var(--pr)}.sg-dn-txt{color:var(--rd)}.sg-cf-txt{color:var(--bl)}.sg-nw-txt{color:var(--mu)}.sg-st-txt{color:var(--tx)}
 
 /* Stats */
-.ch{display:inline-block;font-size:9px;padding:3px 7px;border-radius:6px;background:var(--ib);color:var(--mu);margin:0 2px 3px 0;font-weight:600}
 svg text{font-family:var(--body)}
 .hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .hm-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--dm);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
@@ -336,7 +336,7 @@ const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
   adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},cossack_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'8-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10',tg:10},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
-2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Weight drops ~15%.',
+2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Loads re-anchor ~5-10% lighter.',
   adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},cossack_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
@@ -427,7 +427,6 @@ C:[
 // other bar lift (stepper + plate breakdown + VW ladder + warm-up). Legacy KB history
 // sits BELOW the bar weight; the engine re-anchors those sessions to bar-only once
 // (see the sub-bar guard in getSmartSugg). Partner db_dead_bug stays DB — no bar there.
-const HEX_LM_EX=[];
 
 // Location B (partner's: DBs + bands + clubbells + parallel bars) — pattern-matched to home.
 // v23 PARTNER AUDIT: the partner program was originally pattern-matched but never got the
@@ -546,10 +545,12 @@ const MG={
   // Home compounds
   deadlift:{back:0.5,hams:1,glutes:1},
   hex_dl:{back:0.5,hams:1,glutes:1,quads:0.5}, // hex DL is slightly more quad-dominant than straight
-  hex_squat_b:{quads:1,back:0.5}, hex_carry:{core:1},
+  // Squat patterns credit glutes 0.5 like their partner counterparts (db_bss/db_lunge)
+  // — the home ones were missing it, so the glute row undercounted every rotation.
+  hex_squat_b:{quads:1,glutes:0.5,back:0.5}, hex_carry:{core:1},
   rdl:{hams:1,glutes:1,back:0.5}, hex_rdl:{hams:1,glutes:1,back:0.5},
   b_stance_rdl:{hams:1,glutes:1},
-  zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,back:0.5},
+  zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,glutes:0.5,back:0.5},
   cossack_squat:{quads:0.5,glutes:0.5},
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, 
@@ -665,6 +666,9 @@ function save(){try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:12,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+// Full reset also drops the active-workout backup + timer — leaving them meant the
+// home screen offered "Resume Day X?" built from the data that was just wiped.
+function resetAll(){D=freshState();clearAW();clearTimer();save();go('home')}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation
 function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
@@ -928,12 +932,12 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   // The achieved reps are CAPPED at the new target so a strong over-target AMRAP can't
   // inflate the anchor heavier: higher-rep phases (Hypertrophy) land lighter, while a
   // lower-rep phase holds at the proven load (tgt===last.wt → no-op) and progresses up
-  // from there. Ratio = e1rmF(min(oldReps,newTg))/e1rmF(newTg), so it only ever drops.
+  // from there. Ratio = transF(min(oldReps,newTg))/transF(newTg), so it only ever drops.
   if(PHASE_ADJ_IDS.has(ex.id)&&D.phaseStart&&last.date<D.phaseStart){
     const eRl=effectiveReps(ex,last.reps);
     const repsAch=eRl.length?Math.min(Math.min(...eRl),ex.tg):ex.tg;
     if(last.wt>0){
-      const raw=last.wt*e1rmF(repsAch)/e1rmF(ex.tg);
+      const raw=last.wt*transF(repsAch)/transF(ex.tg);
       const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
       if(tgt>0&&tgt!==last.wt){
         const dir=tgt<last.wt?'lighter':'heavier';
@@ -1094,11 +1098,16 @@ const def=ALL_EX.find(x=>x.id===exId),eR=effectiveReps(def,reps),mx=eR.length?Ma
 if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');
 else if(wt&&e>pr.bestE1RM&&pr.bestE1RM>0)ps.push('E1RM');
 if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
-// Rep→1RM multiplier. Epley (1+r/30) tracks well at low reps but turns optimistic
-// past ~10; Lombardi (r^0.1) is the conservative curve there. min() of the two is
-// continuous (crossover ≈7 reps) and keeps 10–20-rep accessory e1RMs honest.
-// Shared with the phase re-anchor so load translation uses one curve both ways.
+// Rep→1RM multiplier for e1RM ESTIMATES (PRs, slopes, standards). Epley (1+r/30)
+// tracks well at low reps but turns optimistic past ~10; Lombardi (r^0.1) is the
+// conservative curve there. min() of the two is continuous (crossover ≈7 reps) and
+// keeps 10–20-rep accessory e1RMs honest.
 function e1rmF(reps){return reps<=1?1:Math.min(1+reps/30,Math.pow(reps,0.10))}
+// Rep→load TRANSLATION curve (phase re-anchor). Pure Epley, NOT the display blend:
+// a ratio of min()-blended curves under-drops badly in hypertrophy ranges (7→10 reps
+// came out −3.5% when %1RM tables say ≈−9%), because the blend flattens past the
+// crossover. Epley's ratio matches published %1RM tables within ~1% across 5–15 reps.
+function transF(reps){return reps<=1?1:1+reps/30}
 function e1rm(wt,reps){return reps<=0||!wt?0:Math.round(wt*e1rmF(reps)*10)/10}
 function warmupSets(wt,bar=BAR,vw=VW,lm=false){if(!wt||wt<=bar)return[];const s=[{wt:bar,reps:8,l:'Bar only'}];const w60=snapW(bar+(wt-bar)*.5,vw),w80=snapW(bar+(wt-bar)*.8,vw);if(w60>bar&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60,bar,lm)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80,bar,lm)});return s}
 
@@ -1140,13 +1149,19 @@ for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" s
 if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="#8b97ab" font-size="8">${p.l}</text>`;
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
+// 7-day fatigue gauge. Calibration anchor: the app's own target cadence (3 sessions/wk
+// at RPE 3, ~3t/session — the dashed line on the weekly chart) must land mid-scale
+// (~5, "Ready"), not red. The old weights (f*1.2 + ad*.9 + vol/1200f) scored that exact
+// schedule 8.7/10 "Fatigued" — permanently red for anyone following the program, which
+// made the gauge useless as a signal. Cardio difficulty now follows logged intensity
+// (easy 2 / moderate 3 / hard 4) instead of a flat 3.
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
 D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps)});scores.push({vol,diff:s.difficulty||3})});
-D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:3}))}
+D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 const f=scores.length,ad=scores.reduce((a,b)=>a+b.diff,0)/f,tv=scores.reduce((a,b)=>a+b.vol,0);
-const sc=Math.round(Math.min(10,f*1.2+ad*.9+tv/(1200*Math.max(1,f)))*10)/10;
+const sc=Math.round(Math.min(10,f*0.6+(ad-1)*0.9+tv/(2200*Math.max(1,f)))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
@@ -1204,8 +1219,8 @@ function playBeep(){try{const a=new(window.AudioContext||window.webkitAudioConte
 o.connect(g);g.connect(a.destination);o.frequency.value=880;o.type='square';g.gain.value=.25;o.start();o.stop(a.currentTime+.12);
 setTimeout(()=>{const o2=a.createOscillator(),g2=a.createGain();o2.connect(g2);g2.connect(a.destination);o2.frequency.value=1100;o2.type='square';g2.gain.value=.25;o2.start();o2.stop(a.currentTime+.15)},180)}catch(e){}}
 function rTimer(){const el=document.getElementById('timer-root');if(!TIMER){el.innerHTML='';return}
-const m=Math.floor(Math.abs(TIMER.left)/60),s=Math.abs(TIMER.left)%60,sg=TIMER.left<0?'+':'';
-el.innerHTML=`<div class="timer-pill${TIMER.done?' done':''}"><span class="t-time">${sg}${m}:${String(s).padStart(2,'0')}</span>
+const m=Math.floor(TIMER.left/60),s=TIMER.left%60;
+el.innerHTML=`<div class="timer-pill${TIMER.done?' done':''}"><span class="t-time">${m}:${String(s).padStart(2,'0')}</span>
 <button class="t-x" onclick="clearTimer()">✕</button></div>`}
 
 
@@ -1216,7 +1231,7 @@ if(['workout','summary','cardio','logpast'].includes(VIEW))n.innerHTML='';
 else{const ts=[['home','Today'],['history','History'],['stats','Progress'],['body','Body'],['settings','Settings']];
 n.innerHTML=ts.map(([v,l])=>`<button class="${VIEW===v?'a':''}" onclick="go('${v}')">${l}</button>`).join('')}
 const a=document.getElementById('app');if(CIV){clearInterval(CIV);CIV=null}
-const fn={home:rHome,workout:rWork,warmup:()=>beginW(ADAY),summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast};
+const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast};
 (fn[VIEW]||rHome)(a);
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed()},1000)}
 function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
@@ -1399,8 +1414,13 @@ h+=`</div>`;el.innerHTML=h}
 // Idempotent — used by beginW and by the swap flow when a new movement enters the day.
 function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=getSmartSugg(ex);
 const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
+// Pad prefilled reps to the CURRENT set count — history logged under an older
+// prescription (e.g. floor press 3→4 sets in v21) is shorter, and an unpadded
+// array rendered a literal "undefined" in the extra set's input.
+const reps=last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):[];
+while(reps.length<ex.s)reps.push('');
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
-reps:last?last.reps.slice(0,ex.s).map(r=>r>0?String(r):''):Array(ex.s).fill(''),
+reps,
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 
 // The day's exercise list with any in-session swaps applied. Each returned object
@@ -1488,7 +1508,7 @@ if(isDone&&!isCur){
 h+=`<div class="ex-row done-row" onclick="CIDX=${idx};saveAW();render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+log.band:''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
+<span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+esc(log.band):''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
 } else if(!isCur){
 // Upcoming row
 h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
@@ -1515,7 +1535,7 @@ if(!cands.length)h+=`<div class="dm" style="padding:6px 2px">No alternatives for
 for(const c of cands){const cl=getLast(c.id);
 h+=`<div class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
 <div><div style="font-size:12px;font-weight:700">${esc(c.nm)}</div>
-<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+cl.band:''}`:' · new'}</div></div>
+<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</div></div>
 <span class="swap-go">Use</span></div>`}
 if(ex._swapped)h+=`<button class="btn-ghost" style="font-size:10px;margin-top:6px;color:var(--am)" onclick="event.stopPropagation();revertSwap('${ex._slot}')">↺ Restore original</button>`;
 h+=`</div>`}
@@ -1525,7 +1545,7 @@ if(ex.note)h+=`<div class="cue" style="border-left-color:var(--am)">📌 ${esc(e
 h+=`<div style="margin-top:6px"><span class="sg ${sgClass(sg.type)}">${esc(sg.text)}</span>
 ${sg.detail?`<span class="dm" style="margin-left:4px">${esc(sg.detail)}</span>`:''}
 ${sg.regress?`<div class="regress" style="margin-top:3px">⚠ ${esc(sg.regress)}</div>`:''}</div>`;
-if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${last.wt?last.wt+'kg':''}${last.band?' '+last.band:''} [${last.reps.join(',')}] · ${fmtD(last.date)}</div>`;
+if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${last.wt?last.wt+'kg':''}${last.band?' '+esc(last.band):''} [${last.reps.join(',')}] · ${fmtD(last.date)}</div>`;
 
 for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=`<div class="regress" style="margin-top:3px">⚠ ${j} ${tr.recent3}/3</div>`}
 
@@ -1649,7 +1669,9 @@ for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW(
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
 function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();go('home')}
-else{CANCEL_ARMED=true;setTimeout(()=>CANCEL_ARMED=false,3000);render()}}
+// Re-render on disarm — without it the button kept saying "Confirm" after the 3s
+// window closed, so the next tap silently re-armed instead of cancelling.
+else{CANCEL_ARMED=true;setTimeout(()=>{if(CANCEL_ARMED){CANCEL_ARMED=false;render()}},3000);render()}}
 function editCue(exId){const cur=D.cues[exId]||'';const v=prompt(`Cue for ${ALL_EX.find(e=>e.id===exId)?.nm||exId}:`,cur);
 if(v!==null){if(v.trim())D.cues[exId]=v.trim();else delete D.cues[exId];save();render()}}
 
@@ -1672,7 +1694,10 @@ const prs=[];for(const e of logged){const p=checkPR(e.id,e.wt,e.reps);if(p.lengt
 let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.length;tr+=vr.reduce((a,b)=>a+b,0);tv+=calcExVol(e.id,e.wt,e.reps)}
 const discCount=Object.values(LOG).filter(v=>v.disc&&v.disc!=='none').length;
 window._S={exs:logged,prs,tv,ts,tr,dur:SS?Math.round((Date.now()-SS)/6e4):0,day:ADAY,warmup:WU_CHECKS.filter(Boolean).length,discCount,notes:SNOTES};
-SDIFF=0;clearAW();VIEW='summary';render();window.scrollTo(0,0)}
+// Keep the active-workout backup until the summary is actually SAVED — clearing it
+// here meant an app kill on the summary screen (before tapping Save) lost the whole
+// session, with no resume offered. saveSumm clears it once the data is in D.sessions.
+SDIFF=0;VIEW='summary';render();window.scrollTo(0,0)}
 
 function rSumm(el){const S=window._S;
 let h=`<div class="sec"><div class="summary-card">
@@ -1697,9 +1722,9 @@ h+=`</div></div></div>
 <button class="btn btn-pr" style="${SDIFF?'':'opacity:0.35;pointer-events:none'}" onclick="saveSumm()">${SDIFF?'Save':'Select RPE to save'}</button></div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S;
-D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,trainingWeek:getPhaseInfo().wk,notes:S.notes||''});
+D.sessions.push({id:'s'+Date.now(),date:today(),day:S.day,loc:D.location||'home',ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||''});
 D.nextDay=NEXT_DAY[S.day]||'A';
-save();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();go('home')}
+save();clearAW();ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();go('home')}
 
 
 // ─── CARDIO ──────────────────────────────────
@@ -2263,8 +2288,10 @@ ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
-<div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+e.band:''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
-if(e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
+<div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+esc(e.band):''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
+// Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
+// 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
+if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 h+=`<button class="btn-sm btn-rd" style="margin-top:6px" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button></div>`}
 h+=`</div>`}h+=`</div>`;el.innerHTML=h}
@@ -2414,7 +2441,7 @@ else h+=`<div class="dm">No cues yet</div>`;
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thickest → thinnest)</div>
 <div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips): band helps you. Thinner = harder = progress. Move right.</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Danger Zone</div>
-<button class="btn btn-rd" id="resetBtn" onclick="if(this.dataset.armed==='1'){D=freshState();save();this.dataset.armed='0';go('home')}else{this.dataset.armed='1';this.textContent='Tap again to confirm reset';setTimeout(()=>{this.dataset.armed='0';this.textContent='Reset All Data'},3000)}">Reset All Data</button>
+<button class="btn btn-rd" id="resetBtn" onclick="if(this.dataset.armed==='1'){this.dataset.armed='0';resetAll()}else{this.dataset.armed='1';this.textContent='Tap again to confirm reset';setTimeout(()=>{this.dataset.armed='0';this.textContent='Reset All Data'},3000)}">Reset All Data</button>
 </div>`;el.innerHTML=h}
 
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
@@ -2433,7 +2460,10 @@ for(const e of s.ex){
   if(!e||typeof e!=='object'||typeof e.id!=='string')continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
   const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
-  ex.push({...e,reps,wt})}
+  // band must be a plain string — it's interpolated into markup at several render
+  // sites (escaped there too, but a non-string here would still print garbage).
+  const band=typeof e.band==='string'?e.band:'';
+  ex.push({...e,reps,wt,band})}
 // `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
 // s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a
 // malformed/hand-edited backup can't crash the Home/History screens it lands on.

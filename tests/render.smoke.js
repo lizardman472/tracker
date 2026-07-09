@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -75,6 +75,15 @@ T('partner home produced non-empty markup', R.getA().length > 200);
 R.getD().location = 'home';
 tryRender('workout (Day A, hex_dl current)', () => R.beginW('A'));
 const work = R.getA();
+// Prefill padding: SEED's floor_press history has 3 sets, the current prescription is 4
+// (v21 bump). The unpadded prefill rendered value="undefined" in the 4th set input.
+const fpLog = R.getLOG()['floor_press'];
+T('prefilled reps padded to the current set count', fpLog && fpLog.reps.length === 4 && fpLog.reps[3] === '', JSON.stringify(fpLog && fpLog.reps));
+R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'floor_press'));
+tryRender('workout (floor_press current, padded prefill)', () => R.render());
+T('no literal "undefined" leaks into set inputs', !/value="undefined"/.test(R.getA()));
+R.setCIDX(0);
+R.render();
 T('workout shows the hex lift name', /Hex Bar Deadlift/.test(work), work.slice(0, 120));
 T('stepper labels the 7kg hex bar', /Hex bar 7kg/.test(work));
 T('stepper hero shows the seeded 40kg', /40<sub>kg<\/sub>/.test(work));
@@ -130,6 +139,43 @@ if (histOk) {
   // if the detail used the hex bar; the 11kg-bar misread (10+2.5+1+1) would have no 5kg.
   T('hex session detail uses the 7kg bar (has a 5kg plate)', /pl pl-5/.test(hist));
   T('hex session detail has exactly one 10kg plate/side', (hist.match(/pl pl-10/g) || []).length === 1);
+}
+
+// ── History: plate breakdown gated to bar lifts ──
+// A 12kg-per-DB entry exceeds barOf()'s 11kg fallback and used to render a bogus
+// barbell plate strip on a dumbbell lift.
+R.getD().sessions.push({ id: 'dbs', date: '2026-06-13', day: 'B', loc: 'partner',
+  ex: [{ id: 'db_ohp', wt: 12, reps: [10, 10, 10], band: '' }] });
+R.go('history'); // go() resets EXP, so navigate first…
+R.setEXP('dbs'); // …then expand and re-render
+tryRender('History (DB session expanded)', () => R.render());
+const dbHist = R.getA();
+T('expanded DB session shows the weight', /12kg/.test(dbHist));
+T('no plate strip rendered for a dumbbell lift', !/class="pl /.test(dbHist));
+R.setEXP(null);
+R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
+
+// ── finishW keeps the active-workout backup until saveSumm commits the session ──
+// Killing the app on the summary screen used to lose the whole workout (AW cleared
+// before the session reached D.sessions, so no resume was offered either).
+{
+  const store = {};
+  const realLS = global.localStorage;
+  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+  const nBefore = R.getD().sessions.length;
+  R.beginW('A');
+  const log = R.getLOG()['hex_dl'];
+  log.touched = true; log.wt = 40; log.reps = ['5', '5', '5'];
+  tryRender('finishW → summary', () => R.finishW());
+  T('AW backup survives finishW (summary not yet saved)', store[R.AW_KEY] != null);
+  R.setSDIFF(3);
+  tryRender('saveSumm commits the session', () => R.saveSumm());
+  T('saveSumm clears the AW backup', store[R.AW_KEY] == null);
+  const saved = R.getD().sessions[R.getD().sessions.length - 1];
+  T('session committed with RPE', R.getD().sessions.length === nBefore + 1 && saved.difficulty === 3, JSON.stringify({ n: R.getD().sessions.length, diff: saved && saved.difficulty }));
+  T('dead trainingWeek field no longer written to sessions', saved.trainingWeek === undefined);
+  R.getD().sessions = R.getD().sessions.filter(s => s !== saved);
+  global.localStorage = realLS;
 }
 
 // ── Settings + All-Valid-Weights reference screen ──

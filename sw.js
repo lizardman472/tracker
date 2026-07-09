@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v47';
+const C = 'rft-v48';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -37,7 +37,11 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith(
     caches.match(req).then(r => r || fetch(req).then(resp => {
-      if (resp && resp.status === 200 && resp.type === 'basic') {
+      // 'basic' = same-origin assets; 'cors' = the Google Fonts stylesheet (loaded with
+      // crossorigin) + woff2 files (font fetches are CORS-mode by spec). Both expose a
+      // real status, so the 200 guard still blocks caching errors. Opaque responses
+      // (status 0) stay uncacheable — offline typography needs the fonts cached.
+      if (resp && resp.status === 200 && (resp.type === 'basic' || resp.type === 'cors')) {
         const clone = resp.clone();
         caches.open(C).then(c => c.put(req, clone));
       }
