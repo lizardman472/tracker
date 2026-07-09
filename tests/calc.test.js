@@ -801,6 +801,25 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('big4: incomplete lift coverage yields an empty series', big4Weekly(12).length === 0);
 }
 
+// ── Deeper stats D5: e1rmProjection + recentPRs.id ──
+{
+  const de = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  const mk = (id, n, wt) => ({ id, date: wkAgo(n), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '' }] });
+  de.sessions = [mk('e1', 4, 56), mk('e2', 3, 58), mk('e3', 2, 60), mk('e4', 1, 62), mk('e5', 0, 64)];
+  const pj = e1rmProjection('hex_dl');
+  const latest = e1rm(64, 5); // 74.7
+  T('projection targets the next 5kg milestone', pj && pj.kg === Math.floor(latest / 5) * 5 + 5, JSON.stringify(pj));
+  T('projection ETA within the 12-week cap', pj.wks > 0 && pj.wks <= 12 && typeof pj.date === 'string');
+  de.sessions = [mk('f1', 4, 60), mk('f2', 3, 60), mk('f3', 2, 60), mk('f4', 1, 60)];
+  T('flat trend → no projection', e1rmProjection('hex_dl') === null);
+  de.sessions = [mk('g1', 4, 60.5), mk('g2', 2, 60.25), mk('g3', 0, 60.75)]; // ~0.05kg/wk → decades to +5kg
+  T('too-slow trend (ETA >12wk) → no projection', e1rmProjection('hex_dl') === null);
+  de.sessions = [mk('h1', 2, 56), mk('h2', 1, 60), mk('h3', 0, 64)];
+  const pr = recentPRs(null).find(p => p.id === 'hex_dl');
+  T('recentPRs entries carry the exercise id', pr && pr.date === wkAgo(0), JSON.stringify(pr));
+}
+
 // ── Progress rebuild A7: quirk fixes ──
 {
   // Club lifts mint e1RM PRs (E1RM_TYPES includes club) — the momentum board now

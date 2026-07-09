@@ -2192,6 +2192,17 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
+// ── Straight-line e1RM projection: the next 5kg milestone above the latest e1RM
+// and its ETA at the current 8-week slope. Null when the trend is flat/negative
+// or the ETA is >12 weeks out — beyond ~3 months a linear extrapolation is fiction. ──
+function e1rmProjection(exId){
+const s=e1rmSlope(exId,56);
+if(!s||s.slope<=0)return null;
+const milestone=Math.floor(s.latest/5)*5+5;
+const wks=(milestone-s.latest)/s.slope;
+if(wks>12)return null;
+const d=new Date();d.setDate(d.getDate()+Math.round(wks*7));
+return{kg:milestone,wks:Math.round(wks*10)/10,date:d.toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}}
 // ── Big-4 combined e1RM (the STD strength-tier lifts): weekly sum of each lift's
 // best-session e1RM. A week a lift wasn't trained carries FORWARD its last known
 // e1RM — a missed exposure is not strength loss. The series starts at the first
@@ -2271,7 +2282,7 @@ if(seen){
 if(e.wt&&e.wt>bw)bw=e.wt;
 if(e1>be)be=e1;
 seen=true;
-if(isPR&&(!cut||e.date>=cut))prs.push({nm:ex.nm,date:e.date,...isPR})}}
+if(isPR&&(!cut||e.date>=cut))prs.push({id:ex.id,nm:ex.nm,date:e.date,...isPR})}}
 prs.sort((a,b)=>b.date.localeCompare(a.date));return prs;
 }
 // ── Milestones: cumulative tonnage / session / streak achievements ──
@@ -2514,6 +2525,13 @@ h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend.toFixed(1)+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
 }
+// Projection + PR recency — where this lift is headed and when it last moved.
+if(selEx&&E1RM_TYPES.has(selEx.tp)){
+const proj=e1rmProjection(STAT_EX);
+const lastPr=recentPRs(null).find(p=>p.id===STAT_EX);
+if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
+${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
+${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
 h+=`<div class="cd">${svgLine(wtD,360,170,'#c9f24b','Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
 }
