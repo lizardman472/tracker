@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Tracker">
@@ -25,7 +25,8 @@
 --prRGB:56,189,248;--pr:#38bdf8;--prl:#07242f;--prg:#0ea5e9;--ink:#05131c;
 --gr:#34d399;--grl:#08251c;--am:#f5a524;--aml:#2a200d;--rd:#fb7185;--rdl:#2c1622;
 --pu:#a78bfa;--pul:#1d1936;--bl:#60a5fa;--bll:#0f1d33;
---p10:#fb7185;--p5:#60a5fa;--p25:#34d399;--p1:#586577;
+/* --p1 lightened from #586577: its --ink label text sat at 3.2:1 (illegible micro-chip) */
+--p10:#fb7185;--p5:#60a5fa;--p25:#34d399;--p1:#8b97ab;
 --sh:0 1px 3px rgba(0,0,0,.45);--shm:0 10px 32px rgba(0,0,0,.6);--sab:env(safe-area-inset-bottom,0px);
 --rad:16px;--rad-sm:10px;
 --disp:'Archivo Expanded',-apple-system,system-ui,sans-serif;
@@ -115,7 +116,7 @@ input[type=number]{-moz-appearance:textfield}
 .timer-pill.done{border-color:var(--gr);background:var(--grl);animation:pulse .6s ease 2}
 .timer-pill .t-time{font-family:var(--disp);font-size:19px;font-weight:800;color:var(--pr)}
 .timer-pill.done .t-time{color:var(--gr)}
-.timer-pill .t-x{width:34px;height:34px;border-radius:50%;border:none;background:var(--ib);color:var(--mu);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.timer-pill .t-x{width:44px;height:44px;border-radius:50%;border:none;background:var(--ib);color:var(--mu);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .timer-pill .t-x:active{background:var(--cb)}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 
@@ -133,7 +134,7 @@ input[type=number]{-moz-appearance:textfield}
 .ex-expand{padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--cb)}
 
 /* Set tick */
-.set-tick{width:36px;height:36px;border-radius:50%;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:.15s;margin:6px auto 0;color:var(--mu)}
+.set-tick{width:44px;height:44px;border-radius:50%;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;transition:.15s;margin:6px auto 0;color:var(--mu)}
 .set-tick.done{background:var(--pr);border-color:var(--pr);color:var(--ink);animation:tickpop .35s cubic-bezier(.34,1.56,.64,1)}
 .set-tick:active{transform:scale(.85)}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
@@ -148,9 +149,9 @@ input[type=number]{-moz-appearance:textfield}
 .form-row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .form-lbl{font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--mu)}
 .form-btns{display:flex;gap:4px}
-.form-b{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:13px;font-weight:800;cursor:pointer;transition:.12s;padding:0}
+.form-b{width:40px;height:40px;border-radius:9px;border:1.5px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:14px;font-weight:800;cursor:pointer;transition:.12s;padding:0}
 .form-b:active{transform:scale(.92)}
-.form-b.sm{width:24px;height:24px;font-size:11px;border-radius:6px}
+.form-b.sm{width:30px;height:30px;font-size:12px;border-radius:7px}
 .form-cap{font-size:10px;font-weight:600;margin-top:5px;display:flex;align-items:center;flex-wrap:wrap}
 .form-perset{margin-top:7px;padding-top:7px;border-top:1px solid var(--cb);display:flex;flex-direction:column;gap:5px}
 .form-prow{display:flex;align-items:center;justify-content:space-between}
@@ -170,7 +171,7 @@ input[type=number]{-moz-appearance:textfield}
 .swap-go{font-size:10px;font-weight:800;color:var(--pr);flex:0 0 auto;margin-left:8px}
 /* Warmup */
 .wu-check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--cb);cursor:pointer}
-.wu-box{width:28px;height:28px;border-radius:8px;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:.15s;color:var(--mu)}
+.wu-box{width:36px;height:36px;border-radius:9px;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:.15s;color:var(--mu)}
 .wu-box.checked{background:var(--pr);border-color:var(--pr);color:var(--ink)}
 
 /* Discomfort */
@@ -1484,7 +1485,7 @@ const daysSince=D.lastBackup?dayDiff(today(),D.lastBackup):999;
 const bkSig='n'+D.sessions.length; // re-shows once you've logged another session
 if(D.sessions.length>0&&(sinceCount>=3||!D.lastBackup||daysSince>=14)&&!bannerDismissed('backup',bkSig)){
 h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
-<button onclick="dismissBanner('backup','${bkSig}')" style="position:absolute;top:8px;right:10px;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:2px 4px">✕</button>
+<button onclick="dismissBanner('backup','${bkSig}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚠ Back up your data</div>
 <div class="dm" style="margin-bottom:8px">${D.lastBackup?`${sinceCount} new session${sinceCount!==1?'s':''} since last backup (${dAgo(D.lastBackup)}).`:'No backup yet.'} A browser cache-clear wipes everything stored here.</div>
 <button class="btn btn-pr" style="padding:10px;font-size:13px" onclick="expD()">↓ Download backup now</button></div>`}}
@@ -1502,7 +1503,7 @@ onclick="setLoc('partner')">🏘 Partner's</button></div>`;
 const rLS=D.sessions.filter(s=>(s.loc||'home')===D.location).slice(-3);
 const wuSk=rLS.filter(s=>s.warmup===0).length; // null (retro/unknown) doesn't count as skipped
 const wuSig=D.sessions.length+'-'+wuSk;
-if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#4a2236;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#4a2236;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" aria-label="Dismiss" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0;padding:12px;margin:-12px">✕</button></div>`;
 const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
 if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Wk ${dl.wk} · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
@@ -1610,12 +1611,12 @@ if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);t
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledEx} lifts stalling · ${PHASES[nxtP].desc}</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
 else if(phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',phi.phase+'-'+phi.wk))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
-<button onclick="dismissBanner('phasetimer','${phi.phase+'-'+phi.wk}')" style="position:absolute;top:8px;right:10px;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1">✕</button>
+<button onclick="dismissBanner('phasetimer','${phi.phase+'-'+phi.wk}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:3px;padding-right:20px">Phase timer complete</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks of ${phi.name} and lifts are still moving (${phi.progressingEx}/${phi.totalEx} progressing). Switch when ready — or ride the wave a little longer.</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
 else if(phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledEx))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
-<button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledEx}')" style="position:absolute;top:8px;right:10px;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1">✕</button>
+<button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledEx}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${phi.stalledEx} lifts stalling early</div>
 <div class="dm" style="margin-bottom:6px">Only week ${phi.wk}/${phi.maxWk} of ${phi.name} — check the deload advice above first; if fatigue is fine, an early phase switch can reset momentum.</div>
 <button class="btn-sm btn-wh" onclick="advancePhaseSafe()">Switch early → P${nxtP} ${PHASES[nxtP].name}</button></div>`;
@@ -2880,7 +2881,7 @@ if('serviceWorker'in navigator){
 function showUpdateToast(){if(document.getElementById('upd-toast'))return;
   const t=document.createElement('div');t.id='upd-toast';
   t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:300;background:var(--cd);border:1px solid var(--pr);border-radius:30px;padding:9px 10px 9px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.55);font-size:12px;color:var(--tx)';
-  t.innerHTML='<span>New version available</span><button style="background:var(--pr);color:var(--ink);border:none;border-radius:20px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer">Reload</button><button aria-label="Dismiss update" style="background:0;border:none;color:var(--mu);font-size:17px;cursor:pointer;line-height:1;padding:4px 8px">✕</button>';
+  t.innerHTML='<span>New version available</span><button style="background:var(--pr);color:var(--ink);border:none;border-radius:20px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer">Reload</button><button aria-label="Dismiss update" style="background:0;border:none;color:var(--mu);font-size:17px;cursor:pointer;line-height:1;padding:12px 14px;margin:-8px -6px">✕</button>';
   const b=t.querySelectorAll('button');b[0].onclick=()=>location.reload();b[1].onclick=()=>t.remove();
   document.body.appendChild(t)}
 
