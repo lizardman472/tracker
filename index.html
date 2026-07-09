@@ -49,7 +49,7 @@ input[type=number]{-moz-appearance:textfield}
 .hdr h1{font-family:var(--disp);font-size:15px;font-weight:900;color:var(--tx);letter-spacing:1.5px;text-transform:uppercase}
 .hdr h1::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pr);margin-right:9px;vertical-align:middle;box-shadow:0 0 14px var(--pr),0 0 4px var(--pr)}
 .nav{display:flex;background:rgba(10,13,19,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
-.nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:color .2s}
+.nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:.6px;text-transform:uppercase;transition:color .2s}
 .nav button.a{color:var(--pr);border-bottom-color:var(--pr);text-shadow:0 0 14px rgba(var(--prRGB),.6)}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -71,7 +71,7 @@ input[type=number]{-moz-appearance:textfield}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
 .regress{font-size:10px;color:var(--rd);padding:3px 7px;background:var(--rdl);border-radius:6px;display:inline-block;font-weight:600}
-.pr-badge{font-family:var(--disp);font-size:10px;font-weight:800;color:var(--ink);background:var(--am);padding:3px 9px;border-radius:6px;letter-spacing:.5px}
+.pr-badge{font-family:var(--disp);font-size:10px;font-weight:800;color:var(--ink);background:var(--am);padding:3px 9px;border-radius:6px;letter-spacing:.5px;white-space:nowrap}
 .max-badge{font-size:9px;font-weight:800;color:var(--rd);background:var(--rdl);padding:2px 7px;border-radius:5px;margin-left:4px}
 .cue{font-size:12px;color:var(--tx);padding:9px 12px;background:var(--prl);border-radius:var(--rad-sm);margin:6px 0;border-left:3px solid var(--pr)}
 
@@ -1338,7 +1338,11 @@ s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="1
 function svgLine(data,W,H,color,label){
 if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Need 2+ data points</div>`;
 const pad={t:22,r:18,b:28,l:36},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
-const vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
+let vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals);
+// A perfectly flat series (e.g. every week RPE 3) printed four identical tick
+// labels — pad the domain by ±1 so ticks differ and the line sits mid-chart.
+if(mx===mn){mn=mn-1;mx=mx+1}
+const rng=mx-mn||1;
 const pts=data.map((d,i)=>({x:pad.l+(i/(data.length-1))*w,y:pad.t+h-((d.v-mn)/rng)*h,...d}));
 const gid='g'+Math.random().toString(36).slice(2,7);
 // 1-decimal ticks on narrow ranges (bodyweight moves <1kg between logs — integer
@@ -2345,9 +2349,9 @@ if(STAT_SEG==='overview'){
 // (Week math mirrors getPhaseInfo :801 without its per-exercise getSmartSugg cost.)
 {const p=PHASES[D.phase]||PHASES[1];
 const wk=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5)+1);
-h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px">
-<span style="font-size:12px;font-weight:700">Phase ${D.phase} · ${p.name}</span>
-<span class="dm">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span></div>`}
+h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px">
+<span style="font-size:12px;font-weight:700;white-space:nowrap">Phase ${D.phase} · ${p.name}</span>
+<span class="dm" style="white-space:nowrap">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span></div>`}
 const rprs=recentPRs(30);
 if(rprs.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">New PRs · last 30 days</div>`;
 for(const p of rprs.slice(0,8)){h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--cb)">
@@ -2577,7 +2581,7 @@ h+=`</div>`;
 if(cw.length>=2){
 const sum=k=>cw.reduce((a,w)=>a+w[k],0);
 h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#f5a524','Cardio Minutes / Week')}
-<div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">easy ${sum('easy')}</span> · <span style="color:var(--am)">moderate ${sum('moderate')}</span> · <span style="color:var(--rd)">hard ${sum('hard')}</span> min</div></div>`}}
+<div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">■</span> easy ${sum('easy')} · <span style="color:var(--am)">■</span> moderate ${sum('moderate')} · <span style="color:var(--rd)">■</span> hard ${sum('hard')} min</div></div>`}}
 
 }else{
 // ═══ LIFETIME — motivation ═══
