@@ -159,6 +159,16 @@ T('balance muscle card is NOT rendered on the Lifts segment', !/Weekly Volume by
 // ── Progress tab with a hex lift selected ──
 R.setSTAT('hex_dl');
 tryRender('Progress (stats, hex_dl selected)', () => R.go('stats'));
+
+// ── Band lift detail: ladder + reps chart instead of dead weight charts ──
+R.setSEG('lifts');
+R.setSTAT('pullup_a');
+tryRender('Progress (band lift selected)', () => R.render());
+const bandSeg = R.getA();
+T('band lift shows the band ladder', /Band Ladder/.test(bandSeg));
+T('band ladder highlights the current band (Green in SEED)', /band-chip on">Green</.test(bandSeg), (bandSeg.match(/band-chip[^"]*">Green</) || [])[0]);
+T('band lift shows a total-reps chart, not a dead weight chart', /Total Reps \/ Session/.test(bandSeg) && !/Need 2\+ data points/.test(bandSeg));
+T('band estrip shows Best Reps + Reps · 8wk cells', /Best Reps/.test(bandSeg) && /Reps · 8wk/.test(bandSeg));
 R.setSTAT('deadlift');
 R.setSEG('overview');
 

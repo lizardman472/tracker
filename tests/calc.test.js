@@ -684,6 +684,23 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 
+// ── Progress rebuild A2: band-lift progression helpers ──
+{
+  T('bandRank maps exact ladder strings', bandRank('Blue (heaviest)') === 0 && bandRank('None') === 5);
+  T('bandRank treats the combo band as its own rung', bandRank('Purple+Red') === 2);
+  T('bandRank returns -1 for unknown/legacy strings', bandRank('Orange') === -1 && bandRank('') === -1);
+
+  const d2 = freshD();
+  const mkB = (id, daysAgo, reps) => ({ id: 'b' + id, date: ymd(new Date(Date.now() - daysAgo * 864e5)), day: 'A', loc: 'home',
+    ex: [{ id: 'pullup_a', wt: null, reps, band: 'Green' }] });
+  d2.sessions = [mkB(1, 28, [4, 4, 3, 3]), mkB(2, 21, [5, 4, 4, 3]), mkB(3, 14, [5, 5, 4, 4]), mkB(4, 7, [6, 5, 5, 4]), mkB(5, 0, [6, 6, 5, 5])];
+  const rs = repsSlope('pullup_a', 56);
+  T('repsSlope fits rising band-lift reps (positive reps/week)', rs && rs.slope > 0 && rs.n === 5, JSON.stringify(rs));
+  T('repsSlope latest = most recent session total', rs.latest === 22);
+  d2.sessions = [mkB(1, 3, [5, 5, 5, 5]), mkB(2, 0, [5, 5, 5, 5])];
+  T('repsSlope null under 3 sessions / 2 weeks span', repsSlope('pullup_a', 56) === null);
+}
+
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 12', SEED.programVersion === 12);

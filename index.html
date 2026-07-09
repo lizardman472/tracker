@@ -263,6 +263,11 @@ svg text{font-family:var(--body)}
 .seg-row::-webkit-scrollbar{display:none}
 .seg-chip{flex:0 0 auto;padding:11px 15px;border-radius:20px;border:1px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;transition:.12s;-webkit-appearance:none;appearance:none}
 .seg-chip.on{background:var(--pr);border-color:var(--pr);color:var(--ink)}
+/* Band-ladder rungs (band-lift exercise detail) */
+.band-lad{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.band-chip{flex:0 0 auto;font-size:10px;font-weight:700;padding:5px 8px;border-radius:14px;border:1px solid var(--cb);background:var(--ib);color:var(--dm)}
+.band-chip.used{color:var(--mu);border-color:var(--ibr)}
+.band-chip.on{background:var(--prl);border-color:var(--pr);color:var(--pr)}
 .estrip{display:flex;gap:8px;margin-bottom:10px}
 .estrip-cell{flex:1;background:var(--ib);border-radius:var(--rad-sm);padding:11px 7px;text-align:center}
 .estrip-num{font-family:var(--disp);font-size:16px;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums;line-height:1}
@@ -2076,6 +2081,26 @@ const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)
 let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
 if(!den)return null;
 return{slope:Math.round(num/den*100)/100,n,latest:Math.round(pts[pts.length-1].y*10)/10}}
+// ── Band-lift progression helpers. BANDS (index 0 = heaviest band) is the ladder:
+// for ASSIST lifts a higher index = less assistance = progress; for RESIST lifts a
+// heavier band (lower index) = progress. Combo strings like 'Purple+Red' are their
+// own rung; unknown/legacy strings → -1 (untracked, render as plain label). ──
+function bandRank(band){return BANDS.indexOf(band)}
+// Least-squares slope of per-session TOTAL REPS (reps/week) — the progression axis
+// for band/bodyweight lifts, where e1rmSlope has no weight to fit. Same guards as
+// e1rmSlope: ≥3 sessions spanning ≥2 weeks, else null.
+function repsSlope(exId,days){
+const cut=daysAgoStr(days||56);
+const pts=[];
+for(const h of getHist(exId,200)){if(h.date<cut)continue;
+const tot=(h.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0);
+if(tot>0)pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y:tot})}
+if(pts.length<3)return null;
+if(pts[pts.length-1].x-pts[0].x<2)return null;
+const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
+let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
+if(!den)return null;
+return{slope:Math.round(num/den*10)/10,n,latest:pts[pts.length-1].y}}
 // ── Momentum board: every logged weighted lift ranked by e1RM kg/week ──
 function strengthMomentum(){
 const logged=loggedExIds();const out=[];
@@ -2314,6 +2339,36 @@ if(newList.length){h+=`<optgroup label="Current program — not yet logged">`;fo
 if(legacyList.length){h+=`<optgroup label="Legacy / unused">`;for(const id of legacyList)h+=opt(id);h+=`</optgroup>`}
 h+=`</select>`;
 h+=`<div style="text-align:right;margin:-4px 0 8px"><button class="btn-ghost" style="font-size:10px" onclick="STAT_ALL=!STAT_ALL;render()">${STAT_ALL?'Hide legacy/unused':'Show all exercises'}</button></div>`;
+if(selEx?.tp==='band'){
+// ── Band lifts progress along the band ladder + total reps, not weight — the
+// weight/e1RM charts were permanently dead here ("Need 2+ data points"). ──
+const bHist=es.history||[];
+const totReps=x=>(x.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0);
+const bestReps=bHist.length?Math.max(...bHist.map(totReps)):0;
+const rSl=repsSlope(STAT_EX,56);
+const repTrend=rSl?Math.round(rSl.slope*8):null;
+if(es.sessions){
+h+=`<div class="estrip">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${bestReps||'—'}</div><div class="estrip-lbl">Best Reps</div></div>
+<div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'—'}</div><div class="estrip-lbl">Band</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:${repTrend>0?'var(--gr)':repTrend<0?'var(--am)':'var(--tx)'}">${repTrend!=null?(repTrend>0?'+':'')+repTrend:'—'}</div><div class="estrip-lbl">Reps · 8wk</div></div></div>`;
+}
+// Band ladder — where the current band sits on the progression path. Assist lifts
+// read left→right toward 'None' (less assistance); resist lifts read left→right
+// toward the heaviest band. Combo rungs (Purple+Red) are real rungs.
+{const used=new Set(bHist.map(x=>x.band).filter(Boolean));
+const cur=es.last&&es.last.band;
+const assist=selEx.bandMode!=='resist';
+const rungs=assist?BANDS:BANDS.slice(0,-1).reverse();
+h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Band Ladder</div><div class="band-lad">`;
+h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">${esc(b.replace(' (heaviest)',''))}</span>`).join(`<span class="dm" style="font-size:9px">→</span>`);
+h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
+if(bHist.length){
+const repD=bHist.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+h+=`<div class="cd">${svgLine(repD,360,170,'#38bdf8','Total Reps / Session')}</div>`;
+}
+}else{
 // stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
 // first-vs-last weight, so phase re-anchors don't read as regression)
 if(es.sessions){
@@ -2325,6 +2380,7 @@ h+=`<div class="estrip">
 }
 h+=`<div class="cd">${svgLine(wtD,360,170,'#38bdf8','Weight (kg)')}</div>`;
 if(['bb','db','kb','mace'].includes(selEx?.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
+}
 
 // Discomfort summary for selected exercise
 const discData=D.discomfort.filter(d=>d.exId===STAT_EX);
