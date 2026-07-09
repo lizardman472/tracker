@@ -57,11 +57,10 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Badges */
 .bg{display:inline-block;padding:3px 9px;border-radius:6px;font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
-.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--bll);color:var(--bl)}.bg-c{background:var(--grl);color:var(--gr)}.bg-d{background:var(--aml);color:var(--am)}
+.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--bll);color:var(--bl)}.bg-c{background:var(--grl);color:var(--gr)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
-.wk-1{background:var(--prl);color:var(--pr)}.wk-2{background:var(--pul);color:var(--pu)}
 .regress{font-size:10px;color:var(--rd);padding:3px 7px;background:var(--rdl);border-radius:6px;display:inline-block;font-weight:600}
 .pr-badge{font-family:var(--disp);font-size:10px;font-weight:800;color:var(--ink);background:var(--am);padding:3px 9px;border-radius:6px;letter-spacing:.5px}
 .max-badge{font-size:9px;font-weight:800;color:var(--rd);background:var(--rdl);padding:2px 7px;border-radius:5px;margin-left:4px}
@@ -83,8 +82,6 @@ input[type=number]{-moz-appearance:textfield}
 .stp{display:flex;align-items:center;gap:8px;justify-content:center}
 .stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
 .stp-b:active{background:var(--pr);color:var(--ink);transform:scale(.92)}.stp-b.dis{color:var(--dm)}
-.stp-v{min-width:88px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);background:var(--ib);border:2px solid var(--pr);font-family:var(--disp);font-size:21px;font-weight:800;color:var(--pr);font-variant-numeric:tabular-nums;box-shadow:0 0 16px rgba(var(--prRGB),.12)}
-.stp-v span{font-size:10px;color:var(--mu);margin-left:3px;font-weight:500;font-family:var(--body)}
 /* Dominant weight readout for the active barbell card */
 .stp-big{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
 .stp-hero{font-family:var(--disp);font-size:66px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:.88;letter-spacing:-2.5px;text-shadow:0 0 38px rgba(var(--prRGB),.5),0 0 12px rgba(var(--prRGB),.3);position:relative}
@@ -213,8 +210,6 @@ input[type=number]{-moz-appearance:textfield}
 .cyc-node{display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:36px}
 .cyc-gap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;padding:0 9px;color:var(--mu);font-size:9px;font-weight:600;white-space:nowrap}
 .cyc-dash{width:20px;height:2px;background:var(--cb);border-radius:2px;margin-bottom:3px}
-.preview-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--cb);font-size:12px}
-.preview-row:last-child{border:none}
 .prev2{display:flex;align-items:center;gap:11px;padding:10px 2px;border-bottom:1px solid var(--cb);cursor:pointer;transition:background .15s}
 .prev2:last-child{border:none}
 .prev2:active,.prev2:hover{background:var(--ib)}
@@ -237,9 +232,6 @@ svg text{font-family:var(--body)}
 .warmup-set{display:flex;justify-content:space-between;padding:2px 0}
 .cardio-btn{padding:11px;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-size:12px;font-weight:600;cursor:pointer;text-align:center}
 .cardio-btn.sel{border-color:var(--gr);background:var(--grl);color:var(--gr)}
-.phase-banner{background:var(--prl);border:1px solid rgba(var(--prRGB),.3);border-radius:var(--rad-sm);padding:9px 13px;margin-bottom:10px;font-size:11px;color:var(--pr);display:flex;justify-content:space-between;align-items:center}
-.phase-bar{height:4px;border-radius:3px;background:var(--ib);overflow:hidden;flex:1;margin-left:10px}
-.phase-fill{height:100%;border-radius:3px;background:var(--pr)}
 /* Progress tab: at-a-glance status header */
 .status-hd{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--cb);border:1px solid var(--cb);border-radius:var(--rad);overflow:hidden;margin-bottom:10px;box-shadow:var(--sh)}
 .status-cell{background:linear-gradient(180deg,var(--cd),var(--bg2));padding:14px 8px;text-align:center}
@@ -428,7 +420,6 @@ C:[
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
-const HEX_LM_EX=[];
 
 // Location B (partner's: DBs + bands + clubbells + parallel bars) — pattern-matched to home.
 // v23 PARTNER AUDIT: the partner program was originally pattern-matched but never got the
@@ -530,7 +521,7 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'pallof',nm:'Pallof Press (legacy)',s:3,rp:'10',tg:10,rstS:60,tp:'band',rl:'Legacy — see pallof_press',bandMode:'resist',perSide:false},
 {id:'leg_raise',nm:'Floor Leg Raise',s:3,rp:'12',tg:12,rstS:60,tp:'bw',rl:'Legacy',perSide:false},
 {id:'arms',nm:'Arms (Curl/Ext)',s:2,rp:'12-15',tg:15,rstS:60,tp:'kb',rl:'Legacy',perSide:false},
-{id:'carry',nm:'Carry (legacy)',s:3,rp:'40m',tg:1,rstS:90,tp:'carry',rl:'Legacy — see suitcase_march',perSide:false}];
+{id:'carry',nm:'Carry (legacy)',s:3,rp:'40m',tg:40,rstS:90,tp:'carry',rl:'Legacy — see suitcase_march',perSide:false}];
 // Ids repeat across days and legacy stubs (lateral_raise on A+B; zercher_a/pullup_c
 // active + stub). Dedupe keeping the first (active) definition so PR scans and the
 // stats picker don't double-count or render duplicates.
@@ -809,7 +800,6 @@ return wt*mult*vr.reduce((a,b)=>a+b,0)}
 // RPE scale — replaces emoji system
 const RPE_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
 const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#f43f5e']; // MAX was #9f1239 — 2.2:1 contrast as text on the dark bg
-const RPE_SHORT=['L','M','H','VH','MAX'];
 
 // ═══════════════ RELATED EXERCISE MAPPINGS ═══════════════
 // When a new exercise has no history, fall back to a related exercise's most recent
@@ -853,8 +843,10 @@ const RELATED_EX={
   'cb_mills':       {id:'cb_shield',        mult:1.0,            note:'same clubbell weight class'},
   'db_curl':        {id:null,               seedWt:8,            note:'NEW — DB biceps curl (partner program had no direct arm work). Feel-out ~8kg/DB for 8-12, build up.'},
   'db_dead_bug':    {id:null,               seedWt:5,            note:'NEW — loaded dead bug. Start light (~5kg) and prioritise control over load.'},
-  'pb_pullup_a':    {id:null,               seedBand:'Blue',     note:'NEW — neutral-grip pull-up under the parallel bars. Start with the heaviest assist band (Blue), reduce assistance as you get stronger.'},
-  'pb_pullup_c':    {id:null,               seedBand:'Blue',     note:'NEW — volume neutral-grip pull-up. Start with the heaviest assist band (Blue), reduce assistance over time.'}
+  // seedBand must be the EXACT BANDS entry — a bare 'Blue' resolved in BAND_IDX but
+  // never matched the band <select> options, so the dropdown rendered unselected.
+  'pb_pullup_a':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — neutral-grip pull-up under the parallel bars. Start with the heaviest assist band (Blue), reduce assistance as you get stronger.'},
+  'pb_pullup_c':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — volume neutral-grip pull-up. Start with the heaviest assist band (Blue), reduce assistance over time.'}
 };
 
 function getRelatedSuggestion(ex){
@@ -1662,7 +1654,7 @@ if(isDone&&!isCur){
 h+=`<div class="ex-row done-row" onclick="CIDX=${idx};saveAW();render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+log.band:''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
+<span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+esc(log.band):''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
 } else if(!isCur){
 // Upcoming row
 h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
@@ -1689,7 +1681,7 @@ if(!cands.length)h+=`<div class="dm" style="padding:6px 2px">No alternatives for
 for(const c of cands){const cl=getLast(c.id);
 h+=`<div class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
 <div><div style="font-size:12px;font-weight:700">${esc(c.nm)}</div>
-<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+cl.band:''}`:' · new'}</div></div>
+<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</div></div>
 <span class="swap-go">Use</span></div>`}
 if(ex._swapped)h+=`<button class="btn-ghost" style="font-size:10px;margin-top:6px;color:var(--am)" onclick="event.stopPropagation();revertSwap('${ex._slot}')">↺ Restore original</button>`;
 h+=`</div>`}
@@ -1702,7 +1694,7 @@ h+=`<div class="cue" style="border-left-color:var(--am)">📌 ${esc(full||!needs
 h+=`<div style="margin-top:6px"><span class="sg ${sgClass(sg.type)}">${esc(sg.text)}</span>
 ${sg.detail?`<span class="dm" style="margin-left:4px">${esc(sg.detail)}</span>`:''}
 ${sg.regress?`<div class="regress" style="margin-top:3px">⚠ ${esc(sg.regress)}</div>`:''}</div>`;
-if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${last.wt?last.wt+'kg':''}${last.band?' '+last.band:''} [${last.reps.join(',')}] · ${fmtD(last.date)}</div>`;
+if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${last.wt?last.wt+'kg':''}${last.band?' '+esc(last.band):''} [${last.reps.join(',')}] · ${fmtD(last.date)}</div>`;
 
 for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=`<div class="regress" style="margin-top:3px">⚠ ${j} ${tr.recent3}/3</div>`}
 
@@ -2459,7 +2451,7 @@ ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
-<div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+e.band:''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
+<div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+esc(e.band):''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
 if(e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 h+=`<button class="btn-sm btn-rd" style="margin-top:6px" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button></div>`}
@@ -2638,21 +2630,31 @@ for(const e of s.ex){
   if(!e||typeof e!=='object'||typeof e.id!=='string')continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
   const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
-  ex.push({...e,reps,wt})}
+  // Coerce free-text fields to strings — non-string band/notes from a hand-edited
+  // backup used to flow into templates as objects/arrays.
+  ex.push({...e,reps,wt,band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''})}
 // `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
 // s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a
 // malformed/hand-edited backup can't crash the Home/History screens it lands on.
 const day=['A','B','C'].includes(s.day)?s.day:'A';
-return{...s,id:String(s.id),day,ex}}
+// Session ids are interpolated into inline onclick handlers (delete/expand) — constrain
+// the charset so a hostile/hand-mangled backup id can't break out of the attribute.
+const id=String(s.id).replace(/[^\w.-]/g,'');
+if(!id)return null;
+return{...s,id,day,ex}}
 function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
 r.onload=e=>{try{const d=JSON.parse(e.target.result);
 if(!d||typeof d!=='object'||!Array.isArray(d.sessions))throw 0;
 let skipped=0;d.sessions=d.sessions.map(validSession).filter(s=>s?true:(skipped++,false));
 if(!d.sessions.length&&skipped)throw 0; // nothing salvageable — reject outright
 if(!d.cues||typeof d.cues!=='object'||Array.isArray(d.cues))d.cues={};
-if(!Array.isArray(d.bodyLog))d.bodyLog=[];
-if(!Array.isArray(d.cardioLog))d.cardioLog=[];
-if(!Array.isArray(d.discomfort))d.discomfort=[];
+// Validate the auxiliary logs field-by-field — they render into templates and inline
+// handlers (delBod('${date}')), so imported garbage must be dropped, not adopted.
+d.bodyLog=(Array.isArray(d.bodyLog)?d.bodyLog:[]).filter(b=>b&&typeof b==='object'&&typeof b.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date))
+  .map(b=>{const o={date:b.date};for(const[k,v] of Object.entries(b)){if(k==='date')continue;const n=Number(v);if(Number.isFinite(n))o[k]=Math.round(n*100)/100}return o});
+d.cardioLog=(Array.isArray(d.cardioLog)?d.cardioLog:[]).filter(c=>c&&typeof c==='object'&&typeof c.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(c.date)&&Number.isFinite(Number(c.duration)))
+  .map(c=>({id:String(c.id||'c'+c.date).replace(/[^\w.-]/g,''),date:c.date,type:typeof c.type==='string'?c.type:'Other',duration:Number(c.duration),intensity:['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy'}));
+d.discomfort=(Array.isArray(d.discomfort)?d.discomfort:[]).filter(x=>x&&typeof x==='object'&&typeof x.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&typeof x.exId==='string'&&/^[\w-]+$/.test(x.exId)&&['mild','moderate','none'].includes(x.level)&&JOINTS.includes(x.joint));
 // ATOMIC merge: all work happens on a clone — a throw mid-merge used to leave D
 // partially mutated with the drift persisted by the next save(). D is only replaced
 // once the whole merge succeeded.
@@ -2678,7 +2680,8 @@ for(const x of d.discomfort){if(!dKeys.has(x.date+x.exId+x.joint))W.discomfort.p
 const bKeys=new Set(W.bodyLog.map(x=>x.date));
 for(const x of d.bodyLog){if(!bKeys.has(x.date))W.bodyLog.push(x)}
 W.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));
-for(const[k,v] of Object.entries(d.cues))if(typeof v==='string')W.cues[k]=v;
+// Cue KEYS are interpolated into the delete-button onclick — constrain the charset.
+for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))W.cues[k]=v;
 if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
 // Adopt global metadata (phase clock / venue) ONLY when migrating into a fresh device,
 // and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted verbatim.

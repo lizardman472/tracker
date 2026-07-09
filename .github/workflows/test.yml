@@ -1,0 +1,29 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Calculation engine tests
+        run: node tests/calc.test.js
+      - name: Hex-bar / ladder tests
+        run: node tests/hex.test.js
+      - name: Render smoke tests
+        run: node tests/render.smoke.js
+      - name: Service-worker cache version must change when app files change
+        run: |
+          # If index.html changed in this push but sw.js's cache name didn't, stale
+          # clients would keep the old shell. Warn loudly (non-blocking for docs-only edits).
+          if git diff --quiet HEAD~1 -- index.html 2>/dev/null; then
+            echo "index.html unchanged — skip"
+          elif git diff HEAD~1 -- sw.js 2>/dev/null | grep -q "^[+-]const C"; then
+            echo "cache version bumped ✓"
+          else
+            echo "::warning::index.html changed but sw.js cache version (const C) did not — installed PWAs may serve the stale shell"
+          fi
