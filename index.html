@@ -1318,6 +1318,12 @@ data.forEach((d,i)=>{const bh=Math.max(1,(d.v/mx)*h);const x=pad.l+i*bw+gap/2,y=
 s+=`<rect x="${x}" y="${y}" width="${bw-gap}" height="${bh}" rx="3" fill="${color}"/>`;
 if(data.length<=12)s+=`<text x="${x+(bw-gap)/2}" y="${H-12}" text-anchor="middle" fill="${CH_TXT}" font-size="7.5">${d.lbl}</text>`});
 if(opts.target){const ty=pad.t+h-(opts.target/mx)*h;s+=`<line x1="${pad.l}" y1="${ty}" x2="${W-pad.r}" y2="${ty}" stroke="${CH_TARGET}" stroke-width="1" stroke-dasharray="4 3"/>`}
+// Vertical event markers (opts.marks=[{i,label,color?}]) — phase changes / deload
+// weeks on the weekly charts. Drawn at the left edge of bar i, label at the top.
+if(Array.isArray(opts.marks))for(const m of opts.marks){if(m.i==null||m.i<0||m.i>=data.length)continue;
+const mxp=pad.l+m.i*bw+gap/2-1,mc=m.color||CH_TXT;
+s+=`<line x1="${mxp}" y1="${pad.t-2}" x2="${mxp}" y2="${pad.t+h}" stroke="${mc}" stroke-width="1" stroke-dasharray="2 3"/>`;
+if(m.label)s+=`<text x="${mxp+3}" y="${pad.t+6}" fill="${mc}" font-size="7.5" font-weight="700">${m.label}</text>`}
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${color}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
 function svgLine(data,W,H,color,label){
@@ -2170,6 +2176,20 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
+// ── Event markers for weekly charts: the week each phase change landed (first
+// session stamped with a new phase number) and the deload week (lastDeload),
+// mapped to bar indices of a weeklySeries slice. Sessions without a phase stamp
+// (old history) are skipped — absence of a stamp is not a phase change. ──
+function weeklyMarks(series){
+const marks=[];if(!Array.isArray(series)||!series.length)return marks;
+const idx={};series.forEach((w,i)=>{idx[w.wk]=i});
+const ss=[...D.sessions].sort((a,b)=>a.date.localeCompare(b.date));
+let prev=null;
+for(const s of ss){const p=s.phase;if(p==null)continue;
+if(prev!=null&&p!==prev){const i=idx[weekKey(s.date)];if(i!=null&&!marks.some(m=>m.i===i))marks.push({i,label:'P'+p})}
+prev=p}
+if(D.lastDeload){const i=idx[weekKey(D.lastDeload)];if(i!=null)marks.push({i,label:'DL',color:CH_TARGET})}
+return marks}
 // ── Recent PRs: scan history, find sessions that set a new best-weight or best-e1RM at the time ──
 function recentPRs(sinceDays){
 const cut=sinceDays?daysAgoStr(sinceDays):null;
@@ -2284,6 +2304,13 @@ h+=`</div>`;
 
 if(STAT_SEG==='overview'){
 // ═══ OVERVIEW — am I getting stronger, and what needs attention? ═══
+// Phase context — the periodization story used to be invisible on this tab.
+// (Week math mirrors getPhaseInfo :801 without its per-exercise getSmartSugg cost.)
+{const p=PHASES[D.phase]||PHASES[1];
+const wk=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5)+1);
+h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px">
+<span style="font-size:12px;font-weight:700">Phase ${D.phase} · ${p.name}</span>
+<span class="dm">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span></div>`}
 const rprs=recentPRs(30);
 if(rprs.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">New PRs · last 30 days</div>`;
 for(const p of rprs.slice(0,8)){h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--cb)">
@@ -2478,7 +2505,8 @@ const sessData=ws.map(w=>({v:w.sessions,lbl:w.lbl}));
 let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol,0)/2,prior=ws.slice(-4,-2).reduce((a,w)=>a+w.vol,0)/2;
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
-h+=`<div class="cd">${svgBars(volData,360,150,'#38bdf8','Weekly Tonnage (t)')}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}</div>`;
+const marks=weeklyMarks(ws);
+h+=`<div class="cd">${svgBars(volData,360,150,'#38bdf8','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
 h+=`<div class="cd">${svgBars(sessData,360,130,'#60a5fa','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
 // RPE trend if data exists
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels

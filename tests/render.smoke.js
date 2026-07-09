@@ -171,6 +171,25 @@ T('band lift shows a total-reps chart, not a dead weight chart', /Total Reps \/ 
 T('band estrip shows Best Reps + Reps · 8wk cells', /Best Reps/.test(bandSeg) && /Reps · 8wk/.test(bandSeg));
 R.setSTAT('deadlift');
 R.setSEG('overview');
+R.render();
+T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.getA().match(/Phase \d[^<]*/) || [])[0]);
+
+// ── Phase markers on the weekly tonnage chart (fixture spans two stamped phases) ──
+{
+  const wkAgo = n => { const d = new Date(Date.now() - n * 7 * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const added = [
+    { id: 'ph1', date: wkAgo(4), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] },
+    { id: 'ph2', date: wkAgo(3), day: 'B', loc: 'home', phase: 2, ex: [{ id: 'ohp', wt: 25, reps: [6, 6, 6], band: '' }] },
+    { id: 'ph3', date: wkAgo(2), day: 'C', loc: 'home', phase: 2, ex: [{ id: 'hex_rdl', wt: 45, reps: [8, 8, 8], band: '' }] }];
+  R.getD().sessions.push(...added);
+  R.setSEG('consistency');
+  tryRender('Progress (consistency w/ phase-stamped history)', () => R.render());
+  const consSeg = R.getA();
+  T('tonnage chart draws a P2 phase marker', />P2</.test(consSeg));
+  T('marker legend line renders', /P# = phase change/.test(consSeg));
+  R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
+  R.setSEG('overview');
+}
 
 // ── History with the stored hex session expanded — exercises session-detail plate breakdown ──
 let histOk = tryRender('History (list)', () => R.go('history'));

@@ -701,6 +701,27 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('repsSlope null under 3 sessions / 2 weeks span', repsSlope('pullup_a', 56) === null);
 }
 
+// ── Progress rebuild A3: weeklyMarks — phase changes + deload week on weekly charts ──
+{
+  const d3 = freshD();
+  const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
+  d3.sessions = [
+    { id: 'pm1', date: wkAgo(5), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] },
+    { id: 'pm2', date: wkAgo(4), day: 'B', loc: 'home', phase: 1, ex: [{ id: 'ohp', wt: 25, reps: [6, 6, 6], band: '' }] },
+    { id: 'pm3', date: wkAgo(3), day: 'C', loc: 'home', phase: 2, ex: [{ id: 'hex_rdl', wt: 45, reps: [8, 8, 8], band: '' }] },
+    { id: 'pm4', date: wkAgo(2), day: 'A', loc: 'home', phase: 2, ex: [{ id: 'hex_dl', wt: 46, reps: [8, 8, 8], band: '' }] }];
+  d3.lastDeload = wkAgo(2);
+  const series = weeklySeries(10).filter(w => !w.partial);
+  const marks = weeklyMarks(series);
+  const pMark = marks.find(m => m.label === 'P2');
+  const dMark = marks.find(m => m.label === 'DL');
+  T('weeklyMarks flags the week the phase change landed', pMark && series[pMark.i] && series[pMark.i].wk === weekKey(wkAgo(3)), JSON.stringify(marks));
+  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#fb7185', JSON.stringify(dMark));
+  d3.sessions.forEach(s => delete s.phase);
+  T('unstamped history produces no phase marks', weeklyMarks(series).filter(m => m.label.startsWith('P')).length === 0);
+  T('empty series → no marks, no throw', weeklyMarks([]).length === 0);
+}
+
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 12', SEED.programVersion === 12);
