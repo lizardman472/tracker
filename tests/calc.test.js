@@ -158,6 +158,27 @@ d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
 T('phase week derives from phaseStart (~wk5 at 28 days)', getPhaseInfo().wk === 5, getPhaseInfo().wk);
 T('trainingWeek removed from fresh state (derived, not stored)', d.trainingWeek === undefined);
 
+// ── v27: cadence-aware phase clock — timerDue fires on 24 sessions even inside the 8-wk window ──
+// Only 3 calendar weeks elapsed (well under the 8-wk timer) but 24 sessions logged in-phase.
+d = freshD({ phase: 1, phaseStart: ymd(new Date(Date.now() - 21 * 864e5)) });
+d.sessions = Array.from({ length: 24 }, (_, i) => ({ id: 'ph' + i, date: ymd(new Date(Date.now() - (20 - Math.floor(i * 20 / 24)) * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }));
+T('phase timer fires on 24 in-phase sessions before the 8-week mark', getPhaseInfo().timerDue === true && getPhaseInfo().wk < 8, JSON.stringify({ due: getPhaseInfo().timerDue, wk: getPhaseInfo().wk }));
+// Few sessions, early in the window → not due (regression guard on the OR).
+d = freshD({ phase: 1, phaseStart: ymd(new Date(Date.now() - 7 * 864e5)) });
+d.sessions = [{ id: 'ph_a', date: today(), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }];
+T('phase timer not due at 1 session / 2 weeks', getPhaseInfo().timerDue === false);
+
+// ── v27: cadence-aware deload clock — fires on session count even under the week timer ──
+// Non-beginner (>30 total sessions → 6-wk / 18-session threshold): only 3 weeks since the
+// last deload but 18 sessions logged in that window → timer met; with 2 compound stalls, due.
+d = freshD();
+d.lastDeload = ymd(new Date(Date.now() - 20 * 864e5));
+const oldS = Array.from({ length: 16 }, (_, i) => ({ id: 'old' + i, date: ymd(new Date(Date.now() - (120 - i * 4) * 864e5)), day: 'A', loc: 'home', difficulty: 3, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }));
+const recentS = Array.from({ length: 18 }, (_, i) => ({ id: 'rec' + i, date: ymd(new Date(Date.now() - (19 - i) * 864e5)), day: 'A', loc: 'home', difficulty: 2, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }));
+d.sessions = [...oldS, ...recentS]; // 34 total → non-beginner; 18 after lastDeload
+T('deload timer met on 18 sessions since last deload (< 6 weeks, non-beginner)', getDeload(2).due === true, JSON.stringify(getDeload(2)));
+T('deload not met at few sessions / few weeks', (() => { const dd = freshD(); dd.lastDeload = ymd(new Date(Date.now() - 7 * 864e5)); dd.sessions = [{ id: 'x', date: today(), day: 'A', loc: 'home', difficulty: 5, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }]; return getDeload(2).due === false; })());
+
 // ── audit fix: a skipped trailing set must NOT read as a stall/phantom deload ──
 // ohp is s:4, tg:7, rp '5-7'. Three sessions of [10,10,10,0] (4th set blank) crush target on
 // every PERFORMED set; before the fix the set-count gate misread them as 3 stalls → ~11% deload.

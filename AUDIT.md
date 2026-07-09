@@ -130,39 +130,65 @@ Full Round-B inventory lives in its own report; this table is the merged, final 
 
 ---
 
-## 4 · Open decisions (yours, not code)
+## 4 · Open decisions — RESOLVED (v27 pass)
 
-Program-level calls from Round B, still pending your word (details in its report §6):
+The user chose the recommended default for every open decision. Applied and tested:
 
-- **P1 · MEV-floor fragility at the partner location** — six muscles sit exactly at MEV
-  per rotation and dip under it at a 2.5-sessions/week cadence. Options: +1 buffer set on
-  the floor muscles, or commit to ≥3 sessions/week.
-- **P2 · Calves** — zero direct work, invisible to the dashboard. Add 3×15–20 on Day C or
-  document the omission and add a dashboard row.
-- **P3 · No dips at the partner location** despite dips being a pinned sticking point and
-  parallel bars being the partner equipment. Add band-assisted dips to partner Day B.
-- **P4 · Session-length imbalance** (A/B ≈ 80–95 min vs C ≈ 60).
-- **P5 · Phase-3 rep drops on quality slots** (bb_rear_row heavy 10-12s contradicts its
-  own coach note; cossack gains nothing from strength loading).
-- **P6 · Small slot questions** — lm_pallof pause placement, hex_carry suitcase split,
-  second side-delt tool variety, exact partner/home set-mirroring.
-- **A1 · Calendar vs cadence phase clocks** — `min(8 weeks, 24 sessions)` trigger on offer.
-- **A2 · Permanent swaps** (program editing) — a feature, not a fix.
-- **MAX_BB = 80 kg cap** (Round A): your plates total 74 kg → true ceilings 85 kg
-  straight / 81 kg hex. If 80 isn't the bar's load rating, raising it is a one-constant
-  change.
-- **iOS home-screen icon**: manifest icons are SVG-emoji data URIs; iOS wants a PNG.
-  Only matters if you install on an iPhone.
+- **P1 · Partner MEV-floor buffer** — `db_rear_fly` (Day A) and `db_sl_rdl` (Day C) went
+  3→4 sets, lifting hamstrings and rear delts off the exact MEV floor (both now 7 vs MEV
+  6). The "On track" consistency verdict now requires **≥3.0 sessions/week** (was 2.5), so
+  the app stops endorsing a cadence that breaks its own weekly-MEV math. Quads (8),
+  side delts (8.5) and biceps (8.5) stay near floor by design — the stricter threshold is
+  their guard; dips also push chest to 11.5.
+- **P2 · Calves** — NEW single-leg calf raise 3×15–20 on Day C at both venues (`calf_raise`
+  KB at home, `db_calf_raise` DB at the partner's), plus a **Calves row on the balance
+  dashboard**. Tracked but not MEV-gated (3 maintenance sets are deliberately below a
+  growth MEV; treated like the rotator-cuff row so it never shows a false "below MEV").
+- **P3 · Partner dips** — NEW band-assisted `pb_dips` 3×4–8 on partner Day B, mirroring
+  home. Dips now train at both venues (frequency is the fix for the pinned sticking point);
+  partner chest → 11.5, triceps → 11, both well under MAV.
+- **P4 · Session length** — left as is (known volume-over-brevity trade; adherence fine).
+  The Day-C calf addition lands on the *short* day, so it doesn't worsen the A/B imbalance.
+- **P5 · Phase-3 quality slots** — `bb_rear_row` and `cossack_squat` removed from the P3
+  adj map; they now fall back to their base hypertrophy ranges (12-15 / 8-side) instead of
+  heavy strength loading that contradicted the rear-delt coach note. They still periodize
+  P1→P2 (membership intact — not a dead exemption).
+- **P6 · Small slot fixes** — (a) `lm_pallof` tempo `2-2-1-0` → `2-0-1-2`, moving the pause
+  to the press-out hold (the loaded anti-rotation position) instead of the relaxed chest;
+  (c) home `dead_bugs_a` gained a control-over-load note mirroring the partner version;
+  (e) the partner/home set divergence (laterals 3 vs 4, OHP 3 vs 4) is now annotated in the
+  program as deliberate. (b/d not taken — hex_carry suitcase split and a 2nd side-delt tool
+  were lower value and add clutter/session length.)
+- **A1 · Cadence-aware clocks** — phase timer now fires on `min(8 calendar weeks, 24
+  in-phase sessions)`; the deload timer likewise on weeks **or** ~3×/week-equivalent
+  sessions. A training break no longer silently eats a chunk of a block.
+
+### Still open (need input or deliberately deferred)
+
+- **MAX_BB = 80 kg cap** — UNCHANGED, pending your bar's load rating. Your plates total
+  74 kg → true ceilings are 85 kg (straight) / 81 kg (hex), so the app shows "🔒 MAX" at
+  80 even though more is loadable. If 80 isn't a real bar/safety limit, say so and it's a
+  one-constant change. **I did not guess a safety limit.**
+- **iOS home-screen icon** (deferred) — SVG-emoji manifest icons; iOS wants a PNG. Only
+  matters if you install on an iPhone.
+- **Permanent swaps** (A2, deferred) — session-scoped by design; making a swap stick is a
+  small program-editing feature, worth its own pass.
+- **Per-phase tempo/rest** and **emoji→SVG icon set + type-scale** (deferred) — cosmetic /
+  low-value; left untouched.
 
 ---
 
 ## 5 · Verification
 
-- **296/296 tests pass** — calc 132, hex 110, render.smoke 54 — covering both rounds'
-  regression tests plus the merge-specific interactions (dead-bug barbell conversion and
-  hex-carry stepper from main, running against Round B's engine changes).
-- Round B additionally verified its fixes with a scripted end-to-end Chromium run
-  (kill-on-summary recovery, rest-timer trigger, no `undefined` in markup).
+- **316/316 tests pass** — calc 136, hex 126, render.smoke 54 — including 20 new v27
+  regression tests (calf raises exist/seed/track/tonnage at both venues, partner dips,
+  MEV-floor buffer set counts, Phase-3 quality-slot ranges, `lm_pallof` tempo, cadence-aware
+  phase + deload clocks) on top of both prior rounds' suites.
+- Live render check: home Day C renders the calf raise (seeds "Try 8kg"), partner Day B
+  renders dips, partner Day C renders the DB calf raise, and the Progress → Balance
+  dashboard shows the new Calves row.
+- Partner per-cycle volume re-verified against MEV: chest 11.5, quads 8, hams 7, rear
+  delts 7, side delts 8.5, biceps 8.5, triceps 11 — all ≥ MEV; calves tracked (ungated).
 - CI (`.github/workflows/test.yml`) runs all suites on every push.
 
 Run locally: `node tests/calc.test.js && node tests/hex.test.js && node tests/render.smoke.js`

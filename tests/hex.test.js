@@ -213,13 +213,30 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days stay A=8, B=7, C=8 after Day C swaps', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 8);
+T('home days A=8, B=7, C=9 (v27 added a Day-C calf raise)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9);
+
+const partPr = getProgram(1, 'partner');
+// ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──
+// Calves: first direct calf work, one slot per venue on Day C, tracked but not MEV-gated.
+T('home Day C has a single-leg calf raise (kb, per-side)', (() => { const e = homePr.C.find(x => x.id === 'calf_raise'); return e && e.tp === 'kb' && e.perSide === true; })());
+T('partner Day C has a single-leg calf raise (db, per-side)', (() => { const e = partPr.C.find(x => x.id === 'db_calf_raise'); return e && e.tp === 'db' && e.perSide === true; })());
+T('calf raises have a calves MG map', (MG.calf_raise || {}).calves === 1 && (MG.db_calf_raise || {}).calves === 1);
+T('calves is a tracked-but-not-gated dashboard row (null MEV)', (() => { const r = MG_INFO.find(x => x[0] === 'calves'); return r && r[2] == null && r[3] == null; })());
+T('calf raises seed cleanly (no dangling peer → no undefined)', (() => { freshD(); const a = getSmartSugg(homePr.C.find(e => e.id === 'calf_raise')); const b = getSmartSugg(partPr.C.find(e => e.id === 'db_calf_raise')); return a.type === 'new' && a.wt === 8 && b.type === 'new' && b.wt === 8; })());
+T('calf raises count toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
+// Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
+T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());
+T('pb_dips has a chest+triceps MG map (full triceps like home dips)', (MG.pb_dips || {}).chest === 1 && (MG.pb_dips || {}).triceps === 1);
+T('dips now train at both venues (home Day B + partner Day B)', homePr.B.some(e => e.id === 'dips') && partPr.B.some(e => e.id === 'pb_dips'));
+T('pb_dips seeds off the heaviest assist band, no dangling peer', (() => { freshD(); const sg = getSmartSugg(partPr.B.find(e => e.id === 'pb_dips')); return sg.type === 'new' && !/undefined/.test(JSON.stringify(sg)); })());
+// MEV-floor buffer: db_rear_fly Day A and db_sl_rdl Day C went 3→4 for margin.
+T('buffer set: partner db_rear_fly Day A is 4 sets', partPr.A.find(e => e.id === 'db_rear_fly').s === 4);
+T('buffer set: partner db_sl_rdl is 4 sets', partPr.C.find(e => e.id === 'db_sl_rdl').s === 4);
 T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id === 'hex_floor_press') && (MG.hex_floor_press || {}).chest > 0);
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
 // ── PROGRAM VOLUME: partner weekly effective sets meet MEV (v23 partner audit) ──
-const partPr = getProgram(1, 'partner');
 const pVol = {};
 for (const day of ['A', 'B', 'C']) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
 T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (pVol[k] || 0) >= mev), JSON.stringify(pVol));
@@ -232,5 +249,18 @@ const vertPullDays = ['A', 'B', 'C'].filter(d => partPr[d].some(e => /^pb_pullup
 T('partner has vertical pull on 2 days (A + C, mirrors home)', vertPullDays.join('') === 'AC', vertPullDays.join(','));
 T('partner hamstrings hit 2× frequency (db_sl_rdl moved A→C)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 2);
 T('partner back still ≥ MEV after row→pull-up swap (volume-neutral)', pVol.back >= mevOf('back'), `${pVol.back} vs ${mevOf('back')}`);
+
+// ── v27: Phase-3 no longer strength-loads the quality slots (bb_rear_row, cossack) ──
+// With no P3 adj entry they fall back to their BASE hypertrophy ranges instead of the old
+// heavy 10-12 / 6-side that contradicted their coaching intent.
+const homeP3 = getProgram(3, 'home');
+T('P3 bb_rear_row holds its light hypertrophy range (12-15), not heavy 10-12', homeP3.A.find(e => e.id === 'bb_rear_row').rp === '12-15');
+T('P3 cossack holds 8/side (base), not a strength-loaded 6/side', homeP3.C.find(e => e.id === 'cossack_squat').rp === '8/side');
+// P1 still periodizes them (proves they weren't removed everywhere — see calc.test for the
+// PHASE_ADJ_IDS membership assertion): P1 rear-delt row is its light 12-15.
+T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row').rp === '12-15');
+
+// ── v27: lm_pallof pause moved to the press-out (anti-rotation hold at full extension) ──
+T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').C.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
 
 console.log(`\n${pass} passed, ${fail} failed`);

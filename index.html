@@ -337,7 +337,11 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
   adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},cossack_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12/side',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},cossack_squat:{rp:'6/side',tg:6},lm_lateral:{rp:'10-12',tg:12},bb_rear_row:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},bb_skullcr:{rp:'6-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  // cossack_squat + bb_rear_row are DELIBERATELY absent from the P3 map (like band_er):
+  // they're quality/ROM slots. Loading a rear-delt row to a heavy 10-12 contradicts its own
+  // coach note, and a strength-loaded Cossack gains nothing from grinding 6/side. With no P3
+  // entry they fall back to their BASE hypertrophy ranges (bb_rear_row 12-15, cossack 8/side).
+  adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},lm_lateral:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},bb_skullcr:{rp:'6-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8/side',tg:8},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
@@ -368,7 +372,7 @@ const BASE_PR={A:[
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
-{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
+{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'3:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:210,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:30',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:150,tempo:'3-1-2-0',perSide:false},
@@ -384,8 +388,9 @@ C:[
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:30',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:90,tempo:'3-1-1-0',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:90,tempo:'controlled',perSide:false},
+{id:'calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',rst:'1:00',rir:'1-2',tp:'kb',rl:'The program\'s only direct calf work. Stand on one foot on a step/edge, hold a KB in the same-side hand (suitcase). Full stretch at the bottom, pause + squeeze at the top — no bouncing. Progress load or reps when 20/side is smooth.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:true},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
-{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-2-1-0',perSide:true}]};
+{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
@@ -421,6 +426,8 @@ C:[
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine OHP press still PENDING — OHP stays barbell for now.
+// v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C (only
+// calf slot; calves are tracked but not MEV-gated). Home Day C is now 9 exercises.
 // v26 dead-bug conversion: Dead Bugs (Day A) moved kb→bb — bar held at arm's length over
 // the chest on the 11kg straight bar, so the load rides the same plate system as every
 // other bar lift (stepper + plate breakdown + VW ladder + warm-up). Legacy KB history
@@ -442,17 +449,29 @@ C:[
 // The inverted-row workaround (inv_rows_a, Day A) and the Day-C volume row (db_row_c) were
 // retired into legacy stubs — pull-ups carry the same back+biceps stimulus, so volume is
 // unchanged and every muscle stays ≥ MEV. db_sl_rdl also moved A→C so hamstrings hit 2×/wk.
+// v27 (open-issues pass): (a) MEV-floor buffer — several partner muscles sat EXACTLY at MEV
+// per cycle and dipped under it at a 2-3 session/week cadence, so db_rear_fly (Day A) and
+// db_sl_rdl (Day C) went 3→4 sets for margin, and the "On track" verdict now needs ≥3/wk;
+// (b) NEW pb_dips on Day B — dips are a pinned sticking point but the partner program had no
+// dip slot despite the bars, so they now train 2×/wk (home + partner); (c) NEW db_calf_raise
+// on Day C — first direct calf work at the partner's, mirroring home (tracked, not MEV-gated).
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'pb_pullup_a',nm:'Pull-ups (Neutral, Parallel Bars)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'True vertical pull — hang under the parallel bars, neutral grip. 4×8 → less band assistance. Full ROM, control through the bottom (no dead-hang). Replaces the inverted-row workaround now the bars allow a real pull-up. Mirrors home Day A.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'db_lateral',nm:'DB Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Primary delt slot — 4 sets (mirrors home Day A). Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
 {id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'db',rl:'Pull-day finisher — direct elbow flexion to back up the rows (the partner program had none; mirrors home Barbell Curl). Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:90,tempo:'controlled',perSide:true}],
+// NOTE — deliberate divergence from a true home mirror: db_lateral and db_ohp run 3 sets
+// here vs home's 4 (home laterals are 4 on Day B, home OHP is 4 on Day B). Side-delt and
+// vertical-press weekly volume already clear MEV at the partner's, and dropping a set keeps
+// this DB-dense day from over-running — the "mirrors home" cues describe the movement match,
+// not an exact set-for-set copy.
 B:[
 {id:'db_bss',nm:'DB Bulgarian Split Squat',s:4,rp:'8/leg',rst:'2:00',rir:'1-2',tp:'db',rl:'Goblet hold (single DB). Confirm → ↑1-2kg.',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true},
 {id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'2:30',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:150,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'pb_dips',nm:'Dips (Parallel Bars)',s:3,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'Band-assisted parallel-bar dips — 2nd weekly dip exposure (mirrors home Day B; the partner program had no dip slot despite the bars). Depth to upper-arm parallel, strict. 3×8 → less assistance.',note:'Dips are a pinned sticking point — frequency is the fix, so they now train at BOTH venues. Strict only: a clean 6 beats a bouncy 10 (loose reps are gated). Add a 1-2s bottom pause and build a strict 3×10 before dropping a band.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10/side',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:120,tempo:'3-1-2-0',perSide:true},
 {id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
 {id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
@@ -462,7 +481,8 @@ C:[
 {id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'2:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:30',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:90,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_sl_rdl',nm:'DB Single-Leg RDL',s:3,rp:'8/side',rst:'1:30',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). Start lighter than the B-stance equivalent.',tg:8,rstS:90,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
+{id:'db_sl_rdl',nm:'DB Single-Leg RDL',s:4,rp:'8/side',rst:'1:30',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:90,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
+{id:'db_calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',rst:'1:00',rir:'1-2',tp:'db',rl:'Direct calf work (mirrors home). Stand on one foot on a step/edge, hold a DB in the same-side hand. Full stretch at the bottom, pause + squeeze at the top — no bouncing. Progress load or reps when 20/side is smooth.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:true},
 {id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:30',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:90,tempo:'—',perSide:false},
 {id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true},
 {id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
@@ -577,12 +597,18 @@ const MG={
   db_lunge:{quads:1,glutes:0.5}, inv_rows_a:{back:1,biceps:0.5},
   db_lateral:{sidedelt:1}, db_rear_fly:{reardelt:1}, db_1arm_press:{chest:0.5,triceps:0.5,core:0.5},
   db_curl:{biceps:1}, db_dead_bug:{core:1},
-  pb_pullup_a:{back:1,biceps:0.5}, pb_pullup_c:{back:1,biceps:0.5}
+  pb_pullup_a:{back:1,biceps:0.5}, pb_pullup_c:{back:1,biceps:0.5},
+  pb_dips:{chest:1,triceps:1},
+  // Calves — the only direct calf work, one slot/venue on Day C. Tracked (see MG_INFO)
+  // but not MEV-gated: 3 maintenance sets are deliberately below a growth MEV, so a
+  // permanent "below MEV" nag would be wrong. calves:1 (single-leg counts once, per-side).
+  calf_raise:{calves:1}, db_calf_raise:{calves:1}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
 const MG_INFO=[
   ['chest','Chest',8,20],['back','Back/Lats',10,22],['quads','Quads',8,18],
-  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],['sidedelt','Side Delts',8,22],
+  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],['calves','Calves',null,null],
+  ['sidedelt','Side Delts',8,22],
   ['fdelt','Front Delts',0,12],['reardelt','Rear Delts',6,16],['biceps','Biceps',8,20],
   ['triceps','Triceps',6,14],['core','Core',6,16],['cuff','Rotator Cuff',null,null]
 ];
@@ -625,7 +651,8 @@ const AW_KEY='rft-active';
 function migrateData(d){
 const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp','db_row_a','db_row_b','db_row_c',
 'db_bss','db_lunge','db_carry','cb_mills','cb_shield','cb_arm_cast','dand_baithak_a','dand_baithak_b',
-'dead_bugs_b','band_prehab','inv_rows_a','db_curl','db_dead_bug','db_rear_fly','pb_pullup_a','pb_pullup_c']);
+'dead_bugs_b','band_prehab','inv_rows_a','db_curl','db_dead_bug','db_rear_fly','pb_pullup_a','pb_pullup_c',
+'pb_dips','db_calf_raise']);
 for(const s of d.sessions){
   if(!s.loc)s.loc=s.ex.some(e=>partnerIds.has(e.id))?'partner':'home';
   // Always re-derive stored volume so history stays consistent with the
@@ -737,9 +764,11 @@ for(const ex of uniqEx){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp=
   // halt is. stalledEx (any stall) still drives phase-change logic, untouched.
   if(sg.stalled&&Object.keys(MG[ex.id]||{}).length>=2)stalledMajor++;
   if(sg.type==='up'||sg.type==='cf')progressingEx++}
-// Strict > : an "8-week phase" is due AFTER 8 completed weeks (wksSince hits 9),
-// not at the start of week 8 — >= fired the prompt a week early.
-const timerDue=wksSince>p.wk;
+// Cadence-aware timer: a phase is due after 8 completed CALENDAR weeks OR 24 completed
+// sessions in it, whichever comes first. Calendar-only let a two-week holiday silently
+// eat a quarter of the block; the session floor tracks actual training done. Strict > on
+// weeks keeps the old off-by-one fix (due when wksSince hits 9, not at the start of wk 8).
+const timerDue=wksSince>p.wk||sessSince>=24;
 const stallDue=stalledEx>=2; // 2+ exercises genuinely stalling (below min range)
 // Phase change recommended if: timer AND stalls, OR early if lots of stalls
 const recommend=timerDue&&stallDue?'due':timerDue&&!stallDue?'timer_only':!timerDue&&stallDue?'early_stall':'not_due';
@@ -857,7 +886,11 @@ const RELATED_EX={
   // seedBand must be the EXACT BANDS entry — a bare 'Blue' resolved in BAND_IDX but
   // never matched the band <select> options, so the dropdown rendered unselected.
   'pb_pullup_a':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — neutral-grip pull-up under the parallel bars. Start with the heaviest assist band (Blue), reduce assistance as you get stronger.'},
-  'pb_pullup_c':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — volume neutral-grip pull-up. Start with the heaviest assist band (Blue), reduce assistance over time.'}
+  'pb_pullup_c':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — volume neutral-grip pull-up. Start with the heaviest assist band (Blue), reduce assistance over time.'},
+  'pb_dips':        {id:null,               seedBand:'Blue (heaviest)', note:'NEW — band-assisted parallel-bar dips. Start with the heaviest assist band (Blue), reduce assistance as you get stronger. Mirrors home dips.'},
+  // Calves — single-leg, one implement held; feel out a light load and build reps then weight.
+  'calf_raise':     {id:null,               seedWt:8,            note:'NEW — single-leg calf raise holding a KB. Feel-out ~8kg, full ROM + a top pause, then progress reps → load.'},
+  'db_calf_raise':  {id:null,               seedWt:8,            note:'NEW — single-leg calf raise holding a DB. Feel-out ~8kg/side, full ROM + a top pause, then progress reps → load.'}
 };
 
 function getRelatedSuggestion(ex){
@@ -1281,8 +1314,11 @@ const isBeginner=D.sessions.length<30;const timerThresh=isBeginner?8:6;
 // the timer met, recommends a deload — so an athlete who under-rates effort but is clearly
 // grinding to a halt still gets caught. Timer met with neither signal = optional checkpoint.
 const stallDue=stalledMajor>=2;
-// Strict > : "deload every 6 weeks" means after 6 completed weeks, not at week 6's start.
-const timerMet=wk>timerThresh;
+// Cadence-aware: timer met after `timerThresh` completed weeks OR ~3×/week sessions'
+// worth (timerThresh*3) since the last deload — whichever first — so a training break
+// doesn't stretch the deload clock the way calendar-only did. Strict > on weeks keeps the
+// off-by-one fix ("every 6 weeks" = after 6 completed weeks, not at week 6's start).
+const timerMet=wk>timerThresh||sc>=timerThresh*3;
 const due=timerMet&&(highFatigue||stallDue);
 const consider=timerMet&&!due;
 const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledMajor} key lifts stalling`
@@ -2196,7 +2232,10 @@ const strV=!momS.length?{t:'Build data',c:'var(--mu)',s:'track 3+ sessions/lift'
   :up>0?{t:'Mixed',c:'var(--am)',s:`${up} up · ${dn} down`}
   :{t:'Stalled',c:'var(--rd)',s:`${dn||momS.length} not progressing`};
 const conS=consistency(),snapS=statSnapshot();
-const conV=conS.perWk>=2.5?{t:'On track',c:'var(--gr)'}:conS.perWk>=1.5?{t:'Light',c:'var(--am)'}:{t:'Sparse',c:'var(--rd)'};
+// "On track" needs ≥3.0/week: the per-cycle volume that meets MEV only holds as WEEKLY
+// volume if a full A→B→C lands inside 7 days. Endorsing 2.5/week contradicted the
+// program's own MEV claims (several muscles dip under MEV at that cadence).
+const conV=conS.perWk>=3?{t:'On track',c:'var(--gr)'}:conS.perWk>=2?{t:'Light',c:'var(--am)'}:{t:'Sparse',c:'var(--rd)'};
 let below=0,worst=null,worstGap=0;for(const[k,l,mev] of MG_INFO){if(mev==null)continue;const v=wv[k]||0;if(v<mev){below++;if(mev-v>worstGap){worstGap=mev-v;worst=l}}}
 const noVol=!Object.keys(wv).length;
 const balV=noVol?{t:'No sets',c:'var(--mu)',s:'last 10 days'}
