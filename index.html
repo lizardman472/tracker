@@ -968,11 +968,28 @@ const RELATED_EX={
   'bb_curl':        {id:'hex_curl',         mult:1.0,            note:'Straight-bar curl continues from the hex-bar curl load (same total weight, now on the 11kg straight bar).'},
   'bb_skullcr':     {id:null,               seedWt:15,           note:'NEW — lying barbell triceps extension. Feel-out at ~15kg total (2kg/side on the 11kg bar) for 8-12 reps, build up.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
-  // Partner program new/never-logged exercises
-  'db_rdl':         {id:'db_row_b',         mult:0.85,           note:'rough DB load proxy from row'},
-  'db_floor_press': {id:'db_floor_press_v', mult:1.0, addKg:0.5, note:'heavy slot, +0.5kg over volume slot'},
-  'db_sl_rdl':      {id:'db_lunge',         mult:1.0,            note:'similar unilateral DB load'},
-  'cb_mills':       {id:'cb_shield',        mult:1.0,            note:'same clubbell weight class'},
+  // Partner program — every lift gets a computed start. Cross-location peers convert
+  // HOME barbell history into a per-DB/single-DB target (mult folds the equipment shift
+  // AND the rep-range shift); static seedWt fallbacks cover a fresh device. All values
+  // land on the real spinlock ladder (DBW_PAIR/DBW_SINGLE from the photographed
+  // inventory) — the weighted branch below snaps computed targets for db lifts too.
+  // First-session loads are deliberately conservative: session one is for finding the
+  // groove; the AMRAP overshoot re-anchor corrects upward fast.
+  'db_rdl':         {id:'hex_rdl',          mult:0.35, seedWt:12, note:'≈35% of your hex RDL per DB (two held). Estimate — first session is for finding the groove.'},
+  'db_floor_press': {id:'db_floor_press_v', mult:1.0, addKg:0.5, seedWt:8, note:'heavy slot, +0.5kg over volume slot'},
+  'db_floor_press_v':{id:'floor_press',     mult:0.32, seedWt:8, note:'≈32% of your barbell floor press per DB (two held, higher reps). Estimate — adjust on feel.'},
+  'db_ohp':         {id:'ohp',              mult:0.32, seedWt:5,  note:'≈32% of your barbell OHP per DB — DBs demand more stabilisation. Soft lockout, shoulders packed.'},
+  'db_lateral':     {id:null,               seedWt:3,  note:'NEW — strict DB laterals start tiny on purpose (hypermobile shoulders): 3kg bells, no swing.'},
+  'db_rear_fly':    {id:null,               seedWt:3,  note:'NEW — rear-delt fly, 3kg bells, strict and slow. Reps before load.'},
+  'db_lunge':       {id:'lm_squat',         mult:0.2,  seedWt:7,  note:'≈20% of your landmine squat per DB (two held, walking). Estimate — balance is the limiter.'},
+  'db_bss':         {id:'lm_squat',         mult:0.25, seedWt:9,  note:'≈25% of your landmine squat as one goblet DB. Estimate — depth and balance first.'},
+  'db_row_b':       {id:'hex_row',          mult:0.45, seedWt:16, note:'≈45% of your hex-bar row as one DB (single-arm, braced). Estimate — strict, no torso twist.'},
+  'db_1arm_press':  {id:'floor_press',      mult:0.25, seedWt:8,  note:'≈25% of your barbell floor press as one DB — the anti-rotation demand caps it. Estimate.'},
+  'db_sl_rdl':      {id:'db_lunge',         mult:1.0,  seedWt:10, note:'similar unilateral DB load'},
+  'db_carry':       {id:'hex_carry',        mult:0.35, seedWt:12, note:'≈35% of your hex-carry total per hand. Distance first, then load.'},
+  'cb_mills':       {id:'cb_shield',        mult:1.0,  seedWt:8,  note:'same clubbell weight class'},
+  'cb_shield':      {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
+  'cb_arm_cast':    {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
   'db_curl':        {id:null,               seedWt:8,            note:'NEW — DB biceps curl (partner program had no direct arm work). Feel-out ~8kg/DB for 8-12, build up.'},
   'db_dead_bug':    {id:null,               seedWt:5,            note:'NEW — loaded dead bug. Start light (~5kg) and prioritise control over load.'},
   // seedBand must be the EXACT BANDS entry — a bare 'Blue' resolved in BAND_IDX but
@@ -1010,10 +1027,11 @@ function getRelatedSuggestion(ex){
     const tot=relLast.reps.reduce((a,b)=>a+b,0);
     return{wt:null,band:'',note:`${rel.note} — last: ${tot} reps`,relName:(ALL_EX.find(e=>e.id===rel.id)||{}).nm||rel.id};
   }
-  // Weighted: compute suggested kg, snap to 0.5kg
+  // Weighted: compute suggested kg. DB targets snap onto the real spinlock ladder
+  // (matched-pair or single-bell); everything else rounds to 0.5kg as before.
   if(relLast.wt){
     let kg=relLast.wt*(rel.mult||1.0)+(rel.addKg||0);
-    kg=Math.round(kg*2)/2;
+    kg=ex.tp==='db'?snapDB(kg,ex):Math.round(kg*2)/2;
     return{wt:kg,band:'',note:`${rel.note} (last ${relLast.wt}kg)`,relName:(ALL_EX.find(e=>e.id===rel.id)||{}).nm||rel.id};
   }
   return null;

@@ -277,6 +277,37 @@ T('dbwOf routes per_db to the matched ladder', dbwOf({ loadUnit: 'per_db' }) ===
 T('snapDB lands on real rungs', snapDB(9.9, { loadUnit: 'per_db' }) === 10 && snapDB(2.4, {}) === 2);
 T('fmtDbEnd greedy breakdown', fmtDbEnd(15.5, true) === '2×2.5kg + 1×1.25kg + 1×0.5kg' && fmtDbEnd(2, true) === 'Bar only');
 
+// ── Partner starting weights (E2): every partner lift computes a start ──
+{
+  // Blanket: with a COMPLETELY empty history, no partner lift may say "find your weight".
+  const dE = freshD({ location: 'partner' });
+  dE.sessions = [];
+  const pr2 = getProgram(1, 'partner');
+  for (const day of ['A', 'B', 'C']) for (const ex of pr2[day]) {
+    if (ex.tp === 'bw') continue; // bodyweight has no load to seed
+    const sg = getSmartSugg(ex);
+    T(`partner ${ex.id} seeds with zero history`, sg.wt != null || !!sg.band, `${ex.id}: ${JSON.stringify(sg)}`);
+  }
+  // All numeric partner seeds sit on the correct spinlock ladder.
+  for (const day of ['A', 'B', 'C']) for (const ex of pr2[day]) {
+    if (ex.tp !== 'db') continue;
+    const sg = getSmartSugg(ex);
+    const lad = ex.loadUnit === 'per_db' ? DBW_PAIR : DBW_SINGLE;
+    T(`partner ${ex.id} seed ${sg.wt} is loadable`, lad.includes(sg.wt), `${sg.wt} not in ladder`);
+  }
+
+  // Cross-location: home history now computes the partner start.
+  const dX = freshD({ location: 'partner' });
+  dX.sessions = [
+    { id: 'x1', date: '2026-07-01', day: 'C', loc: 'home', ex: [{ id: 'hex_rdl', wt: 46, reps: [9, 9, 9], band: '' }] },
+    { id: 'x2', date: '2026-07-02', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 26, reps: [6, 6, 6, 6], band: '' }] }];
+  const sgRdl = getSmartSugg(pr2.A.find(e => e.id === 'db_rdl'));
+  T('db_rdl computes from home hex RDL (46×0.35 → snapped 16)', sgRdl.type === 'new' && sgRdl.wt === 16, JSON.stringify(sgRdl));
+  const sgOhp = getSmartSugg(pr2.B.find(e => e.id === 'db_ohp'));
+  T('db_ohp computes from home barbell OHP (26×0.32 → snapped 8.5)', sgOhp.type === 'new' && sgOhp.wt === 8.5, JSON.stringify(sgOhp));
+  T('cross-location suggestion names its source lift', /Barbell OHP/.test(sgOhp.detail || ''), sgOhp.detail);
+}
+
 // ── Ultra audit C5: MG attribution consistency (exact values, so silent drift fails loud) ──
 // Carry rule: unilateral/asymmetric carries core 1.0; bilateral farmer-style 0.5.
 T('hex_carry is a bilateral farmer carry → core 0.5', MG.hex_carry.core === 0.5, JSON.stringify(MG.hex_carry));
