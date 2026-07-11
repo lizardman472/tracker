@@ -364,6 +364,15 @@ ever crossed locations. Fixed end to end:
 **Verification: 520 tests** (calc 232 · hex 188 · render 100) + Chromium e2e incl.
 a partner first-run pass. SW cache → `rft-v54`.
 
+**Addendum — DB plate visuals + exact solver (same day):** the per-end breakdown was
+greedy, and the spinlock denominations aren't greedy-friendly — the user's live
+16.5kg/DB suggestion showed "per end: —" (7.25 = 2.5+2.5+1.25+1; greedy dead-ends).
+`dbEnd` is now an exact fewest-plates DFS with a ladder↔solver agreement test (every
+rung resolves). Dumbbell lifts gained the barbell-style plate visual: chrome chips
+(matching the real plates, deliberately not the barbell color code) on the workout
+screen, expanded History rows, and two DB ladder sections on All Valid Weights.
+**537 tests** (calc 232 · hex 196 · render 109). SW cache → `rft-v55`.
+
 ### Deferred (with reasons)
 - **Committed-session editing** (user chose defer) — delete + re-log remains the fix
   path; a good inline editor is its own feature, a `prompt()` one is poor phone UX.
