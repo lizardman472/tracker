@@ -313,6 +313,24 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   global.localStorage = realLS;
 }
 
+// ── Partner first-run (E2/E4): computed seed + DB stepper + per-end readout ──
+{
+  R.getD().location = 'partner';
+  tryRender('workout (partner Day B, first run)', () => R.beginW('B'));
+  const dbIdx = R.dayExs('B').findIndex(e => e.id === 'db_ohp');
+  R.setCIDX(dbIdx);
+  R.render();
+  const pw = R.getA();
+  // SEED's last home OHP is 23kg → db_ohp computes 23×0.32 = 7.36 → snapped to 7.5/DB.
+  T('db_ohp seeds from home barbell OHP history (7.5/DB)', R.getLOG()['db_ohp'] && Number(R.getLOG()['db_ohp'].wt) === 7.5, JSON.stringify(R.getLOG()['db_ohp'] && R.getLOG()['db_ohp'].wt));
+  T('db lift renders ladder stepper buttons', /stepWt\('db_ohp',-1\)/.test(pw) && /stepWt\('db_ohp',1\)/.test(pw));
+  T('per-end spinlock readout renders', /Spinlock per end:/.test(pw) && /two matched bells/.test(pw));
+  // Stepper walks the matched ladder: 7.5 → 8.
+  R.stepWt('db_ohp', 1);
+  T('stepWt walks db up the spinlock ladder (7.5 → 8)', R.getLOG()['db_ohp'].wt === 8, R.getLOG()['db_ohp'].wt);
+  R.getD().location = 'home';
+}
+
 // ── Settings + All-Valid-Weights reference screen ──
 tryRender('Settings', () => R.go('settings'));
 tryRender('All Valid Weights (plates)', () => R.go('plates'));

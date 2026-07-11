@@ -91,6 +91,7 @@ input[type=number]{-moz-appearance:textfield}
 .stp{display:flex;align-items:center;gap:8px;justify-content:center}
 .stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
 .stp-b:active{background:var(--pr);color:var(--ink);transform:scale(.92)}.stp-b.dis{color:var(--dm)}
+.stp-b.stp-sm{width:44px;height:44px;font-size:20px;border-radius:12px}
 /* Dominant weight readout for the active barbell card */
 .stp-big{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
 .stp-hero{font-family:var(--disp);font-size:66px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:.88;letter-spacing:-2.5px;text-shadow:0 0 38px rgba(var(--prRGB),.5),0 0 12px rgba(var(--prRGB),.3);position:relative}
@@ -1921,8 +1922,14 @@ if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="w
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`;
 } else if(ex.tp==='db'){
-h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg/DB</span></div>`
+// Spinlock DBs load like a tiny barbell — ± walks the real ladder (matched pair for
+// per_db lifts, whole pool for single-bell), free typing stays for improvisation.
+const dvw=dbwOf(ex),dcur=Number(log.wt)||0;
+h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px">
+<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}" aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">${ex.loadUnit==='per_db'?'kg/DB':'kg'}</span>
+<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}" aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
+if(dcur>0)h+=`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
@@ -2007,7 +2014,11 @@ setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scroll
 // ─── HELPERS ───────────────────────────────────
 // nxUp/nxDn instead of indexOf±1: an off-ladder value (hand-typed, imported, or from an
 // older plate inventory) used to indexOf(-1) and slam the stepper to BAR-ONLY on one tap.
-function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id),vw=vwOf(ex),c=Number(LOG[id].wt)||barOf(ex);
+function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id);
+// db lifts walk the spinlock ladder; bar lifts the plate ladder. An empty db input
+// steps up to the bare bell (2kg) first; off-ladder typed values snap on step.
+const vw=ex&&ex.tp==='db'?dbwOf(ex):vwOf(ex);
+const c=Number(LOG[id].wt)||(ex&&ex.tp==='db'?0:barOf(ex));
 LOG[id].wt=dir>0?nxUp(c,vw):nxDn(c,vw);LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 function setL(id,f,v){LOG[id][f]=v;LOG[id].touched=true}
 // Timer may fire from rep entry: the old `filled===i+1` gate never passed once an exercise
