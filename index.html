@@ -1149,7 +1149,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     const repsAch=Math.min(bestMin>0?bestMin:ex.tg,ex.tg);
     if(last.wt>0){
       const raw=last.wt*epleyF(repsAch)/epleyF(ex.tg);
-      const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
+      const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
       if(tgt>0&&tgt!==last.wt){
         const dir=tgt<last.wt?'lighter':'heavier';
         return{text:`→ ${tgt}kg${u}`,type:'new',wt:tgt,traj,
@@ -1181,7 +1181,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     if(over>=4){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
       const raw=last.wt*(1+pct);
-      const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):Math.round(raw*2)/2;
+      const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
       if(nxt>last.wt){
         const jump=Math.round((nxt-last.wt)*10)/10;
         return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
@@ -1200,7 +1200,16 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
         return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
       const jump=Math.round((nxt-last.wt)*10)/10;
       return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
-    // DB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
+    // DB: walk the real spinlock ladder (rungs the rack can actually build) — the old
+    // flat +0.5 could propose unloadable weights. AMRAP scales rungs (1, or 2 if ≥3 over).
+    if(ex.tp==='db'){
+      const steps=over>=3?2:1;
+      const nxt=nxUpN(last.wt,steps,dbwOf(ex));
+      if(nxt<=last.wt){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
+      const jump=Math.round((nxt-last.wt)*10)/10;
+      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
+    // KB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
     const steps=over>=3?2:1;
     const nxt=Math.round((last.wt+dbInc*steps)*10)/10;
     return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
@@ -1212,6 +1221,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
       // nearest valid weight ≤90% (never below the bar); micro-load lifts round to 0.5kg.
       let d;
       if(ex.tp==='bb'){const vw=vwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else if(ex.tp==='db'){const vw=dbwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
       else d=Math.max(0,Math.round(last.wt*0.9*2)/2);
       // At/near the lightest load (bar-only) there is no lower rung — a "deload" would be a
       // phantom 0kg cut. Switch to rep/tempo rebuild instead of printing a fake percentage.

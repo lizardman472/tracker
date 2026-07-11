@@ -763,6 +763,29 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('no cardio history → empty series', cardioWeekly(8).length === 0);
 }
 
+// ── Partner DB ladder (E3): db progression walks real spinlock rungs ──
+{
+  const dl = freshD({ location: 'partner' });
+  const pr3 = getProgram(1, 'partner');
+  const ohpEx = pr3.B.find(e => e.id === 'db_ohp'); // per_db, tg 10
+  // Hit target at 8.5/DB → next PAIR rung is 9.
+  dl.sessions = [{ id: 'l1', date: '2026-07-05', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 8.5, reps: [10, 10, 10], band: '' }] }];
+  let sgl = getSmartSugg(ohpEx);
+  T('db step-up lands on the next spinlock rung', sgl.type === 'up' && sgl.wt === 9, JSON.stringify(sgl));
+  // Ladder gap: 17 → 18 for matched pairs (17.5 needs plates the pool can't match ×4).
+  dl.sessions = [{ id: 'l2', date: '2026-07-05', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 17, reps: [10, 10, 10], band: '' }] }];
+  sgl = getSmartSugg(ohpEx);
+  T('db step-up honors ladder gaps (17 → 18, no phantom 17.5)', sgl.wt === 18, JSON.stringify(sgl));
+  // Top of the rack → MAX, not an unloadable +0.5.
+  dl.sessions = [{ id: 'l3', date: '2026-07-05', day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 18.5, reps: [10, 10, 10], band: '' }] }];
+  sgl = getSmartSugg(ohpEx);
+  T('top of the DB rack reports MAX', sgl.maxed === true && /MAX/.test(sgl.text), JSON.stringify(sgl));
+  // Deload after 3 stalls lands on a rung ≤ 90%.
+  dl.sessions = [1, 2, 3].map(i => ({ id: 'l4' + i, date: '2026-07-0' + i, day: 'B', loc: 'partner', ex: [{ id: 'db_ohp', wt: 10, reps: [4, 4, 4], band: '' }] }));
+  sgl = getSmartSugg(ohpEx);
+  T('db deload lands on a real rung ≤90%', sgl.type === 'dn' && sgl.wt === 9 && dbwOf(ohpEx).includes(sgl.wt), JSON.stringify(sgl));
+}
+
 // ── Deeper stats D3: periodCompare — last-4wk vs prior-4wk windows ──
 {
   const dp = freshD();
