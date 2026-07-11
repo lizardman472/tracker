@@ -13,13 +13,13 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -262,6 +262,20 @@ T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'h
 
 // ── v27: lm_pallof pause moved to the press-out (anti-rotation hold at full extension) ──
 T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').C.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
+
+// ── Partner DB ladder (E1): buildDBW from the photographed spinlock inventory ──
+T('bare bell (bar+collars) is a rung', DBW_PAIR[0] === 2 && DBW_SINGLE[0] === 2);
+T('smallest loaded rungs: 3 (2×0.5) and 4.5 (2×1.25)', DBW_PAIR.includes(3) && DBW_PAIR.includes(4.5));
+T('7 = bell + 2.5 per end', DBW_PAIR.includes(7));
+T('15.5 matched pair loadable (2.5+2.5+1.25+0.5 per end ×4 bells-ends)', DBW_PAIR.includes(15.5));
+T('matched pairs top out at 18.5 (sleeve cap: 4 heaviest matched plates/end)', DBW_PAIR[DBW_PAIR.length - 1] === 18.5);
+T('single bell tops out at 22 (4×2.5 per end)', DBW_SINGLE[DBW_SINGLE.length - 1] === 22);
+T('every matched rung is also a single-bell rung', DBW_PAIR.every(w => DBW_SINGLE.includes(w)));
+T('19.5 needs >2 of the 2kg plates per bell-pair — single only', !DBW_PAIR.includes(19.5) && DBW_SINGLE.includes(19.5));
+T('near-continuous 0.5 steps in the working range 4.5-17', (() => { for (let w = 4.5; w <= 17; w += 0.5) if (!DBW_PAIR.includes(Math.round(w * 10) / 10)) return false; return true; })());
+T('dbwOf routes per_db to the matched ladder', dbwOf({ loadUnit: 'per_db' }) === DBW_PAIR && dbwOf({}) === DBW_SINGLE);
+T('snapDB lands on real rungs', snapDB(9.9, { loadUnit: 'per_db' }) === 10 && snapDB(2.4, {}) === 2);
+T('fmtDbEnd greedy breakdown', fmtDbEnd(15.5, true) === '2×2.5kg + 1×1.25kg + 1×0.5kg' && fmtDbEnd(2, true) === 'Bar only');
 
 // ── Ultra audit C5: MG attribution consistency (exact values, so silent drift fails loud) ──
 // Carry rule: unilateral/asymmetric carries core 1.0; bilateral farmer-style 0.5.

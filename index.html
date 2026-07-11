@@ -348,6 +348,42 @@ function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(
 const wEq=(a,b)=>Math.abs((a||0)-(b||0))<0.001;
 function plateH(t,bar=BAR,lm=false){if(!t||t<=bar)return'';const ps=perSide(t,bar,lm);if(!ps||!ps.length)return'';let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){const c=p.w>=10?'pl-10':p.w>=5?'pl-5':p.w>=2.5?'pl-2':'pl-1';h+=`<div class="pl ${c}">${p.w%1?p.w:p.w|0}</div>`}h+=`</div>`;return h}
 
+// ═══ Partner DUMBBELL inventory (photographed): two spinlock sets, one shared pool.
+// Set 1: 4×0.5 + 4×1.25 + 8×2.5 kg plates, 2×35cm bars. Set 2 (Active Intent 20kg):
+// 8×1 + 4×2 kg plates, 2×35.5cm bars. Bar+collars = 2.0kg EXACTLY for Set 2 (box math:
+// 20kg total − 16kg plates over 2 bars); ASSUMED equal for Set 1's near-identical bars —
+// correct DB_BAR here if Set 1's bars weigh differently.
+const DB_BAR=2;
+const DB_PL=[{w:2.5,q:8},{w:2,q:4},{w:1.25,q:4},{w:1,q:8},{w:0.5,q:4}];
+const DB_SLEEVE_MAX=4; // plates per END — 35cm spinlock sleeves are short
+// Valid per-bell weights (buildVW analog). Plates load one-per-end in pairs, so a bell
+// consumes 2 of a denomination per step; MATCHED mode builds TWO identical bells (for
+// loadUnit:'per_db' lifts — one in each hand) and therefore consumes 4 per step. Each
+// distinct per-end sum keeps its minimum plate count so the sleeve cap never discards
+// a sum reachable with fewer plates.
+function buildDBW(matched){
+const per=DB_PL.map(p=>({w:p.w,max:Math.floor(p.q/(matched?4:2))}));
+let combos=[{s:0,n:0}];
+for(const p of per){
+  const next=[];
+  for(const base of combos)for(let c=0;c<=p.max;c++){const n=base.n+c;if(n>DB_SLEEVE_MAX)break;next.push({s:base.s+c*p.w,n})}
+  const seen=new Map();
+  for(const x of next){const k=Math.round(x.s*100);if(!seen.has(k)||seen.get(k).n>x.n)seen.set(k,x)}
+  combos=[...seen.values()];
+}
+const set=new Set();for(const c of combos)set.add(Math.round((DB_BAR+2*c.s)*100)/100);
+return[...set].sort((a,b)=>a-b)}
+const DBW_PAIR=buildDBW(true);    // two matched bells (per_db lifts)
+const DBW_SINGLE=buildDBW(false); // one bell gets the whole pool
+function dbwOf(ex){return ex&&ex.loadUnit==='per_db'?DBW_PAIR:DBW_SINGLE}
+function snapDB(t,ex){const vw=dbwOf(ex);let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
+// Greedy per-end breakdown for a bell weight (perSide/fmtPl analog; greedy can miss
+// exotic combos, in which case it shows '—' rather than lying).
+function dbEnd(t,matched){let r=(t-DB_BAR)/2;if(r<-0.001)return null;const o=[];
+for(const p of DB_PL){const m=Math.floor(p.q/(matched?4:2));let c=Math.min(Math.floor(r/p.w+1e-9),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}
+return Math.abs(r)<.01?o:null}
+function fmtDbEnd(t,matched){if(t==null||t<=DB_BAR)return'Bar only';const p=dbEnd(t,matched);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
+
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
