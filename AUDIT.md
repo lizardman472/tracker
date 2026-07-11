@@ -330,6 +330,40 @@ noProg, two-tab gen sidecar — zero console errors at 360px). SW cache → `rft
 e2e (adds: momentum decimal check, live volt token, session log, all segments).
 SW cache → `rft-v53`.
 
+---
+
+## 9 · Partner starting weights + real DB ladder (9 Jul 2026, fourth pass)
+
+15 partner lifts had no computed starting point ("First time — find your weight"):
+11 with no `RELATED_EX` entry, 4 more chained to those unseeded peers, and no seed
+ever crossed locations. Fixed end to end:
+
+- **Inventory model** — the user photographed the partner's two spinlock DB sets
+  (4×0.5 + 4×1.25 + 8×2.5 kg and 8×1 + 4×2 kg plates, four bars). Bar+collars =
+  2.0kg exactly from Set 2's box math (20kg − 16kg plates / 2 bars); Set 1 assumed
+  equal (single correctable const). `buildDBW` enumerates every loadable per-bell
+  weight — MATCHED mode (two identical bells for `per_db` lifts, 4 plates per
+  denomination step) 2→18.5kg in near-continuous 0.5 steps; SINGLE (whole pool,
+  one bell) to 22kg; sleeve cap 4 plates/end. `dbwOf`/`snapDB`/`fmtDbEnd` mirror
+  the barbell `vwOf`/`snapW`/`fmtPl`.
+- **Seeds for all 15** — cross-location conversions from HOME history where a sane
+  proxy exists (db_ohp ← barbell OHP ×0.32/DB, db_rdl ← hex RDL ×0.35/DB,
+  db_row_b ← hex row ×0.45 single-bell, db_bss/db_lunge ← landmine squat,
+  db_1arm_press/db_floor_press_v ← floor press, db_carry ← hex carry; multipliers
+  fold the equipment + rep-range shift), deliberate statics for strict isolation
+  (3kg laterals/rear flies — hypermobile shoulders) and the fixed-8kg clubbells,
+  plus on-ladder fallbacks everywhere so even a fresh device seeds. Computed DB
+  targets snap to the ladder. All notes hedge: estimates; session one finds the
+  groove; the overshoot re-anchor corrects upward fast.
+- **DB progression on real rungs** — step-ups, overshoot jumps, deloads and phase
+  re-anchors for db lifts land on ladder rungs (top of the rack reports MAX like
+  the barbell plate ceiling) instead of flat ±0.5 arithmetic.
+- **Workout UI** — db lifts gain ± ladder-stepper buttons and a "Spinlock per end:
+  2×2.5 + 1kg · two matched bells" readout; free typing retained.
+
+**Verification: 520 tests** (calc 232 · hex 188 · render 100) + Chromium e2e incl.
+a partner first-run pass. SW cache → `rft-v54`.
+
 ### Deferred (with reasons)
 - **Committed-session editing** (user chose defer) — delete + re-log remains the fix
   path; a good inline editor is its own feature, a `prompt()` one is poor phone UX.
