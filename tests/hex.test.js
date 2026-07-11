@@ -275,7 +275,19 @@ T('19.5 needs >2 of the 2kg plates per bell-pair — single only', !DBW_PAIR.inc
 T('near-continuous 0.5 steps in the working range 4.5-17', (() => { for (let w = 4.5; w <= 17; w += 0.5) if (!DBW_PAIR.includes(Math.round(w * 10) / 10)) return false; return true; })());
 T('dbwOf routes per_db to the matched ladder', dbwOf({ loadUnit: 'per_db' }) === DBW_PAIR && dbwOf({}) === DBW_SINGLE);
 T('snapDB lands on real rungs', snapDB(9.9, { loadUnit: 'per_db' }) === 10 && snapDB(2.4, {}) === 2);
-T('fmtDbEnd greedy breakdown', fmtDbEnd(15.5, true) === '2×2.5kg + 1×1.25kg + 1×0.5kg' && fmtDbEnd(2, true) === 'Bar only');
+T('fmtDbEnd breakdown', fmtDbEnd(15.5, true) === '2×2.5kg + 1×1.25kg + 1×0.5kg' && fmtDbEnd(2, true) === 'Bar only');
+
+// ── DB plate visuals (E6): exact per-end solver + chip diagram ──
+// The user's live screenshot showed 'Spinlock per end: —' at 16.5kg/DB: greedy took
+// 2.5+2.5 then dead-ended; the exact combo is 2.5+2.5+1.25+1. These pin the fix.
+T('16.5/DB resolves exactly (greedy used to fail)', fmtDbEnd(16.5, true) === '2×2.5kg + 1×1.25kg + 1×1kg', fmtDbEnd(16.5, true));
+T('7.5/DB resolves exactly (2.75/end = 1.25+1+0.5)', fmtDbEnd(7.5, true) === '1×1.25kg + 1×1kg + 1×0.5kg', fmtDbEnd(7.5, true));
+T('EVERY matched rung above the bar has a real breakdown', DBW_PAIR.every(w => w <= 2 || fmtDbEnd(w, true) !== '—'), DBW_PAIR.filter(w => w > 2 && fmtDbEnd(w, true) === '—').join(','));
+T('EVERY single-bell rung above the bar has a real breakdown', DBW_SINGLE.every(w => w <= 2 || fmtDbEnd(w, false) !== '—'), DBW_SINGLE.filter(w => w > 2 && fmtDbEnd(w, false) === '—').join(','));
+T('solver prefers fewest plates (7kg = one 2.5, not 2+0.5 or 1.25+1+…)', fmtDbEnd(7, true) === '1×2.5kg');
+T('solver respects the sleeve cap', (() => { const c = dbEnd(18.5, true); return c && c.reduce((a, p) => a + p.c, 0) <= 4; })());
+T('dbPlateH renders one chrome chip per plate', (dbPlateH(16.5, true).match(/pl pl-db/g) || []).length === 4);
+T('dbPlateH empty at/below the bare bell', dbPlateH(2, true) === '' && dbPlateH(null, true) === '');
 
 // ── Partner starting weights (E2): every partner lift computes a start ──
 {

@@ -101,6 +101,8 @@ input[type=number]{-moz-appearance:textfield}
 .pls{display:flex;align-items:center;gap:3px;padding:3px 0;justify-content:center}
 .pl{height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--ink)}
 .pl-10{background:var(--p10);width:24px}.pl-5{background:var(--p5);width:20px}.pl-2{background:var(--p25);width:17px}.pl-1{background:var(--p1);width:17px;font-size:7px;letter-spacing:-.3px}
+/* Spinlock DB plates: chrome like the real ones — label carries the value */
+.pl-db{height:20px;background:linear-gradient(180deg,#d7dce2,#9aa3ad);color:#1a2027;font-size:7px;font-weight:800;letter-spacing:-.3px;border:1px solid #7e8894}
 
 /* Buttons */
 .btn{padding:16px 20px;font-family:var(--disp);font-size:14px;font-weight:800;border:none;border-radius:var(--rad-sm);cursor:pointer;width:100%;display:block;transition:.15s;letter-spacing:1px;text-transform:uppercase}
@@ -378,12 +380,32 @@ const DBW_PAIR=buildDBW(true);    // two matched bells (per_db lifts)
 const DBW_SINGLE=buildDBW(false); // one bell gets the whole pool
 function dbwOf(ex){return ex&&ex.loadUnit==='per_db'?DBW_PAIR:DBW_SINGLE}
 function snapDB(t,ex){const vw=dbwOf(ex);let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
-// Greedy per-end breakdown for a bell weight (perSide/fmtPl analog; greedy can miss
-// exotic combos, in which case it shows '—' rather than lying).
-function dbEnd(t,matched){let r=(t-DB_BAR)/2;if(r<-0.001)return null;const o=[];
-for(const p of DB_PL){const m=Math.floor(p.q/(matched?4:2));let c=Math.min(Math.floor(r/p.w+1e-9),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}
-return Math.abs(r)<.01?o:null}
+// EXACT per-end breakdown for a bell weight (perSide/fmtPl analog). Greedy fails on
+// these denominations — 2.75/end is 1.25+1+0.5, but greedy grabs the 2.5 and dead-ends —
+// so this is a tiny DFS (≤ a few dozen states) returning the fewest-plates exact combo.
+function dbEnd(t,matched){
+const target=Math.round(((t-DB_BAR)/2)*100)/100;
+if(target<-0.001)return null;
+if(target<0.001)return[];
+let best=null;
+const walk=(i,rem,n,acc)=>{
+  if(best&&n>=best.n)return;
+  if(Math.abs(rem)<0.005){best={n,combo:acc.filter(x=>x.c>0).map(x=>({w:x.w,c:x.c}))};return}
+  if(i>=DB_PL.length||rem<-0.005||n>=DB_SLEEVE_MAX)return;
+  const p=DB_PL[i],m=Math.min(Math.floor(p.q/(matched?4:2)),DB_SLEEVE_MAX-n,Math.floor(rem/p.w+1e-9));
+  for(let c=m;c>=0;c--){acc.push({w:p.w,c});walk(i+1,rem-c*p.w,n+c,acc);acc.pop()}
+};
+walk(0,target,0,[]);
+return best?best.combo:null}
 function fmtDbEnd(t,matched){if(t==null||t<=DB_BAR)return'Bar only';const p=dbEnd(t,matched);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
+// Chip diagram for one bell end — the barbell plateH sibling. Chrome-styled (the real
+// plates are chrome spinlocks) so the barbell color code (blue=5kg etc.) can't lie here;
+// the label carries the value, width scales with the denomination.
+function dbPlateH(t,matched){if(!t||t<=DB_BAR)return'';const ps=dbEnd(t,matched);if(!ps||!ps.length)return'';
+let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){
+const wd=p.w>=2.5?22:p.w>=2?20:p.w>=1.25?17:p.w>=1?15:13;
+h+=`<div class="pl pl-db" style="width:${wd}px">${p.w%1?p.w:p.w|0}</div>`}
+h+='</div>';return h}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
@@ -1929,7 +1951,7 @@ h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;m
 <button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}" aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
 <input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">${ex.loadUnit==='per_db'?'kg/DB':'kg'}</span>
 <button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}" aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
-if(dcur>0)h+=`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
+if(dcur>0)h+=dbPlateH(dcur,ex.loadUnit==='per_db')+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
@@ -2922,7 +2944,9 @@ h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-s
 <div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+esc(e.band):''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
 // Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
-if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);h+=`</div>`}
+if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);
+else if(def&&def.tp==='db'&&e.wt&&e.wt>DB_BAR)h+=dbPlateH(e.wt,def.loadUnit==='per_db');
+h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 h+=`<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
 <button class="btn-sm btn-rd" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button>
@@ -3017,14 +3041,15 @@ save();go('history')}
 function rPlates(el){
   // Render one weight ladder as a labelled section. lm=true → single-end (landmine) plate
   // breakdown; otherwise symmetric per-side. Reused for the straight bar and the landmine.
-  const ladder=(title,sub,vw,lm,bar)=>{
+  // fmt overrides the default barbell plate-math text (the DB ladders pass fmtDbEnd).
+  const ladder=(title,sub,vw,lm,bar,fmt)=>{
     let h=`<div class="lb" style="margin:16px 0 4px">${title} <span class="dm" style="font-weight:400">· ${vw.length}</span></div>`;
     if(sub)h+=`<div style="font-size:11px;color:var(--mu);margin-bottom:8px">${sub}</div>`;
     let prev=null;
     for(let i=0;i<vw.length;i++){const w=vw[i],j=prev!==null?`+${Math.round((w-prev)*100)/100}kg`:'';
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:8px;margin-bottom:2px;${i%2?'':'background:var(--cd)'}">
       <div><span style="font-size:15px;font-weight:700">${w}</span><span class="dm"> kg</span></div>
-      <div style="text-align:right"><div style="font-size:10px;color:var(--mu)">${esc(fmtPl(w,bar||BAR,lm))}</div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--mu)">${esc(fmt?fmt(w):fmtPl(w,bar||BAR,lm))}</div>
       ${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
     return h;
   };
@@ -3032,6 +3057,8 @@ function rPlates(el){
   h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false,BAR);
   h+=ladder('Hex Bar (7kg)','Hex deadlift / squat / row / RDL / floor press / carry all load on this ladder — the lighter bar shifts every total down 4kg vs the straight bar.',VWH,false,HEXBAR);
   h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true,BAR);
+  h+=ladder('Dumbbells — matched pair (2kg bars)',"Partner's spinlock sets: per-bell weights buildable as TWO identical bells (per-DB lifts). Breakdown shows one end.",DBW_PAIR,false,null,w=>w<=DB_BAR?'Bare bell':fmtDbEnd(w,true)+' /end');
+  h+=ladder('Dumbbell — single bell',"One bell with the whole plate pool (single-implement lifts).",DBW_SINGLE,false,null,w=>w<=DB_BAR?'Bare bell':fmtDbEnd(w,false)+' /end');
   h+=`</div>`;el.innerHTML=h;
 }
 

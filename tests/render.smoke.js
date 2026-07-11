@@ -286,7 +286,10 @@ R.setEXP('dbs'); // …then expand and re-render
 tryRender('History (DB session expanded)', () => R.render());
 const dbHist = R.getA();
 T('expanded DB session shows the weight', /12kg/.test(dbHist));
-T('no plate strip rendered for a dumbbell lift', !/class="pl /.test(dbHist));
+// DB rows now get their own CHROME chips — the guard is against the old bug of
+// rendering BARBELL plates (pl-10/pl-5/…) on a dumbbell lift.
+T('no BARBELL plate strip rendered for a dumbbell lift', !/pl pl-(10|5|2|1)"/.test(dbHist));
+T('dumbbell lift renders its own chrome chips instead', /pl pl-db/.test(dbHist));
 R.setEXP(null);
 R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
 
@@ -328,7 +331,27 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   // Stepper walks the matched ladder: 7.5 → 8.
   R.stepWt('db_ohp', 1);
   T('stepWt walks db up the spinlock ladder (7.5 → 8)', R.getLOG()['db_ohp'].wt === 8, R.getLOG()['db_ohp'].wt);
+  // DB plate chips render (8/DB = 3/end = 2.5+0.5 → two chrome chips).
+  R.render();
+  T('db lift renders chrome plate chips', (R.getA().match(/pl pl-db/g) || []).length === 2, (R.getA().match(/pl pl-db/g) || []).length);
+  T('per-end readout resolves (no dash)', !/Spinlock per end: —/.test(R.getA()));
   R.getD().location = 'home';
+}
+
+// ── DB plate chips in History + DB ladders on the reference screen ──
+{
+  R.getD().sessions.push({ id: 'dbv', date: '2026-06-14', day: 'B', loc: 'partner',
+    ex: [{ id: 'db_ohp', wt: 16.5, reps: [10, 10, 10], band: '' }] });
+  R.go('history');
+  R.setEXP('dbv');
+  tryRender('History (db session expanded, plate chips)', () => R.render());
+  T('history db row shows chrome plate chips', (R.getA().match(/pl pl-db/g) || []).length === 4);
+  R.setEXP(null);
+  R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbv');
+  tryRender('All Valid Weights incl. DB ladders', () => R.go('plates'));
+  T('plates screen lists the matched-pair DB ladder', /Dumbbells — matched pair/.test(R.getA()));
+  T('plates screen lists the single-bell DB ladder', /Dumbbell — single bell/.test(R.getA()));
+  T('DB ladder rows carry per-end breakdowns', /\/end/.test(R.getA()));
 }
 
 // ── Settings + All-Valid-Weights reference screen ──
