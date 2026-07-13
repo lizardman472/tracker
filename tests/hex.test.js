@@ -213,7 +213,7 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days A=8, B=7, C=9 (v27 added a Day-C calf raise)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9);
+T('home days A=8, B=8, C=10 (v28 added Day-B side plank + Day-C bird dog)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 10);
 
 const partPr = getProgram(1, 'partner');
 // ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──
@@ -332,5 +332,26 @@ T('db_sl_rdl deliberately back-free (true single-leg, balance-limited)', MG.db_s
 // The changes must not sink home core under MEV (dead bugs 3 + pallof 3 + carry 3×0.5 = 7.5).
 T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core'), `${wkVol.core} vs ${mevOf('core')}`);
 T('home back still ≤ MAV after b_stance_rdl +0.5', wkVol.back <= (MG_INFO.find(r => r[0] === 'back') || [])[3], `${wkVol.back}`);
+
+// ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
+// The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
+// replaced the Zerchers), leaving anti-lateral work at one suitcase set/week (home) or zero
+// (partner) and extensor ENDURANCE with no slot at all. These pin the back-fill: bodyweight
+// finishers, shared ids across venues (identical movement → one progression history).
+T('home Day B has a side plank (bw, per-side, timed)', (() => { const e = homePr.B.find(x => x.id === 'side_plank'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 40; })());
+T('home Day C has a bird dog (bw, per-side)', (() => { const e = homePr.C.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 8; })());
+T('partner mirrors both slots with the SAME ids (shared bw history)', partPr.B.some(e => e.id === 'side_plank') && partPr.C.some(e => e.id === 'bird_dog'));
+T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1);
+T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
+const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
+T('home core over MEV, still under MAV after v28 (+6 sets)', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
+T('partner core over MEV, still under MAV after v28 (+6 sets)', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+T('bw holds excluded from tonnage (unloaded)', calcExVol('side_plank', null, [40, 40, 40]) === 0 && calcExVol('bird_dog', null, [8, 8, 8]) === 0);
+T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => { const pr = getProgram(p, 'home'); return pr.B.find(e => e.id === 'side_plank').rp === '20-40s/side' && pr.C.find(e => e.id === 'bird_dog').rp === '8/side'; }));
+// bw progression drives off total reps/seconds vs s×tg — hitting 3×40s reads as progress,
+// a below-target session reads stay-and-push.
+T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('bird dog below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.C.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
+T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -383,3 +383,42 @@ screen, expanded History rows, and two DB ladder sections on All Valid Weights.
 - **Timezone-change week re-bucketing** — inherent to the local-date design; one device.
 - **Gap-aware swap-picker badges** — picker already filters by primary muscle; deemed
   clutter for the value.
+
+---
+
+## 10 · v28 — lower-back prevention slots (13 Jul 2026)
+
+The hex/landmine migrations deliberately traded away the program's highest
+peak-lumbar-load lifts (straight-bar DL → hex, straight RDL → hex "easier on the lower
+back", both Zerchers → hex squat / landmine squat). Right call for injury exposure, but
+it left prevention thin on two axes:
+
+- **Anti-lateral-flexion** had shrunk to the single suitcase set cued at the end of the
+  Day-C hex carry (partner venue: none — its carry is bilateral).
+- **Extensor endurance** — low-load erector work, the trunk quality best correlated with
+  back resilience — had no slot at all once the Zerchers left.
+
+Fix (both venues; pure bodyweight so the slots never compete with hinge recovery;
+static like the dead bugs/carries — no `PHASES.adj` entries):
+
+- **`side_plank` — Day B finisher** (the only day with zero core work): 3×20–40s/side,
+  seconds logged in the rep field like the carries log steps/metres. Progression cue:
+  raise the top leg / load the hip, not longer grinding holds.
+- **`bird_dog` — Day C finisher**: 3×8/side with 3s holds (tempo `2-0-2-3` — pause at
+  full extension, mirroring `lm_pallof`'s press-out pause). Progression cue: longer
+  holds, not reps/load.
+- Both movements are identical at both venues, so they **share ids across
+  home/partner** — a deliberate first (every prior cross-venue pair differed by
+  implement); one movement, one progression history, and the bw suggestion engine
+  reads either venue's sessions.
+- `MG`: both credit `core:1`, no back credit (sub-threshold erector load, same
+  reasoning as `db_sl_rdl`). Core rises 7.5 → 13.5 effective sets/cycle at both venues —
+  ≥ MEV 6, ≤ MAV 16. Day counts: home A=8 B=8 C=10, partner A=7 B=9 C=9.
+
+**Verification: 549 tests** (calc 232 · hex 208 · render 109) — the home day-count
+assertion updated, plus 12 new v28 assertions: slots exist at both venues with shared
+ids and a single deduped `ALL_EX` definition, `core:1` credit, core ≥ MEV and ≤ MAV at
+both venues, bw holds excluded from tonnage, no phase adjustment at P1–P3, 3×40s reads
+as progress / below-target as stay, and a partner-logged session feeds the home
+suggestion. Live Chromium check: both slots render on their days at both venues (set
+inputs, no kg input, coach note visible), zero console errors. SW cache → `rft-v56`.
