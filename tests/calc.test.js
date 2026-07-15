@@ -32,9 +32,9 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
 // ── ALL_EX integrity ──
 const ids = ALL_EX.map(e => e.id);
 T('ALL_EX ids unique', new Set(ids).size === ids.length);
-// lm_lateral appears on both Day A and Day B (same 4 sets, different cue); dedup must keep
+// lm_lateral appears on both Day A (3 sets, v29) and Day B (4 sets); dedup must keep
 // the first (Day A) def — identified by its distinct coaching cue.
-T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').rl.startsWith('Hold the bar end'));
+T('dedup keeps first active def over later dupes', ALL_EX.find(e => e.id === 'lm_lateral').rl.startsWith('2nd weekly delt exposure'));
 // Swapped-out straight-bar lifts survive as legacy stubs so pre-swap history resolves.
 T('swapped lifts kept as legacy stubs', ['deadlift','zercher_b','suitcase_march'].every(id => ALL_EX.find(e => e.id === id)));
 // Coach notes (📌) surface manual-progression reminders + band tips on the lifts the user is stuck on.
@@ -69,8 +69,9 @@ T('repmin steps/side', getRepMin({ rp: '30-40 steps/side', tg: 40 }) === 30);
 function freshD(over) { setD(structuredClone(SEED)); const d = getD(); d.discomfort = []; d.location = 'home'; d.phase = 1; Object.assign(d, over || {}); return d; }
 
 let d = freshD();
-d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'cossack_squat', wt: 21, reps: [8, 8, 8], band: '' }] }];
-let sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'cossack_squat'));
+// (was cossack_squat until the v29 trim retired it — b_stance_rdl is the same per-side bar shape)
+d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 21, reps: [8, 8, 8], band: '' }] }];
+let sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('per-side hit-target → up', sg.type === 'up', JSON.stringify(sg));
 
 d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [15, 15], band: 'Purple' }] }];
@@ -258,7 +259,9 @@ T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
 // Swapped-out ids are gone from the adj map.
 T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
 // Loaded accessories now periodize like their partner counterparts.
-T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('bb_skullcr') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('bb_skullcr') && PA.has('hex_floor_press'));
+// v29 trim: retired slots left the adj maps with their exercises (dead-entry hygiene).
+T('v29 retired slots carry no adj entries', !PA.has('cossack_squat') && !PA.has('db_1arm_press'));
 // lm_lateral actually re-anchors lighter into Hypertrophy (proves the swap-id wiring works).
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
 d.sessions = [{ id: 'll1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'lm_lateral', wt: 16, reps: [8, 8, 8, 8], band: '' }] }];

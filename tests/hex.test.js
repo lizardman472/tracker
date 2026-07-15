@@ -213,7 +213,7 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days A=8, B=8, C=10 (v28 added Day-B side plank + Day-C bird dog)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 10);
+T('home days A=8, B=7, C=9 (v29 core+accessories trim)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9);
 
 const partPr = getProgram(1, 'partner');
 // ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──
@@ -250,12 +250,12 @@ T('partner has vertical pull on 2 days (A + C, mirrors home)', vertPullDays.join
 T('partner hamstrings hit 2× frequency (db_sl_rdl moved A→C)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 2);
 T('partner back still ≥ MEV after row→pull-up swap (volume-neutral)', pVol.back >= mevOf('back'), `${pVol.back} vs ${mevOf('back')}`);
 
-// ── v27: Phase-3 no longer strength-loads the quality slots (bb_rear_row, cossack) ──
-// With no P3 adj entry they fall back to their BASE hypertrophy ranges instead of the old
-// heavy 10-12 / 6-side that contradicted their coaching intent.
+// ── v27: Phase-3 no longer strength-loads the quality slot (bb_rear_row) ──
+// With no P3 adj entry it falls back to its BASE hypertrophy range instead of the old
+// heavy 10-12 that contradicted its coaching intent. (cossack_squat shared this test
+// until the v29 trim retired the slot outright — see the v29 block below.)
 const homeP3 = getProgram(3, 'home');
 T('P3 bb_rear_row holds its light hypertrophy range (12-15), not heavy 10-12', homeP3.A.find(e => e.id === 'bb_rear_row').rp === '12-15');
-T('P3 cossack holds 8/side (base), not a strength-loaded 6/side', homeP3.C.find(e => e.id === 'cossack_squat').rp === '8/side');
 // P1 still periodizes them (proves they weren't removed everywhere — see calc.test for the
 // PHASE_ADJ_IDS membership assertion): P1 rear-delt row is its light 12-15.
 T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row').rp === '12-15');
@@ -333,25 +333,44 @@ T('db_sl_rdl deliberately back-free (true single-leg, balance-limited)', MG.db_s
 T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core'), `${wkVol.core} vs ${mevOf('core')}`);
 T('home back still ≤ MAV after b_stance_rdl +0.5', wkVol.back <= (MG_INFO.find(r => r[0] === 'back') || [])[3], `${wkVol.back}`);
 
-// ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
-// The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
-// replaced the Zerchers), leaving anti-lateral work at one suitcase set/week (home) or zero
-// (partner) and extensor ENDURANCE with no slot at all. These pin the back-fill: bodyweight
-// finishers, shared ids across venues (identical movement → one progression history).
-T('home Day B has a side plank (bw, per-side, timed)', (() => { const e = homePr.B.find(x => x.id === 'side_plank'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 40; })());
+// ── v28 slots, as amended by v29: bird dog both venues; side plank partner-only ──
+// v28 added both slots at both venues; the v29 trim kept bird dog everywhere (extensor
+// endurance — the axis nothing else covers) but retired the HOME side plank (anti-lateral
+// returns to the hex-carry suitcase set; the partner carry is bilateral, so its side plank
+// stays as that venue's only anti-lateral hold). Ids remain shared for history.
+T('partner Day B has the side plank (bw, per-side, timed)', (() => { const e = partPr.B.find(x => x.id === 'side_plank'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 40; })());
+T('home Day B no longer carries the side plank (v29 trim)', !homePr.B.some(e => e.id === 'side_plank'));
 T('home Day C has a bird dog (bw, per-side)', (() => { const e = homePr.C.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 8; })());
-T('partner mirrors both slots with the SAME ids (shared bw history)', partPr.B.some(e => e.id === 'side_plank') && partPr.C.some(e => e.id === 'bird_dog'));
+T('partner Day C keeps the bird dog (shared id)', partPr.C.some(e => e.id === 'bird_dog'));
 T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1);
 T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
 const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
-T('home core over MEV, still under MAV after v28 (+6 sets)', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
-T('partner core over MEV, still under MAV after v28 (+6 sets)', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+T('home core over MEV, under MAV after v29 (one slot per pattern)', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
+T('partner core over MEV, under MAV after v29', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
 T('bw holds excluded from tonnage (unloaded)', calcExVol('side_plank', null, [40, 40, 40]) === 0 && calcExVol('bird_dog', null, [8, 8, 8]) === 0);
-T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => { const pr = getProgram(p, 'home'); return pr.B.find(e => e.id === 'side_plank').rp === '20-40s/side' && pr.C.find(e => e.id === 'bird_dog').rp === '8/side'; }));
+T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => { const h = getProgram(p, 'home'), pp = getProgram(p, 'partner'); return pp.B.find(e => e.id === 'side_plank').rp === '20-40s/side' && h.C.find(e => e.id === 'bird_dog').rp === '8/side'; }));
 // bw progression drives off total reps/seconds vs s×tg — hitting 3×40s reads as progress,
 // a below-target session reads stay-and-push.
-T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 T('bird dog below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.C.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
-T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+
+// ── v29: core+accessories trim — sessions back to core lifts + a lean accessory tail ──
+// Rules enforced here: no compound lost a set; every MEV-gated muscle stays ≥ MEV at both
+// venues (the dynamic checks above recompute from the live program); cuts touch only
+// duplicated-pattern accessories. Retired: home cossack_squat, home side_plank copy,
+// partner cb_shield / db_1arm_press / cb_arm_cast. Day-A lm_lateral 4→3 (Day B stays 4).
+T('v29 day counts: home 8/7/9, partner 7/7/8', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9 && partPr.A.length === 7 && partPr.B.length === 7 && partPr.C.length === 8);
+T('v29 weekly set totals: home 79, partner 74 (was 86/83)', ['A','B','C'].reduce((a,d)=>a+homePr[d].reduce((x,e)=>x+e.s,0),0) === 79 && ['A','B','C'].reduce((a,d)=>a+partPr[d].reduce((x,e)=>x+e.s,0),0) === 74);
+const activeIds = new Set(['A','B','C'].flatMap(d => [...homePr[d], ...partPr[d]].map(e => e.id)));
+T('v29 retired slots are out of both active programs', ['cossack_squat','db_1arm_press','cb_shield','cb_arm_cast'].every(id => !activeIds.has(id)));
+T('v29 retired slots resolve as legacy stubs (history-safe, swap-picker-excluded)', ['cossack_squat','db_1arm_press','cb_shield','cb_arm_cast'].every(id => { const e = ALL_EX.find(x => x.id === id); return e && /legacy/i.test(e.rl); }));
+T('core lifts kept their sets (no compound trimmed)', homePr.A.find(e=>e.id==='hex_dl').s === 3 && homePr.B.find(e=>e.id==='hex_squat_b').s === 4 && homePr.B.find(e=>e.id==='ohp').s === 4 && homePr.B.find(e=>e.id==='dips').s === 4 && homePr.B.find(e=>e.id==='hex_row').s === 4 && homePr.A.find(e=>e.id==='floor_press').s === 4 && partPr.B.find(e=>e.id==='db_bss').s === 4 && partPr.C.find(e=>e.id==='db_lunge').s === 4);
+T('lm_lateral: Day A trimmed to 3, Day B stays the 4-set primary', homePr.A.find(e=>e.id==='lm_lateral').s === 3 && homePr.B.find(e=>e.id==='lm_lateral').s === 4);
+T('v27 buffer sets survive the trim (db_rear_fly A / db_sl_rdl still 4)', partPr.A.find(e=>e.id==='db_rear_fly').s === 4 && partPr.C.find(e=>e.id==='db_sl_rdl').s === 4);
+T('cb_mills promoted to the partner anti-rotation slot (not optional)', (() => { const e = partPr.A.find(x => x.id === 'cb_mills'); return e && !/optional/i.test(e.rl) && (MG.cb_mills || {}).core === 0.5; })());
+T('partner Day A laterals+flies now superset (mirrors Day B)', /⚡ Superset/.test(partPr.A.find(e=>e.id==='db_rear_fly').rl));
+T('home glutes dropped below the old over-MAV 14 (cossack retired)', wkVol.glutes < 14, `${wkVol.glutes}`);
+T('home anti-lateral cue survives on the hex carry (suitcase set)', /ANTI-LATERAL/i.test(homePr.C.find(e=>e.id==='hex_carry').rl));
 
 console.log(`\n${pass} passed, ${fail} failed`);
