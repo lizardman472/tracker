@@ -142,7 +142,7 @@ T('old rdl history still computes volume', calcExVol('rdl', 43, [10, 10, 10]) ==
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_squat']; // active landmine lifts (lm_180, lm_row retired)
+const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_squat', 'lm_press']; // active landmine lifts (lm_180, lm_row retired)
 T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
 T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
@@ -168,6 +168,9 @@ T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && l
 const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
 T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
 T('lm_squat routes to the VWL ladder', vwOf(ALL_EX.find(e => e.id === 'lm_squat')) === VWL);
+// v13 addendum: two-hand landmine press seeds at OHP load — 26kg fresh (11 bar + 15 one end).
+const lpg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_press'));
+T('lm_press seeds at 26kg on a fresh device (valid VWL weight)', lpg.type === 'new' && lpg.wt === 26 && VWL.includes(26), JSON.stringify(lpg));
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
@@ -215,7 +218,7 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days A=8, B=8, C=11 (v13 added optional Day-C deficit push-ups)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 11 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home days A=8, B=8, C=12 (v13 added optional deficit push-ups + landmine press)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
 // ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──

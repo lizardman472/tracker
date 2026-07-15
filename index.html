@@ -468,12 +468,13 @@ C:[
 {id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:30',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:90,tempo:'3-1-1-0',perSide:false},
+{id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:30',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:90,tempo:'3-1-2-0',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:90,tempo:'controlled',perSide:false},
 {id:'calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',rst:'1:00',rir:'1-2',tp:'kb',rl:'The program\'s only direct calf work. Stand on one foot on a step/edge, hold a KB in the same-side hand (suitcase). Full stretch at the bottom, pause + squeeze at the top — no bouncing. Progress load or reps when 20/side is smooth.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:true},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true},
 {id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor-endurance finisher — low-load erector work the hex/landmine swaps traded away. All fours, extend opposite arm + leg to horizontal, 3s hold, flat back, hips level (no twist). Reach long, don\'t lift high.',note:'Endurance, not load — this slot stays bodyweight by design. When 2×8/side with strict 3s holds is easy, lengthen the holds to 5s instead of adding reps.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true},
-{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true}]};
+{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
@@ -508,7 +509,7 @@ C:[
 // Day-C push-ups (freq 2×→3×); side delts 9→10 via Day-A lateral 3→4 sets; rear delts 6→7
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
-// Landmine OHP press still PENDING — OHP stays barbell for now.
+// Landmine press landed in v13 as lm_press (two-hand, Day C) — Day-B OHP stays barbell.
 // v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C (only
 // calf slot; calves are tracked but not MEV-gated). Home Day C is now 9 exercises.
 // v26 dead-bug conversion: Dead Bugs (Day A) moved kb→bb — bar held at arm's length over
@@ -557,10 +558,13 @@ C:[
 //     band-progression rule (reduce assistance when all sets hit top of range).
 //   • Day C: lm_squat 3→4 sets (2nd quad exposure gets a buffer set); bird_dog 3→2 sets
 //     (core sat well over MEV — trim the finisher, keep the partner entry at 3);
-//     NEW deficit_pushup — OPTIONAL 2×12-15 finisher on the historical push-up day.
+//     NEW deficit_pushup — OPTIONAL 2×12-15 finisher on the historical push-up day;
+//     NEW lm_press — two-hand landmine press 3×10-12 @ RIR 2-3 (the long-pending landmine
+//     press). Rides the single-sided VWL ladder, seeds at OHP load (26kg fresh) — static
+//     rep range (no PHASES.adj) since the finding note owns its first-session progression.
 //   • Labels: "(weak side leads)" appended to b_stance_rdl / db_bss / db_sl_rdl so the
 //     unilateral lifts start on the weaker side (ids unchanged — history intact).
-// Home day counts: A=8 B=8 C=11 (one optional). migrateToV13 stamps the version only —
+// Home day counts: A=8 B=8 C=12 (one optional). migrateToV13 stamps the version only —
 // no phase reset, no state-shape change.
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
@@ -689,7 +693,7 @@ const MG={
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,glutes:0.5,back:0.5},
   cossack_squat:{quads:0.5,glutes:0.5},
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
-  ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, 
+  ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, lm_press:{sidedelt:0.5,fdelt:1,triceps:0.5},
   // dips keep FULL triceps credit deliberately (deep elbow flexion under load — the
   // program's heaviest direct triceps stimulus), unlike the 0.5 on ordinary presses.
   dips:{chest:1,triceps:1}, pushups:{chest:1,triceps:0.5},
@@ -1037,6 +1041,9 @@ const RELATED_EX={
   'bb_skullcr':     {id:null,               seedWt:15,           note:'NEW — lying barbell triceps extension. Feel-out at ~15kg total (2kg/side on the 11kg bar) for 8-12 reps, build up.'},
   // v13 swap — overhead position is slightly weaker than lying, carry ~90% of the skullcrusher load
   'oh_triceps_ext': {id:'bb_skullcr',       mult:0.9,  seedWt:13, note:'Continues from the lying-extension slot at ~90% — overhead is the weaker line. Feel-out set first, then build.'},
+  // v13 addendum — two-hand landmine press starts at OHP load (26kg = 11kg bar + 15kg on the
+  // pressing end for a fresh device); the pivot offloads part of the weight, so judge by RIR.
+  'lm_press':       {id:'ohp',              mult:1.0,  seedWt:26, note:'Starts at your OHP load — the pivot offloads part of the weight, so judge by RIR, not the plate number. Expect to settle ~26-32kg.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program — every lift gets a computed start. Cross-location peers convert
   // HOME barbell history into a per-DB/single-DB target (mult folds the equipment shift
