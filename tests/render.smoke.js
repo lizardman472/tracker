@@ -243,7 +243,7 @@ T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.get
 // ── All-Time PRs: top 8 collapsed with Show-all toggle (needs >8 logged lifts) ──
 {
   const added = [];
-  const lifts = ['ohp', 'floor_press', 'hex_rdl', 'lm_squat', 'bb_curl', 'bb_skullcr', 'hex_row', 'b_stance_rdl', 'hex_squat_b'];
+  const lifts = ['ohp', 'floor_press', 'hex_rdl', 'lm_squat', 'bb_curl', 'oh_triceps_ext', 'hex_row', 'b_stance_rdl', 'hex_squat_b'];
   lifts.forEach((id, i) => added.push({ id: 'pr' + i, date: '2026-05-0' + (i + 1), day: 'A', loc: 'home', ex: [{ id, wt: 20 + i, reps: [5, 5, 5], band: '' }] }));
   R.getD().sessions.push(...added);
   R.setSEG('lifetime');

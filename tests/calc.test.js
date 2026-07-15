@@ -212,7 +212,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 12 (no migrate re-fire)', freshState().programVersion === 12);
+T('freshState carries programVersion 13 (no migrate re-fire)', freshState().programVersion === 13);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -258,7 +258,8 @@ T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
 // Swapped-out ids are gone from the adj map.
 T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
 // Loaded accessories now periodize like their partner counterparts.
-T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('bb_skullcr') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('oh_triceps_ext') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+T('bb_skullcr adj entry retired with the v13 swap', !PA.has('bb_skullcr'));
 // lm_lateral actually re-anchors lighter into Hypertrophy (proves the swap-id wiring works).
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
 d.sessions = [{ id: 'll1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'lm_lateral', wt: 16, reps: [8, 8, 8, 8], band: '' }] }];
@@ -864,14 +865,18 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 12', SEED.programVersion === 12);
+  T('SEED carries programVersion 13', SEED.programVersion === 13);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
-  T('migrateToV12 is a no-op on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  migrateToV13(sClone);
+  T('migrateToV12/13 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
+  const preV13Phase = v11.phase, preV13Start = v11.phaseStart;
+  migrateToV13(v11);
+  T('v13 migration stamps the version WITHOUT a phase reset (content-only tweaks)', v11.programVersion === 13 && v11.phase === preV13Phase && v11.phaseStart === preV13Start);
   const st8 = {};
   global.localStorage = { getItem: k => st8[k] ?? null, setItem: (k, v) => { st8[k] = v }, removeItem: k => { delete st8[k] } };
   load();

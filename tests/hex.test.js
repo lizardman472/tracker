@@ -76,7 +76,9 @@ T('Day B: hex_row replaces bb_row', B.some(e => e.id === 'hex_row') && !B.some(e
 T('hex_row carries bar:7', B.find(e => e.id === 'hex_row').bar === 7);
 // v21 rebalance: curl → Day A (pull day), triceps stays Day B (push day), hex_curl retired.
 T('curl swap lands on Day A as straight bar; hex_curl retired everywhere', A.some(e => e.id === 'bb_curl') && A.find(e => e.id === 'bb_curl').bar === undefined && !A.some(e => e.id === 'hex_curl') && !B.some(e => e.id === 'hex_curl'));
-T('Day B keeps direct triceps (bb_skullcr, straight bar), curl moved off', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined && !B.some(e => e.id === 'bb_curl'));
+// v13: lying extension → overhead extension (same slot, still straight bar).
+T('Day B keeps direct triceps (oh_triceps_ext, straight bar), curl moved off', B.some(e => e.id === 'oh_triceps_ext') && B.find(e => e.id === 'oh_triceps_ext').bar === undefined && !B.some(e => e.id === 'bb_curl') && !B.some(e => e.id === 'bb_skullcr'));
+T('bb_skullcr legacy stub resolves (swapped for oh_triceps_ext)', !!ALL_EX.find(e => e.id === 'bb_skullcr'));
 
 // ── partner program is untouched ──
 const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);
@@ -213,7 +215,7 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days A=8, B=8, C=10 (v28 added Day-B side plank + Day-C bird dog)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 10);
+T('home days A=8, B=8, C=11 (v13 added optional Day-C deficit push-ups)', homePr.A.length === 8 && homePr.B.length === 8 && homePr.C.length === 11 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
 // ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──
