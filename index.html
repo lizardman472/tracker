@@ -454,7 +454,8 @@ const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj))
 const BASE_PR={A:[
 {id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'3:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',note:'Confirm lift — default +0.5kg by design. If your top set hits 9-10+, the load is too light: take a bigger manual jump (+2-3kg) and do hard 5s. Micro-jumps are for grinding near your limit, not when you have reps in reserve.',tg:5,rstS:180,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
 {id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'2:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:120,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
-{id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',note:'Plateaued on a band? Step down ONE rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Build a clean 4x10 before dropping, keep every rep strict, and add 4-5s negatives after your last set.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'lm_bstance_squat',nm:'Landmine B-Stance Squat (weak side leads)',s:3,rp:'8-10/leg',rst:'1:30',rir:'2',tp:'bb',lm:true,rl:'Unilateral quad slot (v14) — the imbalance work the bilateral squats can\'t do. Front-rack the bar end at the shoulder or hold it in the crook of the arm, B-stance kickstand (front foot 70%), sit straight down, drive up tall. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session. Front-rack the landmine or hold in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). If 10/leg with 2-3 in reserve on the weak side, add load next session.',tg:10,rstS:90,tempo:'3-1-2-0',perSide:true},
+{id:'pullup_a',nm:'Pull-ups (Wide)',s:3,rp:'4-8',rst:'2:30',rir:'1-2',tp:'band',rl:'3×8 → less assistance. Full ROM, control through bottom (no dead-hang).',note:'Plateaued on a band? Step down ONE rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Build a clean 3x10 before dropping, keep every rep strict, and add 4-5s negatives after your last set.',tg:8,rstS:150,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
@@ -573,6 +574,11 @@ C:[
 //     unilateral lifts start on the weaker side (ids unchanged — history intact).
 // Home day counts: A=8 B=8 C=12 (one optional). migrateToV13 stamps the version only —
 // no phase reset, no state-shape change.
+// Program v14: +Landmine B-Stance Squat on Day A (quads to ~13, adds imbalance slot),
+// Day A pull-ups 4→3. The unilateral quad slot replaces a planned 5th lm_squat set —
+// same volume, plus left/right imbalance work the bilateral squats can't do; the
+// pull-up trim offsets the added Day-A time and brings back volume down from high-MAV.
+// Home day counts: A=9 B=8 C=12. migrateToV14 stamps the version only.
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
@@ -698,6 +704,7 @@ const MG={
   // single-leg, balance-limited, sub-threshold erector load.)
   b_stance_rdl:{hams:1,glutes:1,back:0.5},
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,glutes:0.5,back:0.5},
+  lm_bstance_squat:{quads:1,glutes:0.5,back:0.5}, // v14 — front-loaded like lm_squat, unilateral
   cossack_squat:{quads:0.5,glutes:0.5},
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, lm_press:{sidedelt:0.5,fdelt:1,triceps:0.5},
@@ -774,10 +781,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:13 keeps migrateToV12/migrateToV13 no-ops on demo bootstraps (they exist
-// for real pre-v12/pre-v13 stores); the dead `confirmed` field is gone for the same reason —
+// programVersion:14 keeps the migrateToV12..V14 chain a no-op on demo bootstraps (they
+// exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:13};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:14};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -819,6 +826,13 @@ if(d.programVersion>=13)return d;
 d.programVersion=13;
 return d}
 
+// v14 migration: content-only again (+lm_bstance_squat on Day A, pull-ups 4→3) —
+// stamp the version, nothing else.
+function migrateToV14(d){
+if(d.programVersion>=14)return d;
+d.programVersion=14;
+return d}
+
 function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
@@ -839,6 +853,7 @@ if(!d.dismissed)d.dismissed={};
 d=migrateData(d);
 d=migrateToV12(d);
 d=migrateToV13(d);
+d=migrateToV14(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -864,7 +879,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:13,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:14,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1051,6 +1066,8 @@ const RELATED_EX={
   // v13 addendum — two-hand landmine press starts at OHP load (26kg = 11kg bar + 15kg on the
   // pressing end for a fresh device); the pivot offloads part of the weight, so judge by RIR.
   'lm_press':       {id:'ohp',              mult:1.0,  seedWt:26, note:'Starts at your OHP load — the pivot offloads part of the weight, so judge by RIR, not the plate number. Expect to settle ~26-32kg.'},
+  // v14 — unilateral landmine squat, fixed finding-session seed (11kg bar + 11kg loaded end)
+  'lm_bstance_squat':{id:null,              seedWt:22, note:'Finding session at 22kg (11kg bar + 11kg on the loaded end). The pivot offloads part of the load — judge by RIR, weak side leads.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program — every lift gets a computed start. Cross-location peers convert
   // HOME barbell history into a per-DB/single-DB target (mult folds the equipment shift

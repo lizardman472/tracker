@@ -212,7 +212,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 13 (no migrate re-fire)', freshState().programVersion === 13);
+T('freshState carries programVersion 14 (no migrate re-fire)', freshState().programVersion === 14);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -866,18 +866,21 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 13', SEED.programVersion === 13);
+  T('SEED carries programVersion 14', SEED.programVersion === 14);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
   migrateToV13(sClone);
-  T('migrateToV12/13 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  migrateToV14(sClone);
+  T('migrateToV12/13/14 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
   const preV13Phase = v11.phase, preV13Start = v11.phaseStart;
   migrateToV13(v11);
   T('v13 migration stamps the version WITHOUT a phase reset (content-only tweaks)', v11.programVersion === 13 && v11.phase === preV13Phase && v11.phaseStart === preV13Start);
+  migrateToV14(v11);
+  T('v14 migration stamps the version WITHOUT a phase reset (content-only tweaks)', v11.programVersion === 14 && v11.phase === preV13Phase && v11.phaseStart === preV13Start);
   const st8 = {};
   global.localStorage = { getItem: k => st8[k] ?? null, setItem: (k, v) => { st8[k] = v }, removeItem: k => { delete st8[k] } };
   load();
