@@ -4,17 +4,17 @@
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "background_color": "#0b0d08",
-  "theme_color": "#0b0d08",
+  "background_color": "#07080d",
+  "theme_color": "#07080d",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b0d08' width='100' height='100' rx='22'/><text x='50' y='68' text-anchor='middle' font-size='55'>🏋️</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2307080d' width='100' height='100' rx='22'/><text x='50' y='68' text-anchor='middle' font-size='55'>🏋️</text></svg>",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230b0d08' width='100' height='100'/><text x='50' y='62' text-anchor='middle' font-size='44'>🏋️</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2307080d' width='100' height='100'/><text x='50' y='62' text-anchor='middle' font-size='44'>🏋️</text></svg>",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"

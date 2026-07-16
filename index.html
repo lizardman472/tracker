@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#0b0d08">
+<meta name="theme-color" content="#07080d">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Rack-Free Tracker v12</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
@@ -18,15 +18,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 :root{
-/* Volt dark — warm graphite/olive base, lime-volt accent. High-energy, gym-lit. */
---bg:#0b0d08;--bg2:#0f120b;--cd:#161a11;--cd2:#1e2416;--cb:#303826;--ib:#12160d;--ibr:#38412c;
---tx:#f2f5ea;--mu:#9aa38b;--dm:#8f9a80;
-/* volt-lime signature accent */
---prRGB:201,242,75;--pr:#c9f24b;--prl:#252d08;--prg:#a3e635;--ink:#131700;
---gr:#34d399;--grl:#08251c;--am:#f5a524;--aml:#2a200d;--rd:#fb7185;--rdl:#2c1622;
---pu:#a78bfa;--pul:#1d1936;--bl:#60a5fa;--bll:#0f1d33;
-/* --p1 lightened from #586577: its --ink label text sat at 3.2:1 (illegible micro-chip) */
---p10:#fb7185;--p5:#60a5fa;--p25:#34d399;--p1:#8b97ab;
+/* Neon dark — clean blue-black base, electric-cyan signature, hot accents. */
+--bg:#07080d;--bg2:#0b0d14;--cd:#12151f;--cd2:#181c29;--cb:#272e42;--ib:#0c0f17;--ibr:#303952;
+--tx:#f4f6fc;--mu:#98a2bc;--dm:#8089a0;
+/* electric-cyan signature accent */
+--prRGB:46,230,255;--pr:#2ee6ff;--prl:#062733;--prg:#00d4f5;--ink:#00131a;
+--gr:#3df59b;--grl:#06291d;--am:#ffb224;--aml:#2b1f06;--rd:#ff5d7d;--rdl:#2e1020;
+--pu:#b18cff;--pul:#1e1740;--bl:#4da6ff;--bll:#0e2038;
+/* Day identity (A azure / B hot pink / C neon green) — validated as a categorical
+   trio at .7 alpha over --cd (deutan ΔE 10.9, normal 20.0, all in-band); cardio is
+   an amber DOT cell (different mark), not part of the letter set. Mirror of JS
+   DAY_COLORS — keep in sync. */
+--dayA:#38b8ff;--dayAl:#0a2540;--dayB:#ff5d9e;--dayBl:#33101f;--dayC:#43e873;--dayCl:#0a2e14;
+/* --p1 kept light: its --ink label text must clear contrast on the micro-chip */
+--p10:#ff5d7d;--p5:#4da6ff;--p25:#3df59b;--p1:#93a0bb;
 --sh:0 1px 3px rgba(0,0,0,.45);--shm:0 10px 32px rgba(0,0,0,.6);--sab:env(safe-area-inset-bottom,0px);
 --rad:16px;--rad-sm:10px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;
 --disp:'Archivo Expanded',-apple-system,system-ui,sans-serif;
@@ -35,7 +40,7 @@
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* atmospheric backdrop: subtle cyan glow top, deep fade */
 body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
-background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.12),transparent 58%),radial-gradient(90% 50% at 100% 8%,rgba(167,139,250,.10),transparent 60%),var(--bg);background-attachment:fixed}
+background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.12),transparent 58%),radial-gradient(90% 50% at 100% 8%,rgba(177,140,255,.10),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
 /* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
 button.set-tick,button.disc-btn,button.disc-joint{-webkit-appearance:none;appearance:none}
@@ -45,10 +50,10 @@ input[type=number]{-moz-appearance:textfield}
 ::selection{background:var(--pr);color:var(--ink)}
 
 /* Layout */
-.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:rgba(11,13,8,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
+.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:rgba(7,8,13,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
 .hdr h1{font-family:var(--disp);font-size:15px;font-weight:900;color:var(--tx);letter-spacing:1.5px;text-transform:uppercase}
 .hdr h1::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pr);margin-right:9px;vertical-align:middle;box-shadow:0 0 14px var(--pr),0 0 4px var(--pr)}
-.nav{display:flex;background:rgba(11,13,8,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
+.nav{display:flex;background:rgba(7,8,13,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
 .nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:.6px;text-transform:uppercase;transition:color .2s}
 .nav button.a{color:var(--pr);border-bottom-color:var(--pr);text-shadow:0 0 14px rgba(var(--prRGB),.6)}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
@@ -63,10 +68,10 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Badges */
 .bg{display:inline-block;padding:3px 9px;border-radius:6px;font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
-/* Day identity: A cyan / B PURPLE / C green. B was blue — cyan↔blue is a deutan/tritan
-   colorblind collision (ΔE ~9-10); purple clears tritan and every colored day surface
-   also carries its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
-.bg-a{background:var(--prl);color:var(--pr)}.bg-b{background:var(--pul);color:var(--pu)}.bg-c{background:var(--grl);color:var(--gr)}
+/* Day identity: A azure / B hot pink / C neon green — dedicated --day* tokens
+   (validated categorical trio, see :root); every colored day surface also carries
+   its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
+.bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB)}.bg-c{background:var(--dayCl);color:var(--dayC)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
@@ -109,7 +114,7 @@ input[type=number]{-moz-appearance:textfield}
 .btn:active{transform:scale(.97);opacity:.92}
 .btn-pr{background:linear-gradient(135deg,var(--pr),var(--prg));color:var(--ink);box-shadow:0 4px 24px rgba(var(--prRGB),.35),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn-wh{background:var(--cd2);color:var(--tx);border:1px solid var(--cb)}
-.btn-rd{background:var(--rdl);color:var(--rd);border:1px solid #4a2236}
+.btn-rd{background:var(--rdl);color:var(--rd);border:1px solid #4a1830}
 .btn-sm{padding:7px 13px;font-size:10px;width:auto;display:inline-block;border-radius:8px;font-weight:700;letter-spacing:.5px}
 .btn-ghost{background:0;border:none;color:var(--pr);font-weight:700;padding:6px 10px;font-size:12px;font-family:var(--body)}
 
@@ -130,7 +135,7 @@ input[type=number]{-moz-appearance:textfield}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 
 /* Banners */
-.deload-banner{background:var(--aml);border:1px solid #4a3a14;border-radius:var(--rad-sm);padding:10px 13px;margin-bottom:10px;font-size:12px;color:var(--am)}
+.deload-banner{background:var(--aml);border:1px solid #4a370e;border-radius:var(--rad-sm);padding:10px 13px;margin-bottom:10px;font-size:12px;color:var(--am)}
 
 /* Workout list */
 .ex-row{background:var(--cd);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;border:1.5px solid var(--cb);cursor:pointer;transition:border-color .2s,background .2s,transform .1s}
@@ -262,7 +267,7 @@ svg text{font-family:var(--body)}
 .snap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .snap-cell{background:var(--ib);border-radius:var(--rad-sm);padding:11px 8px;text-align:center}
 .snap-num{font-family:var(--disp);font-size:25px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 0 18px rgba(var(--prRGB),.25)}
-.snap-num.alt{color:var(--bl);text-shadow:0 0 18px rgba(96,165,250,.25)}.snap-num.alt2{color:var(--gr);text-shadow:0 0 18px rgba(52,211,153,.25)}
+.snap-num.alt{color:var(--bl);text-shadow:0 0 18px rgba(77,166,255,.25)}.snap-num.alt2{color:var(--gr);text-shadow:0 0 18px rgba(61,245,155,.25)}
 .snap-lbl{font-family:var(--disp);font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
 /* Progress-tab segment chips (sub-views replace the old single mega-scroll) */
 .seg-row{display:flex;gap:6px;margin:10px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -981,7 +986,7 @@ return (reps||[]).filter(r=>Number(r)>0).map(Number)}
 // if no working set was rated below FORM_MIN. Unrated sets count as clean, so
 // gating is opt-in and historical data is never penalised. ──
 const FORM_LABELS=['','Negatives','Loose','Hybrid','Solid','Strict'];
-const FORM_C=['','var(--rd)','#fb923c','var(--am)','#a3e635','var(--gr)'];
+const FORM_C=['','var(--rd)','#ff9036','var(--am)','#a4ef6b','var(--gr)'];
 const FORM_MIN=4;
 function sessClean(h){const f=h&&h.form;if(!Array.isArray(f)||!f.length)return true;
 for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0&&f[i]<FORM_MIN)return false}return true}
@@ -1003,7 +1008,7 @@ return wt*mult*vr.reduce((a,b)=>a+b,0)}
 
 // RPE scale — replaces emoji system
 const RPE_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
-const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#f43f5e']; // MAX was #9f1239 — 2.2:1 contrast as text on the dark bg
+const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#ff3d68']; // MAX stays raw hex — the summary picker concatenates '18' for a hex-alpha tint
 
 // ═══════════════ RELATED EXERCISE MAPPINGS ═══════════════
 // When a new exercise has no history, fall back to a related exercise's most recent
@@ -1445,11 +1450,12 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // Chart palette — JS mirrors of the CSS tokens (string-built SVG can't reach CSS vars
 // without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
 // CH_TARGET=--rd.
-const CH_GRID='#303826',CH_TXT='#9aa38b',CH_DOT='#0f120b',CH_TARGET='#fb7185',CH_TITLE='#f2f5ea';
+const CH_GRID='#272e42',CH_TXT='#98a2bc',CH_DOT='#0b0d14',CH_TARGET='#ff5d7d',CH_TITLE='#f4f6fc',CH_PR='#ffb224';
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
-// .bg-a/-b/-c badge hues. B is PURPLE, not blue: cyan↔blue failed the colorblind
-// separation check (deutan ΔE ~10); every colored day cell also shows its letter.
-const DAY_COLORS={A:'#c9f24b',B:'#a78bfa',C:'#34d399',cardio:'#f5a524'};
+// --dayA/--dayB/--dayC tokens. Trio validated at .7 alpha over the card surface
+// (deutan ΔE 10.9, normal 20.0); every colored day cell also shows its letter, and
+// cardio renders as an amber DOT cell (different mark), outside the letter set.
+const DAY_COLORS={A:'#38b8ff',B:'#ff5d9e',C:'#43e873',cardio:'#ffb224'};
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
@@ -1476,7 +1482,8 @@ if(m.label)s+=`<text x="${mxp+3}" y="${pad.t+6}" fill="${mc}" font-size="7.5" fo
 // smell; the mark itself carries the hue (dataviz guidance).
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
 
-function svgLine(data,W,H,color,label){
+function svgLine(data,W,H,color,label,opts){
+opts=opts||{};
 if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Need 2+ data points</div>`;
 const pad={t:22,r:18,b:28,l:36},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
 let vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals);
@@ -1498,9 +1505,20 @@ const area=`${pts.map(p=>`${p.x},${p.y}`).join(' ')} ${pts[pts.length-1].x},${pa
 s+=`<polygon points="${area}" fill="url(#${gid})"/>`;
 s+=`<polyline points="${pts.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
 for(const p of pts)s+=`<circle cx="${p.x}" cy="${p.y}" r="4" fill="${color}" stroke="${CH_DOT}" stroke-width="2"><title>${p.l}: ${p.v}</title></circle>`;
+// PR markers (opts.marks = data indices) — amber ring + ▲ above the point, matching
+// the .pr-badge hue so "PR" reads the same everywhere.
+if(Array.isArray(opts.marks))for(const i of opts.marks){const p=pts[i];if(!p)continue;
+s+=`<circle cx="${p.x}" cy="${p.y}" r="6.5" fill="none" stroke="${CH_PR}" stroke-width="2"/><text x="${p.x}" y="${Math.max(10,p.y-10)}" text-anchor="middle" fill="${CH_PR}" font-size="8" font-weight="800">▲</text>`}
 if(data.length<=8)for(const p of pts)s+=`<text x="${p.x}" y="${H-4}" text-anchor="middle" fill="${CH_TXT}" font-size="8">${p.l}</text>`;
 // Title in text ink — the line itself carries the series hue.
 s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="11" font-weight="700" font-family="Archivo Expanded,sans-serif">${label}</text></svg>`;return s}
+
+// Inline sparkline — bare trend polyline for list rows (no axes/labels; the row
+// text carries the numbers, the spark only shows shape). <2 points renders nothing.
+function spark(vals,w,h,color){if(!Array.isArray(vals)||vals.length<2)return'';
+const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
+const pts=vals.map((v,i)=>`${(2+(i/(vals.length-1))*(w-4)).toFixed(1)},${(h-2-((v-mn)/rng)*(h-4)).toFixed(1)}`).join(' ');
+return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" style="flex-shrink:0;overflow:visible"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/></svg>`}
 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
@@ -1681,7 +1699,7 @@ onclick="setLoc('partner')">🏘 Partner's</button></div>`;
 const rLS=D.sessions.filter(s=>(s.loc||'home')===D.location).slice(-3);
 const wuSk=rLS.filter(s=>s.warmup===0).length; // null (retro/unknown) doesn't count as skipped
 const wuSig=D.sessions.length+'-'+wuSk;
-if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#4a2236;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" aria-label="Dismiss" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0;padding:12px;margin:-12px">✕</button></div>`;
+if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#4a1830;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" aria-label="Dismiss" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0;padding:12px;margin:-12px">✕</button></div>`;
 const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
 if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Wk ${dl.wk} · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
@@ -1702,7 +1720,7 @@ if(restDay){
   const recoMsg=restDay.state==='today'
     ?'Today is for recovery. Easy row, walk, or stretch — no lifting.'
     :`Suggested rest day. Easy zone-2 row (15-20min), walk, or mobility work fits well here.`;
-  h+=`<div class="cd" style="background:linear-gradient(135deg,var(--grl),var(--cd));border:2px solid var(--gr);border-radius:var(--rad);padding:18px;margin-bottom:10px;text-align:center;box-shadow:0 4px 16px rgba(52,211,153,.15)">
+  h+=`<div class="cd" style="background:linear-gradient(135deg,var(--grl),var(--cd));border:2px solid var(--gr);border-radius:var(--rad);padding:18px;margin-bottom:10px;text-align:center;box-shadow:0 4px 16px rgba(61,245,155,.15)">
   <div style="font-size:28px;margin-bottom:4px">🌿</div>
   <div style="font-family:var(--disp);font-size:20px;font-weight:900;color:var(--gr);margin-bottom:4px;letter-spacing:.5px">Rest Day</div>
   <div style="font-size:12px;color:var(--tx);margin-bottom:10px;line-height:1.4">${recoMsg}</div>
@@ -1779,7 +1797,7 @@ h+=`</div>`;
 // Deload-week banner — "Took one" starts a 7-day window where every suggestion carries
 // the ~-10% advisory; show the countdown so the week has a visible start and end.
 {const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
-if(dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#1d4a38;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
+if(dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#0e4a2e;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
 
 // Fatigue strip — no fake "Wk 19/8" denominators: past the deload timer just say how long it's been.
 if(dl)h+=`<div style="display:flex;justify-content:space-between;padding:4px 2px;font-size:10px;color:var(--mu)">
@@ -2549,7 +2567,8 @@ if(STAT_SEG==='overview'){
 const wk=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5)+1);
 h+=`<div class="cd" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px">
 <span style="font-size:12px;font-weight:700;white-space:nowrap">Phase ${D.phase} · ${p.name}</span>
-<span class="dm" style="white-space:nowrap">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span></div>`}
+<span class="dm" style="white-space:nowrap">week ${Math.min(wk,p.wk)}/${p.wk}${D.lastDeload?` · deload ${dAgo(D.lastDeload).toLowerCase()}`:''}</span>
+<div style="flex-basis:100%;height:5px;background:var(--ib);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(Math.min(wk,p.wk)/p.wk*100)}%;background:var(--pr);border-radius:3px"></div></div></div>`}
 // 4-week block comparison — is this training block bigger than the last?
 // Hidden until a full prior window exists (no '+∞%' on young histories).
 {const pc=periodCompare(28);
@@ -2584,14 +2603,17 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum<
 <div class="dm" style="margin-bottom:5px">e1RM trend over 8 weeks · needs 3+ weighted sessions per lift</div>`;
 // Uniform 1-decimal display (raw slopes carry 2dp rounding — '+2.4' next to '+2.34'
 // read as inconsistent precision); comparisons keep full precision.
-for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:var(--gr);font-weight:700">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
-for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px"><span style="font-weight:600">${esc(m.nm)}</span><span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
+// Each row carries an inline e1RM sparkline (last 8 sessions) so the shape of the
+// trend reads without opening the Lifts detail — the text keeps the exact number.
+const momSpark=(id,color)=>{const vals=getHist(id,8).filter(x=>x.wt&&(x.reps||[]).some(r=>r>0)).map(x=>e1rm(x.wt,Math.max(...x.reps.filter(r=>r>0))));return spark(vals,60,16,color)};
+for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,'#3df59b')}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
+for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,m.slope<-0.05?'#ffb224':'#98a2bc')}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
 h+=`</div>`}
 
 // Big-4 combined e1RM — one line answering "am I getting stronger overall?"
 {const b4=big4Weekly(12);
-if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,150,'#c9f24b','Big-4 e1RM Total (kg)')}
+if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,150,'#2ee6ff','Big-4 e1RM Total (kg)')}
 <div class="dm" style="text-align:center;margin-top:4px">Hex DL + Hex Squat + OHP + Floor Press · best weekly e1RM each · skipped weeks carry the last known value</div></div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
 
@@ -2667,7 +2689,7 @@ h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">
 h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
 if(bHist.length){
 const repD=bHist.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(repD,360,170,'#c9f24b','Total Reps / Session')}</div>`;
+h+=`<div class="cd">${svgLine(repD,360,170,'#2ee6ff','Total Reps / Session')}</div>`;
 }
 }else{
 // stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
@@ -2686,14 +2708,18 @@ const lastPr=liftPrs[0];
 if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
 ${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
 ${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
-h+=`<div class="cd">${svgLine(wtD,360,170,'#c9f24b','Weight (kg)')}</div>`;
-if(selEx&&E1RM_TYPES.has(selEx.tp))h+=`<div class="cd">${svgLine(e1D,360,170,'#60a5fa','Est. 1RM')}</div>`;
+h+=`<div class="cd">${svgLine(wtD,360,170,'#2ee6ff','Weight (kg)')}</div>`;
+if(selEx&&E1RM_TYPES.has(selEx.tp)){
+// Mark every new all-time-high on the chart itself (running max over the same
+// points the line plots — self-consistent with what the eye sees).
+let runMax=-1;const prIx=[];e1D.forEach((d,i)=>{if(i>0&&d.v>runMax)prIx.push(i);runMax=Math.max(runMax,d.v)});
+h+=`<div class="cd">${svgLine(e1D,360,170,'#4da6ff','Est. 1RM',{marks:prIx})}${prIx.length?`<div class="dm" style="text-align:center;margin-top:4px"><span style="color:var(--am)">▲</span> = new e1RM high</div>`:''}</div>`}
 }
 
 // Form trend — per-set form ratings gate progression but were never charted.
 // Skipped-week nulls are dropped: the line shows rated weeks only.
 {const fw=formWeekly(STAT_EX,8).filter(w=>w.v!=null);
-if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,'#34d399','Form (5 = strict)')}</div>`}
+if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,'#3df59b','Form (5 = strict)')}</div>`}
 
 // Recent-sessions log — the lift's full story at a glance. ▲PR replays history
 // like recentPRs; the ✓/– target marker only judges sessions stamped with the
@@ -2768,7 +2794,12 @@ if(!anyVol)h+=`<div class="dm">No logged sets in the last 10 days.</div>`;
 if(push||pull){const ratio=pull?Math.round(push/pull*100)/100:null;
 const ok=ratio!=null&&ratio>=0.7&&ratio<=1.4;
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid var(--cb)"><span style="font-weight:600">Push : Pull</span>
-<span style="color:${ok?'var(--gr)':'var(--am)'}">${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})${ok?' ✓':' — aim ~1:1'}`:''}</span></div>`}}
+<span style="color:${ok?'var(--gr)':'var(--am)'}">${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})${ok?' ✓':' — aim ~1:1'}`:''}</span></div>`;
+// Two-segment split bar (cyan push / violet pull, 2px surface gap) — the ratio as
+// a shape, not just a number. Labels live in the row above, never on the bar.
+if(push&&pull)h+=`<div style="display:flex;gap:2px;height:7px;margin-top:6px;border-radius:3px;overflow:hidden">
+<div style="width:${Math.round(push/(push+pull)*100)}%;background:var(--pr);opacity:.85"></div>
+<div style="flex:1;background:var(--pu);opacity:.85"></div></div>`}}
 h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half — these numbers are directional, not precise. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
@@ -2790,13 +2821,16 @@ h+=`<div class="cd"><div class="hm-grid" style="margin-bottom:6px">`;['M','T','W
 h+=`</div><div class="hm-grid">`;
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
 for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
-// Day hues from DAY_COLORS (B is purple — see const) at .55 alpha over the card;
-// each trained cell also shows its day LETTER so identity never rides on color alone.
-const dayBg=c=>`rgba(${parseInt(c.slice(1,3),16)},${parseInt(c.slice(3,5),16)},${parseInt(c.slice(5,7),16)},.55)`;
+// Day hues from DAY_COLORS at .7 alpha over the card — the alpha the trio was
+// colorblind-validated at; each trained cell also shows its day LETTER so identity
+// never rides on color alone.
+const dayBg=c=>`rgba(${parseInt(c.slice(1,3),16)},${parseInt(c.slice(3,5),16)},${parseInt(c.slice(5,7),16)},.7)`;
+const tds=today();
 for(const d of hm){let bg='var(--ib)',mark='';
-if(d.isC){bg='rgba(245,165,36,.35)';mark='·'}
+if(d.isC){bg='rgba(255,178,36,.4)';mark='·'}
 else if(d.day){bg=dayBg(DAY_COLORS[d.day]||DAY_COLORS.A);mark=d.day}
-h+=`<div class="hm-cell" style="background:${bg};${mark&&mark!=='·'?'color:var(--ink);font-weight:800;':''}">${mark}</div>`}
+// Today gets a cyan ring so "where am I in the grid" is instant.
+h+=`<div class="hm-cell" style="background:${bg};${mark&&mark!=='·'?'color:var(--ink);font-weight:800;':''}${d.date===tds?'box-shadow:inset 0 0 0 2px var(--pr);':''}">${mark}</div>`}
 h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span style="color:${DAY_COLORS.A}">■ A</span><span style="color:${DAY_COLORS.B}">■ B</span><span style="color:${DAY_COLORS.C}">■ C</span><span style="color:var(--am)">■ cardio</span></div></div>`;
 
 // Weekly charts — complete weeks only. The in-progress week is reported as a
@@ -2812,11 +2846,11 @@ let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
 const marks=weeklyMarks(ws);
-h+=`<div class="cd">${svgBars(volData,360,150,'#c9f24b','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
-h+=`<div class="cd">${svgBars(sessData,360,130,'#60a5fa','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
+h+=`<div class="cd">${svgBars(volData,360,150,'#2ee6ff','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(sessData,360,130,'#4da6ff','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
 // RPE trend if data exists
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels
-if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#fb7185','Avg RPE / Week')}</div>`;
+if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#ff5d7d','Avg RPE / Week')}</div>`;
 }
 
 h+=`<div class="cd"><div class="estrip">
@@ -2837,7 +2871,7 @@ h+=`</div>`;
 {const cw=cardioWeekly(8);
 if(cw.length>=2){
 const sum=k=>cw.reduce((a,w)=>a+w[k],0);
-h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#f5a524','Cardio Minutes / Week')}
+h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#ffb224','Cardio Minutes / Week')}
 <div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">■</span> easy ${sum('easy')} · <span style="color:var(--am)">■</span> moderate ${sum('moderate')} · <span style="color:var(--rd)">■</span> hard ${sum('hard')} min</div></div>`}}
 
 }else{
@@ -2881,16 +2915,16 @@ h+=`</div>`;el.innerHTML=h}
 // measured that day. Legacy entries stored weight/waist/arms/chest/thigh — those
 // keys are preserved, the rest are additive, so old data renders unchanged.
 const BODY_METRICS=[
-  {k:'weight',    lb:'Weight',    u:'kg', c:'#c9f24b', step:'0.1'},
-  {k:'neck',      lb:'Neck',      u:'cm', c:'#a78bfa', step:'0.5'},
-  {k:'shoulders', lb:'Shoulders', u:'cm', c:'#f5a524', step:'0.5'},
-  {k:'chest',     lb:'Chest',     u:'cm', c:'#34d399', step:'0.5'},
-  {k:'arms',      lb:'Arms',      u:'cm', c:'#fb7185', step:'0.5'},
-  {k:'forearms',  lb:'Forearms',  u:'cm', c:'#f59e0b', step:'0.5'},
-  {k:'waist',     lb:'Waist',     u:'cm', c:'#60a5fa', step:'0.5'},
-  {k:'hips',      lb:'Hips',      u:'cm', c:'#c084fc', step:'0.5'},
-  {k:'thigh',     lb:'Thigh',     u:'cm', c:'#2dd4bf', step:'0.5'},
-  {k:'calf',      lb:'Calf',      u:'cm', c:'#94a3b8', step:'0.5'}
+  {k:'weight',    lb:'Weight',    u:'kg', c:'#2ee6ff', step:'0.1'},
+  {k:'neck',      lb:'Neck',      u:'cm', c:'#b18cff', step:'0.5'},
+  {k:'shoulders', lb:'Shoulders', u:'cm', c:'#ffb224', step:'0.5'},
+  {k:'chest',     lb:'Chest',     u:'cm', c:'#3df59b', step:'0.5'},
+  {k:'arms',      lb:'Arms',      u:'cm', c:'#ff5d7d', step:'0.5'},
+  {k:'forearms',  lb:'Forearms',  u:'cm', c:'#ff9036', step:'0.5'},
+  {k:'waist',     lb:'Waist',     u:'cm', c:'#4da6ff', step:'0.5'},
+  {k:'hips',      lb:'Hips',      u:'cm', c:'#d9a8ff', step:'0.5'},
+  {k:'thigh',     lb:'Thigh',     u:'cm', c:'#2ee6d0', step:'0.5'},
+  {k:'calf',      lb:'Calf',      u:'cm', c:'#93a0bb', step:'0.5'}
 ];
 let BODY_METRIC='weight';
 // Ordered {date,v} series for one metric (oldest→newest), only the logs that

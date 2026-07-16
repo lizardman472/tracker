@@ -717,7 +717,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const pMark = marks.find(m => m.label === 'P2');
   const dMark = marks.find(m => m.label === 'DL');
   T('weeklyMarks flags the week the phase change landed', pMark && series[pMark.i] && series[pMark.i].wk === weekKey(wkAgo(3)), JSON.stringify(marks));
-  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#fb7185', JSON.stringify(dMark));
+  // Neon reskin: CH_TARGET coral is now #ff5d7d (was #fb7185).
+  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#ff5d7d', JSON.stringify(dMark));
   d3.sessions.forEach(s => delete s.phase);
   T('unstamped history produces no phase marks', weeklyMarks(series).filter(m => m.label.startsWith('P')).length === 0);
   T('empty series → no marks, no throw', weeklyMarks([]).length === 0);
