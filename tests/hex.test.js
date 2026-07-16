@@ -175,7 +175,7 @@ T('lm_press seeds at 26kg on a fresh device (valid VWL weight)', lpg.type === 'n
 const lbg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'lm_bstance_squat'));
 T('lm_bstance_squat seeds at 22kg (valid VWL weight)', lbg.type === 'new' && lbg.wt === 22 && VWL.includes(22), JSON.stringify(lbg));
 T('lm_bstance_squat sits between B-stance RDL and pull-ups on Day A', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids.indexOf('lm_bstance_squat') === ids.indexOf('b_stance_rdl') + 1 && ids.indexOf('pullup_a') === ids.indexOf('lm_bstance_squat') + 1; })());
-T('Day A pull-ups trimmed to 3 sets (v14)', getProgram(1, 'home').A.find(e => e.id === 'pullup_a').s === 3);
+T('Day A pull-ups back at 4 sets (v14 trim reverted)', getProgram(1, 'home').A.find(e => e.id === 'pullup_a').s === 4);
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
@@ -341,7 +341,11 @@ T('rdl/hex_rdl/db_rdl all carry back 0.5', [MG.rdl, MG.hex_rdl, MG.db_rdl].every
 T('db_sl_rdl deliberately back-free (true single-leg, balance-limited)', MG.db_sl_rdl.back === undefined);
 // The changes must not sink home core under MEV (dead bugs 3 + pallof 3 + carry 3×0.5 = 7.5).
 T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core'), `${wkVol.core} vs ${mevOf('core')}`);
-T('home back still ≤ MAV after b_stance_rdl +0.5', wkVol.back <= (MG_INFO.find(r => r[0] === 'back') || [])[3], `${wkVol.back}`);
+// v14 amendment: pull-ups restored to 4 sets by explicit user choice with the new
+// lm_bstance_squat's 0.5-back credit on board → back sits at a DELIBERATE 22.5, half a
+// set over the nominal MAV of 22 (MAV is guidance, not a cap — "more is fine if
+// recovering well"). Guard allows exactly that overage so accidental creep still fails.
+T('home back at the deliberate 22.5 ceiling (MAV 22 + accepted 0.5 overage)', wkVol.back <= ((MG_INFO.find(r => r[0] === 'back') || [])[3] + 0.5), `${wkVol.back}`);
 
 // ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
 // The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
