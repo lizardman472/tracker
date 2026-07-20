@@ -212,7 +212,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 14 (no migrate re-fire)', freshState().programVersion === 14);
+T('freshState carries programVersion 15 (no migrate re-fire)', freshState().programVersion === 15);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -866,7 +866,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 14', SEED.programVersion === 14);
+  T('SEED carries programVersion 15', SEED.programVersion === 15);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
@@ -961,6 +961,57 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const wiped = JSON.parse(store4['rft-v12']);
   T('a wipe with adopted gen does not resurrect the old sessions', wiped.sessions.length === 0 && wiped.gen === 8, JSON.stringify({ n: wiped.sessions.length, gen: wiped.gen }));
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
+// ── Per-set weight overrides (v15: optional ex.wts[] alongside reps[]) ──
+{
+  // tonnage: overrides apply per set, null inherits wt, multipliers stay per-set
+  T('wts tonnage per set', calcExVol('deadlift', 46, [5, 5, 5], [46, 50, 40]) === (46 + 50 + 40) * 5);
+  T('wts null inherits wt', calcExVol('deadlift', 46, [5, 5], [null, 50]) === 46 * 5 + 50 * 5);
+  T('wts all-null takes the single-weight path', calcExVol('deadlift', 46, [5, 5, 5], [null, null, null]) === 690);
+  T('wts with per_db doubles each set', calcExVol('db_ohp', 10, [10, 10], [null, 12]) === 10 * 2 * 10 + 12 * 2 * 10);
+  T('wts-only entry (wt null) still counts', calcExVol('deadlift', null, [5, 5], [40, 50]) === 40 * 5 + 50 * 5);
+  T('carry stays excluded with wts', calcExVol('suitcase_march', 32, [40, 40], [32, 36]) === 0);
+  T('wts zero-rep set contributes nothing', calcExVol('deadlift', 46, [5, 0], [null, 60]) === 230);
+
+  // setWt / exMaxWt resolution
+  T('setWt override wins', setWt({ wt: 46, wts: [null, 50], reps: [5, 5] }, 1) === 50);
+  T('setWt falls back to wt', setWt({ wt: 46, wts: [null, 50], reps: [5, 5] }, 0) === 46);
+  T('setWt no-wts entry = wt', setWt({ wt: 46, reps: [5, 5] }, 1) === 46);
+  T('exMaxWt sees the heaviest override', exMaxWt({ wt: 46, reps: [5, 5], wts: [null, 50] }) === 50);
+  T('exMaxWt ignores zero-rep overrides', exMaxWt({ wt: 46, reps: [5, 0], wts: [null, 60] }) === 46);
+  T('exMaxWt plain entry = wt', exMaxWt({ wt: 46, reps: [5] }) === 46);
+
+  // e1RM per set: with no overrides identical to e1rm(wt, max reps); with an
+  // override, the heavier set scores at its own weight
+  const dlDef = ALL_EX.find(e => e.id === 'hex_dl');
+  T('exSetE1RMMax collapses to old formula without wts',
+    exSetE1RMMax(dlDef, { wt: 50, reps: [5, 4, 3] }) === e1rm(50, 5));
+  T('exSetE1RMMax scores override sets at their own weight',
+    exSetE1RMMax(dlDef, { wt: 40, reps: [8, 5], wts: [null, 55] }) === Math.max(e1rm(40, 8), e1rm(55, 5)));
+
+  // PRs from override sets
+  let d = freshD();
+  d.sessions = [{ id: 'w1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] }];
+  T('checkPR WT from an override set', checkPR('hex_dl', 50, [5, 5, 5], [null, 55, null]).includes('WT'));
+  T('checkPR no WT when overrides stay below best', !checkPR('hex_dl', 45, [5, 5], [null, 48]).includes('WT'));
+  T('checkPR E1RM from an override set (weight below best)',
+    checkPR('hex_dl', 40, [8], [48]).includes('E1RM'));
+  d.sessions.push({ id: 'w2', date: '2026-06-05', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5], wts: [null, 55], band: '' }] });
+  T('getPRs bestWt sees stored overrides', getPRs('hex_dl').bestWt === 55);
+  T('recentPRs mints the weight PR from the override set',
+    recentPRs(null).some(p => p.id === 'hex_dl' && p.type === 'weight' && p.val === 55));
+
+  // validSession sanitization
+  const vs = validSession({ id: 'v1', date: '2026-06-01', day: 'A', ex: [{ id: 'hex_dl', wt: 46, reps: [5, 5], wts: ['junk', 50] }] });
+  T('validSession coerces wts junk to null, keeps real overrides', JSON.stringify(vs.ex[0].wts) === '[null,50]');
+  T('validSession drops non-array wts', validSession({ id: 'v2', date: '2026-06-01', day: 'A', ex: [{ id: 'hex_dl', wt: 46, reps: [5], wts: 'nope' }] }).ex[0].wts === undefined);
+  T('validSession drops all-null wts', validSession({ id: 'v3', date: '2026-06-01', day: 'A', ex: [{ id: 'hex_dl', wt: 46, reps: [5], wts: [0, null] }] }).ex[0].wts === undefined);
+
+  // migration is a stamp only
+  const m = migrateToV15({ programVersion: 14, sessions: [{ marker: 1 }] });
+  T('migrateToV15 stamps 15, touches nothing else', m.programVersion === 15 && m.sessions[0].marker === 1);
+  T('migrateToV15 idempotent', migrateToV15({ programVersion: 15, x: 7 }).x === 7);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -781,10 +781,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:14 keeps the migrateToV12..V14 chain a no-op on demo bootstraps (they
+// programVersion:15 keeps the migrateToV12..V15 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:14};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:15};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -801,7 +801,7 @@ for(const s of d.sessions){
   if(!s.loc)s.loc=s.ex.some(e=>partnerIds.has(e.id))?'partner':'home';
   // Always re-derive stored volume so history stays consistent with the
   // current tonnage formula (perSide ×2, carries excluded, per_db ×2).
-  {let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps)}
+  {let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps,e.wts)}
    if(tv>0||s.volume!=null)s.volume=tv}
   if(s.duration!=null&&s.duration<10&&s.ex.length>=3)s.duration=null}
 return d}
@@ -833,6 +833,14 @@ if(d.programVersion>=14)return d;
 d.programVersion=14;
 return d}
 
+// v15 migration: per-set weight overrides (optional ex.wts[] alongside reps[]).
+// Purely additive — old sessions stay untouched and readers fall back to ex.wt,
+// so this is a stamp only. It exists so later code can assume the field is possible.
+function migrateToV15(d){
+if(d.programVersion>=15)return d;
+d.programVersion=15;
+return d}
+
 function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
@@ -854,6 +862,7 @@ d=migrateData(d);
 d=migrateToV12(d);
 d=migrateToV13(d);
 d=migrateToV14(d);
+d=migrateToV15(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -879,7 +888,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:14,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:15,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1015,13 +1024,29 @@ for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0)m=m?M
 // the entered rep count; per_db means the entered weight is per dumbbell with two
 // held. Carries log steps/metres in the rep field — excluding them keeps kg·steps
 // from dwarfing real tonnage (32kg × 120 steps was adding ~3.8t to a session).
-function calcExVol(exId,wt,reps){
+// Optional wts[] carries per-set weight OVERRIDES (aligned with reps; null/0 =
+// inherit wt). Sessions without wts take the original single-weight path.
+function calcExVol(exId,wt,reps,wts){
 const def=ALL_EX.find(e=>e.id===exId);
 if(def&&def.tp==='carry')return 0;
+const mult=((def&&def.loadUnit==='per_db')?2:1)*((def&&def.perSide)?2:1);
+if(Array.isArray(wts)&&wts.some(w=>Number(w)>0)){
+  let t=0;const rr=reps||[];
+  for(let i=0;i<rr.length;i++){const r=Number(rr[i]);if(!(r>0))continue;
+    const w=Number(wts[i])>0?Number(wts[i]):(Number(wt)||0);if(!w)continue;t+=w*mult*r}
+  return t}
 const vr=(reps||[]).filter(r=>Number(r)>0).map(Number);
 if(!wt||!vr.length)return 0;
-const mult=((def&&def.loadUnit==='per_db')?2:1)*((def&&def.perSide)?2:1);
 return wt*mult*vr.reduce((a,b)=>a+b,0)}
+// Per-set weight resolution for a logged entry {wt,reps,wts?}: override if present, else wt.
+function setWt(e,i){const w=Array.isArray(e.wts)?Number(e.wts[i]):NaN;
+return Number.isFinite(w)&&w>0?w:(Number(e.wt)>0?Number(e.wt):null)}
+// Heaviest weight actually lifted in an entry (only sets with positive reps count) — the
+// weight-PR basis once per-set overrides exist. No-wts entries resolve to plain e.wt.
+function exMaxWt(e){let m=Number(e.wt)>0?Number(e.wt):0;
+if(Array.isArray(e.wts)){const rr=e.reps||[];
+for(let i=0;i<e.wts.length;i++){const w=Number(e.wts[i]);if(Number(rr[i])>0&&w>m)m=w}}
+return m}
 
 // RPE scale — replaces emoji system
 const RPE_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
@@ -1431,20 +1456,30 @@ return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],det
 // Carries log steps/metres (e1rmF(40 steps) minted nonsense "E1RM PRs" on farmer's
 // carries) and band/bw lifts have no meaningful load — all excluded.
 const E1RM_TYPES=new Set(['bb','db','kb','mace','club']);
+// Best e1RM across an entry's sets — per-set weights make "max reps at wt" wrong,
+// so score each set at its own resolved weight. With no overrides this collapses to
+// e1rm(wt, max reps) exactly (e1rmF is monotonic in reps), so old data is unchanged.
+// exSetE1RMMax is ungated (trend fitters guard type at the call site); exBestE1RM
+// applies the E1RM_TYPES gate for PR minting.
+function exSetE1RMMax(def,e){
+const eR=effectiveReps(def,e.reps);let be=0;
+for(let i=0;i<eR.length;i++){const r=eR[i];if(!(r>0))continue;
+const w=setWt(e,i);if(!w)continue;const x=e1rm(w,r);if(x>be)be=x}
+return be}
+function exBestE1RM(def,e){return def&&E1RM_TYPES.has(def.tp)?exSetE1RMMax(def,e):0}
 function getPRs(exId){let bw=0,bv=0,be=0;const def=ALL_EX.find(x=>x.id===exId);
-const e1ok=def&&E1RM_TYPES.has(def.tp);
 for(const s of D.sessions)for(const e of s.ex)if(e.id===exId){const vr=e.reps.filter(r=>r>0);if(!vr.length)continue;
-const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
-const vol=calcExVol(e.id,e.wt,e.reps);
-if(e.wt>bw)bw=e.wt;if(vol>bv)bv=vol;if(e1ok){const x=e1rm(e.wt,mx);if(x>be)be=x}}
+const vol=calcExVol(e.id,e.wt,e.reps,e.wts);
+const mw=exMaxWt(e);if(mw>bw)bw=mw;if(vol>bv)bv=vol;
+const x=exBestE1RM(def,e);if(x>be)be=x}
 return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
-function checkPR(exId,wt,reps){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
-const vol=calcExVol(exId,wt,reps);
+function checkPR(exId,wt,reps,wts){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
+const vol=calcExVol(exId,wt,reps,wts);
 // e1RM PR catches a strength gain that isn't a top-weight PR (e.g. more reps at the same load).
-const def=ALL_EX.find(x=>x.id===exId),eR=effectiveReps(def,reps),mx=eR.length?Math.max(...eR):0;
-const e=(def&&E1RM_TYPES.has(def.tp))?e1rm(wt,mx):0;
-if(wt&&wt>pr.bestWt&&pr.bestWt>0)ps.push('WT');
-else if(wt&&e>pr.bestE1RM&&pr.bestE1RM>0)ps.push('E1RM');
+const def=ALL_EX.find(x=>x.id===exId),entry={wt,reps,wts};
+const mw=exMaxWt(entry),e=exBestE1RM(def,entry);
+if(mw&&mw>pr.bestWt&&pr.bestWt>0)ps.push('WT');
+else if(mw&&e>pr.bestE1RM&&pr.bestE1RM>0)ps.push('E1RM');
 if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
 // Rep→1RM multiplier. Epley (1+r/30) tracks well at low reps but turns optimistic
 // past ~10; Lombardi (r^0.1) is the conservative curve there. min() of the two is
@@ -1544,7 +1579,7 @@ return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true
 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
-D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps)});scores.push({vol,diff:s.difficulty||3})});
+D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3})});
 // Cardio intensity maps onto the effort term too (hard 4 / moderate 3 / easy 2) —
 // a hard 40-min row is real fatigue; flat diff:3 made intensity nearly invisible.
 D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2}))}
@@ -2255,7 +2290,7 @@ function programExIds(){const s=new Set();for(const loc of ['home','partner']){c
 function statSnapshot(){
 const sess=D.sessions;
 let totalVol=0,totalSets=0;
-for(const s of sess)for(const e of s.ex){totalVol+=calcExVol(e.id,e.wt,e.reps);totalSets+=(e.reps||[]).filter(r=>Number(r)>0).length}
+for(const s of sess)for(const e of s.ex){totalVol+=calcExVol(e.id,e.wt,e.reps,e.wts);totalSets+=(e.reps||[]).filter(r=>Number(r)>0).length}
 // current streak = consecutive weeks with >=1 session, counting back from this week
 const dates=[...new Set(sess.map(s=>s.date))].sort();
 // training days in last 7 / 30
@@ -2283,9 +2318,9 @@ function e1rmSlope(exId,days){
 const def=ALL_EX.find(e=>e.id===exId);
 const cut=daysAgoStr(days||56);
 const pts=[];
-for(const h of getHist(exId,200)){if(h.date<cut||!h.wt)continue;
-const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
-pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y:e1rm(h.wt,Math.max(...eR))})}
+for(const h of getHist(exId,200)){if(h.date<cut)continue;
+const y=exSetE1RMMax(def,h);if(!y)continue;
+pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y})}
 if(pts.length<3)return null;
 if(pts[pts.length-1].x-pts[0].x<2)return null;
 const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
@@ -2337,9 +2372,8 @@ const cut=daysAgoStr(60);
 const lifts=[['hex_dl','Hex Bar Deadlift'],['hex_squat_b','Hex Bar Squat'],['ohp','OHP'],['floor_press','Floor Press']];
 const out=[];
 for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
-for(const h of getHist(id,200)){if(h.date<cut||!h.wt)continue;
-const eR=effectiveReps(def,h.reps);if(!eR.length)continue;
-const v=e1rm(h.wt,Math.max(...eR));if(v>best)best=v}
+for(const h of getHist(id,200)){if(h.date<cut)continue;
+const v=exSetE1RMMax(def,h);if(v>best)best=v}
 if(!best)continue;
 const ratio=Math.round(best/bw*100)/100,th=STD[id];
 let ti=0;for(let i=0;i<th.length;i++)if(ratio>=th[i])ti=i+1;
@@ -2353,7 +2387,7 @@ function exStats(exId){
 const def=ALL_EX.find(e=>e.id===exId);
 const h=getHist(exId,200);
 let totalVol=0,totalReps=0,sessions=h.length;
-for(const e of h){totalVol+=calcExVol(exId,e.wt,e.reps);totalReps+=(e.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}
+for(const e of h){totalVol+=calcExVol(exId,e.wt,e.reps,e.wts);totalReps+=(e.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}
 const pr=getPRs(exId);const last=h.length?h[h.length-1]:null;
 // trend: e1RM change over the last 8 weeks (slope × 8). First-vs-last weight
 // would read a phase re-anchor (deliberate load drop for a new rep range) as loss.
@@ -2374,7 +2408,7 @@ for(let i=n-1;i>=0;i--){const d=new Date(cur);d.setDate(d.getDate()-7*i);out.pus
 function weeklySeries(weeks){
 const buckets={};
 for(const s of D.sessions){const wk=weekKey(s.date);if(!buckets[wk])buckets[wk]={vol:0,sets:0,sessions:0,rpe:[],dur:0};
-let v=0,st=0;for(const e of s.ex){v+=calcExVol(e.id,e.wt,e.reps);st+=(e.reps||[]).filter(r=>Number(r)>0).length}
+let v=0,st=0;for(const e of s.ex){v+=calcExVol(e.id,e.wt,e.reps,e.wts);st+=(e.reps||[]).filter(r=>Number(r)>0).length}
 buckets[wk].vol+=v;buckets[wk].sets+=st;buckets[wk].sessions++;if(s.difficulty)buckets[wk].rpe.push(s.difficulty);if(s.duration)buckets[wk].dur+=s.duration}
 const first=Object.keys(buckets).sort()[0];if(!first)return[];
 const cw=weekKey(today());
@@ -2426,7 +2460,7 @@ const cur=mk(),prev=mk();
 for(const s of D.sessions){
   const b=s.date>=cut1?cur:(s.date>=cut2?prev:null);if(!b)continue;
   b.sessions++;if(s.difficulty)b.rpe.push(s.difficulty);
-  for(const e of s.ex){b.vol+=calcExVol(e.id,e.wt,e.reps);b.sets+=(e.reps||[]).filter(r=>Number(r)>0).length}}
+  for(const e of s.ex){b.vol+=calcExVol(e.id,e.wt,e.reps,e.wts);b.sets+=(e.reps||[]).filter(r=>Number(r)>0).length}}
 const fin=b=>({vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions,
   rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null});
 return{cur:fin(cur),prev:fin(prev)}}
@@ -2463,14 +2497,15 @@ for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
 // (otherwise every exercise's debut shows up as a weight PR).
 let bw=0,be=0,seen=false;
 for(const e of h){const vr=(e.reps||[]).filter(r=>Number(r)>0);if(!vr.length)continue;
-const def=ALL_EX.find(x=>x.id===ex.id);const eR=effectiveReps(def,e.reps);const mx=eR.length?Math.max(...eR):0;
-const e1=(E1RM_TYPES.has(ex.tp)&&e.wt&&mx>0)?e1rm(e.wt,mx):0; // carries/bands never mint e1RM PRs
+const def=ALL_EX.find(x=>x.id===ex.id);
+const mw=exMaxWt(e); // per-set overrides can set the weight PR
+const e1=exBestE1RM(def,e); // carries/bands never mint e1RM PRs
 let isPR=null;
 if(seen){
-  if(e.wt&&e.wt>bw)isPR={type:'weight',val:e.wt};
+  if(mw&&mw>bw)isPR={type:'weight',val:mw};
   else if(e1>be)isPR={type:'e1rm',val:e1};
 }
-if(e.wt&&e.wt>bw)bw=e.wt;
+if(mw&&mw>bw)bw=mw;
 if(e1>be)be=e1;
 seen=true;
 if(isPR&&(!cut||e.date>=cut))prs.push({id:ex.id,nm:ex.nm,date:e.date,...isPR})}}
@@ -2655,7 +2690,7 @@ if(!pickIds.includes(STAT_EX))pickIds.unshift(STAT_EX);
 const selEx=ALL_EX.find(e=>e.id===STAT_EX);
 const es=exStats(STAT_EX);
 const wtD=hist.filter(h=>h.wt).map(h=>({v:h.wt,l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-const e1D=hist.filter(h=>h.wt&&h.reps.some(r=>r>0)).map(h=>{const mx=Math.max(...h.reps.filter(r=>r>0));return{v:e1rm(h.wt,mx),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
+const e1D=hist.map(h=>({v:exSetE1RMMax(selEx,h),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})})).filter(d=>d.v>0);
 
 // Relative strength (only renders once a bodyweight is logged in Body Tracking)
 const rel=relStrength();
@@ -3246,9 +3281,16 @@ for(const e of s.ex){
   if(!e||typeof e!=='object'||typeof e.id!=='string')continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
   const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
+  // Per-set weight overrides: keep only a well-formed array of positive numbers
+  // (null = inherit wt); anything else — or an all-null array — drops the key so
+  // readers can trust `Array.isArray(e.wts)` implies real overrides.
+  let wts;if(Array.isArray(e.wts)){wts=e.wts.map(w=>{const n=Number(w);return Number.isFinite(n)&&n>0?n:null});
+    if(!wts.some(w=>w!=null))wts=undefined}
   // Coerce free-text fields to strings — non-string band/notes from a hand-edited
   // backup used to flow into templates as objects/arrays (escaped at render too).
-  ex.push({...e,reps,wt,band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''})}
+  const row={...e,reps,wt,band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
+  if(wts)row.wts=wts;else delete row.wts;
+  ex.push(row)}
 // `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
 // s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a
 // malformed/hand-edited backup can't crash the Home/History screens it lands on.
