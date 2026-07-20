@@ -153,6 +153,29 @@ input[type=number]{-moz-appearance:textfield}
 .set-tick{width:44px;height:44px;border-radius:50%;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;transition:.15s;margin:6px auto 0;color:var(--mu)}
 .set-tick.done{background:var(--pr);border-color:var(--pr);color:var(--ink);animation:tickpop .35s cubic-bezier(.34,1.56,.64,1)}
 .set-tick:active{transform:scale(.85)}
+/* Hevy-style set rows: SET | PREVIOUS | KG | REPS | tick */
+.set-tbl{margin:6px 0 2px}
+.set-gr{display:grid;grid-template-columns:24px minmax(0,1fr) 60px 54px 40px;gap:6px;align-items:center}
+.set-hd span{font-size:9px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;text-align:center}
+.set-hd span:nth-child(2){text-align:left}
+.set-hd{padding:0 2px 4px}
+.set-row{padding:4px 2px;border-radius:var(--rad-sm);margin-bottom:3px;border:1.5px solid transparent;transition:background .2s,border-color .2s}
+.set-row.done{background:var(--grl);border-color:var(--gr)}
+.set-num{font-family:var(--disp);font-size:14px;font-weight:800;color:var(--mu);text-align:center}
+.set-row.done .set-num{color:var(--gr)}
+.set-prev{font-size:10px;color:var(--dm);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swi{width:100%;height:44px;font-family:var(--disp);font-size:16px;font-weight:800;background:var(--ib);border:2px solid var(--ibr);border-radius:var(--rad-sm);color:var(--tx);text-align:center;outline:none;font-variant-numeric:tabular-nums}
+.swi::placeholder{color:var(--dm);font-weight:600}
+.swi:focus{border-color:var(--pr);background:var(--cd2)}
+.set-row .ri{width:100%;height:44px;font-size:17px}
+.set-row .set-tick{width:38px;height:38px;margin:0 auto;font-size:14px}
+.set-row.done .set-tick.done{background:var(--gr);border-color:var(--gr)}
+/* Sticky live-session strip (duration / volume / checked sets) */
+.work-sticky{position:sticky;top:0;z-index:30;display:flex;gap:10px;background:var(--bg);padding:8px 2px;margin:0 -2px 8px;border-bottom:1px solid var(--cb)}
+.work-sticky>div{flex:1}
+.ws-l{font-size:10px;color:var(--mu);margin-bottom:1px}
+.ws-v{font-family:var(--disp);font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+.ws-u{font-size:10px;color:var(--mu);font-weight:600}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* Toggle switch */
@@ -1047,6 +1070,28 @@ function exMaxWt(e){let m=Number(e.wt)>0?Number(e.wt):0;
 if(Array.isArray(e.wts)){const rr=e.reps||[];
 for(let i=0;i<e.wts.length;i++){const w=Number(e.wts[i]);if(Number(rr[i])>0&&w>m)m=w}}
 return m}
+// Live in-workout totals from the LOG global's shape: only CHECKED sets count
+// (the Hevy semantic — the header shows work banked, not work planned).
+function liveStats(log){let sets=0,vol=0;
+for(const[id,v] of Object.entries(log||{})){
+  if(!v||!Array.isArray(v.reps))continue;
+  const done=v.setDone||[];
+  for(let i=0;i<v.reps.length;i++){const r=Number(v.reps[i]);
+    if(!done[i]||!(r>0))continue;sets++;
+    vol+=calcExVol(id,Number(v.wts?.[i])>0?Number(v.wts[i]):(Number(v.wt)||null),[r])}}
+return{sets,vol:Math.round(vol)}}
+// "Previous" column label for set i of the last session's entry (Hevy-style).
+function prevSetLbl(last,i){if(!last)return'—';
+const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
+const w=setWt(last,i);return w?`${w}kg×${r}`:`×${r}`}
+// Compact per-set line for a saved entry: uniform-weight sessions keep the old
+// "46kg [8,8,8]" shape; per-set overrides expand to "46×8, 50×6, 40×10".
+function fmtSets(e){const vr=(e.reps||[]).map(Number);
+if(Array.isArray(e.wts)&&e.wts.some(w=>Number(w)>0)){
+  const parts=[];for(let i=0;i<vr.length;i++){if(!(vr[i]>0))continue;
+    const w=setWt(e,i);parts.push(w?`${w}×${vr[i]}`:`×${vr[i]}`)}
+  return parts.join(', ')}
+return`${e.wt?e.wt+'kg ':''}[${vr.filter(r=>r>0).join(',')}]`}
 
 // RPE scale — replaces emoji system
 const RPE_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
@@ -1680,7 +1725,10 @@ const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body
 // suppress it when the view hasn't changed.
 if(VIEW===LAST_VIEW){try{a.querySelectorAll('.sec').forEach(e=>e.style.animation='none')}catch(e){}}
 LAST_VIEW=VIEW;
-if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed()},1000)}
+if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed();
+// live volume/sets track typed reps without a full re-render
+const lvv=document.getElementById('lv-vol'),lvs=document.getElementById('lv-sets');
+if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol;if(lvs)lvs.textContent=lv.sets}},1000)}
 function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
 function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t==='new'?'sg-nw':'sg-st'}
 
@@ -1901,6 +1949,7 @@ const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 // 4th input and mis-reading the exercise as done.
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:Array.from({length:ex.s},(_,i)=>{const r=last?last.reps[i]:null;return r>0?String(r):''}),
+wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 
 // The day's exercise list with any in-session swaps applied. Each returned object
@@ -1960,6 +2009,7 @@ WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];
 for(const[id,row] of Object.entries(LOG)){if(!row||typeof row!=='object'){delete LOG[id];continue}
 if(!Array.isArray(row.reps))row.reps=[];
 if(!Array.isArray(row.setDone))row.setDone=Array(row.reps.length).fill(false);
+if(!Array.isArray(row.wts))row.wts=Array(row.reps.length).fill('');
 if(!Array.isArray(row.form))row.form=[];
 if(!Array.isArray(row.discJoints))row.discJoints=[];
 if(row.disc==null)row.disc='none';if(row.notes==null)row.notes=''}
@@ -1976,9 +2026,15 @@ let h='<div class="sec">';
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
 <div><span class="bg bg-${ADAY.toLowerCase()}">Day ${ADAY}${isP?'2':'1'}</span></div>
-<div style="display:flex;align-items:center;gap:10px">
-<span style="font-size:12px;color:var(--mu);font-variant-numeric:tabular-nums" id="sc">${elapsed()}</span>
-<button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div></div>`;
+<button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div>`;
+
+// Live session strip (sticky): running duration + volume/sets banked from CHECKED
+// sets. The render() interval refreshes all three ids once a second.
+const lv=liveStats(LOG);
+h+=`<div class="work-sticky">
+<div><div class="ws-l">Duration</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
+<div><div class="ws-l">Volume</div><div class="ws-v"><span id="lv-vol">${lv.vol}</span><span class="ws-u"> kg</span></div></div>
+<div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div></div>`;
 
 // Progress
 // "done" requires the exercise to have been touched — prefilled last-session reps
@@ -2015,7 +2071,7 @@ if(isDone&&!isCur){
 h+=`<div class="ex-row done-row" onclick="CIDX=${idx};saveAW();render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.wt?log.wt+'kg':''}${log.band?' '+esc(log.band):''} [${log.reps.filter(r=>Number(r)>0).join(',')}]</span></div></div>`;
+<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></div></div>`;
 } else if(!isCur){
 // Upcoming row
 h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
@@ -2055,7 +2111,7 @@ h+=`<div class="cue" style="border-left-color:var(--am)">📌 ${esc(full||!needs
 h+=`<div style="margin-top:6px"><span class="sg ${sgClass(sg.type)}">${esc(sg.text)}</span>
 ${sg.detail?`<span class="dm" style="margin-left:4px">${esc(sg.detail)}</span>`:''}
 ${sg.regress?`<div class="regress" style="margin-top:3px">⚠ ${esc(sg.regress)}</div>`:''}</div>`;
-if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${last.wt?last.wt+'kg':''}${last.band?' '+esc(last.band):''} [${last.reps.join(',')}] · ${fmtD(last.date)}</div>`;
+if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${fmtSets(last)}${last.band?' '+esc(last.band):''} · ${fmtD(last.date)}</div>`;
 
 for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=`<div class="regress" style="margin-top:3px">⚠ ${j} ${tr.recent3}/3</div>`}
 
@@ -2102,20 +2158,33 @@ h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;m
 h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
 <input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg</span></div>`}
 
-// Sets
-if(!log.setDone)log.setDone=Array(ex.s).fill(false);
-h+=`<div style="display:flex;gap:4px;justify-content:center;margin:6px 0">`;
-for(let i=0;i<ex.s;i++){const v=log.reps[i],dn=log.setDone[i];
-h+=`<div style="text-align:center"><div style="font-size:9px;color:var(--mu);margin-bottom:2px;font-weight:600">S${i+1}</div>
+// Sets — Hevy-style rows: SET | PREVIOUS | KG | REPS | ✓. The kg cell is a per-set
+// OVERRIDE on the working weight above (empty = inherit); ticked rows tint green.
+const nSets=Math.max(ex.s,log.reps.length);
+if(!log.setDone)log.setDone=Array(nSets).fill(false);
+if(!Array.isArray(log.wts))log.wts=[];
+while(log.wts.length<nSets)log.wts.push('');
+while(log.setDone.length<nSets)log.setDone.push(false);
+const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp);
+h+=`<div class="set-tbl">
+<div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${ex.tp==='carry'?'Steps':'Reps'}</span><span></span></div>`;
+for(let i=0;i<nSets;i++){const v=log.reps[i]??'',dn=log.setDone[i];
+h+=`<div class="set-gr set-row${dn?' done':''}">
+<span class="set-num">${i+1}</span>
+<span class="set-prev">${prevSetLbl(last,i)}</span>
+${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
 <button type="button" class="set-tick${dn?' done':''}" aria-label="Set ${i+1} done" aria-pressed="${!!dn}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</button></div>`}
-h+=`</div>`;
+h+=`</div>
+<div style="display:flex;gap:6px;margin:6px 0 2px">
+<button type="button" class="btn btn-wh" style="flex:1;padding:8px;font-size:12px" onclick="addSet('${ex.id}')">+ Add Set</button>
+${log.reps.length>ex.s?`<button type="button" class="btn btn-wh" style="width:46px;padding:8px;font-size:12px;color:var(--rd)" aria-label="Remove last set" onclick="removeSet('${ex.id}')">−</button>`:''}</div>`;
 
 // Form rating — exercise-level stamp (one tap) + optional per-set editor. Gates progression.
-{const farr=Array.isArray(log.form)?log.form.slice(0,ex.s):[];
+{const farr=Array.isArray(log.form)?log.form.slice(0,nSets):[];
 const rated=farr.filter(f=>f>0);
-const uniform=rated.length===ex.s&&rated.every(f=>f===farr[0])?farr[0]:0;
+const uniform=rated.length===nSets&&rated.every(f=>f===farr[0])?farr[0]:0;
 const worst=rated.length?Math.min(...rated):0;
 const mixed=rated.length>0&&!uniform;
 h+=`<div class="form-rate"><div class="form-row1">
@@ -2125,7 +2194,7 @@ h+=`</div></div>
 <div class="form-cap">${rated.length?(mixed?`<span style="color:${FORM_C[worst]||'var(--mu)'}">Mixed · worst ${FORM_LABELS[worst]}</span>`:`<span style="color:${FORM_C[uniform]}">${FORM_LABELS[uniform]}</span>${uniform<FORM_MIN?' · holds progression':''}`):'<span class="dm">5 strict → 1 negatives · optional</span>'}
 <button class="btn-ghost" style="font-size:9px;margin-left:6px" onclick="FORM_EXP=FORM_EXP==='${ex.id}'?null:'${ex.id}';render()">${FORM_EXP===ex.id?'Hide per-set':'Per-set'}</button></div>`;
 if(FORM_EXP===ex.id){h+=`<div class="form-perset">`;
-for(let i=0;i<ex.s;i++){const fv=farr[i]||0;h+=`<div class="form-prow"><span class="form-ps-lbl">S${i+1}</span><div class="form-btns">`;
+for(let i=0;i<nSets;i++){const fv=farr[i]||0;h+=`<div class="form-prow"><span class="form-ps-lbl">S${i+1}</span><div class="form-btns">`;
 for(let s=5;s>=1;s--)h+=`<button class="form-b sm${fv===s?' on':''}" style="${fv===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormSet('${ex.id}',${i},${s})">${s}</button>`;
 h+=`</div></div>`}
 h+=`</div>`}
@@ -2182,11 +2251,25 @@ function toggleSetDone(id,i){if(!LOG[id].setDone)LOG[id].setDone=Array(LOG[id].r
 LOG[id].setDone[i]=!LOG[id].setDone[i];LOG[id].touched=true;
 if(LOG[id].setDone[i]){const ex=ALL_EX.find(e=>e.id===id);if(ex&&(!TIMER||TIMER.done))startTimer(ex.rstS)}
 saveAW();render()}
+// Per-set weight override — no re-render on keystroke (matches setRep/setL); the
+// sticky header's interval picks the new volume up within a second.
+function setSetWt(id,i,v){if(!Array.isArray(LOG[id].wts))LOG[id].wts=[];LOG[id].wts[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW()}
+// Extra sets beyond the programmed count — Hevy-style "Add Set". Remove only ever
+// pops EXTRA sets (never below ex.s), matching the button's visibility.
+function addSet(id){const l=LOG[id];if(!l)return;l.reps.push('');
+if(!Array.isArray(l.wts))l.wts=[];l.wts.push('');
+if(!Array.isArray(l.setDone))l.setDone=[];l.setDone.push(false);
+if(!Array.isArray(l.form))l.form=[];l.form.push(0);
+l.touched=true;saveAW();render()}
+function removeSet(id){const l=LOG[id];const ex=ALL_EX.find(e=>e.id===id);
+if(!l||l.reps.length<=(ex?ex.s:1))return;l.reps.pop();
+if(Array.isArray(l.wts))l.wts.pop();if(Array.isArray(l.setDone))l.setDone.pop();if(Array.isArray(l.form))l.form.pop();
+l.touched=true;saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
 if(idx>=0)j.splice(idx,1);else j.push(joint);saveAW();render()}
 // Form rating — stamp all working sets (quick path) or one set (per-set path).
 function ensureForm(id,n){if(!Array.isArray(LOG[id].form))LOG[id].form=[];while(LOG[id].form.length<n)LOG[id].form.push(0)}
-function setFormAll(id,score){const ex=ALL_EX.find(e=>e.id===id);const n=ex?ex.s:LOG[id].reps.length;ensureForm(id,n);
+function setFormAll(id,score){const ex=ALL_EX.find(e=>e.id===id);const n=Math.max(ex?ex.s:0,LOG[id].reps.length);ensureForm(id,n);
 const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===score);
 for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
@@ -2204,10 +2287,16 @@ function finishW(){
 // reps would otherwise save phantom sessions for skipped exercises and feed
 // fake "sessions at weight" into the progression engine.
 const logged=Object.entries(LOG).filter(([,v])=>(v.touched||!v.pf)&&v.reps.some(r=>r!==''&&Number(r)>0))
-  .map(([id,v])=>({id,wt:v.wt?Number(v.wt):null,reps:v.reps.map(r=>r===''?0:Number(r)),band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes}));
+  .map(([id,v])=>{const reps=v.reps.map(r=>r===''?0:Number(r));const wt=v.wt?Number(v.wt):null;
+  const row={id,wt,reps,band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes};
+  // Per-set overrides persist (fully resolved) ONLY when some counted set actually
+  // differs from the working weight — uniform sessions keep the lean legacy shape.
+  const ov=(v.wts||[]).map(w=>Number(w)>0?Number(w):null);
+  if(ov.some((w,i)=>w!=null&&reps[i]>0&&!wEq(w,wt)))row.wts=reps.map((_,i)=>ov[i]??wt);
+  return row});
 if(!logged.length)return;
-const prs=[];for(const e of logged){const p=checkPR(e.id,e.wt,e.reps);if(p.length)prs.push({nm:ALL_EX.find(x=>x.id===e.id)?.nm||e.id})}
-let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.length;tr+=vr.reduce((a,b)=>a+b,0);tv+=calcExVol(e.id,e.wt,e.reps)}
+const prs=[];for(const e of logged){const p=checkPR(e.id,e.wt,e.reps,e.wts);if(p.length)prs.push({nm:ALL_EX.find(x=>x.id===e.id)?.nm||e.id})}
+let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.length;tr+=vr.reduce((a,b)=>a+b,0);tv+=calcExVol(e.id,e.wt,e.reps,e.wts)}
 const discCount=Object.values(LOG).filter(v=>v.disc&&v.disc!=='none').length;
 // Session date comes from when the workout STARTED — a post-midnight save used to
 // stamp the wrong day and skew nextDay/streaks/heatmap.
@@ -3087,7 +3176,7 @@ ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
-<div class="mu" style="font-size:11px">${e.wt?e.wt+'kg':''}${e.band?' '+esc(e.band):''} [${e.reps.join(',')}]${e.notes?' — '+esc(e.notes):''}</div>`;
+<div class="mu" style="font-size:11px">${fmtSets(e)}${e.band?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
 // Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
 if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);

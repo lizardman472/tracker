@@ -134,6 +134,49 @@ R.stepWt('hex_carry', 1);
 T('stepWt snaps an off-ladder 31.3 up to 31.5', R.getLOG()['hex_carry'].wt === 31.5, R.getLOG()['hex_carry'].wt);
 R.getLOG()['hex_carry'].wt = 30;
 
+// ── Hevy-style set rows: sticky live header, per-set overrides, Add Set ──
+{
+  tryRender('workout (Day A, set-row table)', () => R.beginW('A'));
+  const w2 = R.getA();
+  T('sticky live header renders duration/volume/sets ids', /work-sticky/.test(w2) && /id="lv-vol"/.test(w2) && /id="lv-sets"/.test(w2));
+  T('set table renders header + Previous column', /class="set-gr set-hd"/.test(w2) && /set-prev/.test(w2));
+  T('per-set weight inputs render for the bar lift', /setSetWt\('hex_dl',0,/.test(w2));
+  T('Previous column shows last session sets (40kg×5)', /40kg×5/.test(w2));
+  T('Add Set button renders', /addSet\('hex_dl'\)/.test(w2));
+  T('remove button hidden at the programmed set count', !/removeSet\('hex_dl'\)/.test(w2));
+  const log = R.getLOG()['hex_dl'];
+  // Tick two sets, one with a typed override — liveStats counts CHECKED sets only.
+  log.reps[0] = '5'; log.reps[1] = '5'; log.reps[2] = '5';
+  toggleSetDone('hex_dl', 0);
+  setSetWt('hex_dl', 1, '45');
+  toggleSetDone('hex_dl', 1);
+  const lv = liveStats(R.getLOG());
+  T('liveStats counts checked sets only', lv.sets === 2, lv.sets);
+  T('liveStats prices the override set at its own weight', lv.vol === 40 * 5 + 45 * 5, lv.vol);
+  T('checked rows tint green', /set-row done/.test(R.getA()));
+  // Add Set grows every parallel array; removeSet only ever pops extras.
+  const n0 = log.reps.length;
+  addSet('hex_dl');
+  T('addSet grows reps/wts/setDone/form together',
+    log.reps.length === n0 + 1 && log.wts.length === n0 + 1 && log.setDone.length === n0 + 1 && log.form.length === n0 + 1);
+  T('remove button appears once an extra set exists', /removeSet\('hex_dl'\)/.test(R.getA()));
+  removeSet('hex_dl');
+  T('removeSet pops back to the programmed count', log.reps.length === n0);
+  removeSet('hex_dl');
+  T('removeSet never drops below the programmed count', log.reps.length === n0);
+  // finishW persists resolved per-set weights only when an override differs.
+  toggleSetDone('hex_dl', 2);
+  R.finishW();
+  const S = global.window._S;
+  const hx = S.exs.find(e => e.id === 'hex_dl');
+  T('finishW resolves wts fully when a set differs', JSON.stringify(hx.wts) === '[40,45,40]', JSON.stringify(hx.wts));
+  T('finishW tonnage prices overrides per set', S.tv >= 40 * 5 + 45 * 5 + 40 * 5, S.tv);
+  const uniform = S.exs.filter(e => e.id !== 'hex_dl');
+  T('uniform-weight entries keep the lean legacy shape (no wts)', uniform.every(e => e.wts === undefined));
+  // resumed old-build blobs get wts crash-proofed
+  R.setCIDX(0);
+}
+
 // ── Progress tab (segmented: Overview default, chips switch sub-views) ──
 tryRender('Progress (stats, Overview)', () => R.go('stats'));
 const stats = R.getA();
