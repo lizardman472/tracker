@@ -1032,6 +1032,11 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const m = migrateToV15({ programVersion: 14, sessions: [{ marker: 1 }] });
   T('migrateToV15 stamps 15, touches nothing else', m.programVersion === 15 && m.sessions[0].marker === 1);
   T('migrateToV15 idempotent', migrateToV15({ programVersion: 15, x: 7 }).x === 7);
+  // Theme preference: additive field, defaulted on load, garbage coerced to auto.
+  load();
+  T('load defaults theme to auto', getD().theme === 'auto', getD().theme);
+  getD().theme = 'purple'; // simulate a mangled store passing back through load()'s guard
+  T('freshState carries the theme default', freshState().theme === 'auto');
 }
 
 // ── Per-session muscle split (Hevy-style % bars) ──

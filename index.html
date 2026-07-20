@@ -33,16 +33,42 @@
    letters are white on A/C and dark ink on B. Mirror of JS DAY_COLORS/DAY_INK. */
 --dayA:#0069b8;--dayAl:#ddedfa;--dayB:#ea62ab;--dayBl:#fce4f1;--dayC:#0b7a3f;--dayCl:#dcf3e5;
 /* plate chips carry white --ink labels — each plate hue clears 4.5:1 under white */
---p10:#d61f5e;--p5:#1263d6;--p25:#0c8050;--p1:#64748b;
+--p10:#d61f5e;--p5:#1263d6;--p25:#0c8050;--p1:#64748b;--slate:#64748b;
 --sh:0 1px 3px rgba(20,28,50,.08);--shm:0 10px 32px rgba(20,28,50,.14);--sab:env(safe-area-inset-bottom,0px);
+--hdrbg:rgba(246,248,252,.86);--glow2:rgba(109,71,230,.07);
 --rad:16px;--rad-sm:10px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;
 --disp:'Archivo Expanded',-apple-system,system-ui,sans-serif;
 --body:'Archivo',-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+/* ── Dark theme: mirrors every color token. Applies when the SYSTEM prefers dark
+   (unless the user forces light in Settings) or when the user forces dark.
+   Accents brighten so text passes on the dark cards; --ink flips near-black so
+   filled buttons/badges keep ≥4.5:1 under the brighter fills. The JS chart/day
+   palette mirrors these in applyTheme() — keep in sync. ── */
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
+--bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
+--tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
+--prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
+--gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
+--pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
+--dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;
+--p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
+--sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
+--hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}}
+:root[data-theme=dark]{
+--bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
+--tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
+--prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
+--gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
+--pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
+--dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;
+--p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
+--sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
+--hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* atmospheric backdrop: subtle cyan glow top, deep fade */
 body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
-background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,rgba(109,71,230,.07),transparent 60%),var(--bg);background-attachment:fixed}
+background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,var(--glow2),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
 /* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
 button.set-tick,button.disc-btn,button.disc-joint{-webkit-appearance:none;appearance:none}
@@ -52,13 +78,18 @@ input[type=number]{-moz-appearance:textfield}
 ::selection{background:var(--pr);color:var(--ink)}
 
 /* Layout */
-.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:rgba(246,248,252,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
+.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
 .hdr h1{font-family:var(--disp);font-size:15px;font-weight:900;color:var(--tx);letter-spacing:1.5px;text-transform:uppercase}
 .hdr h1::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pr);margin-right:9px;vertical-align:middle;box-shadow:0 0 0 3px rgba(var(--prRGB),.18)}
-.nav{display:flex;background:rgba(246,248,252,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:48px;z-index:99;border-bottom:1px solid var(--cb)}
+/* top offset includes the notch inset — .hdr grows by it, so the nav's sticky
+   anchor must move with it or the two gap/overlap on notched devices */
+.nav{display:flex;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:calc(48px + env(safe-area-inset-top,0px));z-index:99;border-bottom:1px solid var(--cb)}
 .nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:.6px;text-transform:uppercase;transition:color .2s}
 .nav button.a{color:var(--pr);border-bottom-color:var(--pr);text-shadow:none}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
+/* One screen-title treatment for every page (the nav bar hides on workout/summary/
+   cardio/logpast, so in-screen titles are the only wayfinding there) */
+.pg-title{font-family:var(--disp);font-size:16px;font-weight:900;letter-spacing:.5px;margin-bottom:10px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 /* Cards */
@@ -173,7 +204,7 @@ input[type=number]{-moz-appearance:textfield}
 /* Sticky live-session strip (duration / volume / checked sets). Sits BELOW the
    sticky app header (.hdr, z-index 100) — top:0 slid underneath it. */
 .work-sticky{position:sticky;top:calc(47px + env(safe-area-inset-top,0px));z-index:30;display:flex;gap:10px;
-background:rgba(246,248,252,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0 4px 14px rgba(20,28,50,.06)}
 .work-sticky>div{flex:1}
 .ws-l{font-size:10px;color:var(--mu);margin-bottom:1px}
@@ -895,7 +926,8 @@ const BODY_REGIONS_B=[
   {m:'glutes',e:[[52.5,84,7.5,7.5],[67.5,84,7.5,7.5]]},
   {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]},
   {m:'calves',e:[[51.5,150,4.8,13],[68.5,150,4.8,13]]}];
-const HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills
+let HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills (theme-switched)
+let HEAT_AMBER='178,97,2',HEAT_GREEN='12,128,80',HEAT_CYAN='0,123,168'; // rgb channels for heatColor
 // Fill for a region at v sets/week. Literal rgba (not CSS vars) — SVG fills are
 // string-built and the tests assert exact values. Untracked muscles (mev null,
 // e.g. calves/cuff) scale against mav or the overall max instead.
@@ -903,10 +935,10 @@ const HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region 
 // at .55) — crossing MEV upward must never make the region visibly fade.
 function heatColor(v,mev,mav,mx){
 if(!(v>0))return'';
-if(mev==null){const ref=mav||mx||1;const t=Math.min(1,v/ref);return`rgba(0,123,168,${(0.2+0.6*t).toFixed(2)})`}
-if(v<mev)return`rgba(178,97,2,${(0.2+0.3*(v/mev)).toFixed(2)})`;
-if(mav&&v<mav)return`rgba(12,128,80,${(0.55+0.3*((v-mev)/(mav-mev))).toFixed(2)})`;
-return'rgba(0,123,168,0.95)'}
+if(mev==null){const ref=mav||mx||1;const t=Math.min(1,v/ref);return`rgba(${HEAT_CYAN},${(0.2+0.6*t).toFixed(2)})`}
+if(v<mev)return`rgba(${HEAT_AMBER},${(0.2+0.3*(v/mev)).toFixed(2)})`;
+if(mav&&v<mav)return`rgba(${HEAT_GREEN},${(0.55+0.3*((v-mev)/(mav-mev))).toFixed(2)})`;
+return`rgba(${HEAT_CYAN},0.95)`}
 // Two side-by-side SVG figures + legend; regions are tappable and select the
 // muscle in the Set Count chart (STAT_MG).
 function bodyHeatH(wv){
@@ -927,7 +959,7 @@ return s+`</svg>`};
 return`<div style="display:flex;gap:14px;justify-content:center">
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
-<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:rgba(178,97,2,.4)"></i>under MEV</span><span><i style="background:rgba(12,128,80,.7)"></i>productive</span><span><i style="background:rgba(0,123,168,.95)"></i>high</span></div>`}
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:rgba(${HEAT_AMBER},.4)"></i>under MEV</span><span><i style="background:rgba(${HEAT_GREEN},.7)"></i>productive</span><span><i style="background:rgba(${HEAT_CYAN},.95)"></i>high</span></div>`}
 
 // ═══════════════ SEED ═══════════════
 const SEED={sessions:[
@@ -1023,6 +1055,7 @@ if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today()
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
 if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d.lastBackupCount=0;
 if(!d.dismissed)d.dismissed={};
+if(!['auto','light','dark'].includes(d.theme))d.theme='auto';
 d=migrateData(d);
 d=migrateToV12(d);
 d=migrateToV13(d);
@@ -1054,7 +1087,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:16,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:16,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto'}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1084,6 +1117,8 @@ if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.i
 if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){clearAW();return null}d.drifted=true}}
 return d}catch(e){return null}}
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+// Shared empty-state card — one voice + one visual for every screen's no-data state.
+function emptyH(icon,title,hint){return`<div class="cd" style="text-align:center;padding:22px 16px"><div style="font-size:22px;margin-bottom:6px">${icon}</div><div style="font-size:12px;font-weight:700;margin-bottom:3px">${title}</div>${hint?`<div class="dm">${hint}</div>`:''}</div>`}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
 // calendar day — it converts to UTC and rolls back a day for UTC+ timezones
 // (e.g. NZ mornings), which silently mis-dates sessions, rest-day detection,
@@ -1178,7 +1213,7 @@ return (reps||[]).filter(r=>Number(r)>0).map(Number)}
 // if no working set was rated below FORM_MIN. Unrated sets count as clean, so
 // gating is opt-in and historical data is never penalised. ──
 const FORM_LABELS=['','Negatives','Loose','Hybrid','Solid','Strict'];
-const FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];
+let FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)']; // theme-switched
 const FORM_MIN=4;
 function sessClean(h){const f=h&&h.form;if(!Array.isArray(f)||!f.length)return true;
 for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0&&f[i]<FORM_MIN)return false}return true}
@@ -1702,15 +1737,42 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // Chart palette — JS mirrors of the CSS tokens (string-built SVG can't reach CSS vars
 // without getComputedStyle). Keep in sync: CH_GRID=--cb, CH_TXT=--mu, CH_DOT=--bg2,
 // CH_TARGET=--rd.
-const CH_GRID='#dde3f0',CH_TXT='#5a6478',CH_DOT='#ffffff',CH_TARGET='#d61f5e',CH_TITLE='#111527',CH_PR='#b26102';
+// Theme-switchable (applyTheme reassigns): light values are the declared defaults
+// so the Node test harnesses (no matchMedia, no D) always see the light palette.
+let CH_GRID='#dde3f0',CH_TXT='#5a6478',CH_DOT='#ffffff',CH_TARGET='#d61f5e',CH_TITLE='#111527',CH_PR='#b26102';
+let C_PR='#007ba8',C_BL='#1263d6',C_GR='#0c8050'; // chart line/bar fills
+// One switch point for every string-built color (SVG fills + inline hex — CSS vars
+// can't reach them). Mirrors the CSS dark token block; keep the two in sync.
+function isDarkTheme(){const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
+if(t==='dark')return true;if(t==='light')return false;
+try{return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)}catch(e){return false}}
+function applyTheme(){const dk=isDarkTheme();
+if(dk){CH_GRID='#2a3450';CH_TXT='#9aa6c2';CH_DOT='#1a2032';CH_TARGET='#ff5f8d';CH_TITLE='#e9edf8';CH_PR='#f0a848';
+C_PR='#2fb3e8';C_BL='#5b9bf0';C_GR='#3ecf8e';
+HEAT_BASE='#222b42';HEAT_NONE='#2a3450';HEAT_AMBER='240,168,72';HEAT_GREEN='62,207,142';HEAT_CYAN='47,179,232';
+DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',cardio:'#f0a848'};
+DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e'};
+FORM_C=['','var(--rd)','#e8703a','var(--am)','#7fb069','var(--gr)'];
+}else{CH_GRID='#dde3f0';CH_TXT='#5a6478';CH_DOT='#ffffff';CH_TARGET='#d61f5e';CH_TITLE='#111527';CH_PR='#b26102';
+C_PR='#007ba8';C_BL='#1263d6';C_GR='#0c8050';
+HEAT_BASE='#e8ecf5';HEAT_NONE='#dde3f0';HEAT_AMBER='178,97,2';HEAT_GREEN='12,128,80';HEAT_CYAN='0,123,168';
+DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'};
+DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
+FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
+if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
+try{const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
+if(t==='auto')delete document.documentElement.dataset.theme;
+else document.documentElement.dataset.theme=t;
+const meta=document.querySelector('meta[name=theme-color]');
+if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // --dayA/--dayB/--dayC tokens. Trio validated full-strength on white, all pairs
 // (protan ΔE 9.5, normal 21.0); heatmap cells render SOLID with a letter on top —
 // DAY_INK picks the letter ink per day (white on the deep A/C fills, dark ink on
 // the deliberately-lighter pink B). Cardio renders as an amber-tint DOT cell
 // (different mark), outside the letter set.
-const DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'};
-const DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
+let DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'}; // theme-switched
+let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'}; // theme-switched
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
@@ -2642,7 +2704,7 @@ const STD={hex_dl:[1.1,1.6,2.1,2.6],hex_squat_b:[1.0,1.5,2.0,2.5],ohp:[0.5,0.7,0
 const TIERS=['Beginner','Novice','Intermediate','Advanced','Elite'];
 // Beginner is slate (not the dead gray --mu) so a card full of Beginner lifts still
 // has life; TIER_BG are the matching light tints for filled chips.
-const TIER_C=['#64748b','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
+const TIER_C=['var(--slate)','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
 const TIER_BG=['var(--ib)','var(--bll)','var(--grl)','var(--prl)','var(--aml)'];
 // ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
 function relStrength(){
@@ -3002,14 +3064,14 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum<
 // Each row carries an inline e1RM sparkline (last 8 sessions) so the shape of the
 // trend reads without opening the Lifts detail — the text keeps the exact number.
 const momSpark=(id,color)=>{const vals=getHist(id,8).filter(x=>x.wt&&(x.reps||[]).some(r=>r>0)).map(x=>e1rm(x.wt,Math.max(...x.reps.filter(r=>r>0))));return spark(vals,60,16,color)};
-for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,'#0c8050')}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
-for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,m.slope<-0.05?'#b26102':'#6b7590')}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
+for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,C_GR)}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
+for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,m.slope<-0.05?CH_PR:CH_TXT)}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
 h+=`</div>`}
 
 // Big-4 combined e1RM — one line answering "am I getting stronger overall?"
 {const b4=big4Weekly(12);
-if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,150,'#007ba8','Big-4 e1RM Total (kg)')}
+if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,150,C_PR,'Big-4 e1RM Total (kg)')}
 <div class="dm" style="text-align:center;margin-top:4px">Hex DL + Hex Squat + OHP + Floor Press · best weekly e1RM each · skipped weeks carry the last known value</div></div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
 
@@ -3089,7 +3151,7 @@ h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">
 h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
 if(bHist.length){
 const repD=bHist.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(repD,360,170,'#007ba8','Total Reps / Session')}</div>`;
+h+=`<div class="cd">${svgLine(repD,360,170,C_PR,'Total Reps / Session')}</div>`;
 }
 }else{
 // stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
@@ -3108,18 +3170,18 @@ const lastPr=liftPrs[0];
 if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
 ${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
 ${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
-h+=`<div class="cd">${svgLine(wtD,360,170,'#007ba8','Top-Set Weight (kg)')}</div>`;
+h+=`<div class="cd">${svgLine(wtD,360,170,C_PR,'Top-Set Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp)){
 // Mark every new all-time-high on the chart itself (running max over the same
 // points the line plots — self-consistent with what the eye sees).
 let runMax=-1;const prIx=[];e1D.forEach((d,i)=>{if(i>0&&d.v>runMax)prIx.push(i);runMax=Math.max(runMax,d.v)});
-h+=`<div class="cd">${svgLine(e1D,360,170,'#1263d6','Est. 1RM',{marks:prIx})}${prIx.length?`<div class="dm" style="text-align:center;margin-top:4px"><span style="color:var(--am)">▲</span> = new e1RM high</div>`:''}</div>`}
+h+=`<div class="cd">${svgLine(e1D,360,170,C_BL,'Est. 1RM',{marks:prIx})}${prIx.length?`<div class="dm" style="text-align:center;margin-top:4px"><span style="color:var(--am)">▲</span> = new e1RM high</div>`:''}</div>`}
 }
 
 // Form trend — per-set form ratings gate progression but were never charted.
 // Skipped-week nulls are dropped: the line shows rated weeks only.
 {const fw=formWeekly(STAT_EX,8).filter(w=>w.v!=null);
-if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,'#0c8050','Form (5 = strict)')}</div>`}
+if(fw.length>=2)h+=`<div class="cd">${svgLine(fw.map(w=>({v:w.v,l:w.lbl})),360,140,C_GR,'Form (5 = strict)')}</div>`}
 
 // Recent-sessions log — the lift's full story at a glance. ▲PR replays history
 // like recentPRs; the ✓/– target marker only judges sessions stamped with the
@@ -3230,7 +3292,7 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Set Count per Musc
 <select class="bs" style="margin-bottom:8px" aria-label="Muscle group" onchange="STAT_MG=this.value;render()">`;
 for(const[k,l] of MG_INFO)h+=`<option value="${k}"${k===STAT_MG?' selected':''}>${l}</option>`;
 h+=`</select>`;
-h+=svgBars(series,360,150,'#007ba8',`${mi[1]} sets/week`,{target:mi[2]||undefined});
+h+=svgBars(series,360,150,C_PR,`${mi[1]} sets/week`,{target:mi[2]||undefined});
 h+=`<div class="dm" style="margin-top:4px">Actual sets per calendar week${mi[2]?' · dashed line = MEV':''}. Unlike the normalized rate above, partial weeks show as-is.</div></div>`}
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
@@ -3278,11 +3340,11 @@ let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
 const marks=weeklyMarks(ws);
-h+=`<div class="cd">${svgBars(volData,360,150,'#007ba8','Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
-h+=`<div class="cd">${svgBars(sessData,360,130,'#1263d6','Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
+h+=`<div class="cd">${svgBars(volData,360,150,C_PR,'Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(sessData,360,130,C_BL,'Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
 // RPE trend if data exists
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels
-if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#d61f5e','Avg RPE / Week')}</div>`;
+if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,CH_TARGET,'Avg RPE / Week')}</div>`;
 }
 
 h+=`<div class="cd"><div class="estrip">
@@ -3304,7 +3366,7 @@ h+=`</div>`;
 {const cw=cardioWeekly(8);
 if(cw.length>=2){
 const sum=k=>cw.reduce((a,w)=>a+w[k],0);
-h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#b26102','Cardio Minutes / Week')}
+h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,CH_PR,'Cardio Minutes / Week')}
 <div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">■</span> easy ${sum('easy')} · <span style="color:var(--am)">■</span> moderate ${sum('moderate')} · <span style="color:var(--rd)">■</span> hard ${sum('hard')} min</div></div>`}}
 
 }else if(STAT_SEG==='monthly'){
@@ -3390,6 +3452,10 @@ setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inli
 // measure). Every field is optional per log, so you record only what you
 // measured that day. Legacy entries stored weight/waist/arms/chest/thigh — those
 // keys are preserved, the rest are additive, so old data renders unchanged.
+// Per-theme metric line colors — applyTheme() rewrites .c from these (SVG fills
+// can't read CSS vars). Order matches BODY_METRICS.
+const BM_C={light:['#007ba8','#6d47e6','#b26102','#0c8050','#d61f5e','#c2410c','#1263d6','#a21caf','#0d9488','#64748b'],
+dark:['#2fb3e8','#9b7bff','#f0a848','#3ecf8e','#ff5f8d','#e8703a','#5b9bf0','#d478e0','#2fc4b2','#8a94ad']};
 const BODY_METRICS=[
   {k:'weight',    lb:'Weight',    u:'kg', c:'#007ba8', step:'0.1'},
   {k:'neck',      lb:'Neck',      u:'cm', c:'#6d47e6', step:'0.5'},
@@ -3629,13 +3695,19 @@ function rPlates(el){
 
 // ─── SETTINGS ────────────────────────────────
 function rSet(el){const sz=(new Blob([JSON.stringify(D)])).size;const phi=getPhaseInfo();
-let h=`<div class="sec">
+let h=`<div class="sec"><div class="pg-title">Settings</div>
 <div class="lb" style="margin-bottom:6px">Data</div>
-<div class="cd"><div style="font-size:12px;line-height:1.8">
-Sessions: ${D.sessions.length} · Cardio: ${D.cardioLog.length} · Body: ${D.bodyLog.length}<br>
-Phase ${phi.phase}: ${phi.name} (Wk ${phi.wk}/${phi.maxWk} · ${phi.sess} session${phi.sess===1?'':'s'}) · Location: ${D.location==='partner'?"Partner's":'Home'} · ${(sz/1024).toFixed(1)}KB<br>
-Cues: ${Object.keys(D.cues).length} · Discomfort entries: ${D.discomfort.length}</div></div>
-<button class="btn btn-wh" style="margin-bottom:8px" onclick="go('plates')">📐 Plate Reference</button>
+<div class="cd"><div class="estrip" style="margin-bottom:8px">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${D.sessions.length}</div><div class="estrip-lbl">Sessions</div></div>
+<div class="estrip-cell"><div class="estrip-num">${D.cardioLog.length}</div><div class="estrip-lbl">Cardio</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${D.bodyLog.length}</div><div class="estrip-lbl">Body</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${(sz/1024).toFixed(0)}<span style="font-size:10px;color:var(--mu)">KB</span></div><div class="estrip-lbl">Storage</div></div></div>
+<div class="dm">Phase ${phi.phase} · ${phi.name} · phase week ${phi.wk}/${phi.maxWk} · ${phi.sess} session${phi.sess===1?'':'s'} this phase · ${Object.keys(D.cues).length} cue${Object.keys(D.cues).length===1?'':'s'} · ${D.discomfort.length} discomfort flag${D.discomfort.length===1?'':'s'}</div></div>
+<div class="lb" style="margin-top:10px;margin-bottom:6px">Appearance</div>
+<div class="cd"><div style="display:flex;gap:6px">
+${[['auto','🌗 Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([k,l])=>`<button type="button" class="btn-sm ${(D.theme||'auto')===k?'btn-pr':'btn-wh'}" style="flex:1" aria-pressed="${(D.theme||'auto')===k}" onclick="D.theme='${k}';save();applyTheme();render()">${l}</button>`).join('')}
+</div><div class="dm" style="margin-top:6px">Auto follows your phone's dark-mode setting.</div></div>
+<button class="btn btn-wh" style="margin-bottom:8px;margin-top:10px" onclick="go('plates')">📐 Plate Reference</button>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Location</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Active: <strong>${D.location==='partner'?"🏘 Partner's":"🏠 Home"}</strong></div>
 <div style="display:flex;gap:6px">
@@ -3655,7 +3727,7 @@ else{h+=`<div style="display:flex;justify-content:space-between;align-items:cent
 <span style="font-size:12px;font-weight:600">Rest-timer alerts</span>
 <button class="toggle${D.notify.rest?' on':''}" onclick="toggleNotifyRest()"><span class="toggle-dot"></span></button></div>
 <button class="btn btn-wh btn-sm" onclick="notifyRestDone.__test=1;(function(){try{new Notification('Test ping 🔔',{body:'Notifications are working.',tag:'rft-test'})}catch(e){}})()">Send test ping</button>
-<div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled “train today” reminders aren't possible without a server.</div>`;}
+<div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled "train today" reminders aren't possible without a server.</div>`;}
 h+=`</div>`;}
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Current: <strong>Phase ${phi.phase} — ${phi.name}</strong> (Week ${phi.wk}/${phi.maxWk})</div>
@@ -3671,7 +3743,7 @@ const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.fi
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
 <div><span style="font-size:12px;font-weight:600">${esc(ex?.nm||k)}</span> · <span style="color:var(--pr);font-size:11px">${esc(D.cues[k])}</span></div>
 <button class="btn-sm btn-rd" onclick="delete D.cues['${k}'];save();render()">✕</button></div>`}}
-else h+=`<div class="dm">No cues yet</div>`;
+else h+=emptyH('💡','No cues yet','Add one from any exercise during a workout — it pins your own reminder to that lift.');
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thickest → thinnest)</div>
 <div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips): band helps you. Thinner = harder = progress. Move right.</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Danger Zone</div>
@@ -3813,7 +3885,9 @@ alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${s
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
-load();render();
+load();applyTheme();render();
+// Re-theme live when the phone flips its scheme (only matters on 'auto').
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();render()})}catch(e){}
 // Arm the shared AudioContext from the first user gesture (iOS requirement — a context
 // created cold at rest-timer end stays suspended and the beep is silent).
 document.addEventListener('touchstart',initAC,{once:true,passive:true});

@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -460,5 +460,30 @@ const body = R.getA();
 T('body shows current bodyweight', /78\.5/.test(body));
 T('body summary lists a tape-measure site', /Waist/.test(body));
 T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
+
+// ── Dark mode: applyTheme swaps the string-built palette both ways ──
+{
+  const before = R.getPal();
+  R.getD().theme = 'dark';
+  applyTheme();
+  const dk = R.getPal();
+  T('applyTheme(dark) swaps the chart grid color', dk.grid === '#2a3450', dk.grid);
+  T('applyTheme(dark) swaps the heat-map channels', dk.cyan === '47,179,232', dk.cyan);
+  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20, 10) === 'rgba(47,179,232,0.95)', heatColor(22, 8, 20, 10));
+  T('body-metric line colors switch too', dk.bm0 === '#2fb3e8', dk.bm0);
+  R.setSEG('balance');
+  tryRender('Balance renders under the dark palette', () => R.go('stats'));
+  tryRender('Body renders under the dark palette', () => R.go('body'));
+  R.getD().theme = 'auto';
+  applyTheme(); // matchMedia stub reports light → auto restores the light palette
+  const lt = R.getPal();
+  T('applyTheme(auto) restores the light palette', lt.grid === before.grid && lt.cyan === before.cyan);
+}
+// Settings: title + Appearance chips + carded cue empty state.
+R.go('settings');
+const setScr = R.getA();
+T('Settings has a screen title', /pg-title">Settings</.test(setScr));
+T('Settings shows the Appearance theme chips', /Appearance/.test(setScr) && /D.theme='dark'/.test(setScr) && /aria-pressed/.test(setScr));
+T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.test(setScr));
 
 console.log(`\n${pass} passed, ${fail} failed`);
