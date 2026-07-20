@@ -1021,6 +1021,12 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('getPRs bestWt sees stored overrides', getPRs('hex_dl').bestWt === 55);
   T('recentPRs mints the weight PR from the override set',
     recentPRs(null).some(p => p.id === 'hex_dl' && p.type === 'weight' && p.val === 55));
+  // Memoization must invalidate when the session list changes (same D, new data).
+  const before = recentPRs(null).length;
+  d.sessions.push({ id: 'w3', date: '2026-06-09', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 60, reps: [3, 3], band: '' }] });
+  T('recentPRs memo invalidates on new sessions', recentPRs(null).length === before + 1,
+    JSON.stringify([before, recentPRs(null).length]));
+  T('recentPRs(days) filters from the memoized full list', recentPRs(1).length <= recentPRs(null).length);
 
   // validSession sanitization
   const vs = validSession({ id: 'v1', date: '2026-06-01', day: 'A', ex: [{ id: 'hex_dl', wt: 46, reps: [5, 5], wts: ['junk', 50] }] });

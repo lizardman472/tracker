@@ -71,7 +71,7 @@ body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));positi
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,var(--glow2),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
 /* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
-button.set-tick,button.disc-btn,button.disc-joint{-webkit-appearance:none;appearance:none}
+button.set-tick,button.disc-btn,button.disc-joint,button.cardio-btn,button.diff-pick,button.set-prev{-webkit-appearance:none;appearance:none}
 :focus-visible{outline:2px solid var(--pr);outline-offset:2px}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 input[type=number]{-moz-appearance:textfield}
@@ -144,6 +144,7 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Buttons */
 .btn{padding:16px 20px;font-family:var(--disp);font-size:14px;font-weight:800;border:none;border-radius:var(--rad-sm);cursor:pointer;width:100%;display:block;transition:.15s;letter-spacing:1px;text-transform:uppercase}
+.btn.btn-md{padding:10px 14px;font-size:13px} /* compact banner/inline actions — stop re-declaring sizes inline */
 .btn:active{transform:scale(.97);opacity:.92}
 .btn-pr{background:linear-gradient(135deg,var(--pr),var(--prg));color:var(--ink);box-shadow:0 4px 16px rgba(var(--prRGB),.30),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn-wh{background:var(--cd2);color:var(--tx);border:1px solid var(--cb)}
@@ -159,7 +160,9 @@ input[type=number]{-moz-appearance:textfield}
 .prog-seg.pg-done{background:var(--pr);box-shadow:none}.prog-seg.pg-cur{background:var(--pu)}
 
 /* Timer — compact floating pill */
-.timer-pill{position:fixed;bottom:calc(18px + var(--sab));right:16px;max-width:170px;background:var(--cd);border:2px solid var(--pr);border-radius:40px;padding:9px 15px;z-index:200;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.5),0 0 20px rgba(var(--prRGB),.15);font-variant-numeric:tabular-nums}
+/* fixed overlays anchor to the VIEWPORT — right:max() keeps the pill inside the
+   480px app column on wide screens instead of floating at the window edge */
+.timer-pill{position:fixed;bottom:calc(18px + var(--sab));right:max(16px,calc(50vw - 240px + 16px));max-width:170px;background:var(--cd);border:2px solid var(--pr);border-radius:40px;padding:9px 15px;z-index:200;display:flex;align-items:center;gap:8px;box-shadow:var(--shm),0 0 20px rgba(var(--prRGB),.15);font-variant-numeric:tabular-nums}
 .timer-pill.done{border-color:var(--gr);background:var(--grl);animation:pulse .6s ease 2}
 .timer-pill .t-time{font-family:var(--disp);font-size:19px;font-weight:800;color:var(--pr)}
 .timer-pill.done .t-time{color:var(--gr)}
@@ -225,7 +228,7 @@ button.set-prev:active{color:var(--pr)}
 /* Bullet-style trend track: current fill + previous-value tick */
 .mt-tick{position:absolute;top:-2px;width:2px;height:11px;background:var(--tx);opacity:.55;border-radius:1px}
 /* Round ghost month-nav chevrons */
-.mon-nav{width:34px;height:34px;border-radius:50%;border:1px solid var(--cb);background:var(--ib);color:var(--tx);font-size:16px;cursor:pointer;transition:.15s}
+.mon-nav{width:40px;height:40px;border-radius:50%;border:1px solid var(--cb);background:var(--ib);color:var(--tx);font-size:16px;cursor:pointer;transition:.15s}
 .mon-nav:active{background:var(--pr);color:var(--ink)}
 /* Per-session muscle-split bars */
 .msp-row{margin-bottom:8px}
@@ -1179,6 +1182,11 @@ function setPhase(p){if(p===D.phase)return;
 if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;
 if(!confirm(`Switch to Phase ${p} (${PHASES[p].name})? The phase week counter restarts from today.`))return;
 D.phase=p;D.phaseStart=today();save();render()}
+// One home/partner switch used by Home, Log Past and Settings — replaces three
+// divergent hand-rolled versions (one of which was icon-only with no labels).
+function locSwitchH(cur,fn){return`<div style="display:flex;gap:0;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">
+<button type="button" aria-pressed="${cur!=='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur!=='partner'?'var(--pr)':'var(--cd)'};color:${cur!=='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('home')">🏠 Home</button>
+<button type="button" aria-pressed="${cur==='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur==='partner'?'var(--pr)':'var(--cd)'};color:${cur==='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('partner')">🏘 Partner's</button></div>`}
 function setLoc(l){if(l===D.location){render();return}
 if(checkResume()&&!confirm('You have an unfinished workout at the other location — switching hides it until you switch back. Continue?'))return;
 D.location=l;save();render()}
@@ -1775,7 +1783,7 @@ let DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'}; // theme-
 let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'}; // theme-switched
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
-if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">No data yet</div>`;
+if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">Not enough data yet — log a session or two.</div>`;
 const pad={t:22,r:14,b:24,l:34},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
 const mx=Math.max(...data.map(d=>d.v),opts.target||0,1);
 const bw=w/data.length,gap=Math.min(6,bw*0.25);
@@ -1801,7 +1809,7 @@ s+=`<text x="${W/2}" y="14" text-anchor="middle" fill="${CH_TITLE}" font-size="1
 
 function svgLine(data,W,H,color,label,opts){
 opts=opts||{};
-if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Need 2+ data points</div>`;
+if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Not enough data yet — need 2+ sessions.</div>`;
 const pad={t:22,r:18,b:28,l:36},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
 let vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals);
 const rawMn=mn;
@@ -1932,7 +1940,7 @@ try{document.body.style.paddingBottom=TIMER?'calc(100px + var(--sab))':''}catch(
 if(!TIMER){el.innerHTML='';return}
 const m=Math.floor(Math.abs(TIMER.left)/60),s=Math.abs(TIMER.left)%60,sg=TIMER.left<0?'+':'';
 el.innerHTML=`<div class="timer-pill${TIMER.done?' done':''}"><span class="t-time">${sg}${m}:${String(s).padStart(2,'0')}</span>
-<button class="t-x" onclick="clearTimer()">✕</button></div>`}
+<button class="t-x" aria-label="Dismiss rest timer" onclick="clearTimer()">✕</button></div>`}
 
 
 // ═══════════════ RENDER ═══════════════
@@ -1991,8 +1999,8 @@ const ageLbl=ageMin<120?`${ageMin} min ago`:ageMin<2880?`${Math.round(ageMin/60)
 h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:4px">Resume Day ${resume.day}?</div>
 <div class="dm" style="margin-bottom:8px">Started ${ageLbl} — logged sets are kept until you Resume or Discard.</div>
 ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">⚠ The plan changed since this session started — already-logged exercises still save with it.</div>`:''}
-<div style="display:flex;gap:6px"><button class="btn btn-pr" style="flex:1;padding:10px;font-size:13px" onclick="resumeW()">Resume</button>
-<button class="btn btn-wh" style="flex:1;padding:10px;font-size:13px" onclick="clearAW();render()">Discard</button></div></div>`}
+<div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="resumeW()">Resume</button>
+<button class="btn btn-wh btn-md" style="flex:1" onclick="clearAW();render()">Discard</button></div></div>`}
 
 // Corrupt-store rescue: load() parked the unparseable raw store under SK+'-corrupt' and
 // fell back to demo data — but never told the user. Surface it with a way out.
@@ -2000,8 +2008,8 @@ try{if(localStorage.getItem(SK+'-corrupt')){
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
 <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ Stored data was corrupted</div>
 <div class="dm" style="margin-bottom:8px">Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.</div>
-<div style="display:flex;gap:6px"><button class="btn btn-pr" style="flex:1;padding:9px;font-size:12px" onclick="dlCorrupt()">↓ Save raw copy</button>
-<button class="btn btn-wh" style="flex:1;padding:9px;font-size:12px" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');render()}">Discard</button></div></div>`}}catch(e){}
+<div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
+<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');render()}">Discard</button></div></div>`}}catch(e){}
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
@@ -2013,16 +2021,10 @@ h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);posi
 <button onclick="dismissBanner('backup','${bkSig}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚠ Back up your data</div>
 <div class="dm" style="margin-bottom:8px">${D.lastBackup?`${sinceCount} new session${sinceCount!==1?'s':''} since last backup (${dAgo(D.lastBackup)}).`:'No backup yet.'} A browser cache-clear wipes everything stored here.</div>
-<button class="btn btn-pr" style="padding:10px;font-size:13px" onclick="expD()">↓ Download backup now</button></div>`}}
+<button class="btn btn-pr btn-md" onclick="expD()">↓ Download backup now</button></div>`}}
 
 // Location
-h+=`<div style="display:flex;gap:0;margin-bottom:6px;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">
-<button style="flex:1;padding:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;
-background:${!isP?'var(--pr)':'var(--cd)'};color:${!isP?'var(--ink)':'var(--mu)'}"
-onclick="setLoc('home')">🏠 Home</button>
-<button style="flex:1;padding:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;
-background:${isP?'var(--pr)':'var(--cd)'};color:${isP?'var(--ink)':'var(--mu)'}"
-onclick="setLoc('partner')">🏘 Partner's</button></div>`;
+h+=`<div style="margin-bottom:6px">${locSwitchH(D.location,'setLoc')}</div>`;
 
 // Warnings
 const rLS=D.sessions.filter(s=>(s.loc||'home')===D.location).slice(-3);
@@ -2031,8 +2033,8 @@ const wuSig=D.sessions.length+'-'+wuSk;
 if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#f3c3d6;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" aria-label="Dismiss" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0;padding:12px;margin:-12px">✕</button></div>`;
 const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
-if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Wk ${dl.wk} · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
-else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>Wk ${dl.wk} checkpoint · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${dl.wk}wk since deload · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 
 // Hero — show rest-day card if last session was today or yesterday
 const ls=isP?'2':'1';
@@ -2060,8 +2062,8 @@ if(restDay){
     ${restDay.last.duration?`<span style="margin-left:6px">${restDay.last.duration}m</span>`:''}
   </div>
   <div style="display:flex;gap:6px">
-    <button class="btn btn-pr" style="flex:2;padding:12px;font-size:13px" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    <button class="btn btn-wh" style="flex:1;padding:12px;font-size:11px" onclick="beginW('${nd}')">Day ${nd}${ls} anyway</button>
+    <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
+    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}')">Day ${nd}${ls} anyway</button>
   </div>
   </div>`;
 }else{
@@ -2076,7 +2078,7 @@ if(restDay){
   const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
   const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
   h+=`<div class="start-hero"><h2>Day ${nd}${ls}${isP?" · Partner's":''}</h2>
-  <div class="meta">P${phi.phase} ${phi.name} · Wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
+  <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
   <button onclick="beginW('${nd}')">Start Workout</button></div>`;
 }
@@ -2113,7 +2115,7 @@ let bigLoad;
 if(m){bigLoad=m[1]+'<span style="font-size:11px;color:var(--mu);font-weight:600"> kg</span>'}
 else if(sg.band){bigLoad=esc(sg.band.replace(' (heaviest)',''))}
 else{const t=sg.type;bigLoad=t==='new'?'New':t==='cf'?'Confirm':t==='dn'?'Drop':t==='up'?'Up':'Hold'}
-h+=`<div class="prev2" onclick="beginW('${nd}')">
+h+=`<div class="prev2">
 <span class="prev2-ic">${ic}</span>
 <div style="flex:1;min-width:0">
 <div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ex.nm)}${ex.optional?'<span class="dm" style="margin-left:3px;font-weight:400">(opt)</span>':''}</div>
@@ -2130,7 +2132,7 @@ if(dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="backgrou
 
 // Fatigue strip — no fake "Wk 19/8" denominators: past the deload timer just say how long it's been.
 if(dl)h+=`<div style="display:flex;justify-content:space-between;padding:4px 2px;font-size:10px;color:var(--mu)">
-<span>${dl.wk<=dlT?`Wk ${dl.wk}/${dlT}`:`${dl.wk}wk since deload`} · ${dl.sc} sessions</span><span style="color:${fat.color};font-weight:600">${fat.label} ${fat.score}/10</span></div>`;
+<span>${dl.wk}wk since deload${dl.wk<=dlT?` (deload ~${dlT})`:''} · ${dl.sc} sessions</span><span style="color:${fat.color};font-weight:600">${fat.label} ${fat.score}/10</span></div>`;
 h+=`<div class="fg-bar"><div class="fg-fill" style="width:${fat.score*10}%;background:${fat.color}"></div></div>`;
 
 // Phase change — all three computed states now surface (timer_only and early_stall were
@@ -2574,12 +2576,12 @@ if(S.notes)h+=`<div style="margin-top:6px;font-size:11px;color:var(--mu);font-st
 {const ms=muscleSplitH(S.exs);if(ms)h+=`<div style="margin-top:12px;text-align:left">${ms}</div>`}
 h+=`<div style="margin:12px 0"><div class="lb" style="margin-bottom:6px">Difficulty (RPE)</div>
 <div style="display:flex;justify-content:center;gap:4px">`;
-for(let i=1;i<=5;i++)h+=`<div style="text-align:center;cursor:pointer;flex:1;max-width:64px" onclick="SDIFF=${i};render()">
-<div class="diff-btn${SDIFF===i?' sel':''}" style="${SDIFF===i?'border-color:'+RPE_COLORS[i-1]+';background:'+RPE_COLORS[i-1]+'18;color:'+RPE_COLORS[i-1]:''}">${i}</div>
-<div style="font-size:8px;color:${SDIFF===i?RPE_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${RPE_LABELS[i-1]}</div></div>`;
+for(let i=1;i<=5;i++)h+=`<button type="button" class="diff-pick" aria-pressed="${SDIFF===i}" style="text-align:center;flex:1;max-width:64px;background:none;border:none;cursor:pointer;padding:0" onclick="SDIFF=${i};render()">
+<div class="diff-btn${SDIFF===i?' sel':''}" style="margin:0 auto;${SDIFF===i?'border-color:'+RPE_COLORS[i-1]+';background:'+RPE_COLORS[i-1]+'18;color:'+RPE_COLORS[i-1]:''}">${i}</div>
+<div style="font-size:8px;color:${SDIFF===i?RPE_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${RPE_LABELS[i-1]}</div></button>`;
 h+=`</div></div></div>
-<button class="btn btn-pr" style="${SDIFF?'':'opacity:0.35;pointer-events:none'}" onclick="saveSumm()">${SDIFF?'Save':'Select RPE to save'}</button>
-${SDIFF?'':`<button class="btn-ghost" style="width:100%;margin-top:6px;text-align:center" onclick="saveSumm()">Save without RPE</button>`}</div>`;el.innerHTML=h}
+<button class="btn btn-pr" onclick="saveSumm()">Save ✓</button>
+${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Tip: an RPE rating feeds the fatigue score + deload timing.</div>`}</div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S;if(!S)return;
 // Discomfort rows are written HERE (not at summary-build time) so that going Back to
@@ -2605,18 +2607,25 @@ clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={
 // ─── CARDIO ──────────────────────────────────
 function rCardio(el){
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;margin-bottom:14px">
-<div class="lb" style="margin:0">Log Cardio / Rest Day</div>
+<div class="pg-title" style="margin:0">Log Cardio</div>
 <button class="btn-ghost" style="color:var(--rd);font-size:12px" onclick="go('home')">Cancel</button></div>
 <div class="cd"><div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">`;
-window._cT='Rowing'; // explicit default, shown selected — a stale type from a previous visit used to save silently
+// Real buttons + module state (CARDIO_T) — the old div/classList pattern kept the
+// selection only in the DOM, so any incidental re-render silently reset it.
 for(const t of['Rowing','Walking','Cycling','Stretching','Other'])
-h+=`<div class="cardio-btn${t==='Rowing'?' sel':''}" onclick="this.parentNode.querySelectorAll('.cardio-btn').forEach(b=>b.classList.remove('sel'));this.classList.add('sel');window._cT='${t}'">${t}</div>`;
+h+=`<button type="button" class="cardio-btn${t===CARDIO_T?' sel':''}" aria-pressed="${t===CARDIO_T}" onclick="setCardioT('${t}')">${t}</button>`;
 h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
 <div style="flex:1"><div class="lb">Duration (min)</div><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
 <div style="flex:1"><div class="lb">Intensity</div><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
 <button class="btn btn-pr" onclick="saveCardio()">Save</button></div></div>`;el.innerHTML=h}
+let CARDIO_T='Rowing';
+// Preserve typed duration/intensity across the selection re-render (inputs are id-bound).
+function setCardioT(t){const dur=document.getElementById('c-dur')?.value,int=document.getElementById('c-int')?.value;
+CARDIO_T=t;render();
+const dEl=document.getElementById('c-dur'),iEl=document.getElementById('c-int');
+if(dEl&&dur)dEl.value=dur;if(iEl&&int)iEl.value=int}
 window.saveCardio=function(){const dur=Number(document.getElementById('c-dur')?.value);if(!dur){alert('Enter duration');return}
-D.cardioLog.push({id:'c'+Date.now(),date:today(),type:window._cT||'Rowing',duration:dur,intensity:document.getElementById('c-int').value});save();go('home')}
+D.cardioLog.push({id:'c'+Date.now(),date:today(),type:CARDIO_T||'Rowing',duration:dur,intensity:document.getElementById('c-int').value});save();CARDIO_T='Rowing';go('home')}
 
 // ─── STATS ───────────────────────────────────
 // ── Stats helpers for the Progress tab ──
@@ -2877,7 +2886,15 @@ prev=p}
 if(D.lastDeload){const i=idx[weekKey(D.lastDeload)];if(i!=null)marks.push({i,label:'DL',color:CH_TARGET})}
 return marks}
 // ── Recent PRs: scan history, find sessions that set a new best-weight or best-e1RM at the time ──
+// The full walk (ALL_EX × getHist(200)) is the app's heaviest hot path and rStats
+// calls it several times per render (lift detail, Monthly ×2, Overview) — memoize
+// the complete event list per data generation; save() bumps D.gen on every write.
+let PR_MEMO=null,PR_MEMO_GEN=-1;
 function recentPRs(sinceDays){
+const ss=(D&&D.sessions)||[];const key=((D&&D.gen)||0)+'/'+ss.length+'/'+((ss[ss.length-1]||{}).id||'')+'/'+((ss[0]||{}).id||'');
+if(PR_MEMO&&PR_MEMO_GEN===key){const all=PR_MEMO;
+  if(!sinceDays)return all;
+  const cut=daysAgoStr(sinceDays);return all.filter(p=>p.date>=cut)}
 const cut=sinceDays?daysAgoStr(sinceDays):null;
 const prs=[];
 for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
@@ -2897,7 +2914,9 @@ if(mw&&mw>bw)bw=mw;
 if(e1>be)be=e1;
 seen=true;
 if(isPR&&(!cut||e.date>=cut))prs.push({id:ex.id,nm:ex.nm,date:e.date,...isPR})}}
-prs.sort((a,b)=>b.date.localeCompare(a.date));return prs;
+prs.sort((a,b)=>b.date.localeCompare(a.date));
+if(!cut){const ss2=(D&&D.sessions)||[];PR_MEMO=prs;PR_MEMO_GEN=((D&&D.gen)||0)+'/'+ss2.length+'/'+((ss2[ss2.length-1]||{}).id||'')+'/'+((ss2[0]||{}).id||'')}
+return prs;
 }
 // ── Milestones: cumulative tonnage / session / streak achievements ──
 // Accepts a precomputed snapshot so rStats' single-pass ctx isn't recomputed here.
@@ -3480,7 +3499,7 @@ function bodyStat(k){const s=bodySeries(k);if(!s.length)return null;
 function rBody(el){
 const bl=D.bodyLog||[];
 const wStat=bodyStat('weight');
-let h=`<div class="sec"><div class="lb" style="margin-bottom:10px">Body Tracking</div>`;
+let h=`<div class="sec"><div class="pg-title">Body Tracking</div>`;
 // headline strip — bodyweight is the anchor metric
 if(wStat){const wc=wStat.change;
 h+=`<div class="estrip">
@@ -3506,7 +3525,7 @@ const sel=BODY_METRICS.find(m=>m.k===BODY_METRIC)||charted[0];
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:8px">Trend</div>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">`;
 for(const m of charted){const on=m.k===sel.k;
-h+=`<button onclick="setBodyMetric('${m.k}')" style="font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.3px;padding:5px 11px;border-radius:20px;cursor:pointer;border:1.5px solid ${on?m.c:'var(--cb)'};background:${on?m.c:'var(--cd)'};color:${on?'var(--ink)':'var(--mu)'}">${m.lb}</button>`}
+h+=`<button type="button" aria-pressed="${on}" onclick="setBodyMetric('${m.k}')" style="font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.3px;padding:10px 13px;border-radius:20px;cursor:pointer;border:1.5px solid ${on?m.c:'var(--cb)'};background:${on?m.c:'var(--cd)'};color:${on?'var(--ink)':'var(--mu)'}">${m.lb}</button>`}
 h+=`</div>`;
 const data=bodySeries(sel.k).map(s=>({v:s.v,l:new Date(s.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
 h+=`<div class="cd">${svgLine(data,360,180,sel.c,sel.lb+' ('+sel.u+')')}</div>`}
@@ -3538,7 +3557,7 @@ else parts.push(`<span class="dm">${m.lb} ${v}</span>`)}
 h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
 <span style="font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">${parts.join('')}</span>
 <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="dm">${fmtD(b.date)}</span>
-<button onclick="delBod('${b.date}')" title="Delete" aria-label="Delete measurement" style="border:none;background:var(--ib);color:var(--rd);width:34px;height:34px;border-radius:8px;font-size:14px;cursor:pointer">✕</button></span></div></div>`}}
+<button onclick="delBod('${b.date}')" title="Delete" aria-label="Delete measurement" style="border:none;background:var(--ib);color:var(--rd);width:40px;height:40px;border-radius:8px;font-size:14px;cursor:pointer">✕</button></span></div></div>`}}
 h+=`<button class="btn btn-wh" style="margin-top:10px;font-size:13px" onclick="go('stats')">← Back to Progress</button>`;
 h+=`</div>`;el.innerHTML=h}
 window.setBodyMetric=function(k){BODY_METRIC=k;render()}
@@ -3557,17 +3576,17 @@ D.bodyLog=(D.bodyLog||[]).filter(b=>b.date!==date);save();render()}
 // ─── HISTORY ─────────────────────────────────
 function rHist(el){const ss=[...D.sessions].reverse();
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-<div class="lb">All Sessions (${ss.length})</div>
+<div class="pg-title" style="margin:0">History <span class="dm" style="font-size:11px;font-weight:600">· ${ss.length} session${ss.length===1?"":"s"}</span></div>
 <button class="btn-sm btn-pr" onclick="go('logpast')">+ Log Past</button></div>`;
-if(!ss.length)h+=`<div class="cd" style="text-align:center;padding:24px"><div style="font-size:24px;margin-bottom:6px">📒</div>
-<div class="dm">No sessions yet. Finished workouts land here automatically — or use <b style="color:var(--pr)">+ Log Past</b> to backfill one you did off-app.</div></div>`;
+if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
 for(const s of ss){const locBadge=s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}${s.loc==='partner'?'2':'1'}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
-${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}</div>
+${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
+${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}</div>
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
@@ -3597,20 +3616,19 @@ else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 
 // ─── LOG PAST SESSION ───────────────────────
 let LP={date:'',day:'A',loc:'home'};
+function setLPLoc(l){LP.loc=l;render()}
 function rLogPast(el){
 const pr=getProgram(D.phase,LP.loc);
 const days=['A','B','C'];
 const exs=pr[LP.day]||[];
 const suffix=LP.loc==='partner'?'2':'1';
-let h=`<div class="sec"><div style="font-size:18px;font-weight:800;margin-bottom:12px">Log Past Session</div>
+let h=`<div class="sec"><div class="pg-title" style="margin-bottom:12px">Log Past Session</div>
 <div class="cd" style="margin-bottom:10px">
 <div style="display:flex;gap:8px;margin-bottom:8px">
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Date</div>
 <input type="date" class="bs" value="${LP.date||today()}" max="${today()}" onchange="LP.date=this.value;render()"></div>
-<div><div class="dm" style="margin-bottom:3px">Location</div>
-<div style="display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--cb)">
-<button style="padding:6px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${LP.loc==='home'?'var(--pr)':'var(--cd)'};color:${LP.loc==='home'?'var(--ink)':'var(--mu)'}" onclick="LP.loc='home';render()">🏠</button>
-<button style="padding:6px 10px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${LP.loc==='partner'?'var(--pr)':'var(--cd)'};color:${LP.loc==='partner'?'var(--ink)':'var(--mu)'}" onclick="LP.loc='partner';render()">🏘</button></div></div></div>
+<div style="flex:1"><div class="dm" style="margin-bottom:3px">Location</div>
+${locSwitchH(LP.loc,'setLPLoc')}</div></div>
 <div style="display:flex;gap:6px">`;
 for(const d of days)h+=`<button class="btn-sm ${LP.day===d?'btn-pr':'btn-wh'}" onclick="LP.day='${d}';render()">Day ${d}${suffix}</button>`;
 h+=`</div></div>`;
@@ -3625,14 +3643,14 @@ h+=`<div class="cd" style="padding:10px 14px;margin-bottom:6px">
 if(ex.tp==='bb'||ex.tp==='db'||ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb')
 h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
 <input type="number" step="${ex.tp==='db'?'0.5':'1'}" class="body-input" style="width:70px" id="${inputId}_wt" placeholder="kg" inputmode="decimal">
-<span class="dm">${ex.tp==='db'?'kg/DB':ex.tp==='club'?'kg club':'kg'}</span></div>`;
+<span class="dm">${ex.tp==='db'?'kg/DB':'kg'}</span></div>`;
 // Band input
 if(ex.tp==='band')
 h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${inputId}_band"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select></div>`;
 // Rep inputs
 h+=`<div style="display:flex;gap:6px">`;
-for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:42px" id="${inputId}_r${i}" placeholder="S${i+1}" inputmode="numeric">`;
+for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:46px;height:46px;font-size:17px" id="${inputId}_r${i}" placeholder="S${i+1}" inputmode="numeric">`;
 h+=`</div></div>`}
 
 h+=`<div style="display:flex;gap:8px;margin-top:14px">
@@ -3651,7 +3669,7 @@ for(let i=0;i<ex.s;i++){const r=document.getElementById(`lp_${ex.id}_r${i}`);con
 const wt=wEl?parseFloat(wEl.value)||null:null;
 const band=bEl?bEl.value:'';
 if(wt)hasData=true;if(band)hasData=true;
-if(hasData)logged.push({id:ex.id,wt,reps,band,notes:'(logged retroactively)'})}
+if(hasData)logged.push({id:ex.id,wt,reps,band,notes:''})}
 if(!logged.length){alert('No data entered');return}
 const dt=LP.date||today();
 // Reject future dates: a future session becomes the "latest" and drives nextDay + the
@@ -3661,7 +3679,7 @@ if(dt>today()){alert('Cannot log a session dated in the future.');return}
 let tv=0;for(const e of logged){tv+=calcExVol(e.id,e.wt,e.reps)}
 // warmup:null (unknown) — retro sessions logged warmup:0 and tripped the red
 // "Warm-ups skipped" banner for workouts whose warm-up simply wasn't recorded.
-D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:logged,volume:tv,duration:null,difficulty:null,warmup:null});
+D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:logged,volume:tv,duration:null,difficulty:null,warmup:null,retro:true});
 // Sort sessions by date
 D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 // Update nextDay based on latest session — location aware
@@ -3678,13 +3696,13 @@ function rPlates(el){
     if(sub)h+=`<div style="font-size:11px;color:var(--mu);margin-bottom:8px">${sub}</div>`;
     let prev=null;
     for(let i=0;i<vw.length;i++){const w=vw[i],j=prev!==null?`+${Math.round((w-prev)*100)/100}kg`:'';
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:8px;margin-bottom:2px;${i%2?'':'background:var(--cd)'}">
-      <div><span style="font-size:15px;font-weight:700">${w}</span><span class="dm"> kg</span></div>
-      <div style="text-align:right"><div style="font-size:10px;color:var(--mu)">${esc(fmt?fmt(w):fmtPl(w,bar||BAR,lm))}</div>
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 12px;border-radius:8px;margin-bottom:2px;${i%2?'':'background:var(--cd)'}">
+      <div style="flex-shrink:0"><span style="font-size:15px;font-weight:700">${w}</span><span class="dm"> kg</span></div>
+      <div style="text-align:right;min-width:0"><div style="font-size:10px;color:var(--mu);overflow-wrap:break-word">${esc(fmt?fmt(w):fmtPl(w,bar||BAR,lm))}</div>
       ${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
     return h;
   };
-  let h=`<div class="sec"><div class="lb" style="margin-bottom:2px">All Valid Weights</div>`;
+  let h=`<div class="sec"><div class="pg-title" style="margin-bottom:2px">All Valid Weights</div>`;
   h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false,BAR);
   h+=ladder('Hex Bar (7kg)','Hex deadlift / squat / row / RDL / floor press / carry all load on this ladder — the lighter bar shifts every total down 4kg vs the straight bar.',VWH,false,HEXBAR);
   h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true,BAR);
@@ -3710,10 +3728,7 @@ ${[['auto','🌗 Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([k,l
 <button class="btn btn-wh" style="margin-bottom:8px;margin-top:10px" onclick="go('plates')">📐 Plate Reference</button>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Location</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Active: <strong>${D.location==='partner'?"🏘 Partner's":"🏠 Home"}</strong></div>
-<div style="display:flex;gap:6px">
-<button class="btn-sm ${D.location==='home'?'btn-pr':'btn-wh'}" onclick="setLoc('home')">🏠 Home</button>
-<button class="btn-sm ${D.location==='partner'?'btn-pr':'btn-wh'}" onclick="setLoc('partner')">🏘 Partner's</button>
-</div><div class="dm" style="margin-top:6px">Home: 11kg bar + landmine + 7kg hex bar + plates + bands + KB + pull-up/dip tower<br>Partner's: DBs + bands + clubbells + parallel bars</div></div>
+${locSwitchH(D.location,'setLoc')}<div class="dm" style="margin-top:6px">Home: 11kg bar + landmine + 7kg hex bar + plates + bands + KB + pull-up/dip tower<br>Partner's: DBs + bands + clubbells + parallel bars</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Notifications</div>`;
 {const supported=typeof Notification!=='undefined';
 const perm=supported?Notification.permission:'unsupported';
@@ -3722,7 +3737,7 @@ h+=`<div class="cd">`;
 if(!supported){h+=`<div class="dm">This browser doesn't support notifications.</div>`;}
 else if(perm==='denied'){h+=`<div style="font-size:12px;color:var(--am);margin-bottom:4px">⚠ Blocked in browser settings</div><div class="dm">Allow notifications for this site, then reload to enable rest-timer alerts.</div>`;}
 else if(!on){h+=`<div style="font-size:12px;margin-bottom:8px">Get a ping when your rest timer finishes while the app is in the background.</div>
-<button class="btn btn-pr" style="padding:9px" onclick="reqNotify()">🔔 Enable notifications</button>`;}
+<button class="btn btn-pr btn-md" onclick="reqNotify()">🔔 Enable notifications</button>`;}
 else{h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <span style="font-size:12px;font-weight:600">Rest-timer alerts</span>
 <button class="toggle${D.notify.rest?' on':''}" onclick="toggleNotifyRest()"><span class="toggle-dot"></span></button></div>
@@ -3903,7 +3918,7 @@ if('serviceWorker'in navigator){
   }).catch(()=>{})})}
 function showUpdateToast(){if(document.getElementById('upd-toast'))return;
   const t=document.createElement('div');t.id='upd-toast';
-  t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:300;background:var(--cd);border:1px solid var(--pr);border-radius:30px;padding:9px 10px 9px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.55);font-size:12px;color:var(--tx)';
+  t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:300;background:var(--cd);border:1px solid var(--pr);border-radius:30px;padding:9px 10px 9px 16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shm);font-size:12px;color:var(--tx)';
   t.innerHTML='<span>New version available</span><button style="background:var(--pr);color:var(--ink);border:none;border-radius:20px;padding:8px 16px;font-weight:700;font-size:12px;cursor:pointer">Reload</button><button aria-label="Dismiss update" style="background:0;border:none;color:var(--mu);font-size:17px;cursor:pointer;line-height:1;padding:12px 14px;margin:-8px -6px">✕</button>';
   const b=t.querySelectorAll('button');b[0].onclick=()=>location.reload();b[1].onclick=()=>t.remove();
   document.body.appendChild(t)}
