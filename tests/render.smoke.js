@@ -141,7 +141,7 @@ R.getLOG()['hex_carry'].wt = 30;
   T('sticky live header renders duration/volume/sets ids', /work-sticky/.test(w2) && /id="lv-vol"/.test(w2) && /id="lv-sets"/.test(w2));
   T('set table renders header + Previous column', /class="set-gr set-hd"/.test(w2) && /set-prev/.test(w2));
   T('per-set weight inputs render for the bar lift', /setSetWt\('hex_dl',0,/.test(w2));
-  T('Previous column shows last session sets (40kg×5)', /40kg×5/.test(w2));
+  T('Previous column shows last session sets as a tappable 40×5', /usePrev\('hex_dl',0\)/.test(w2) && />40×5</.test(w2));
   T('Add Set button renders', /addSet\('hex_dl'\)/.test(w2));
   T('remove button hidden at the programmed set count', !/removeSet\('hex_dl'\)/.test(w2));
   const log = R.getLOG()['hex_dl'];

@@ -170,21 +170,40 @@ input[type=number]{-moz-appearance:textfield}
 .set-row .ri{width:100%;height:44px;font-size:17px}
 .set-row .set-tick{width:38px;height:38px;margin:0 auto;font-size:14px}
 .set-row.done .set-tick.done{background:var(--gr);border-color:var(--gr)}
-/* Sticky live-session strip (duration / volume / checked sets) */
-.work-sticky{position:sticky;top:0;z-index:30;display:flex;gap:10px;background:var(--bg);padding:8px 2px;margin:0 -2px 8px;border-bottom:1px solid var(--cb)}
+/* Sticky live-session strip (duration / volume / checked sets). Sits BELOW the
+   sticky app header (.hdr, z-index 100) — top:0 slid underneath it. */
+.work-sticky{position:sticky;top:calc(47px + env(safe-area-inset-top,0px));z-index:30;display:flex;gap:10px;
+background:rgba(246,248,252,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0 4px 14px rgba(20,28,50,.06)}
 .work-sticky>div{flex:1}
 .ws-l{font-size:10px;color:var(--mu);margin-bottom:1px}
 .ws-v{font-family:var(--disp);font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
 .ws-u{font-size:10px;color:var(--mu);font-weight:600}
+/* Ghost buttons for extra sets */
+.add-set{flex:1;padding:9px;font-size:12px;font-weight:700;color:var(--mu);background:none;border:1.5px dashed var(--ibr);border-radius:var(--rad-sm);cursor:pointer;transition:.15s}
+.add-set:active{border-color:var(--pr);color:var(--pr)}
+.add-set.rm{flex:0 0 46px;color:var(--rd)}
+/* Tappable Previous cell */
+button.set-prev{border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit}
+button.set-prev:active{color:var(--pr)}
+/* Delta pills (Muscle Trend, Monthly) */
+.delta-pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;vertical-align:2px}
+.delta-pill.up{background:var(--grl);color:var(--gr)}
+.delta-pill.dn{background:var(--aml);color:var(--am)}
+.delta-pill.flat{background:var(--ib);color:var(--mu)}
+/* Bullet-style trend track: current fill + previous-value tick */
+.mt-tick{position:absolute;top:-2px;width:2px;height:11px;background:var(--tx);opacity:.55;border-radius:1px}
+/* Round ghost month-nav chevrons */
+.mon-nav{width:34px;height:34px;border-radius:50%;border:1px solid var(--cb);background:var(--ib);color:var(--tx);font-size:16px;cursor:pointer;transition:.15s}
+.mon-nav:active{background:var(--pr);color:var(--ink)}
 /* Per-session muscle-split bars */
 .msp-row{margin-bottom:8px}
 .msp-top{display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:3px}
 .msp-pct{color:var(--mu);font-variant-numeric:tabular-nums}
 .msp-track{height:7px;background:var(--ib);border-radius:3px;overflow:hidden}
 .msp-fill{height:100%;background:var(--pr);border-radius:3px}
-/* Muscle Trend paired bars (prev dimmed above, current below) */
-.mt-track{height:6px;background:var(--ib);border-radius:3px;overflow:hidden}
-.mt-prev{height:100%;background:var(--mu);opacity:.45;border-radius:3px}
+/* Muscle Trend bullet track (current fill; .mt-tick marks the previous period) */
+.mt-track{position:relative;height:7px;background:var(--ib);border-radius:3px}
 .mt-cur{height:100%;background:var(--pr);border-radius:3px}
 /* Body heat-map legend */
 .heat-legend{display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--mu);margin-top:8px}
@@ -1196,7 +1215,7 @@ return{sets,vol:Math.round(vol)}}
 // "Previous" column label for set i of the last session's entry (Hevy-style).
 function prevSetLbl(last,i){if(!last)return'—';
 const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
-const w=setWt(last,i);return w?`${w}kg×${r}`:`×${r}`}
+const w=setWt(last,i);return w?`${w}×${r}`:`×${r}`}
 // Compact per-set line for a saved entry: uniform-weight sessions keep the old
 // "46kg [8,8,8]" shape; per-set overrides expand to "46×8, 50×6, 40×10".
 function fmtSets(e){const vr=(e.reps||[]).map(Number);
@@ -1847,7 +1866,7 @@ LAST_VIEW=VIEW;
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed();
 // live volume/sets track typed reps without a full re-render
 const lvv=document.getElementById('lv-vol'),lvs=document.getElementById('lv-sets');
-if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol;if(lvs)lvs.textContent=lv.sets}},1000)}
+if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol.toLocaleString('en-NZ');if(lvs)lvs.textContent=lv.sets}},1000)}
 function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
 function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t==='new'?'sg-nw':'sg-st'}
 
@@ -2152,7 +2171,7 @@ h+=`<div style="display:flex;justify-content:space-between;align-items:center;ma
 const lv=liveStats(LOG);
 h+=`<div class="work-sticky">
 <div><div class="ws-l">Duration</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
-<div><div class="ws-l">Volume</div><div class="ws-v"><span id="lv-vol">${lv.vol}</span><span class="ws-u"> kg</span></div></div>
+<div><div class="ws-l">Volume</div><div class="ws-v"><span id="lv-vol">${lv.vol.toLocaleString('en-NZ')}</span><span class="ws-u"> kg</span></div></div>
 <div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div></div>`;
 
 // Progress
@@ -2290,17 +2309,19 @@ const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp);
 h+=`<div class="set-tbl">
 <div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${ex.tp==='carry'?'Steps':'Reps'}</span><span></span></div>`;
 for(let i=0;i<nSets;i++){const v=log.reps[i]??'',dn=log.setDone[i];
+const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
-<span class="set-prev">${prevSetLbl(last,i)}</span>
+${pl==='—'?`<span class="set-prev">—</span>`
+:`<button type="button" class="set-prev" title="Use previous" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
 <button type="button" class="set-tick${dn?' done':''}" aria-label="Set ${i+1} done" aria-pressed="${!!dn}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</button></div>`}
 h+=`</div>
 <div style="display:flex;gap:6px;margin:6px 0 2px">
-<button type="button" class="btn btn-wh" style="flex:1;padding:8px;font-size:12px" onclick="addSet('${ex.id}')">+ Add Set</button>
-${log.reps.length>ex.s?`<button type="button" class="btn btn-wh" style="width:46px;padding:8px;font-size:12px;color:var(--rd)" aria-label="Remove last set" onclick="removeSet('${ex.id}')">−</button>`:''}</div>`;
+<button type="button" class="add-set" onclick="addSet('${ex.id}')">+ Add set</button>
+${log.reps.length>ex.s?`<button type="button" class="add-set rm" aria-label="Remove last set" onclick="removeSet('${ex.id}')">−</button>`:''}</div>`;
 
 // Form rating — exercise-level stamp (one tap) + optional per-set editor. Gates progression.
 {const farr=Array.isArray(log.form)?log.form.slice(0,nSets):[];
@@ -2375,6 +2396,15 @@ saveAW();render()}
 // Per-set weight override — no re-render on keystroke (matches setRep/setL); the
 // sticky header's interval picks the new volume up within a second.
 function setSetWt(id,i,v){if(!Array.isArray(LOG[id].wts))LOG[id].wts=[];LOG[id].wts[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW()}
+// Tap the Previous cell to copy last session's weight+reps into that set (Hevy
+// behavior). A previous weight equal to today's working weight stays an implicit
+// inherit ('' override) so the lean no-wts save shape is preserved.
+function usePrev(id,i){const last=getLast(id);if(!last)return;
+const r=Number((last.reps||[])[i]);if(!(r>0))return;
+LOG[id].reps[i]=String(r);
+const w=setWt(last,i);
+if(w!=null&&Array.isArray(LOG[id].wts)){const cur=Number(LOG[id].wt);LOG[id].wts[i]=cur&&wEq(w,cur)?'':String(w)}
+LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 // Extra sets beyond the programmed count — Hevy-style "Add Set". Remove only ever
 // pops EXTRA sets (never below ex.s), matching the button's visibility.
 function addSet(id){const l=LOG[id];if(!l)return;l.reps.push('');
@@ -3129,16 +3159,17 @@ h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills towar
 // ── Muscle Trend: this 28-day window vs the 28 days before it, per muscle ──
 {const mpc=musclePeriodCompare(28);
 if(mpc.length){h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Trend</div>
-<div class="dm" style="margin-bottom:12px">Effective sets · last 28 days vs the 28 before (top bar = previous, bottom = current)</div>`;
+<div class="dm" style="margin-bottom:12px">Effective sets · last 28 days vs the 28 before (tick = previous period)</div>`;
 const mx=Math.max(...mpc.map(x=>Math.max(x.cur,x.prev)),1);
 for(const x of mpc){const d=Math.round((x.cur-x.prev)*10)/10;
-const dc=Math.abs(d)<0.05?'var(--mu)':d>0?'var(--gr)':'var(--am)';
-h+=`<div style="margin-bottom:11px">
-<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+h+=`<div style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px">
 <span style="font-weight:600">${x.l}</span>
-<span style="font-variant-numeric:tabular-nums"><span style="color:var(--mu)">${x.prev}</span> → <b>${x.cur}</b> <span style="color:${dc};font-weight:700">${d>0?'+'+d:d<0?d:'±0'}</span></span></div>
-<div class="mt-track"><div class="mt-prev" style="width:${Math.round(x.prev/mx*100)}%"></div></div>
-<div class="mt-track" style="margin-top:2px"><div class="mt-cur" style="width:${Math.round(x.cur/mx*100)}%"></div></div></div>`}
+<span style="display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums">
+<span style="color:var(--mu)">${x.prev} → <b style="color:var(--tx)">${x.cur}</b></span>
+<span class="delta-pill ${d>0?'up':d<0?'dn':'flat'}">${d>0?'+'+d:d<0?d:'±0'}</span></span></div>
+<div class="mt-track"><div class="mt-cur" style="width:${Math.round(x.cur/mx*100)}%"></div>
+${x.prev>0?`<div class="mt-tick" style="left:calc(${Math.min(99,Math.round(x.prev/mx*100))}% - 1px)"></div>`:''}</div></div>`}
 h+=`</div>`}}
 
 // ── Set count per muscle group, week by week (pick a muscle; dashed line = MEV) ──
@@ -3230,19 +3261,19 @@ const ym=STAT_MONTH||monthKey(today());
 const rep=monthlyReport(ym);
 const prevRep=monthlyReport(prevMonth(ym));
 const isCur=ym===monthKey(today());
-// signed delta chip vs the previous month (hidden when prev month is empty)
+// signed delta pill vs the previous month (hidden when prev month is empty)
 const dl=(c,p)=>{if(!p)return'';const d=Math.round((c-p)*10)/10;if(!d)return'';
-return` <span style="font-size:9px;font-weight:700;color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'+':''}${d}</span>`};
+return` <span class="delta-pill ${d>0?'up':'dn'}">${d>0?'+':''}${d}</span>`};
 h+=`<div class="cd">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-<button type="button" class="btn-ghost" style="font-size:16px;padding:2px 10px" aria-label="Previous month" onclick="STAT_MONTH='${prevMonth(ym)}';render()">‹</button>
+<button type="button" class="mon-nav" aria-label="Previous month" onclick="STAT_MONTH='${prevMonth(ym)}';render()">‹</button>
 <div style="font-size:13px;font-weight:700">${monthLabel(ym)}</div>
-<button type="button" class="btn-ghost" style="font-size:16px;padding:2px 10px;${isCur?'visibility:hidden':''}" aria-label="Next month" onclick="STAT_MONTH='${nextMonth(ym)}';render()">›</button></div>`;
+<button type="button" class="mon-nav" style="${isCur?'visibility:hidden':''}" aria-label="Next month" onclick="STAT_MONTH='${nextMonth(ym)}';render()">›</button></div>`;
 if(!rep.sessions){h+=`<div class="dm" style="text-align:center;padding:12px">No sessions logged in ${monthLabel(ym)}.</div></div>`}
 else{
 h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${rep.sessions}${dl(rep.sessions,prevRep.sessions)}</div><div class="estrip-lbl">Workouts</div></div>
-<div class="estrip-cell"><div class="estrip-num">${(rep.tonnage/1000).toFixed(1)}t${dl(Math.round(rep.tonnage/100)/10,prevRep.sessions?Math.round(prevRep.tonnage/100)/10:0)}</div><div class="estrip-lbl">Tonnage</div></div>
+<div class="estrip-cell"><div class="estrip-num">${rep.tonnage>=1000?(rep.tonnage/1000).toFixed(1)+'t':rep.tonnage+'kg'}${dl(Math.round(rep.tonnage/100)/10,prevRep.sessions?Math.round(prevRep.tonnage/100)/10:0)}</div><div class="estrip-lbl">Tonnage</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${rep.sets}${dl(rep.sets,prevRep.sets)}</div><div class="estrip-lbl">Sets</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${rep.prCount}</div><div class="estrip-lbl">PRs</div></div></div>`;
 const meta=[rep.avgDur?`Avg ${rep.avgDur} min`:'',rep.avgRpe?`Avg RPE ${rep.avgRpe}`:'',rep.cardioMin?`Cardio ${rep.cardioMin} min`:''].filter(Boolean);
