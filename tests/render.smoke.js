@@ -194,6 +194,7 @@ T('progress produced non-empty markup', stats.length > 200);
 T('segment chip row renders with all five chips', ['Overview', 'Lifts', 'Balance', 'Consistency', 'Lifetime'].every(s => new RegExp(`seg-chip[^>]*>${s}<`).test(stats)));
 T('Overview is the active default chip', /seg-chip on[^>]*aria-selected="true"[^>]*>Overview</.test(stats), stats.match(/seg-chip[^>]*Overview</) && stats.match(/seg-chip[^>]*Overview</)[0]);
 T('status header renders on Overview', /status-hd/.test(stats));
+T('consistency verdict discloses its rolling window', /\/wk \(8wk\)/.test(stats));
 
 // Each segment renders without error and with real content.
 for (const seg of ['lifts', 'balance', 'consistency', 'lifetime']) {

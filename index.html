@@ -2871,6 +2871,14 @@ const ss=D.sessions;const dates=[...new Set(ss.map(s=>s.date))].sort();
 const first=dates[0];
 const spanWk=first?Math.max(1,(new Date(today()+'T00:00:00')-new Date(first+'T00:00:00'))/6048e5):1;
 const perWk=Math.round(ss.length/spanWk*10)/10;
+// Rolling 8-week cadence — the STATUS verdict reads this, not the lifetime average:
+// lifetime carries every old layoff forever, so a slow first month kept a perfectly
+// consistent lifter on "Light" permanently. The window still sees a CURRENT layoff
+// (empty recent weeks drop it immediately). Histories younger than 8wk use their
+// own span so a strong first fortnight isn't diluted by weeks that never existed.
+const winWk=Math.min(8,spanWk);
+const recentN=ss.filter(s=>s.date>=daysAgoStr(56)).length;
+const perWk8=Math.round(recentN/winWk*10)/10;
 // warmup compliance — null means "not recorded" (retro logs) and stays out of the rate
 const wuSessions=ss.filter(s=>s.warmup!=null);
 const wuRate=wuSessions.length?Math.round(wuSessions.filter(s=>s.warmup>0).length/wuSessions.length*100):null;
@@ -2880,7 +2888,7 @@ const avgGap=gaps.length?Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length*10)/10
 // avg duration & rpe
 const durs=ss.filter(s=>s.duration).map(s=>s.duration);const avgDur=durs.length?Math.round(durs.reduce((a,b)=>a+b,0)/durs.length):null;
 const rpes=ss.filter(s=>s.difficulty).map(s=>s.difficulty);const avgRpe=rpes.length?Math.round(rpes.reduce((a,b)=>a+b,0)/rpes.length*10)/10:null;
-return{perWk,wuRate,avgGap,avgDur,avgRpe,spanWk:Math.round(spanWk)};
+return{perWk,perWk8,wuRate,avgGap,avgDur,avgRpe,spanWk:Math.round(spanWk)};
 }
 
 function rStats(el){
@@ -2909,9 +2917,14 @@ const strV=!mom.length?{t:'Build data',c:'var(--mu)',s:'track 3+ sessions/lift'}
   :up>0?{t:'Mixed',c:'var(--am)',s:`${up} up · ${dn} down`}
   :{t:'Stalled',c:'var(--rd)',s:`${dn||mom.length} not progressing`};
 // "On track" needs ≥3.0/week: the per-cycle volume that meets MEV only holds as WEEKLY
-// volume if a full A→B→C lands inside 7 days. Endorsing 2.5/week contradicted the
-// program's own MEV claims (several muscles dip under MEV at that cadence).
-const conV=con.perWk>=3?{t:'On track',c:'var(--gr)'}:con.perWk>=2?{t:'Light',c:'var(--am)'}:{t:'Sparse',c:'var(--rd)'};
+// volume if a full A→B→C lands inside 7 days. But the program's own cadence is
+// every-other-day (ceiling 3.5/wk), so 3.0 has zero slack — one extra rest day in a
+// month reads 2.8. "Steady" (2.5–2.9) marks that as fine-but-marginal instead of
+// lumping it with barely-training amber. Verdict reads the ROLLING 8-week rate.
+const conV=con.perWk8>=3?{t:'On track',c:'var(--gr)'}
+  :con.perWk8>=2.5?{t:'Steady',c:'var(--gr)'}
+  :con.perWk8>=2?{t:'Light',c:'var(--am)'}
+  :{t:'Sparse',c:'var(--rd)'};
 let below=0,worst=null,worstGap=0;for(const[k,l,mev] of MG_INFO){if(mev==null)continue;const v=wv[k]||0;if(v<mev){below++;if(mev-v>worstGap){worstGap=mev-v;worst=l}}}
 const noVol=!Object.keys(wv).length;
 const balV=noVol?{t:'No sets',c:'var(--mu)',s:'last 10 days'}
@@ -2920,7 +2933,7 @@ const balV=noVol?{t:'No sets',c:'var(--mu)',s:'last 10 days'}
   :{t:`${below} low`,c:'var(--rd)',s:worst?`lowest: ${worst}`:''};
 h+=`<div class="status-hd">
 <div class="status-cell"><div class="status-k">Strength</div><div class="status-v" style="color:${strV.c}">${strV.t}</div><div class="status-s">${strV.s}</div></div>
-<div class="status-cell"><div class="status-k">Consistency</div><div class="status-v" style="color:${conV.c}">${conV.t}</div><div class="status-s">${con.perWk}/wk · ${snap.streak}wk streak</div></div>
+<div class="status-cell"><div class="status-k">Consistency</div><div class="status-v" style="color:${conV.c}">${conV.t}</div><div class="status-s">${con.perWk8}/wk (8wk) · ${snap.streak}wk streak</div></div>
 <div class="status-cell"><div class="status-k">Balance</div><div class="status-v" style="color:${balV.c}">${balV.t}</div><div class="status-s">${balV.s}</div></div>
 </div>`}
 
@@ -3261,10 +3274,11 @@ if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,'#d61f5e','Av
 }
 
 h+=`<div class="cd"><div class="estrip">
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${con.perWk}</div><div class="estrip-lbl">Sessions/wk</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${con.perWk8}</div><div class="estrip-lbl">/wk · 8wk</div></div>
 <div class="estrip-cell"><div class="estrip-num">${con.avgGap!=null?con.avgGap+'d':'—'}</div><div class="estrip-lbl">Avg Gap</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${con.avgDur!=null?con.avgDur+'m':'—'}</div><div class="estrip-lbl">Avg Length</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg RPE</div></div></div>`;
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg RPE</div></div></div>
+<div class="dm" style="margin-top:2px">Lifetime: ${con.perWk}/wk over ${con.spanWk} weeks since your first session.</div>`;
 if(con.wuRate!=null){h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span class="mu">Warm-up compliance</span><span style="color:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'};font-weight:700">${con.wuRate}%</span></div>
 <div class="fg-bar"><div class="fg-fill" style="width:${con.wuRate}%;background:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'}"></div></div>`}
 // Cardio is logged but was never surfaced anywhere on this tab

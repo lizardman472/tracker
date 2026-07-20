@@ -1123,5 +1123,28 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('bodyHeatH renders the legend', /heat-legend/.test(hm) && /under MEV/.test(hm));
 }
 
+// ── Rolling 8-week consistency (the status verdict's input) ──
+{
+  const d = freshD();
+  const mk = (id, ago) => ({ id, date: daysAgoStr(ago), day: 'A', loc: 'home', ex: [] });
+  // One ancient session, then a clean 3/wk for the last 8 weeks: lifetime average is
+  // dragged (~1.3/wk) but the rolling window reads the current cadence.
+  d.sessions = [mk('old', 140)];
+  for (let i = 0; i < 24; i++) d.sessions.push(mk('r' + i, Math.floor(i * 56 / 24)));
+  d.sessions.sort((a, b) => a.date.localeCompare(b.date));
+  const c = consistency();
+  T('lifetime perWk carries the old layoff', c.perWk < 1.5, c.perWk);
+  T('perWk8 reads the recent 3/wk cadence', c.perWk8 >= 2.9 && c.perWk8 <= 3.2, c.perWk8);
+  // A current 9-week layoff empties the window immediately.
+  d.sessions = [mk('a', 120), mk('b', 110), mk('c', 100), mk('d', 90), mk('e', 63)];
+  d.sessions.sort((a, b) => a.date.localeCompare(b.date));
+  T('perWk8 sees a current layoff (window empty)', consistency().perWk8 === 0, consistency().perWk8);
+  // A history younger than 8 weeks uses its own span — a strong fortnight isn't diluted.
+  d.sessions = [0, 2, 4, 7, 9, 12].map((ago, i) => mk('y' + i, ago));
+  d.sessions.sort((a, b) => a.date.localeCompare(b.date));
+  const cy = consistency();
+  T('young history divides by its own span', cy.perWk8 >= 2.9 && cy.perWk8 <= 3.6, cy.perWk8);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
