@@ -192,6 +192,13 @@ for (const seg of ['lifts', 'balance', 'consistency', 'lifetime']) {
   tryRender(`Progress (${seg} segment)`, () => R.render());
   T(`${seg} segment produced non-empty markup`, R.getA().length > 600);
 }
+// Balance segment: muscle-trend comparison + per-muscle weekly set-count chart.
+R.setSEG('balance');
+R.render();
+const bal = R.getA();
+T('Balance shows the Muscle Trend comparison card', /Muscle Trend/.test(bal) && /mt-cur/.test(bal));
+T('Balance shows Set Count per Muscle with a muscle picker', /Set Count per Muscle/.test(bal) && /STAT_MG=this.value/.test(bal));
+
 // Strength-level card (Lifts segment) tracks the CURRENT main lifts, not retired ones.
 R.setSEG('lifts');
 R.render();

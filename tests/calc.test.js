@@ -1033,5 +1033,24 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('muscleSplitH empty split → empty string', muscleSplitH([]) === '');
 }
 
+// ── Muscle distribution comparison (28d vs prior 28d) ──
+{
+  const d = freshD();
+  d.sessions = [
+    { id: 'mp1', date: daysAgoStr(7), day: 'A', loc: 'home', ex: [{ id: 'ohp', wt: 20, reps: [6, 6], band: '' }] },
+    { id: 'mp2', date: daysAgoStr(35), day: 'A', loc: 'home', ex: [{ id: 'ohp', wt: 20, reps: [6, 6, 6], band: '' }] },
+    { id: 'mp3', date: daysAgoStr(70), day: 'A', loc: 'home', ex: [{ id: 'ohp', wt: 20, reps: [6], band: '' }] },
+  ];
+  const mpc = musclePeriodCompare(28);
+  const fd = mpc.find(x => x.k === 'fdelt');
+  T('musclePeriodCompare buckets −7d into cur', fd && fd.cur === 2, JSON.stringify(fd));
+  T('musclePeriodCompare buckets −35d into prev', fd && fd.prev === 3, JSON.stringify(fd));
+  const tri = mpc.find(x => x.k === 'triceps');
+  T('indirect 0.5 credit carries through (−70d session excluded)', tri && tri.cur === 1 && tri.prev === 1.5, JSON.stringify(tri));
+  T('untouched muscles drop out of the compare', !mpc.some(x => x.k === 'quads'));
+  d.sessions = [];
+  T('empty history → empty compare', musclePeriodCompare(28).length === 0);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

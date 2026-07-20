@@ -182,6 +182,10 @@ input[type=number]{-moz-appearance:textfield}
 .msp-pct{color:var(--mu);font-variant-numeric:tabular-nums}
 .msp-track{height:7px;background:var(--ib);border-radius:3px;overflow:hidden}
 .msp-fill{height:100%;background:var(--pr);border-radius:3px}
+/* Muscle Trend paired bars (prev dimmed above, current below) */
+.mt-track{height:6px;background:var(--ib);border-radius:3px;overflow:hidden}
+.mt-prev{height:100%;background:var(--mu);opacity:.45;border-radius:3px}
+.mt-cur{height:100%;background:var(--pr);border-radius:3px}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* Toggle switch */
@@ -841,7 +845,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -2585,6 +2589,20 @@ for(const s of D.sessions){
 const fin=b=>({vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions,
   rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null});
 return{cur:fin(cur),prev:fin(prev)}}
+// ── Per-muscle effective sets: current n-day window vs the n days before it —
+// the "muscle distribution comparison" card. Muscles untouched in both windows drop out. ──
+function musclePeriodCompare(days){
+const n=days||28;
+const cut1=daysAgoStr(n),cut2=daysAgoStr(2*n);
+const cur={},prev={};
+for(const s of D.sessions){
+  if(s.date<cut2)continue;
+  const b=s.date>=cut1?cur:prev;
+  for(const e of s.ex){const map=MG[e.id];if(!map)continue;
+    const sets=(e.reps||[]).filter(r=>Number(r)>0).length;if(!sets)continue;
+    for(const[m,w] of Object.entries(map))b[m]=(b[m]||0)+sets*w}}
+return MG_INFO.map(([k,l])=>({k,l,cur:Math.round((cur[k]||0)*10)/10,prev:Math.round((prev[k]||0)*10)/10}))
+  .filter(x=>x.cur||x.prev)}
 // ── Weekly cardio minutes by intensity — same Mon-anchored bucketing as
 // weeklySeries. The Consistency card previously surfaced only a 7-day total. ──
 function cardioWeekly(weeks){
@@ -2979,6 +2997,31 @@ if(push&&pull)h+=`<div style="display:flex;gap:2px;height:7px;margin-top:6px;bor
 <div style="width:${Math.round(push/(push+pull)*100)}%;background:var(--pr);opacity:.85"></div>
 <div style="flex:1;background:var(--pu);opacity:.85"></div></div>`}}
 h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half — these numbers are directional, not precise. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
+
+// ── Muscle Trend: this 28-day window vs the 28 days before it, per muscle ──
+{const mpc=musclePeriodCompare(28);
+if(mpc.length){h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Trend</div>
+<div class="dm" style="margin-bottom:12px">Effective sets · last 28 days vs the 28 before (top bar = previous, bottom = current)</div>`;
+const mx=Math.max(...mpc.map(x=>Math.max(x.cur,x.prev)),1);
+for(const x of mpc){const d=Math.round((x.cur-x.prev)*10)/10;
+const dc=Math.abs(d)<0.05?'var(--mu)':d>0?'var(--gr)':'var(--am)';
+h+=`<div style="margin-bottom:11px">
+<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+<span style="font-weight:600">${x.l}</span>
+<span style="font-variant-numeric:tabular-nums"><span style="color:var(--mu)">${x.prev}</span> → <b>${x.cur}</b> <span style="color:${dc};font-weight:700">${d>0?'+'+d:d<0?d:'±0'}</span></span></div>
+<div class="mt-track"><div class="mt-prev" style="width:${Math.round(x.prev/mx*100)}%"></div></div>
+<div class="mt-track" style="margin-top:2px"><div class="mt-cur" style="width:${Math.round(x.cur/mx*100)}%"></div></div></div>`}
+h+=`</div>`}}
+
+// ── Set count per muscle group, week by week (pick a muscle; dashed line = MEV) ──
+{const mi=MG_INFO.find(x=>x[0]===STAT_MG)||MG_INFO[0];
+const series=muscleWeekly(mi[0],10).map(w=>({v:w.v,lbl:new Date(w.wk+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Set Count per Muscle</div>
+<select class="bs" style="margin-bottom:8px" aria-label="Muscle group" onchange="STAT_MG=this.value;render()">`;
+for(const[k,l] of MG_INFO)h+=`<option value="${k}"${k===STAT_MG?' selected':''}>${l}</option>`;
+h+=`</select>`;
+h+=svgBars(series,360,150,'#007ba8',`${mi[1]} sets/week`,{target:mi[2]||undefined});
+h+=`<div class="dm" style="margin-top:4px">Effective sets logged per calendar week${mi[2]?' · dashed line = MEV':''}.</div></div>`}
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
 {const dcut=daysAgoStr(30);
