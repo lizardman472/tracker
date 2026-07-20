@@ -329,9 +329,10 @@ svg text{font-family:var(--body)}
 .snap-lbl{font-family:var(--disp);font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
 /* Progress-tab segment chips (sub-views replace the old single mega-scroll) */
 .seg-row{display:flex;gap:6px;margin:10px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
-/* right-edge fade signals there are more chips off-screen (scrollbar is hidden) */
--webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent);
-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent)}
+/* edge fades signal more chips off-screen in either direction (scrollbar is hidden) */
+-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 20px,#000 calc(100% - 28px),transparent);
+mask-image:linear-gradient(90deg,transparent 0,#000 20px,#000 calc(100% - 28px),transparent);
+padding-left:4px;scroll-padding:24px}
 .seg-row::-webkit-scrollbar{display:none}
 .seg-chip{flex:0 0 auto;padding:11px 15px;border-radius:20px;border:1px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;transition:.12s;-webkit-appearance:none;appearance:none}
 .seg-chip.on{background:var(--pr);border-color:var(--pr);color:var(--ink)}
