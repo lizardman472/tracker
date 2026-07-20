@@ -1052,5 +1052,30 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('empty history → empty compare', musclePeriodCompare(28).length === 0);
 }
 
+// ── Monthly report ──
+{
+  T('monthKey slices the month', monthKey('2026-01-15') === '2026-01');
+  T('prevMonth crosses the year boundary', prevMonth('2026-01') === '2025-12');
+  T('nextMonth crosses the year boundary', nextMonth('2025-12') === '2026-01');
+  const d = freshD();
+  d.sessions = [
+    { id: 'm1', date: '2026-05-05', day: 'A', loc: 'home', duration: 40, difficulty: 3, ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] },
+    { id: 'm2', date: '2026-05-20', day: 'A', loc: 'home', duration: 50, difficulty: 4, ex: [{ id: 'hex_dl', wt: 52, reps: [5, 5], band: '' }, { id: 'ohp', wt: 20, reps: [8, 8], band: '' }] },
+    { id: 'm3', date: '2026-06-03', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 55, reps: [5, 5], wts: [55, 60], band: '' }] },
+  ];
+  const may = monthlyReport('2026-05');
+  T('monthly sessions count', may.sessions === 2);
+  T('monthly tonnage', may.tonnage === 50 * 15 + 52 * 10 + 20 * 16, may.tonnage);
+  T('monthly sets + reps', may.sets === 7 && may.reps === 41, JSON.stringify([may.sets, may.reps]));
+  T('monthly avgDur / avgRpe', may.avgDur === 45 && may.avgRpe === 3.5);
+  T('monthly topEx ranks by frequency with top weight', may.topEx[0].id === 'hex_dl' && may.topEx[0].n === 2 && may.topEx[0].best === 52, JSON.stringify(may.topEx[0]));
+  T('monthly muscleSets credit (hex_dl hams 1.0 × 5 sets)', may.muscleSets.hams === 5, may.muscleSets.hams);
+  T('monthly PR replay: 52kg in May beat the 50kg baseline', may.prCount === 1, may.prCount);
+  const jun = monthlyReport('2026-06');
+  T('monthly tonnage prices per-set overrides', jun.tonnage === 55 * 5 + 60 * 5, jun.tonnage);
+  T('monthly PR from a June override set (60 > 52)', jun.prCount === 1, jun.prCount);
+  T('empty month reports zero sessions', monthlyReport('2026-01').sessions === 0);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -198,6 +198,19 @@ R.render();
 const bal = R.getA();
 T('Balance shows the Muscle Trend comparison card', /Muscle Trend/.test(bal) && /mt-cur/.test(bal));
 T('Balance shows Set Count per Muscle with a muscle picker', /Set Count per Muscle/.test(bal) && /STAT_MG=this.value/.test(bal));
+
+// Monthly segment: empty current month falls back gracefully; a month with data
+// shows the recap tiles, main-exercises list, and working ‹ › nav.
+R.setSEG('monthly');
+tryRender('Progress (monthly, current month)', () => R.render());
+T('Monthly renders month nav or empty state', /aria-label="Previous month"/.test(R.getA()));
+R.setMONTH('2026-06');
+tryRender('Progress (monthly, June 2026)', () => R.render());
+const mon = R.getA();
+T('Monthly June shows recap tiles + main exercises', /Workouts/.test(mon) && /Main Exercises/.test(mon) && /Hex Bar Deadlift/.test(mon));
+T('Monthly nav buttons target adjacent months', /STAT_MONTH='2026-05'/.test(mon) && /STAT_MONTH='2026-07'/.test(mon));
+T('Monthly has no undefined/NaN leaks', !/undefined|NaN/.test(mon));
+R.setMONTH(null);
 
 // Strength-level card (Lifts segment) tracks the CURRENT main lifts, not retired ones.
 R.setSEG('lifts');

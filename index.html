@@ -2603,6 +2603,32 @@ for(const s of D.sessions){
     for(const[m,w] of Object.entries(map))b[m]=(b[m]||0)+sets*w}}
 return MG_INFO.map(([k,l])=>({k,l,cur:Math.round((cur[k]||0)*10)/10,prev:Math.round((prev[k]||0)*10)/10}))
   .filter(x=>x.cur||x.prev)}
+// ── Monthly report: one-pass recap of a calendar month ('YYYY-MM'). PR counts
+// replay recentPRs(null) — the same at-the-time semantics the PR feed uses. ──
+function monthKey(dateStr){return String(dateStr||'').slice(0,7)}
+function prevMonth(ym){let[y,m]=ym.split('-').map(Number);m--;if(m<1){m=12;y--}return`${y}-${String(m).padStart(2,'0')}`}
+function nextMonth(ym){let[y,m]=ym.split('-').map(Number);m++;if(m>12){m=1;y++}return`${y}-${String(m).padStart(2,'0')}`}
+function monthLabel(ym){const[y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('en-NZ',{month:'long',year:'numeric'})}
+function monthlyReport(ym){
+const ss=D.sessions.filter(s=>monthKey(s.date)===ym);
+let tonnage=0,sets=0,reps=0;const durs=[],rpes=[];
+const exCount={},muscleSets={};
+for(const s of ss){
+  if(s.duration)durs.push(s.duration);if(s.difficulty)rpes.push(s.difficulty);
+  for(const e of s.ex){
+    const vr=(e.reps||[]).filter(r=>Number(r)>0);if(!vr.length)continue;
+    tonnage+=calcExVol(e.id,e.wt,e.reps,e.wts);
+    sets+=vr.length;reps+=vr.reduce((a,b)=>a+Number(b),0);
+    const c=exCount[e.id]=exCount[e.id]||{n:0,best:0};c.n++;const mw=exMaxWt(e);if(mw>c.best)c.best=mw;
+    const map=MG[e.id];if(map)for(const[m,w] of Object.entries(map))muscleSets[m]=(muscleSets[m]||0)+vr.length*w}}
+const topEx=Object.entries(exCount).map(([id,c])=>({id,nm:ALL_EX.find(x=>x.id===id)?.nm||id,n:c.n,best:c.best}))
+  .sort((a,b)=>b.n-a.n||b.best-a.best).slice(0,8);
+const prCount=recentPRs(null).filter(p=>monthKey(p.date)===ym).length;
+const cardioMin=(D.cardioLog||[]).filter(c=>monthKey(c.date)===ym).reduce((a,c)=>a+(Number(c.duration)||0),0);
+return{ym,sessions:ss.length,tonnage:Math.round(tonnage),sets,reps,
+  avgDur:durs.length?Math.round(durs.reduce((a,b)=>a+b,0)/durs.length):null,
+  avgRpe:rpes.length?Math.round(rpes.reduce((a,b)=>a+b,0)/rpes.length*10)/10:null,
+  prCount,topEx,muscleSets,cardioMin}}
 // ── Weekly cardio minutes by intensity — same Mon-anchored bucketing as
 // weeklySeries. The Consistency card previously surfaced only a 7-day total. ──
 function cardioWeekly(weeks){
@@ -2750,7 +2776,7 @@ h+=`<div class="status-hd">
 </div>`}
 
 // ── Segment chips: five focused sub-views instead of one ~6-screen scroll ──
-const SEGS=[['overview','Overview'],['lifts','Lifts'],['balance','Balance'],['consistency','Consistency'],['lifetime','Lifetime']];
+const SEGS=[['overview','Overview'],['lifts','Lifts'],['balance','Balance'],['consistency','Consistency'],['monthly','Monthly'],['lifetime','Lifetime']];
 h+=`<div class="seg-row" role="tablist" aria-label="Progress sections">`;
 for(const[k,l] of SEGS)h+=`<button type="button" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" onclick="STAT_SEG='${k}';render()">${l}</button>`;
 h+=`</div>`;
@@ -3095,6 +3121,46 @@ if(cw.length>=2){
 const sum=k=>cw.reduce((a,w)=>a+w[k],0);
 h+=`<div class="cd">${svgBars(cw.map(w=>({v:w.total,lbl:w.lbl})),360,130,'#b26102','Cardio Minutes / Week')}
 <div class="dm" style="text-align:center;margin-top:4px">Last ${cw.length} wk: <span style="color:var(--gr)">■</span> easy ${sum('easy')} · <span style="color:var(--am)">■</span> moderate ${sum('moderate')} · <span style="color:var(--rd)">■</span> hard ${sum('hard')} min</div></div>`}}
+
+}else if(STAT_SEG==='monthly'){
+// ═══ MONTHLY — a calendar-month recap with month-over-month deltas ═══
+const ym=STAT_MONTH||monthKey(today());
+const rep=monthlyReport(ym);
+const prevRep=monthlyReport(prevMonth(ym));
+const isCur=ym===monthKey(today());
+// signed delta chip vs the previous month (hidden when prev month is empty)
+const dl=(c,p)=>{if(!p)return'';const d=Math.round((c-p)*10)/10;if(!d)return'';
+return` <span style="font-size:9px;font-weight:700;color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'+':''}${d}</span>`};
+h+=`<div class="cd">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<button type="button" class="btn-ghost" style="font-size:16px;padding:2px 10px" aria-label="Previous month" onclick="STAT_MONTH='${prevMonth(ym)}';render()">‹</button>
+<div style="font-size:13px;font-weight:700">${monthLabel(ym)}</div>
+<button type="button" class="btn-ghost" style="font-size:16px;padding:2px 10px;${isCur?'visibility:hidden':''}" aria-label="Next month" onclick="STAT_MONTH='${nextMonth(ym)}';render()">›</button></div>`;
+if(!rep.sessions){h+=`<div class="dm" style="text-align:center;padding:12px">No sessions logged in ${monthLabel(ym)}.</div></div>`}
+else{
+h+=`<div class="estrip">
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${rep.sessions}${dl(rep.sessions,prevRep.sessions)}</div><div class="estrip-lbl">Workouts</div></div>
+<div class="estrip-cell"><div class="estrip-num">${(rep.tonnage/1000).toFixed(1)}t${dl(Math.round(rep.tonnage/100)/10,prevRep.sessions?Math.round(prevRep.tonnage/100)/10:0)}</div><div class="estrip-lbl">Tonnage</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${rep.sets}${dl(rep.sets,prevRep.sets)}</div><div class="estrip-lbl">Sets</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${rep.prCount}</div><div class="estrip-lbl">PRs</div></div></div>`;
+const meta=[rep.avgDur?`Avg ${rep.avgDur} min`:'',rep.avgRpe?`Avg RPE ${rep.avgRpe}`:'',rep.cardioMin?`Cardio ${rep.cardioMin} min`:''].filter(Boolean);
+if(meta.length)h+=`<div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--mu);margin-top:8px">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`;
+if(prevRep.sessions)h+=`<div class="dm" style="text-align:center;margin-top:6px">Deltas vs ${monthLabel(prevMonth(ym))}</div>`;
+h+=`</div>`;
+// Main exercises — what this month was actually built on
+if(rep.topEx.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Main Exercises</div>`;
+rep.topEx.forEach((t,i)=>{h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i?'border-top:1px solid var(--cb);':''}font-size:12px">
+<span><span style="color:var(--dm);font-variant-numeric:tabular-nums">${i+1}.</span> <b>${esc(t.nm)}</b></span>
+<span class="dm" style="font-variant-numeric:tabular-nums">${t.n}×${t.best?' · top '+t.best+'kg':''}</span></div>`});
+h+=`</div>`}
+// Effective sets by muscle for the month
+{const rows=MG_INFO.map(([k,l])=>({l,v:Math.round((rep.muscleSets[k]||0)*10)/10})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+if(rows.length){const mx=rows[0].v||1;
+h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Sets by Muscle</div>`;
+for(const r of rows)h+=`<div class="msp-row"><div class="msp-top"><span>${r.l}</span><span class="msp-pct">${r.v}</span></div>
+<div class="msp-track"><div class="msp-fill" style="width:${Math.max(3,Math.round(r.v/mx*100))}%"></div></div></div>`;
+h+=`<div class="dm" style="margin-top:4px">Effective sets (indirect work counts half).</div></div>`}}
+}
 
 }else{
 // ═══ LIFETIME — motivation ═══
