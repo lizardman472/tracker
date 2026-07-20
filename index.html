@@ -538,10 +538,8 @@ C:[
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:30',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:90,tempo:'3-1-1-0',perSide:false},
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:30',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:90,tempo:'3-1-2-0',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:30',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:90,tempo:'controlled',perSide:false},
-{id:'calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',rst:'1:00',rir:'1-2',tp:'kb',rl:'The program\'s only direct calf work. Stand on one foot on a step/edge, hold a KB in the same-side hand (suitcase). Full stretch at the bottom, pause + squeeze at the top — no bouncing. Progress load or reps when 20/side is smooth.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:true},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:45',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:45,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor-endurance finisher — low-load erector work the hex/landmine swaps traded away. All fours, extend opposite arm + leg to horizontal, 3s hold, flat back, hips level (no twist). Reach long, don\'t lift high.',note:'Endurance, not load — this slot stays bodyweight by design. When 2×8/side with strict 3s holds is easy, lengthen the holds to 5s instead of adding reps.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true},
 {id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
@@ -638,7 +636,7 @@ C:[
 // The unilateral quad slot replaces a planned 5th lm_squat set — same volume, plus
 // left/right imbalance work the bilateral squats can't do. (The pull-up 4→3 trim that
 // shipped with v14 was reverted same-day — pull-ups stay at 4 sets.)
-// Home day counts: A=9 B=8 C=12. migrateToV14 stamps the version only.
+// Home day counts: A=9 B=8 C=10 (v16 dropped calf raise + bird dog from Day C).
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:120,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'2:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:120,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
@@ -667,10 +665,8 @@ C:[
 {id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'2:00',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:120,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:30',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:90,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
 {id:'db_sl_rdl',nm:'DB Single-Leg RDL (weak side leads)',s:4,rp:'8/side',rst:'1:30',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:90,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',rst:'1:00',rir:'1-2',tp:'db',rl:'Direct calf work (mirrors home). Stand on one foot on a step/edge, hold a DB in the same-side hand. Full stretch at the bottom, pause + squeeze at the top — no bouncing. Progress load or reps when 20/side is smooth.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:true},
 {id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:30',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:90,tempo:'—',perSide:false},
 {id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor-endurance finisher — low-load erector work neither venue\'s hinges cover. All fours, extend opposite arm + leg to horizontal, 3s hold, flat back, hips level (no twist). Reach long, don\'t lift high. Same slot as home (shared history).',note:'Endurance, not load — this slot stays bodyweight by design. When 3×8/side with strict 3s holds is easy, lengthen the holds to 5s instead of adding reps.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true},
 {id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
 
 // getProgram — apply phase adjustment for the location's base program
@@ -735,7 +731,13 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'pallof',nm:'Pallof Press (legacy)',s:3,rp:'10',tg:10,rstS:60,tp:'band',rl:'Legacy — see pallof_press',bandMode:'resist',perSide:false},
 {id:'leg_raise',nm:'Floor Leg Raise',s:3,rp:'12',tg:12,rstS:60,tp:'bw',rl:'Legacy',perSide:false},
 {id:'arms',nm:'Arms (Curl/Ext)',s:2,rp:'12-15',tg:15,rstS:60,tp:'kb',rl:'Legacy',perSide:false},
-{id:'carry',nm:'Carry (legacy)',s:3,rp:'40m',tg:40,rstS:90,tp:'carry',rl:'Legacy — see suitcase_march',perSide:false}];
+{id:'carry',nm:'Carry (legacy)',s:3,rp:'40m',tg:40,rstS:90,tp:'carry',rl:'Legacy — see suitcase_march',perSide:false},
+// v16 Day-C trim: calf raises + bird dog dropped from BOTH venues (Day C ran 12
+// exercises home / 12 partner — too long). Stubs keep history/charts resolving;
+// 'Legacy' in rl keeps them out of the swap-candidate pool.
+{id:'calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',tg:20,rstS:60,tp:'kb',rl:'Legacy — Day C trimmed (v16)',perSide:true},
+{id:'db_calf_raise',nm:'Single-Leg Calf Raise (DB)',s:3,rp:'15-20/side',tg:20,rstS:60,tp:'db',rl:'Legacy — Day C trimmed (v16)',perSide:true},
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',tg:8,rstS:60,tp:'bw',rl:'Legacy — Day C trimmed (v16)',perSide:true}];
 // Ids repeat across days and legacy stubs (lateral_raise on A+B; zercher_a/pullup_c
 // active + stub). Dedupe keeping the first (active) definition so PR scans and the
 // stats picker don't double-count or render duplicates.
@@ -937,10 +939,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:15 keeps the migrateToV12..V15 chain a no-op on demo bootstraps (they
+// programVersion:16 keeps the migrateToV12..V16 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:15};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:16};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -997,6 +999,13 @@ if(d.programVersion>=15)return d;
 d.programVersion=15;
 return d}
 
+// v16 migration: content-only Day-C trim (calf raise + bird dog retired to legacy
+// stubs at both venues) — stamp the version, nothing else.
+function migrateToV16(d){
+if(d.programVersion>=16)return d;
+d.programVersion=16;
+return d}
+
 function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
@@ -1019,6 +1028,7 @@ d=migrateToV12(d);
 d=migrateToV13(d);
 d=migrateToV14(d);
 d=migrateToV15(d);
+d=migrateToV16(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1044,7 +1054,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:15,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:16,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{}}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge

@@ -223,17 +223,15 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
-T('home days A=9, B=8, C=12 (v14 added Day-A landmine B-stance squat)', homePr.A.length === 9 && homePr.B.length === 8 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home days A=9, B=8, C=10 (v16 trimmed calf raise + bird dog from Day C)', homePr.A.length === 9 && homePr.B.length === 8 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
-// ── v27 open-issues pass: calves, partner dips, MEV-floor buffer sets, Phase-3 quality slots ──
-// Calves: first direct calf work, one slot per venue on Day C, tracked but not MEV-gated.
-T('home Day C has a single-leg calf raise (kb, per-side)', (() => { const e = homePr.C.find(x => x.id === 'calf_raise'); return e && e.tp === 'kb' && e.perSide === true; })());
-T('partner Day C has a single-leg calf raise (db, per-side)', (() => { const e = partPr.C.find(x => x.id === 'db_calf_raise'); return e && e.tp === 'db' && e.perSide === true; })());
-T('calf raises have a calves MG map', (MG.calf_raise || {}).calves === 1 && (MG.db_calf_raise || {}).calves === 1);
+// ── v16 Day-C trim: calf raises + bird dog retired to legacy stubs at BOTH venues ──
+T('calf raises are OUT of both Day C programs (v16 trim)', !homePr.C.some(x => x.id === 'calf_raise') && !partPr.C.some(x => x.id === 'db_calf_raise'));
+T('calf raise stubs still resolve for history', (() => { const a = ALL_EX.find(x => x.id === 'calf_raise'), b = ALL_EX.find(x => x.id === 'db_calf_raise'); return a && a.perSide === true && b && b.perSide === true && /legacy/i.test(a.rl) && /legacy/i.test(b.rl); })());
+T('calf raises keep their calves MG map', (MG.calf_raise || {}).calves === 1 && (MG.db_calf_raise || {}).calves === 1);
 T('calves is a tracked-but-not-gated dashboard row (null MEV)', (() => { const r = MG_INFO.find(x => x[0] === 'calves'); return r && r[2] == null && r[3] == null; })());
-T('calf raises seed cleanly (no dangling peer → no undefined)', (() => { freshD(); const a = getSmartSugg(homePr.C.find(e => e.id === 'calf_raise')); const b = getSmartSugg(partPr.C.find(e => e.id === 'db_calf_raise')); return a.type === 'new' && a.wt === 8 && b.type === 'new' && b.wt === 8; })());
-T('calf raises count toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
+T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
 // Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
 T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());
 T('pb_dips has a chest+triceps MG map (full triceps like home dips)', (MG.pb_dips || {}).chest === 1 && (MG.pb_dips || {}).triceps === 1);
@@ -353,19 +351,19 @@ T('home back at the deliberate 22.5 ceiling (MAV 22 + accepted 0.5 overage)', wk
 // (partner) and extensor ENDURANCE with no slot at all. These pin the back-fill: bodyweight
 // finishers, shared ids across venues (identical movement → one progression history).
 T('home Day B has a side plank (bw, per-side, timed)', (() => { const e = homePr.B.find(x => x.id === 'side_plank'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 40; })());
-T('home Day C has a bird dog (bw, per-side)', (() => { const e = homePr.C.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 8; })());
-T('partner mirrors both slots with the SAME ids (shared bw history)', partPr.B.some(e => e.id === 'side_plank') && partPr.C.some(e => e.id === 'bird_dog'));
+T('bird dog is OUT of both Day C programs (v16 trim) but resolves as a stub', !homePr.C.some(x => x.id === 'bird_dog') && !partPr.C.some(x => x.id === 'bird_dog') && (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && /legacy/i.test(e.rl); })());
+T('partner mirrors the side-plank slot with the SAME id (shared bw history)', partPr.B.some(e => e.id === 'side_plank'));
 T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1);
 T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
 const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
 T('home core over MEV, still under MAV after v28 (+6 sets)', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
 T('partner core over MEV, still under MAV after v28 (+6 sets)', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
 T('bw holds excluded from tonnage (unloaded)', calcExVol('side_plank', null, [40, 40, 40]) === 0 && calcExVol('bird_dog', null, [8, 8, 8]) === 0);
-T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => { const pr = getProgram(p, 'home'); return pr.B.find(e => e.id === 'side_plank').rp === '20-40s/side' && pr.C.find(e => e.id === 'bird_dog').rp === '8/side'; }));
+T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => getProgram(p, 'home').B.find(e => e.id === 'side_plank').rp === '20-40s/side'));
 // bw progression drives off total reps/seconds vs s×tg — hitting 3×40s reads as progress,
 // a below-target session reads stay-and-push.
 T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
-T('bird dog below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.C.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
+T('bird dog history below target still reads stay/push via its stub', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(ALL_EX.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
 T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 console.log(`\n${pass} passed, ${fail} failed`);
