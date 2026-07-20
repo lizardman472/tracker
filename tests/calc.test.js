@@ -18,13 +18,13 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, setD, getD } = global.__X;
+const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -1075,6 +1075,27 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('monthly tonnage prices per-set overrides', jun.tonnage === 55 * 5 + 60 * 5, jun.tonnage);
   T('monthly PR from a June override set (60 > 52)', jun.prCount === 1, jun.prCount);
   T('empty month reports zero sessions', monthlyReport('2026-01').sessions === 0);
+}
+
+// ── Body heat map ──
+{
+  T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20, 10) === '');
+  T('heatColor under MEV → amber', /^rgba\(178,97,2,/.test(heatColor(4, 8, 20, 10)));
+  T('heatColor MEV..MAV → green', /^rgba\(12,128,80,/.test(heatColor(12, 8, 20, 10)));
+  T('heatColor ≥MAV → strong cyan', heatColor(22, 8, 20, 10) === 'rgba(0,123,168,0.92)');
+  T('heatColor amber intensity rises with volume',
+    parseFloat(heatColor(6, 8, 20, 10).match(/,([\d.]+)\)$/)[1]) > parseFloat(heatColor(2, 8, 20, 10).match(/,([\d.]+)\)$/)[1]));
+  T('heatColor null-MEV muscle scales vs max', /^rgba\(0,123,168,/.test(heatColor(3, null, null, 6)));
+  T('heatColor mev=0 (front delts) never divides by zero', /^rgba\(12,128,80,/.test(heatColor(3, 0, 12, 10)));
+  // Every tracked muscle appears in at least one view.
+  const covered = new Set([...BODY_REGIONS_F, ...BODY_REGIONS_B].map(r => r.m));
+  T('body regions cover every MG_INFO key', MG_INFO.every(([k]) => covered.has(k)),
+    MG_INFO.filter(([k]) => !covered.has(k)).map(([k]) => k).join());
+  const hm = bodyHeatH({ chest: 9, back: 12, quads: 3 });
+  T('bodyHeatH renders front + back SVGs', (hm.match(/<svg /g) || []).length === 2);
+  T('bodyHeatH titles carry sets/wk', /Chest — 9 sets\/wk/.test(hm));
+  T('bodyHeatH regions are tappable muscle selectors', /STAT_MG='chest'/.test(hm));
+  T('bodyHeatH renders the legend', /heat-legend/.test(hm) && /under MEV/.test(hm));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

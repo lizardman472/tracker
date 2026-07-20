@@ -198,6 +198,8 @@ R.render();
 const bal = R.getA();
 T('Balance shows the Muscle Trend comparison card', /Muscle Trend/.test(bal) && /mt-cur/.test(bal));
 T('Balance shows Set Count per Muscle with a muscle picker', /Set Count per Muscle/.test(bal) && /STAT_MG=this.value/.test(bal));
+T('Balance leads with the front/back body heat map', /Muscle Heat Map/.test(bal) && (bal.match(/muscle heat map"/g) || []).length === 2);
+T('heat-map regions tap through to the muscle chart', /STAT_MG='chest'/.test(bal));
 
 // Monthly segment: empty current month falls back gracefully; a month with data
 // shows the recap tiles, main-exercises list, and working ‹ › nav.

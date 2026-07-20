@@ -186,6 +186,9 @@ input[type=number]{-moz-appearance:textfield}
 .mt-track{height:6px;background:var(--ib);border-radius:3px;overflow:hidden}
 .mt-prev{height:100%;background:var(--mu);opacity:.45;border-radius:3px}
 .mt-cur{height:100%;background:var(--pr);border-radius:3px}
+/* Body heat-map legend */
+.heat-legend{display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--mu);margin-top:8px}
+.heat-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* Toggle switch */
@@ -827,6 +830,58 @@ function muscleSplitH(exArr,title){
   for(const s of sp)h+=`<div class="msp-row"><div class="msp-top"><span>${s.g}</span><span class="msp-pct">${s.pct}%</span></div>
   <div class="msp-track"><div class="msp-fill" style="width:${Math.max(3,Math.round(s.pct/mx*100))}%"></div></div></div>`;
   return h+`</div>`}
+
+// ── Body heat map: stylized front/back figure with muscle regions shaded by weekly
+// effective sets. Shapes are simple ellipse/rect descriptors in a 120×192 viewBox
+// ({e:[[cx,cy,rx,ry],…]} / {r:[x,y,w,h,rx]}); every MG_INFO key appears in ≥1 view. ──
+const BODY_SIL=[ // shared silhouette (both views)
+  {c:[60,13,8.5]},{r:[55.5,21,9,7,3]},{r:[40,26,40,48,10]},{r:[42,70,36,16,7]},
+  {r:[29.5,29,9,27,4.5]},{r:[28,56,8,31,4]},{r:[81.5,29,9,27,4.5]},{r:[84,56,8,31,4]},
+  {r:[43,86,15,52,7]},{r:[62,86,15,52,7]},{r:[45,138,12,50,5.5]},{r:[63,138,12,50,5.5]}];
+const BODY_REGIONS_F=[
+  {m:'fdelt',e:[[41,31.5,6,4.5],[79,31.5,6,4.5]]},
+  {m:'sidedelt',e:[[33.5,33,4.5,6],[86.5,33,4.5,6]]},
+  {m:'chest',e:[[51,41,9.5,6.5],[69,41,9.5,6.5]]},
+  {m:'biceps',e:[[33.5,48,4.5,9],[86.5,48,4.5,9]]},
+  {m:'core',r:[50,50,20,22,6]},
+  {m:'quads',e:[[50.5,112,7,24],[69.5,112,7,24]]}];
+const BODY_REGIONS_B=[
+  {m:'cuff',r:[50,27,20,9,4]},
+  {m:'reardelt',e:[[41,32.5,6,5],[79,32.5,6,5]]},
+  {m:'back',r:[46,38,28,26,7]},
+  {m:'triceps',e:[[33.5,48,4.5,9],[86.5,48,4.5,9]]},
+  {m:'glutes',e:[[52,79,8.5,8],[68,79,8.5,8]]},
+  {m:'hams',e:[[50.5,112,7,22],[69.5,112,7,22]]},
+  {m:'calves',e:[[51,161,5.5,16],[69,161,5.5,16]]}];
+const HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills
+// Fill for a region at v sets/week. Literal rgba (not CSS vars) — SVG fills are
+// string-built and the tests assert exact values. Untracked muscles (mev null,
+// e.g. calves/cuff) scale against mav or the overall max instead.
+function heatColor(v,mev,mav,mx){
+if(!(v>0))return'';
+if(mev==null){const ref=mav||mx||1;const t=Math.min(1,v/ref);return`rgba(0,123,168,${(0.2+0.6*t).toFixed(2)})`}
+if(v<mev)return`rgba(178,97,2,${(0.25+0.45*(v/mev)).toFixed(2)})`;
+if(mav&&v<mav)return`rgba(12,128,80,${(0.4+0.5*((v-mev)/(mav-mev))).toFixed(2)})`;
+return'rgba(0,123,168,0.92)'}
+// Two side-by-side SVG figures + legend; regions are tappable and select the
+// muscle in the Set Count chart (STAT_MG).
+function bodyHeatH(wv){
+const mx=Math.max(...MG_INFO.map(([k])=>wv[k]||0),1);
+const draw=(regions,cap)=>{
+let s=`<svg viewBox="0 0 120 192" style="width:100%;height:auto" role="img" aria-label="${cap} muscle heat map">`;
+for(const sh of BODY_SIL)s+=sh.c?`<circle cx="${sh.c[0]}" cy="${sh.c[1]}" r="${sh.c[2]}" fill="${HEAT_BASE}"/>`
+  :`<rect x="${sh.r[0]}" y="${sh.r[1]}" width="${sh.r[2]}" height="${sh.r[3]}" rx="${sh.r[4]}" fill="${HEAT_BASE}"/>`;
+for(const rg of regions){const mi=MG_INFO.find(x=>x[0]===rg.m);const v=Math.round((wv[rg.m]||0)*10)/10;
+const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null,mx)||HEAT_NONE;
+const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk</title>`;
+const attrs=`fill="${fill}" style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
+if(rg.r)s+=`<rect x="${rg.r[0]}" y="${rg.r[1]}" width="${rg.r[2]}" height="${rg.r[3]}" rx="${rg.r[4]}" ${attrs}>${t}</rect>`;
+if(rg.e)for(const e of rg.e)s+=`<ellipse cx="${e[0]}" cy="${e[1]}" rx="${e[2]}" ry="${e[3]}" ${attrs}>${t}</ellipse>`}
+return s+`</svg>`};
+return`<div style="display:flex;gap:14px;justify-content:center">
+<div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
+<div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:rgba(178,97,2,.55)"></i>under MEV</span><span><i style="background:rgba(12,128,80,.6)"></i>productive</span><span><i style="background:rgba(0,123,168,.92)"></i>high</span></div>`}
 
 // ═══════════════ SEED ═══════════════
 const SEED={sessions:[
@@ -2976,6 +3031,11 @@ h+=`</div>`}
 
 }else if(STAT_SEG==='balance'){
 // ═══ BALANCE — is the volume going to the right places? ═══
+// Body heat map first — the same wv numbers as the bars below, but as a shape.
+// Tapping a muscle selects it in the Set Count chart further down.
+h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Heat Map</div>
+<div class="dm" style="margin-bottom:10px">Sets/week (normalized, last 10 days) · tap a muscle for its weekly chart</div>
+${bodyHeatH(wv)}</div>`;
 // Per-muscle MEV/MAV status (10-day window = full A→B→C rotation), merged with
 // each muscle's 8-week history so "where am I now" and "how did I get here"
 // read as one section instead of two separately-computed ones.
