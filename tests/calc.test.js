@@ -1014,5 +1014,24 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('migrateToV15 idempotent', migrateToV15({ programVersion: 15, x: 7 }).x === 7);
 }
 
+// ── Per-session muscle split (Hevy-style % bars) ──
+{
+  const sp = muscleSplit([
+    { id: 'ohp', reps: [6, 6, 6] },        // Shoulders 1.5×3, Arms 0.5×3
+    { id: 'bb_row', reps: [10, 10] },      // Back 1×2, Arms 0.5×2
+    { id: 'floor_press', reps: [8, 8, 8] } // Chest 1×3, Arms 0.5×3
+  ]);
+  T('muscleSplit sorts by contribution', sp.map(x => x.g).join() === 'Shoulders,Arms,Chest,Back', JSON.stringify(sp));
+  T('muscleSplit rolls delts into Shoulders', sp.find(x => x.g === 'Shoulders').v === 4.5);
+  const pctSum = sp.reduce((a, x) => a + x.pct, 0);
+  T('muscleSplit pcts ≈ 100', pctSum >= 98 && pctSum <= 102, pctSum);
+  T('muscleSplit counts zero-rep sets out', muscleSplit([{ id: 'ohp', reps: [6, 0, 0] }])[0].v === 1.5);
+  T('muscleSplit is set-based: carries still count', muscleSplit([{ id: 'carry', reps: [1, 1, 1] }])[0].g === 'Core');
+  T('muscleSplit ignores unknown ids', muscleSplit([{ id: 'nope', reps: [5] }]).length === 0);
+  T('muscleSplit empty session → []', muscleSplit([]).length === 0);
+  T('muscleSplitH renders % bars', /msp-row/.test(muscleSplitH([{ id: 'ohp', reps: [6] }])));
+  T('muscleSplitH empty split → empty string', muscleSplitH([]) === '');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

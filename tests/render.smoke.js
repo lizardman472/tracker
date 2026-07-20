@@ -173,6 +173,7 @@ R.getLOG()['hex_carry'].wt = 30;
   T('finishW tonnage prices overrides per set', S.tv >= 40 * 5 + 45 * 5 + 40 * 5, S.tv);
   const uniform = S.exs.filter(e => e.id !== 'hex_dl');
   T('uniform-weight entries keep the lean legacy shape (no wts)', uniform.every(e => e.wts === undefined));
+  T('summary shows the per-workout muscle split', /Muscle Split/.test(R.getA()) && /msp-row/.test(R.getA()));
   // resumed old-build blobs get wts crash-proofed
   R.setCIDX(0);
 }
@@ -317,6 +318,7 @@ if (histOk) {
   // if the detail used the hex bar; the 11kg-bar misread (10+2.5+1+1) would have no 5kg.
   T('hex session detail uses the 7kg bar (has a 5kg plate)', /pl pl-5/.test(hist));
   T('hex session detail has exactly one 10kg plate/side', (hist.match(/pl pl-10/g) || []).length === 1);
+  T('expanded session shows its muscle split', /Muscle Split/.test(hist) && /msp-row/.test(hist));
 }
 
 // ── History: plate breakdown gated to bar lifts ──
