@@ -1034,7 +1034,10 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('muscleSplit sorts by contribution', sp.map(x => x.g).join() === 'Shoulders,Arms,Chest,Back', JSON.stringify(sp));
   T('muscleSplit rolls delts into Shoulders', sp.find(x => x.g === 'Shoulders').v === 4.5);
   const pctSum = sp.reduce((a, x) => a + x.pct, 0);
-  T('muscleSplit pcts ≈ 100', pctSum >= 98 && pctSum <= 102, pctSum);
+  T('muscleSplit pcts sum to exactly 100 (largest remainder)', pctSum === 100, pctSum);
+  // A split that rounds badly under independent rounding (1/3,1/3,1/3 → 33+33+33=99)
+  const thirds = muscleSplit([{ id: 'kb_curl', reps: [8] }, { id: 'dead_bugs_a', reps: [8] }, { id: 'calf_raise', reps: [8] }]);
+  T('largest-remainder fixes the thirds case', thirds.reduce((a, x) => a + x.pct, 0) === 100, JSON.stringify(thirds));
   T('muscleSplit counts zero-rep sets out', muscleSplit([{ id: 'ohp', reps: [6, 0, 0] }])[0].v === 1.5);
   T('muscleSplit is set-based: carries still count', muscleSplit([{ id: 'carry', reps: [1, 1, 1] }])[0].g === 'Core');
   T('muscleSplit ignores unknown ids', muscleSplit([{ id: 'nope', reps: [5] }]).length === 0);
@@ -1092,9 +1095,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20, 10) === '');
   T('heatColor under MEV → amber', /^rgba\(178,97,2,/.test(heatColor(4, 8, 20, 10)));
   T('heatColor MEV..MAV → green', /^rgba\(12,128,80,/.test(heatColor(12, 8, 20, 10)));
-  T('heatColor ≥MAV → strong cyan', heatColor(22, 8, 20, 10) === 'rgba(0,123,168,0.92)');
-  T('heatColor amber intensity rises with volume',
-    parseFloat(heatColor(6, 8, 20, 10).match(/,([\d.]+)\)$/)[1]) > parseFloat(heatColor(2, 8, 20, 10).match(/,([\d.]+)\)$/)[1]));
+  T('heatColor ≥MAV → strong cyan', heatColor(22, 8, 20, 10) === 'rgba(0,123,168,0.95)');
+  const alpha = c => parseFloat(c.match(/,([\d.]+)\)$/)[1]);
+  T('heatColor amber intensity rises with volume', alpha(heatColor(6, 8, 20, 10)) > alpha(heatColor(2, 8, 20, 10)));
+  // Crossing MEV upward must not fade: green at MEV ≥ amber just below MEV.
+  T('heatColor intensity is monotonic across the MEV boundary',
+    alpha(heatColor(8, 8, 20, 10)) > alpha(heatColor(7.9, 8, 20, 10)),
+    `${heatColor(7.9, 8, 20, 10)} vs ${heatColor(8, 8, 20, 10)}`);
   T('heatColor null-MEV muscle scales vs max', /^rgba\(0,123,168,/.test(heatColor(3, null, null, 6)));
   T('heatColor mev=0 (front delts) never divides by zero', /^rgba\(12,128,80,/.test(heatColor(3, 0, 12, 10)));
   // Every tracked muscle appears in at least one view.
