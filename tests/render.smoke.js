@@ -229,7 +229,7 @@ R.setSEG('lifts');
 R.render();
 const liftsSeg = R.getA();
 T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
-T('strength bar is full-spectrum with tier ticks', /std-tick/.test(liftsSeg));
+T('strength bars share one ladder scale (ticks at fixed 20/40/60/80)', /std-tick" style="left:20%"/.test(liftsSeg) && /std-tick" style="left:80%"/.test(liftsSeg));
 T('strength rows show current e1RM and next-tier target', /· e1RM [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg e1RM/.test(liftsSeg));
 // svgLine pads micro-ranges: a 55.3→55.5 series must not span the full chart height.
 {

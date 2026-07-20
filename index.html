@@ -2659,12 +2659,14 @@ let ti=0;for(let i=0;i<th.length;i++)if(ratio>=th[i])ti=i+1;
 const lo=ti===0?0:th[ti-1],hi=ti<th.length?th[ti]:th[th.length-1];
 const pct=ti>=th.length?100:Math.max(2,Math.min(100,Math.round((ratio-lo)/(hi-lo)*100)));
 const nextKg=ti<th.length?Math.round(th[ti]*bw*10)/10:null;
-// Full-spectrum view: fill across the WHOLE 0→Elite range plus the tier-boundary
-// tick positions — one bar tells the whole story instead of ambiguous within-tier %.
-const top=th[th.length-1];
-const spanPct=Math.max(2,Math.min(100,Math.round(ratio/top*100)));
-const ticks=th.slice(0,-1).map(t=>Math.round(t/top*100));
-out.push({lbl,ratio,e1rm:best,tier:TIERS[ti],tierIdx:ti,color:TIER_C[ti],pct,spanPct,ticks,next:ti<th.length?TIERS[ti+1]:null,nextKg})}
+// Tier-LADDER position: 5 equal visual bands (Beginner→Elite), fill = band index
+// + progress within it. Every lift shares ONE scale with ticks fixed at
+// 20/40/60/80%, so equal-looking bars mean equal ladder position — a raw-ratio
+// scale gave each row its own ruler (per-lift Elite thresholds) and four wildly
+// different ratios drew near-identical bars with drifting ticks.
+const f=ti>=th.length?1:Math.min(1,Math.max(0,(ratio-lo)/(hi-lo)));
+const ladderPct=Math.max(2,Math.min(100,Math.round((ti+f)/(th.length+1)*100)));
+out.push({lbl,ratio,e1rm:best,tier:TIERS[ti],tierIdx:ti,color:TIER_C[ti],pct,ladderPct,next:ti<th.length?TIERS[ti+1]:null,nextKg})}
 return out.length?{bw,lifts:out}:null}
 
 function exStats(exId){
@@ -3039,10 +3041,10 @@ const toGo=r.nextKg!=null?Math.max(0,Math.round((r.nextKg-r.e1rm)*10)/10):null;
 h+=`<div class="std-row">
 <div class="std-top"><span class="std-lift">${r.lbl} <span class="dm" style="font-weight:500">· e1RM ${r.e1rm}kg</span></span>
 <span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">${r.ratio}×</span><span class="std-tier" style="color:${r.color};background:${TIER_BG[r.tierIdx]}">${r.tier}</span></span></div>
-<div class="std-bar"><div class="std-fill" style="width:${r.spanPct}%;background:${r.color}"></div>
-${r.ticks.map(t=>`<div class="std-tick" style="left:${t}%"></div>`).join('')}</div>
+<div class="std-bar"><div class="std-fill" style="width:${r.ladderPct}%;background:${r.color}"></div>
+${[20,40,60,80].map(t=>`<div class="std-tick" style="left:${t}%"></div>`).join('')}</div>
 <div class="std-sub">${r.next?`${esc(r.next)} at ${r.nextKg}kg e1RM${toGo?` · +${toGo}kg to go`:''}`:'Top tier — Elite 🏆'}</div></div>`}
-h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight, on a 0 → Elite scale (ticks = tier boundaries). Approximate signposts for these lifts.</div></div>`}
+h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight. Bar = position on the 5-band tier ladder (equal bands: Beginner → Novice → Int → Adv → Elite) — same scale on every row. Approximate signposts for these lifts.</div></div>`}
 else if(logged.size){h+=`<div class="cd" style="text-align:center;padding:16px"><div style="font-size:20px;margin-bottom:4px">⚖️</div><div class="dm">Log your bodyweight in <b style="color:var(--pr)">Body Tracking</b> to unlock strength-level tiers (Novice → Elite) for your main lifts.</div></div>`}
 
 // Exercise deep-dive
