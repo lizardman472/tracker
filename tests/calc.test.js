@@ -324,6 +324,14 @@ T('relStrength null without bodyweight', relStrength() === null);
 d.bodyLog = [{ date: wk(3), weight: 80 }];
 const rs = relStrength();
 T('relStrength = best 60d e1RM ÷ BW', rs && rs.bw === 80 && rs.lifts.some(l => l.lbl === 'OHP' && l.ratio > 0.6 && l.ratio < 0.72), JSON.stringify(rs));
+// Full-spectrum bar fields: fill % of the 0→Elite range plus 3 ascending interior ticks.
+T('relStrength spanPct/ticks well-formed', rs.lifts.every(l =>
+  l.spanPct >= 2 && l.spanPct <= 100 && Array.isArray(l.ticks) && l.ticks.length === 3 &&
+  l.ticks.every((t, i, a) => t > 0 && t < 100 && (i === 0 || t > a[i - 1]))), JSON.stringify(rs.lifts));
+{ // OHP at ratio ~0.66 with thresholds [0.5,0.7,0.9,1.1] → spanPct ≈ 60, ticks 45/64/82
+  const o = rs.lifts.find(l => l.lbl === 'OHP');
+  T('relStrength spanPct spans the whole 0→Elite range', o && Math.abs(o.spanPct - Math.round(o.ratio / 1.1 * 100)) <= 1, JSON.stringify(o));
+}
 
 // ── core muscle group now tracked ──
 d = freshD();

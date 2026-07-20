@@ -316,10 +316,11 @@ svg text{font-family:var(--body)}
 .std-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .std-lift{font-size:12px;font-weight:700;color:var(--tx)}
 .std-ratio{font-family:var(--disp);font-size:14px;font-weight:900;color:var(--tx);font-variant-numeric:tabular-nums}
-.std-tier{font-family:var(--disp);font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border:1px solid;border-radius:5px;padding:2px 6px}
-.std-bar{height:7px;background:var(--ib);border-radius:4px;overflow:hidden;border:1px solid var(--cb)}
-.std-fill{height:100%;border-radius:4px;transition:width .4s ease}
-.std-sub{font-size:9px;color:var(--dm);margin-top:3px}
+.std-tier{font-family:var(--disp);font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border-radius:5px;padding:2.5px 7px}
+.std-bar{position:relative;height:8px;background:var(--ib);border-radius:4px;border:1px solid var(--cb)}
+.std-fill{position:absolute;top:0;left:0;bottom:0;border-radius:4px;transition:width .4s ease}
+.std-tick{position:absolute;top:-2px;bottom:-2px;width:1.5px;background:var(--ibr);border-radius:1px}
+.std-sub{font-size:9px;color:var(--dm);margin-top:4px}
 /* Progress tab: snapshot grid + stat strip */
 .snap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .snap-cell{background:var(--ib);border-radius:var(--rad-sm);padding:11px 8px;text-align:center}
@@ -327,7 +328,10 @@ svg text{font-family:var(--body)}
 .snap-num.alt{color:var(--bl)}.snap-num.alt2{color:var(--gr)}
 .snap-lbl{font-family:var(--disp);font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
 /* Progress-tab segment chips (sub-views replace the old single mega-scroll) */
-.seg-row{display:flex;gap:6px;margin:10px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.seg-row{display:flex;gap:6px;margin:10px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+/* right-edge fade signals there are more chips off-screen (scrollbar is hidden) */
+-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent);
+mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent)}
 .seg-row::-webkit-scrollbar{display:none}
 .seg-chip{flex:0 0 auto;padding:11px 15px;border-radius:20px;border:1px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;transition:.12s;-webkit-appearance:none;appearance:none}
 .seg-chip.on{background:var(--pr);border-color:var(--pr);color:var(--ink)}
@@ -1727,9 +1731,18 @@ opts=opts||{};
 if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">Need 2+ data points</div>`;
 const pad={t:22,r:18,b:28,l:36},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
 let vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals);
+const rawMn=mn;
 // A perfectly flat series (e.g. every week RPE 3) printed four identical tick
 // labels — pad the domain by ±1 so ticks differ and the line sits mid-chart.
 if(mx===mn){mn=mn-1;mx=mx+1}
+else{
+// Honest y-domain: pinning min..max exactly to the chart edges turned a
+// 55.3→55.5kg drift into a full-height "climb". Tiny ranges expand to a 5%-of-max
+// minimum span; everything gets 8% headroom top and bottom.
+const span=mx-mn,minSpan=Math.abs(mx)*0.05;
+if(span<minSpan){const c=(mx+mn)/2;mn=c-minSpan/2;mx=c+minSpan/2}
+else{mn-=span*0.08;mx+=span*0.08}
+if(rawMn>=0&&mn<0)mn=0}
 const rng=mx-mn||1;
 const pts=data.map((d,i)=>({x:pad.l+(i/(data.length-1))*w,y:pad.t+h-((d.v-mn)/rng)*h,...d}));
 const gid='g'+Math.random().toString(36).slice(2,7);
@@ -2616,7 +2629,10 @@ out.sort((a,b)=>b.slope-a.slope);return out}
 // certified standards table. ──
 const STD={hex_dl:[1.1,1.6,2.1,2.6],hex_squat_b:[1.0,1.5,2.0,2.5],ohp:[0.5,0.7,0.9,1.1],floor_press:[0.75,1.0,1.25,1.5]};
 const TIERS=['Beginner','Novice','Intermediate','Advanced','Elite'];
-const TIER_C=['var(--mu)','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
+// Beginner is slate (not the dead gray --mu) so a card full of Beginner lifts still
+// has life; TIER_BG are the matching light tints for filled chips.
+const TIER_C=['#64748b','var(--bl)','var(--gr)','var(--pr)','var(--am)'];
+const TIER_BG=['var(--ib)','var(--bll)','var(--grl)','var(--prl)','var(--aml)'];
 // ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
 function relStrength(){
 const bw=[...(D.bodyLog||[])].reverse().find(b=>b.weight)?.weight;if(!bw)return null;
@@ -2632,7 +2648,12 @@ let ti=0;for(let i=0;i<th.length;i++)if(ratio>=th[i])ti=i+1;
 const lo=ti===0?0:th[ti-1],hi=ti<th.length?th[ti]:th[th.length-1];
 const pct=ti>=th.length?100:Math.max(2,Math.min(100,Math.round((ratio-lo)/(hi-lo)*100)));
 const nextKg=ti<th.length?Math.round(th[ti]*bw*10)/10:null;
-out.push({lbl,ratio,e1rm:best,tier:TIERS[ti],tierIdx:ti,color:TIER_C[ti],pct,next:ti<th.length?TIERS[ti+1]:null,nextKg})}
+// Full-spectrum view: fill across the WHOLE 0→Elite range plus the tier-boundary
+// tick positions — one bar tells the whole story instead of ambiguous within-tier %.
+const top=th[th.length-1];
+const spanPct=Math.max(2,Math.min(100,Math.round(ratio/top*100)));
+const ticks=th.slice(0,-1).map(t=>Math.round(t/top*100));
+out.push({lbl,ratio,e1rm:best,tier:TIERS[ti],tierIdx:ti,color:TIER_C[ti],pct,spanPct,ticks,next:ti<th.length?TIERS[ti+1]:null,nextKg})}
 return out.length?{bw,lifts:out}:null}
 
 function exStats(exId){
@@ -2981,19 +3002,23 @@ let pickIds=ALL_EX.filter(e=>STAT_ALL||logged.has(e.id)||prog.has(e.id)).map(e=>
 if(!pickIds.includes(STAT_EX))pickIds.unshift(STAT_EX);
 const selEx=ALL_EX.find(e=>e.id===STAT_EX);
 const es=exStats(STAT_EX);
-const wtD=hist.filter(h=>h.wt).map(h=>({v:h.wt,l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+// Top-set weight (exMaxWt) — plotting the working weight alone hid heavier
+// per-set overrides from the chart entirely.
+const wtD=hist.map(h=>({v:exMaxWt(h),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})})).filter(d=>d.v>0);
 const e1D=hist.map(h=>({v:exSetE1RMMax(selEx,h),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})})).filter(d=>d.v>0);
 
 // Relative strength (only renders once a bodyweight is logged in Body Tracking)
 const rel=relStrength();
 if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Strength Level <span class="dm" style="font-weight:400;text-transform:none;letter-spacing:0">· vs ${rel.bw}kg bodyweight</span></div>`;
 for(const r of rel.lifts){
+const toGo=r.nextKg!=null?Math.max(0,Math.round((r.nextKg-r.e1rm)*10)/10):null;
 h+=`<div class="std-row">
-<div class="std-top"><span class="std-lift">${r.lbl}</span>
-<span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">${r.ratio}×</span><span class="std-tier" style="color:${r.color};border-color:${r.color}">${r.tier}</span></span></div>
-<div class="std-bar"><div class="std-fill" style="width:${r.pct}%;background:${r.color}"></div></div>
-<div class="std-sub">${r.next?`${r.nextKg}kg e1RM → ${r.next}`:'Top tier — Elite 🏆'}</div></div>`}
-h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight. Tiers are approximate signposts for these lifts.</div></div>`}
+<div class="std-top"><span class="std-lift">${r.lbl} <span class="dm" style="font-weight:500">· e1RM ${r.e1rm}kg</span></span>
+<span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">${r.ratio}×</span><span class="std-tier" style="color:${r.color};background:${TIER_BG[r.tierIdx]}">${r.tier}</span></span></div>
+<div class="std-bar"><div class="std-fill" style="width:${r.spanPct}%;background:${r.color}"></div>
+${r.ticks.map(t=>`<div class="std-tick" style="left:${t}%"></div>`).join('')}</div>
+<div class="std-sub">${r.next?`${esc(r.next)} at ${r.nextKg}kg e1RM${toGo?` · +${toGo}kg to go`:''}`:'Top tier — Elite 🏆'}</div></div>`}
+h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight, on a 0 → Elite scale (ticks = tier boundaries). Approximate signposts for these lifts.</div></div>`}
 else if(logged.size){h+=`<div class="cd" style="text-align:center;padding:16px"><div style="font-size:20px;margin-bottom:4px">⚖️</div><div class="dm">Log your bodyweight in <b style="color:var(--pr)">Body Tracking</b> to unlock strength-level tiers (Novice → Elite) for your main lifts.</div></div>`}
 
 // Exercise deep-dive
@@ -3057,7 +3082,7 @@ const lastPr=liftPrs[0];
 if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
 ${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
 ${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
-h+=`<div class="cd">${svgLine(wtD,360,170,'#007ba8','Weight (kg)')}</div>`;
+h+=`<div class="cd">${svgLine(wtD,360,170,'#007ba8','Top-Set Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp)){
 // Mark every new all-time-high on the chart itself (running max over the same
 // points the line plots — self-consistent with what the eye sees).
@@ -3328,7 +3353,10 @@ if(allPrs.length>8)h+=`<div style="text-align:center;margin-top:4px"><button cla
 h+=`</div>`}
 h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="go('body')">📏 Body Tracking</button>`;
 }
-h+=`</div>`;el.innerHTML=h}
+h+=`</div>`;el.innerHTML=h;
+// The chip row scrolls with a hidden scrollbar — keep the active segment visible
+// (Monthly/Lifetime start off-screen on phones). block:'nearest' avoids page jumps.
+setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}},60)}
 
 // ─── BODY ────────────────────────────────────
 // Body-composition tracking: bodyweight (scale) + circumference sites (tape

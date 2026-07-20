@@ -228,6 +228,15 @@ R.setSEG('lifts');
 R.render();
 const liftsSeg = R.getA();
 T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
+T('strength bar is full-spectrum with tier ticks', /std-tick/.test(liftsSeg));
+T('strength rows show current e1RM and next-tier target', /· e1RM [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg e1RM/.test(liftsSeg));
+// svgLine pads micro-ranges: a 55.3→55.5 series must not span the full chart height.
+{
+  const line = svgLine([{ v: 55.3, l: 'a' }, { v: 55.5, l: 'b' }, { v: 55.5, l: 'c' }], 360, 170, '#000', 't');
+  const ticks = (line.match(/>([\d.]+)<\/text>/g) || []).map(s => parseFloat(s.slice(1)));
+  T('svgLine pads a micro-range above the data max', ticks.some(t => t > 55.6), JSON.stringify(ticks));
+  T('svgLine pads a micro-range below the data min', ticks.some(t => t < 55.2 && t > 50), JSON.stringify(ticks));
+}
 T('strength card has no retired Zercher/straight-deadlift rows', !/std-lift">Zercher/.test(liftsSeg) && !/std-lift">Deadlift</.test(liftsSeg));
 T('balance muscle card is NOT rendered on the Lifts segment', !/Weekly Volume by Muscle/.test(liftsSeg));
 
