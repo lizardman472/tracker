@@ -164,15 +164,24 @@ R.getLOG()['hex_carry'].wt = 30;
   T('removeSet pops back to the programmed count', log.reps.length === n0);
   removeSet('hex_dl');
   T('removeSet never drops below the programmed count', log.reps.length === n0);
-  // finishW persists resolved per-set weights only when an override differs.
+  // Ticks-required finish: cancel path first — unchecked typed sets trigger the
+  // confirm, and declining returns to the workout with nothing lost.
+  global.confirm = () => false;
+  R.finishW();
+  T('declining the discard-confirm stays on the workout', /set-gr set-hd/.test(R.getA()));
+  // Accept path: set 3 gets ticked; other exercises' prefilled reps stay unticked
+  // and are dropped from the save (the old phantom-session guard, now via ticks).
+  let confirmMsg = null;
+  global.confirm = m => { confirmMsg = m; return true; };
   toggleSetDone('hex_dl', 2);
   R.finishW();
+  delete global.confirm;
+  T('finish confirms before discarding unchecked sets', /checked off/.test(confirmMsg || ''), confirmMsg);
   const S = global.window._S;
+  T('only ticked exercises reach the save', S.exs.length === 1 && S.exs[0].id === 'hex_dl', JSON.stringify(S.exs.map(e => e.id)));
   const hx = S.exs.find(e => e.id === 'hex_dl');
   T('finishW resolves wts fully when a set differs', JSON.stringify(hx.wts) === '[40,45,40]', JSON.stringify(hx.wts));
-  T('finishW tonnage prices overrides per set', S.tv >= 40 * 5 + 45 * 5 + 40 * 5, S.tv);
-  const uniform = S.exs.filter(e => e.id !== 'hex_dl');
-  T('uniform-weight entries keep the lean legacy shape (no wts)', uniform.every(e => e.wts === undefined));
+  T('summary totals equal the live header (checked sets only)', S.ts === 3 && S.tv === 40 * 5 + 45 * 5 + 40 * 5, JSON.stringify([S.ts, S.tv]));
   T('summary shows the per-workout muscle split', /Muscle Split/.test(R.getA()) && /msp-row/.test(R.getA()));
   // resumed old-build blobs get wts crash-proofed
   R.setCIDX(0);
@@ -371,6 +380,7 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   R.beginW('A');
   const log = R.getLOG()['hex_dl'];
   log.touched = true; log.wt = 40; log.reps = ['5', '5', '5'];
+  log.setDone = [true, true, true]; // ticks-required finish: only checked sets save
   tryRender('finishW → summary', () => R.finishW());
   T('AW backup survives finishW (summary not yet saved)', store[R.AW_KEY] != null);
   R.setSDIFF(3);

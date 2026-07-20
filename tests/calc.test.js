@@ -989,6 +989,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     exSetE1RMMax(dlDef, { wt: 50, reps: [5, 4, 3] }) === e1rm(50, 5));
   T('exSetE1RMMax scores override sets at their own weight',
     exSetE1RMMax(dlDef, { wt: 40, reps: [8, 5], wts: [null, 55] }) === Math.max(e1rm(40, 8), e1rm(55, 5)));
+  // Regression: a zero-rep set BEFORE an override must not shift the wts index —
+  // the compacted-effectiveReps walk priced the 6-rep set at 40 instead of 50.
+  T('exSetE1RMMax keeps wts aligned across interior zero-rep sets',
+    exSetE1RMMax(dlDef, { wt: 40, reps: [8, 0, 6], wts: [40, 40, 50] }) === Math.max(e1rm(40, 8), e1rm(50, 6)));
+  // Regression: all sets overridden LIGHTER than the working weight — the best is
+  // what was lifted (35), not the untouched stepper value (40).
+  T('exMaxWt does not seed the unlifted working weight', exMaxWt({ wt: 40, reps: [5, 5], wts: [35, 35] }) === 35);
 
   // PRs from override sets
   let d = freshD();
@@ -997,6 +1004,9 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('checkPR no WT when overrides stay below best', !checkPR('hex_dl', 45, [5, 5], [null, 48]).includes('WT'));
   T('checkPR E1RM from an override set (weight below best)',
     checkPR('hex_dl', 40, [8], [48]).includes('E1RM'));
+  // Strength PRs only: a pure volume PR (same weight, same best-set reps, more sets)
+  // must mint nothing — the summary badge, PR feed and Monthly count all agree.
+  T('checkPR never mints VOL', checkPR('hex_dl', 50, [5, 5, 5, 5, 5, 5]).length === 0);
   d.sessions.push({ id: 'w2', date: '2026-06-05', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5], wts: [null, 55], band: '' }] });
   T('getPRs bestWt sees stored overrides', getPRs('hex_dl').bestWt === 55);
   T('recentPRs mints the weight PR from the override set',

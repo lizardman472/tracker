@@ -1154,10 +1154,14 @@ return wt*mult*vr.reduce((a,b)=>a+b,0)}
 function setWt(e,i){const w=Array.isArray(e.wts)?Number(e.wts[i]):NaN;
 return Number.isFinite(w)&&w>0?w:(Number(e.wt)>0?Number(e.wt):null)}
 // Heaviest weight actually lifted in an entry (only sets with positive reps count) — the
-// weight-PR basis once per-set overrides exist. No-wts entries resolve to plain e.wt.
-function exMaxWt(e){let m=Number(e.wt)>0?Number(e.wt):0;
-if(Array.isArray(e.wts)){const rr=e.reps||[];
-for(let i=0;i<e.wts.length;i++){const w=Number(e.wts[i]);if(Number(rr[i])>0&&w>m)m=w}}
+// weight-PR basis once per-set overrides exist. No-wts entries resolve to plain e.wt;
+// WITH overrides the working weight is NOT seeded in — if every set was overridden
+// lighter (wt 40, all sets at 35), the best is 35, not a 40 nobody lifted.
+function exMaxWt(e){
+if(!Array.isArray(e.wts))return Number(e.wt)>0?Number(e.wt):0;
+const rr=e.reps||[];let m=0;
+for(let i=0;i<rr.length;i++){if(!(Number(rr[i])>0))continue;
+const w=setWt(e,i);if(w>m)m=w}
 return m}
 // Live in-workout totals from the LOG global's shape: only CHECKED sets count
 // (the Hevy semantic — the header shows work banked, not work planned).
@@ -1595,9 +1599,13 @@ const E1RM_TYPES=new Set(['bb','db','kb','mace','club']);
 // e1rm(wt, max reps) exactly (e1rmF is monotonic in reps), so old data is unchanged.
 // exSetE1RMMax is ungated (trend fitters guard type at the call site); exBestE1RM
 // applies the E1RM_TYPES gate for PR minting.
+// NOTE: walks the RAW reps array (not effectiveReps, which filters+compacts) — a
+// compacted index read against e.wts[i] scored the wrong set's weight whenever an
+// override session had a zero-rep set before a later set (reps [8,0,6] + wts
+// [40,40,50] priced the 6-rep set at 40).
 function exSetE1RMMax(def,e){
-const eR=effectiveReps(def,e.reps);let be=0;
-for(let i=0;i<eR.length;i++){const r=eR[i];if(!(r>0))continue;
+const rr=e.reps||[];let be=0;
+for(let i=0;i<rr.length;i++){const r=Number(rr[i]);if(!(r>0))continue;
 const w=setWt(e,i);if(!w)continue;const x=e1rm(w,r);if(x>be)be=x}
 return be}
 function exBestE1RM(def,e){return def&&E1RM_TYPES.has(def.tp)?exSetE1RMMax(def,e):0}
@@ -1607,14 +1615,16 @@ const vol=calcExVol(e.id,e.wt,e.reps,e.wts);
 const mw=exMaxWt(e);if(mw>bw)bw=mw;if(vol>bv)bv=vol;
 const x=exBestE1RM(def,e);if(x>be)be=x}
 return{bestWt:bw,bestVol:bv,bestE1RM:Math.round(be*10)/10}}
+// Strength PRs only (weight / e1RM) — volume "PRs" fire constantly under progressive
+// overload and were never tracked by the Recent-PRs feed or the Monthly count, so a
+// summary badge for them just made the screens disagree.
 function checkPR(exId,wt,reps,wts){const pr=getPRs(exId),vr=reps.filter(r=>r>0);if(!vr.length)return[];const ps=[];
-const vol=calcExVol(exId,wt,reps,wts);
 // e1RM PR catches a strength gain that isn't a top-weight PR (e.g. more reps at the same load).
 const def=ALL_EX.find(x=>x.id===exId),entry={wt,reps,wts};
 const mw=exMaxWt(entry),e=exBestE1RM(def,entry);
 if(mw&&mw>pr.bestWt&&pr.bestWt>0)ps.push('WT');
 else if(mw&&e>pr.bestE1RM&&pr.bestE1RM>0)ps.push('E1RM');
-if(vol>pr.bestVol&&pr.bestVol>0)ps.push('VOL');return ps}
+return ps}
 // Rep→1RM multiplier. Epley (1+r/30) tracks well at low reps but turns optimistic
 // past ~10; Lombardi (r^0.1) is the conservative curve there. min() of the two is
 // continuous (crossover ≈6 reps: Epley wins at 5, Lombardi from 6 up) and keeps
@@ -2126,9 +2136,11 @@ h+=`<div class="work-sticky">
 <div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div></div>`;
 
 // Progress
-// "done" requires the exercise to have been touched — prefilled last-session reps
-// alone don't count, otherwise every exercise with history shows complete at start.
-const exDone=l=>l&&(((l.touched||!l.pf)&&l.reps.every(r=>r!==''&&Number(r)>0))||(l.setDone&&l.setDone.every(d=>d)));
+// Tick-based "done" (matches the ticks-required finish): every set with reps must be
+// checked. Prefilled last-session reps alone can't count — they carry no ticks.
+const exDone=l=>{if(!l)return false;const rr=l.reps||[],done=l.setDone||[];
+let any=false;for(let i=0;i<rr.length;i++){if(rr[i]!==''&&Number(rr[i])>0){any=true;if(!done[i])return false}}
+return any||(done.length>0&&done.every(Boolean))};
 const dC=exs.filter((_,i)=>exDone(LOG[exs[i].id])).length;
 h+=`<div class="prog-strip">`;for(let i=0;i<exs.length;i++){const l=LOG[exs[i].id];
 const dn=exDone(l);
@@ -2152,7 +2164,7 @@ h+=`</div>`}h+=`</div>`;
 for(let idx=0;idx<exs.length;idx++){
 const ex=exs[idx],log=LOG[ex.id];if(!log)continue;
 const isCur=idx===CIDX;
-const isDone=((log.touched||!log.pf)&&log.reps.every(r=>r!==''&&Number(r)>0))||(log.setDone&&log.setDone.every(d=>d));
+const isDone=exDone(log);
 const last=getLast(ex.id),sg=getSmartSugg(ex),cue=D.cues[ex.id];
 
 if(isDone&&!isCur){
@@ -2372,17 +2384,27 @@ if(v!==null){if(v.trim())D.cues[exId]=v.trim();else delete D.cues[exId];save();r
 
 // ─── FINISH + SUMMARY ─────────────────────────
 function finishW(){
-// Only log exercises the user actually interacted with — untouched prefilled
-// reps would otherwise save phantom sessions for skipped exercises and feed
-// fake "sessions at weight" into the progression engine.
-const logged=Object.entries(LOG).filter(([,v])=>(v.touched||!v.pf)&&v.reps.some(r=>r!==''&&Number(r)>0))
-  .map(([id,v])=>{const reps=v.reps.map(r=>r===''?0:Number(r));const wt=v.wt?Number(v.wt):null;
+// Hevy-style: a set counts ONLY when checked off — the tick is the explicit "this
+// happened" signal. This also makes the live header and the summary agree by
+// construction (liveStats counts checked sets too), and it replaces the old
+// touched/pf phantom-session guard: prefilled reps without ticks save nothing.
+// Typed-but-unchecked sets are discarded, but never silently — confirm first.
+let dropped=0;
+for(const v of Object.values(LOG)){const done=v.setDone||[];
+  for(let i=0;i<v.reps.length;i++)if(Number(v.reps[i])>0&&!done[i])dropped++}
+if(dropped&&typeof confirm==='function'&&!confirm(`${dropped} set${dropped>1?'s':''} with reps ${dropped>1?"aren't":"isn't"} checked off (✓) and won't be saved. Finish anyway?`))return;
+const logged=Object.entries(LOG).map(([id,v])=>{
+  const done=v.setDone||[];
+  // Unchecked sets zero out IN PLACE — positions must survive so wts stays aligned.
+  const reps=v.reps.map((r,i)=>done[i]&&Number(r)>0?Number(r):0);
+  if(!reps.some(r=>r>0))return null;
+  const wt=v.wt?Number(v.wt):null;
   const row={id,wt,reps,band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes};
   // Per-set overrides persist (fully resolved) ONLY when some counted set actually
   // differs from the working weight — uniform sessions keep the lean legacy shape.
   const ov=(v.wts||[]).map(w=>Number(w)>0?Number(w):null);
   if(ov.some((w,i)=>w!=null&&reps[i]>0&&!wEq(w,wt)))row.wts=reps.map((_,i)=>ov[i]??wt);
-  return row});
+  return row}).filter(Boolean);
 if(!logged.length)return;
 const prs=[];for(const e of logged){const p=checkPR(e.id,e.wt,e.reps,e.wts);if(p.length)prs.push({nm:ALL_EX.find(x=>x.id===e.id)?.nm||e.id})}
 let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.length;tr+=vr.reduce((a,b)=>a+b,0);tv+=calcExVol(e.id,e.wt,e.reps,e.wts)}
