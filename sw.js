@@ -2,11 +2,23 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v69';
+const C = 'rft-v70';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+});
+
+// Tapping a rest-done notification (fired via reg.showNotification) should bring the app
+// forward rather than open a duplicate tab — focus an existing client, else open one.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      for (const c of cs) { if ('focus' in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow('./');
+    })
+  );
 });
 
 self.addEventListener('activate', e => {
