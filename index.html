@@ -996,7 +996,7 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -1934,7 +1934,9 @@ if(typeof document!=='undefined'&&document.visibilityState==='visible')return; /
 // Fire via the service worker when possible: reg.showNotification honours requireInteraction
 // + vibrate + renotify (page-context new Notification does not on most mobile browsers), so the
 // lock-screen ping is as persistent as a backend-less PWA can manage. Falls back to new Notification.
-const opts={body:'Back to it — next set.',tag:'rft-rest',renotify:true,requireInteraction:true,silent:false,vibrate:[400,150,400,150,400]};
+const ic=notifIcon();
+const opts={body:'Back to it — next set.',tag:'rft-rest',renotify:true,requireInteraction:true,silent:false,vibrate:[500,200,500,200,500,200,500]};
+if(ic){opts.icon=ic;opts.badge=ic}
 try{if(navigator.serviceWorker&&navigator.serviceWorker.ready){
 navigator.serviceWorker.ready.then(reg=>reg.showNotification('Rest complete 💪',opts)).catch(()=>{try{new Notification('Rest complete 💪',opts)}catch(e){}});
 }else{new Notification('Rest complete 💪',opts)}}catch(e){}}
@@ -1949,11 +1951,20 @@ function clearTimer(){if(TIV)clearInterval(TIV);TIV=null;stopAlarm();TIMER=null;
 // Rest-done alarm controller — loud repeating triple-beep + strong repeating buzz, paired
 // with the full-screen takeover (rendered by rTimer). Persists until dismissed; a safety cap
 // stops the SOUND after ~60s so it never rings unattended forever (the overlay stays up).
-function startAlarm(){stopAlarm();playAlarmBurst();try{navigator.vibrate([400,150,400,150,400])}catch(e){}
+function startAlarm(){stopAlarm();try{navigator.setAppBadge?.(1)}catch(e){}playAlarmBurst();try{navigator.vibrate([500,200,500,200,500,200,500])}catch(e){}
 let n=0;ALARM_IV=setInterval(()=>{if(!TIMER||!TIMER.done||TIMER.dismissed||n++>=38){if(ALARM_IV){clearInterval(ALARM_IV);ALARM_IV=null}return}
-playAlarmBurst();try{navigator.vibrate([400,150,400,150,400])}catch(e){}},1600);rTimer()}
-function stopAlarm(){if(ALARM_IV){clearInterval(ALARM_IV);ALARM_IV=null}try{navigator.vibrate(0)}catch(e){}}
+playAlarmBurst();try{navigator.vibrate([500,200,500,200,500,200,500])}catch(e){}},1600);rTimer()}
+function stopAlarm(){if(ALARM_IV){clearInterval(ALARM_IV);ALARM_IV=null}try{navigator.vibrate(0)}catch(e){}try{navigator.clearAppBadge?.()}catch(e){}}
 function dismissAlarm(){if(TIMER)TIMER.dismissed=true;stopAlarm();rTimer()}
+// Screen Wake Lock — hold the display awake while a workout is active (SS!=null) so the
+// on-screen alarm (audio+buzz+takeover) still fires when the phone is set down. The browser
+// auto-releases the lock when the tab hides/locks, so we re-request it on visibilitychange
+// (see INIT). Device-local toggle lives in D.notify.wake (default on).
+let WL_REQ=false;
+async function acquireWake(){try{if(!('wakeLock'in navigator))return;if(D.notify&&D.notify.wake===false)return;if(SS==null||WL||WL_REQ)return;
+WL_REQ=true;const w=await navigator.wakeLock.request('screen');WL_REQ=false;WL=w;WL.addEventListener('release',()=>{WL=null})}catch(e){WL_REQ=false;WL=null}}
+function releaseWake(){try{if(WL){WL.release();WL=null}}catch(e){WL=null}}
+function toggleWake(){D.notify=D.notify||{enabled:false,rest:true};D.notify.wake=!(D.notify.wake!==false);save();if(D.notify.wake)acquireWake();else releaseWake();render()}
 // iOS/Safari require an AudioContext created (or resumed) inside a user gesture — one
 // spun up cold at timer-end after backgrounding stays suspended and the beep is silent.
 // initAC is armed from the first touch/click (see INIT) and reused here.
@@ -1967,6 +1978,12 @@ const t0=a.currentTime,pulse=(i,f)=>{const st=t0+i*.16,o=a.createOscillator(),g=
 g.gain.setValueAtTime(0,st);g.gain.linearRampToValueAtTime(.55,st+.012);g.gain.setValueAtTime(.55,st+.10);g.gain.linearRampToValueAtTime(0,st+.12);
 o.connect(g);g.connect(a.destination);o.start(st);o.stop(st+.13)};
 pulse(0,1000);pulse(1,1000);pulse(2,1300)}catch(e){}}
+// Notification icon — the repo ships no raster image, and Android won't render an SVG
+// data-URI notification icon, so rasterize a small 💪 badge to a PNG once and cache it.
+let NOTIF_ICON=null;
+function notifIcon(){if(NOTIF_ICON!=null)return NOTIF_ICON;try{const c=document.createElement('canvas');c.width=c.height=96;const x=c.getContext('2d');
+x.fillStyle='#0c8050';x.fillRect(0,0,96,96);x.font='60px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('💪',48,54);
+NOTIF_ICON=c.toDataURL('image/png')}catch(e){NOTIF_ICON=''}return NOTIF_ICON}
 function rTimer(){const el=document.getElementById('timer-root'),ov=document.getElementById('alarm-root');
 // While the pill floats, pad the page bottom so it never sits ON the Next/Finish button.
 try{document.body.style.paddingBottom=TIMER?'calc(100px + var(--sab))':''}catch(e){}
@@ -2266,7 +2283,7 @@ if(checkResume()&&typeof confirm==='function'&&!confirm('You have an unfinished 
 ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
-saveAW();VIEW='workout';render();window.scrollTo(0,0)}
+saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
 function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
 SNOTES=typeof r.notes==='string'?r.notes:'';
@@ -2284,7 +2301,7 @@ for(const ex of dayExs(ADAY))ensureLog(ex);
 // A drifted blob may carry a cidx beyond the current day's exercise count — clamp so
 // the workout screen never opens on a nonexistent slot.
 CIDX=Math.min(CIDX,Math.max(0,dayExs(ADAY).length-1));
-VIEW='workout';render();window.scrollTo(0,0)}
+VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
 function rWork(el){
 const exs=dayExs(ADAY);const isP=D.location==='partner';
@@ -2554,7 +2571,7 @@ const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===sco
 for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
-function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();go('home')}
+function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();releaseWake();go('home')}
 // Re-render on disarm — without it the button kept saying "Confirm" after the 3s
 // window closed, so the next tap silently re-armed instead of cancelling.
 else{CANCEL_ARMED=true;setTimeout(()=>{if(CANCEL_ARMED){CANCEL_ARMED=false;render()}},3000);render()}}
@@ -2642,7 +2659,7 @@ if(!save()){
   D.sessions.pop();D.discomfort.length=dN;saveAW();
   alert('⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.');
   return}
-clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();go('home')}
+clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')}
 
 
 // ─── CARDIO ──────────────────────────────────
@@ -3785,6 +3802,13 @@ else{h+=`<div style="display:flex;justify-content:space-between;align-items:cent
 <button class="btn btn-wh btn-sm" onclick="notifyRestDone.__test=1;(function(){try{new Notification('Test ping 🔔',{body:'Notifications are working.',tag:'rft-test'})}catch(e){}})()">Send test ping</button>
 <div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled "train today" reminders aren't possible without a server.</div>`;}
 h+=`</div>`;}
+h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Screen</div>`;
+if('wakeLock'in navigator){const wkOn=!(D.notify&&D.notify.wake===false);
+h+=`<div class="cd"><div style="display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:12px;font-weight:600">Keep screen awake during workouts</span>
+<button class="toggle${wkOn?' on':''}" aria-pressed="${wkOn}" onclick="toggleWake()"><span class="toggle-dot"></span></button></div>
+<div class="dm" style="margin-top:6px">Stops the screen sleeping mid-workout so the rest alarm always fires on time. Uses a little more battery; only held while a workout is in progress.</div></div>`;}
+else h+=`<div class="cd"><div class="dm">This browser can't keep the screen awake.</div></div>`;
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Current: <strong>Phase ${phi.phase} — ${phi.name}</strong> (Week ${phi.wk}/${phi.maxWk})</div>
 <div style="display:flex;gap:6px">`;
@@ -3941,7 +3965,10 @@ alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${s
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
-load();applyTheme();render();
+load();applyTheme();render();acquireWake();
+// Screen Wake Lock is auto-released when the tab hides/locks — re-acquire it when the user
+// returns to a still-active workout so the rest alarm keeps firing on time.
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SS!=null)acquireWake()});
 // Re-theme live when the phone flips its scheme (only matters on 'auto').
 try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();render()})}catch(e){}
 // Arm the shared AudioContext from the first user gesture (iOS requirement — a context
