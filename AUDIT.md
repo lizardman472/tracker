@@ -152,7 +152,8 @@ The user chose the recommended default for every open decision. Applied and test
 - **P5 · Phase-3 quality slots** — `bb_rear_row` and `cossack_squat` removed from the P3
   adj map; they now fall back to their base hypertrophy ranges (12-15 / 8-side) instead of
   heavy strength loading that contradicted the rear-delt coach note. They still periodize
-  P1→P2 (membership intact — not a dead exemption).
+  P1→P2 (membership intact — not a dead exemption). *(v17: the frontal-plane slot is now
+  `lm_lateral_squat` — Landmine Lateral Squat — with the same P3 fallback treatment.)*
 - **P6 · Small slot fixes** — (a) `lm_pallof` tempo `2-2-1-0` → `2-0-1-2`, moving the pause
   to the press-out hold (the loaded anti-rotation position) instead of the relaxed chest;
   (c) home `dead_bugs_a` gained a control-over-load note mirroring the partner version;

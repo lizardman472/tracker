@@ -69,8 +69,8 @@ T('repmin steps/side', getRepMin({ rp: '30-40 steps/side', tg: 40 }) === 30);
 function freshD(over) { setD(structuredClone(SEED)); const d = getD(); d.discomfort = []; d.location = 'home'; d.phase = 1; Object.assign(d, over || {}); return d; }
 
 let d = freshD();
-d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'cossack_squat', wt: 21, reps: [8, 8, 8], band: '' }] }];
-let sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'cossack_squat'));
+d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'lm_lateral_squat', wt: 21, reps: [8, 8, 8], band: '' }] }];
+let sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_lateral_squat'));
 T('per-side hit-target → up', sg.type === 'up', JSON.stringify(sg));
 
 d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [15, 15], band: 'Purple' }] }];
@@ -212,7 +212,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 16 (no migrate re-fire)', freshState().programVersion === 16);
+T('freshState carries programVersion 17 (no migrate re-fire)', freshState().programVersion === 17);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -258,7 +258,7 @@ T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
 // Swapped-out ids are gone from the adj map.
 T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
 // Loaded accessories now periodize like their partner counterparts.
-T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('oh_triceps_ext') && PA.has('hex_floor_press') && PA.has('cossack_squat'));
+T('bb_curl periodizes (accessory parity with db_curl)', PA.has('bb_curl') && PA.has('bb_rear_row') && PA.has('oh_triceps_ext') && PA.has('hex_floor_press') && PA.has('lm_lateral_squat'));
 T('bb_skullcr adj entry retired with the v13 swap', !PA.has('bb_skullcr'));
 // lm_lateral actually re-anchors lighter into Hypertrophy (proves the swap-id wiring works).
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
@@ -876,13 +876,16 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 16', SEED.programVersion === 16);
+  T('SEED carries programVersion 17', SEED.programVersion === 17);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
   migrateToV13(sClone);
   migrateToV14(sClone);
-  T('migrateToV12/13/14 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  migrateToV15(sClone);
+  migrateToV16(sClone);
+  migrateToV17(sClone);
+  T('migrateToV12..17 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
@@ -1038,6 +1041,10 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const m = migrateToV15({ programVersion: 14, sessions: [{ marker: 1 }] });
   T('migrateToV15 stamps 15, touches nothing else', m.programVersion === 15 && m.sessions[0].marker === 1);
   T('migrateToV15 idempotent', migrateToV15({ programVersion: 15, x: 7 }).x === 7);
+  // v17 (Cossack → Landmine Lateral Squat) is content-only — stamps the version, nothing else.
+  const m17 = migrateToV17({ programVersion: 16, sessions: [{ marker: 1 }] });
+  T('migrateToV17 stamps 17, touches nothing else', m17.programVersion === 17 && m17.sessions[0].marker === 1);
+  T('migrateToV17 idempotent', migrateToV17({ programVersion: 17, x: 7 }).x === 7);
   // Theme preference: additive field, defaulted on load, garbage coerced to auto.
   load();
   T('load defaults theme to auto', getD().theme === 'auto', getD().theme);
