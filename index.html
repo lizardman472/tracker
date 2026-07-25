@@ -527,16 +527,17 @@ h+='</div>';return h}
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},cossack_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},oh_triceps_ext:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},oh_triceps_ext:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10/side',tg:10},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Loads re-anchor ~5-10% lighter.',
-  adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},cossack_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},oh_triceps_ext:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
+  adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},lm_lateral_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},oh_triceps_ext:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12/side',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
-  // cossack_squat + bb_rear_row are DELIBERATELY absent from the P3 map (like band_er):
+  // lm_lateral_squat + bb_rear_row are DELIBERATELY absent from the P3 map (like band_er):
   // they're quality/ROM slots. Loading a rear-delt row to a heavy 10-12 contradicts its own
-  // coach note, and a strength-loaded Cossack gains nothing from grinding 6/side. With no P3
-  // entry they fall back to their BASE hypertrophy ranges (bb_rear_row 12-15, cossack 8/side).
+  // coach note, and the landmine lateral squat stays a frontal-plane mobility/ROM slot — a
+  // strength range gains nothing there. With no P3 entry they fall back to their BASE
+  // hypertrophy ranges (bb_rear_row 12-15, lm_lateral_squat 8/side).
   adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},lm_lateral:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},oh_triceps_ext:{rp:'8-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8/side',tg:8},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
 
@@ -582,7 +583,7 @@ B:[
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
 {id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'2:10',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:130,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
-{id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',rl:'Front-loaded with bar. Frontal plane.',tg:8,rstS:50,tempo:'3-1-2-0',perSide:true},
+{id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:50,tempo:'3-1-2-0',perSide:true},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:40',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:100,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:15',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:75,tempo:'3-1-1-0',perSide:false},
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:15',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:75,tempo:'3-1-2-0',perSide:false},
@@ -686,6 +687,13 @@ C:[
 // left/right imbalance work the bilateral squats can't do. (The pull-up 4→3 trim that
 // shipped with v14 was reverted same-day — pull-ups stay at 4 sets.)
 // Home day counts: A=9 B=8 C=10 (v16 dropped calf raise + bird dog from Day C).
+// Program v17: Day C's Loaded Cossack → Landmine Lateral Squat (lm_lateral_squat). Same
+// frontal-plane quad/adductor slot and same MG credit (quads 0.5 / glutes 0.5), so weekly
+// volume is unchanged — but the landmine (single-end load) is easier to groove and to load
+// progressively than a front-loaded bar Cossack. New id seeds fresh on the single-sided VWL
+// ladder (loads don't carry from the bar Cossack); the Cossack survives as a retired stub so
+// its history/charts resolve. Stays a quality/ROM slot — P1/P2 rep waves, absent from P3.
+// Day counts unchanged (A=9 B=8 C=10).
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
@@ -755,6 +763,8 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'lm_180',nm:'Landmine 180',s:2,rp:'8-10/side',tg:10,rstS:50,tp:'bb',lm:true,rl:'Legacy — dropped from Day C (redundant anti-rotation with Landmine Anti-Rotation)',perSide:true,optional:true},
 {id:'kb_swing',nm:'KB Swing',s:3,rp:'12-15',tg:15,rstS:75,tp:'kb',rl:'Legacy (removed v12)',perSide:false},
 {id:'zercher_a',nm:'Zercher (Moderate)',s:3,rp:'6-8',tg:8,rstS:100,tp:'bb',rl:'Legacy — replaced by Landmine Squat',perSide:false},
+// Day C v17 swap: Loaded Cossack → Landmine Lateral Squat (kept so pre-swap history/charts resolve)
+{id:'cossack_squat',nm:'Loaded Cossack',s:3,rp:'8/side',tg:8,rstS:50,tp:'bb',rl:'Legacy — replaced by Landmine Lateral Squat (v17)',perSide:true},
 {id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',tg:10,rstS:100,tp:'band',rl:'Legacy (removed v12)',bandMode:'assist',perSide:false},
 {id:'ext_rot',nm:'External Rotations',s:2,rp:'15/side',tg:15,rstS:40,tp:'band',rl:'Legacy (moved to band_er v12)',bandMode:'resist',perSide:true},
 {id:'dead_bugs',nm:'Dead Bugs (optional)',s:2,rp:'8/side',tg:8,rstS:50,tp:'bw',rl:'Legacy (removed v12)',perSide:true,optional:true},
@@ -816,7 +826,8 @@ const MG={
   b_stance_rdl:{hams:1,glutes:1,back:0.5},
   zercher_b:{quads:1,back:0.5,biceps:0.5}, zercher_a:{quads:1,back:0.5}, lm_squat:{quads:1,glutes:0.5,back:0.5},
   lm_bstance_squat:{quads:1,glutes:0.5,back:0.5}, // v14 — front-loaded like lm_squat, unilateral
-  cossack_squat:{quads:0.5,glutes:0.5},
+  lm_lateral_squat:{quads:0.5,glutes:0.5}, // v17 — frontal-plane, replaces cossack_squat (same credit)
+  cossack_squat:{quads:0.5,glutes:0.5}, // legacy stub — kept so historical volume resolves
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, lm_press:{sidedelt:0.5,fdelt:1,triceps:0.5},
   // dips keep FULL triceps credit deliberately (deep elbow flexion under load — the
@@ -989,10 +1000,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:16 keeps the migrateToV12..V16 chain a no-op on demo bootstraps (they
+// programVersion:17 keeps the migrateToV12..V17 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:16};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:17};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1056,6 +1067,14 @@ if(d.programVersion>=16)return d;
 d.programVersion=16;
 return d}
 
+// v17 migration: content-only Day-C swap (Loaded Cossack → Landmine Lateral Squat) —
+// stamp the version, nothing else. The new id seeds fresh (different loading device), and
+// the Cossack's history stays under its retired stub, so nothing needs rewriting.
+function migrateToV17(d){
+if(d.programVersion>=17)return d;
+d.programVersion=17;
+return d}
+
 function load(){try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
@@ -1080,6 +1099,7 @@ d=migrateToV13(d);
 d=migrateToV14(d);
 d=migrateToV15(d);
 d=migrateToV16(d);
+d=migrateToV17(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1105,7 +1125,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:16,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto'}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto'}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1343,6 +1363,10 @@ const RELATED_EX={
   'lm_press':       {id:'ohp',              mult:1.0,  seedWt:26, note:'Starts at your OHP load — the pivot offloads part of the weight, so judge by RIR, not the plate number. Expect to settle ~26-32kg.'},
   // v14 — unilateral landmine squat, fixed finding-session seed (11kg bar + 11kg loaded end)
   'lm_bstance_squat':{id:null,              seedWt:22, note:'Finding session at 22kg (11kg bar + 11kg on the loaded end). The pivot offloads part of the load — judge by RIR, weak side leads.'},
+  // v17 — landmine lateral (side-to-side) squat replaces the Loaded Cossack. New loading
+  // device (single-end landmine ≠ front-loaded bar), so the load does NOT carry from the
+  // Cossack — seed fresh on the single-sided ladder and build from the free end.
+  'lm_lateral_squat':{id:null,              seedWt:16, note:'NEW — landmine lateral squat (replaces the Loaded Cossack). Finding session at 16kg (11kg bar + 5kg on the free end); the pivot offloads part of the load, so judge by RIR, weak side leads. Easier to load than the Cossack — add to the free end as it grooves.'},
   'band_pushdown':  {id:null,               seedBand:'Purple',   note:'resistance band; target → thicker band'},
   // Partner program — every lift gets a computed start. Cross-location peers convert
   // HOME barbell history into a per-DB/single-DB target (mult folds the equipment shift

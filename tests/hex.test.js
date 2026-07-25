@@ -142,7 +142,7 @@ T('old rdl history still computes volume', calcExVol('rdl', 43, [10, 10, 10]) ==
 // Landmine lifts load ONE end of the 11kg bar, so plates aren't mirrored: total = bar +
 // single-end load, on a finer ladder (VWL) than the symmetric VW. bb_rear_row is a true
 // two-handed barbell row and must stay symmetric.
-const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_squat', 'lm_press', 'lm_bstance_squat']; // active landmine lifts (lm_180, lm_row retired)
+const lmLifts = ['lm_lateral', 'lm_pallof', 'lm_squat', 'lm_press', 'lm_bstance_squat', 'lm_lateral_squat']; // active landmine lifts (lm_180, lm_row retired)
 T('active landmine lifts carry lm:true + tp bb', lmLifts.every(id => { const e = ALL_EX.find(x => x.id === id); return e && e.lm === true && e.tp === 'bb'; }));
 T('retired lm_180 still resolves as a landmine stub', (() => { const e = ALL_EX.find(x => x.id === 'lm_180'); return e && e.lm === true && e.tp === 'bb'; })());
 T('bb_rear_row is NOT landmine (true two-handed barbell row)', ALL_EX.find(e => e.id === 'bb_rear_row').lm !== true);
@@ -258,12 +258,13 @@ T('partner has vertical pull on 2 days (A + C, mirrors home)', vertPullDays.join
 T('partner hamstrings hit 2× frequency (db_sl_rdl moved A→C)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 2);
 T('partner back still ≥ MEV after row→pull-up swap (volume-neutral)', pVol.back >= mevOf('back'), `${pVol.back} vs ${mevOf('back')}`);
 
-// ── v27: Phase-3 no longer strength-loads the quality slots (bb_rear_row, cossack) ──
+// ── v27: Phase-3 no longer strength-loads the quality slots (bb_rear_row, lateral squat) ──
 // With no P3 adj entry they fall back to their BASE hypertrophy ranges instead of the old
-// heavy 10-12 / 6-side that contradicted their coaching intent.
+// heavy 10-12 / 6-side that contradicted their coaching intent. (v17: the frontal-plane
+// slot is now the Landmine Lateral Squat, same quality/ROM treatment as the old Cossack.)
 const homeP3 = getProgram(3, 'home');
 T('P3 bb_rear_row holds its light hypertrophy range (12-15), not heavy 10-12', homeP3.A.find(e => e.id === 'bb_rear_row').rp === '12-15');
-T('P3 cossack holds 8/side (base), not a strength-loaded 6/side', homeP3.C.find(e => e.id === 'cossack_squat').rp === '8/side');
+T('P3 landmine lateral squat holds 8/side (base), not a strength-loaded 6/side', homeP3.C.find(e => e.id === 'lm_lateral_squat').rp === '8/side');
 // P1 still periodizes them (proves they weren't removed everywhere — see calc.test for the
 // PHASE_ADJ_IDS membership assertion): P1 rear-delt row is its light 12-15.
 T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row').rp === '12-15');
