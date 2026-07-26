@@ -3356,9 +3356,15 @@ h+=`<div class="status-hd">
 
 // ── Segment chips: five focused sub-views instead of one ~6-screen scroll ──
 const SEGS=[['overview','Overview'],['lifts','Lifts'],['balance','Balance'],['consistency','Consistency'],['monthly','Monthly'],['lifetime','Lifetime']];
+// A tab must control something. These carried role="tab" in a role="tablist" with no
+// tabpanel anywhere and no aria-controls, which announces a relationship the DOM does not
+// have — worse than a plain button, because assistive tech tells the user there is a panel
+// to move to. Each chip now has a stable id and points at the single panel below; the panel
+// names the SELECTED chip back, so the association follows the switch.
 h+=`<div class="seg-row" role="tablist" aria-label="Progress sections">`;
-for(const[k,l] of SEGS)h+=`<button type="button" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" onclick="STAT_SEG='${k}';render()">${l}</button>`;
+for(const[k,l] of SEGS)h+=`<button type="button" id="segtab-${k}" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" aria-controls="seg-panel" onclick="STAT_SEG='${k}';render()">${l}</button>`;
 h+=`</div>`;
+h+=`<div id="seg-panel" role="tabpanel" aria-labelledby="segtab-${STAT_SEG}" tabindex="0">`;
 
 if(STAT_SEG==='overview'){
 // ═══ OVERVIEW — am I getting stronger, and what needs attention? ═══
@@ -3790,7 +3796,7 @@ if(allPrs.length>8)h+=`<div style="text-align:center;margin-top:4px"><button cla
 h+=`</div>`}
 h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="go('body')">📏 Body Tracking</button>`;
 }
-h+=`</div>`;el.innerHTML=h;
+h+=`</div></div>`;el.innerHTML=h;  // close #seg-panel, then .sec
 // The chip row scrolls with a hidden scrollbar — keep the active segment visible
 // (Monthly/Lifetime start off-screen on phones). block:'nearest' avoids page jumps.
 setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}},60)}

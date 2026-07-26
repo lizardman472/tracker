@@ -681,4 +681,36 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('the sr-only utility clips rather than hides', /\.sr-only\{[^}]*clip:rect/.test(html) && !/\.sr-only\{[^}]*display:none/.test(html));
 }
 
+// ── audit fix: the Progress tab pattern actually connects ──
+// The seg-chips carried role="tab" inside a role="tablist", but nothing was a tabpanel and no
+// chip had aria-controls. A control that announces itself as a tab and controls nothing is
+// worse than a plain button: it promises a relationship the DOM does not have.
+{
+  const idsIn = m => new Set([...m.matchAll(/\bid="([^"]+)"/g)].map(x => x[1]));
+  for (const seg of ['overview', 'lifts', 'balance', 'consistency', 'monthly']) {
+    R.setSEG(seg);
+    R.go('stats');
+    const m = R.getA(), ids = idsIn(m);
+    const controls = [...m.matchAll(/role="tab"[^>]*aria-controls="([^"]+)"|aria-controls="([^"]+)"[^>]*role="tab"/g)]
+      .map(x => x[1] || x[2]);
+    // Derived, not hardcoded: SEGS has six entries and an earlier draft asserted five, which
+    // would have started failing the day a segment was added or removed for reasons unrelated
+    // to the tab wiring. Every element with role="tab" must declare aria-controls.
+    const tabCount = (m.match(/role="tab"/g) || []).length;
+    T(`${seg}: every tab declares aria-controls`, tabCount > 0 && controls.length === tabCount, JSON.stringify({ tabCount, controls: controls.length }));
+    T(`${seg}: every aria-controls target exists`, controls.every(c => ids.has(c)), JSON.stringify({ controls: [...new Set(controls)], present: [...ids].slice(0, 8) }));
+    const panel = m.match(/role="tabpanel"[^>]*aria-labelledby="([^"]+)"|aria-labelledby="([^"]+)"[^>]*role="tabpanel"/);
+    T(`${seg}: a tabpanel exists and names its tab`, !!panel, 'no tabpanel');
+    if (panel) {
+      const labelledBy = panel[1] || panel[2];
+      T(`${seg}: the panel points back at a real tab`, ids.has(labelledBy), labelledBy);
+      // ...and specifically at the SELECTED tab, so the label tracks the switch.
+      const selected = m.match(/id="([^"]+)"[^>]*role="tab"[^>]*aria-selected="true"|role="tab"[^>]*aria-selected="true"[^>]*id="([^"]+)"/);
+      const selId = selected && (selected[1] || selected[2]);
+      T(`${seg}: the panel is labelled by the SELECTED tab`, selId === labelledBy, JSON.stringify({ selId, labelledBy }));
+    }
+  }
+  R.setSEG('overview');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
