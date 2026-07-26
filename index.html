@@ -265,7 +265,7 @@ button.set-prev:active{color:var(--pr)}
 .mt-cur{height:100%;background:var(--pr);border-radius:3px}
 /* Body heat-map legend */
 .heat-legend{display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--mu);margin-top:8px}
-.heat-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.heat-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* Toggle switch */
@@ -978,32 +978,64 @@ const BODY_REGIONS_B=[
   {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]}];
 // (No calves region — the calf slots were retired by the v16 Day-C trim, so the ellipses
 // could only ever render as "untrained". Restore both together if a calf slot returns.)
-let HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills (theme-switched)
-let HEAT_AMBER='178,97,2',HEAT_GREEN='12,128,80',HEAT_CYAN='0,123,168'; // rgb channels for heatColor
-// Fill for a region at v sets/week. Literal rgba (not CSS vars) — SVG fills are
-// string-built and the tests assert exact values. Untracked muscles (mev null,
-// e.g. calves/cuff) scale against mav or the overall max instead.
-// Alpha is MONOTONIC across the MEV boundary (amber tops out at .50, green starts
-// at .55) — crossing MEV upward must never make the region visibly fade.
-function heatColor(v,mev,mav,mx){
+// Heat-map palette, both themes in ONE place. applyTheme() switches via setHeatPal()
+// instead of restating the hexes, and the tests measure contrast for BOTH modes straight
+// off this object — so a band can't be added or retuned in one theme and forgotten in
+// the other. Band fills are SOLID and identical to the --am/--gr/--pr/--mu tokens the
+// "Weekly Volume by Muscle" bars below already use for the same states; literal hex
+// (not CSS vars) because SVG fills are string-built and the tests assert exact values.
+// `flag` is the under-MEV outline — the --ink contrast partner for that theme's amber.
+const HEAT_PAL={
+light:{base:'#e8ecf5',none:'#dde3f0',under:'#b26102',ok:'#0c8050',high:'#007ba8',notgt:'#5a6478',flag:'#ffffff'},
+dark: {base:'#222b42',none:'#2a3450',under:'#f0a848',ok:'#3ecf8e',high:'#2fb3e8',notgt:'#9aa6c2',flag:'#08101e'}};
+let HEAT_BASE,HEAT_NONE,HEAT_AMBER,HEAT_GREEN,HEAT_CYAN,HEAT_MUTE,HEAT_FLAG;
+function setHeatPal(dk){const p=HEAT_PAL[dk?'dark':'light'];
+HEAT_BASE=p.base;HEAT_NONE=p.none;HEAT_AMBER=p.under;HEAT_GREEN=p.ok;HEAT_CYAN=p.high;HEAT_MUTE=p.notgt;HEAT_FLAG=p.flag}
+setHeatPal(false); // light defaults; applyTheme() re-runs this on boot and on every theme change
+// Fill for a region at v sets/week — one of three RESERVED STATES (under MEV /
+// productive / at-or-over MAV), not a magnitude ramp.
+//
+// This WAS an alpha ramp (amber .20–.50, green .55–.85, cyan .95) encoding sets/week
+// within each band. At the amber floor that measured 1.26:1 against the untrained fill
+// in light and 1.45:1 in dark — an under-MEV muscle, the one state that asks the user to
+// act, was the hardest to see. The ramp cannot be rescued by raising alpha: solid amber
+// is only 3.55:1 in light, so there is no room below it for a legible gradient AND the
+// 3:1 floor. The magnitude it encoded is not lost — the bars directly below carry the
+// exact number, the tag and a proportional fill, and every region has a <title> with
+// sets/week. So the map keeps the job it is good at (state at a glance) and drops the
+// precision it was rendering illegibly.
+//
+// Measured against the untrained fill, light/dark: amber 3.55/6.10, green 3.87/6.17,
+// cyan 3.71/5.12, mute 4.62/5.05 — all clear the 3:1 non-text floor in both themes.
+// Muscles with no MEV landmark (mev null, e.g. rotator cuff) get the muted fill rather
+// than a band they cannot be judged against, mirroring var(--mu) in the bar list.
+function heatColor(v,mev,mav){
 if(!(v>0))return'';
-if(mev==null){const ref=mav||mx||1;const t=Math.min(1,v/ref);return`rgba(${HEAT_CYAN},${(0.2+0.6*t).toFixed(2)})`}
-if(v<mev)return`rgba(${HEAT_AMBER},${(0.2+0.3*(v/mev)).toFixed(2)})`;
-if(mav&&v<mav)return`rgba(${HEAT_GREEN},${(0.55+0.3*((v-mev)/(mav-mev))).toFixed(2)})`;
-return`rgba(${HEAT_CYAN},0.95)`}
+if(mev==null)return HEAT_MUTE;
+if(v<mev)return HEAT_AMBER;
+if(mav&&v<mav)return HEAT_GREEN;
+return HEAT_CYAN}
+// Under MEV is the only state that asks for action, so it never rests on hue alone —
+// the region also carries a dashed outline (§7 set this precedent with the day letters
+// on the heatmap cells). Shape survives colorblindness, forced-colors and print.
+// Dash geometry was picked by rendering, not by taste: on the narrow quad/ham ellipses
+// a 2.5/1.5 dash crenellates into what reads as a rendering artifact, and a solid ring
+// reads as gloss on the light amber. 4/2.5 at width 1 is legible as a deliberate mark
+// on every region shape (thin ellipse, wide rect, torso path) in both themes.
+function heatUnder(v,mev){return v>0&&mev!=null&&v<mev}
 // Two side-by-side SVG figures + legend; regions are tappable and select the
 // muscle in the Set Count chart (STAT_MG).
 function bodyHeatH(wv){
-const mx=Math.max(...MG_INFO.map(([k])=>wv[k]||0),1);
 const draw=(regions,cap)=>{
 let s=`<svg viewBox="0 0 120 192" style="width:100%;height:auto" role="img" aria-label="${cap} muscle heat map">`;
 for(const sh of BODY_SIL)s+=sh.c?`<circle cx="${sh.c[0]}" cy="${sh.c[1]}" r="${sh.c[2]}" fill="${HEAT_BASE}"/>`
   :sh.d?`<path d="${sh.d}" fill="${HEAT_BASE}"/>`
   :`<rect x="${sh.r[0]}" y="${sh.r[1]}" width="${sh.r[2]}" height="${sh.r[3]}" rx="${sh.r[4]}" fill="${HEAT_BASE}"/>`;
 for(const rg of regions){const mi=MG_INFO.find(x=>x[0]===rg.m);const v=Math.round((wv[rg.m]||0)*10)/10;
-const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null,mx)||HEAT_NONE;
-const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk</title>`;
-const attrs=`fill="${fill}" style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
+const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null)||HEAT_NONE;
+const und=heatUnder(v,mi?mi[2]:null);
+const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · under MEV':''}</title>`;
+const attrs=`fill="${fill}"${und?` stroke="${HEAT_FLAG}" stroke-width="1" stroke-dasharray="4 2.5"`:''} style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
 if(rg.d)s+=`<path d="${rg.d}" ${attrs}>${t}</path>`;
 if(rg.r)s+=`<rect x="${rg.r[0]}" y="${rg.r[1]}" width="${rg.r[2]}" height="${rg.r[3]}" rx="${rg.r[4]}" ${attrs}>${t}</rect>`;
 if(rg.e)for(const e of rg.e)s+=`<ellipse cx="${e[0]}" cy="${e[1]}" rx="${e[2]}" ry="${e[3]}" ${attrs}>${t}</ellipse>`}
@@ -1011,7 +1043,7 @@ return s+`</svg>`};
 return`<div style="display:flex;gap:14px;justify-content:center">
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
-<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:rgba(${HEAT_AMBER},.4)"></i>under MEV</span><span><i style="background:rgba(${HEAT_GREEN},.7)"></i>productive</span><span><i style="background:rgba(${HEAT_CYAN},.95)"></i>high</span></div>`}
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>under MEV</span><span><i style="background:${HEAT_GREEN}"></i>productive</span><span><i style="background:${HEAT_CYAN}"></i>high</span><span><i style="background:${HEAT_MUTE}"></i>no target</span></div>`}
 
 // ═══════════════ SEED ═══════════════
 const SEED={sessions:[
@@ -2005,16 +2037,15 @@ try{return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)
 function applyTheme(){const dk=isDarkTheme();
 if(dk){CH_GRID='#2a3450';CH_TXT='#9aa6c2';CH_DOT='#1a2032';CH_TARGET='#ff5f8d';CH_TITLE='#e9edf8';CH_PR='#f0a848';
 C_PR='#2fb3e8';C_BL='#5b9bf0';C_GR='#3ecf8e';
-HEAT_BASE='#222b42';HEAT_NONE='#2a3450';HEAT_AMBER='240,168,72';HEAT_GREEN='62,207,142';HEAT_CYAN='47,179,232';
 DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',cardio:'#f0a848'};
 DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e'};
 FORM_C=['','var(--rd)','#e8703a','var(--am)','#7fb069','var(--gr)'];
 }else{CH_GRID='#dde3f0';CH_TXT='#5a6478';CH_DOT='#ffffff';CH_TARGET='#d61f5e';CH_TITLE='#111527';CH_PR='#b26102';
 C_PR='#007ba8';C_BL='#1263d6';C_GR='#0c8050';
-HEAT_BASE='#e8ecf5';HEAT_NONE='#dde3f0';HEAT_AMBER='178,97,2';HEAT_GREEN='12,128,80';HEAT_CYAN='0,123,168';
 DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'};
 DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
 FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
+setHeatPal(dk);
 if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
 try{const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
 if(t==='auto')delete document.documentElement.dataset.theme;

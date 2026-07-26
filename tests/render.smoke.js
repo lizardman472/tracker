@@ -495,8 +495,13 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   applyTheme();
   const dk = R.getPal();
   T('applyTheme(dark) swaps the chart grid color', dk.grid === '#2a3450', dk.grid);
-  T('applyTheme(dark) swaps the heat-map channels', dk.cyan === '47,179,232', dk.cyan);
-  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20, 10) === 'rgba(47,179,232,0.95)', heatColor(22, 8, 20, 10));
+  T('applyTheme(dark) swaps the heat-map palette', dk.cyan === '#2fb3e8', dk.cyan);
+  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20) === '#2fb3e8', heatColor(22, 8, 20));
+  T('heatColor emits the dark amber under MEV', heatColor(4, 8, 20) === '#f0a848', heatColor(4, 8, 20));
+  // The under-MEV outline flips with the theme — a near-white rule would vanish on the
+  // brighter dark-mode amber, so dark uses the near-black --ink partner instead.
+  T('the under-MEV outline flips to dark ink in dark mode',
+    /stroke="#08101e"[^>]*stroke-dasharray/.test(bodyHeatH({ quads: 3 })), bodyHeatH({ quads: 3 }).slice(0, 0) || 'no dark outline');
   T('body-metric line colors switch too', dk.bm0 === '#2fb3e8', dk.bm0);
   R.setSEG('balance');
   tryRender('Balance renders under the dark palette', () => R.go('stats'));

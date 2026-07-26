@@ -18,13 +18,13 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, setD, getD, getDropped, setADAY, SK } = global.__X;
+const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -1460,18 +1460,40 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Body heat map ──
 {
-  T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20, 10) === '');
-  T('heatColor under MEV → amber', /^rgba\(178,97,2,/.test(heatColor(4, 8, 20, 10)));
-  T('heatColor MEV..MAV → green', /^rgba\(12,128,80,/.test(heatColor(12, 8, 20, 10)));
-  T('heatColor ≥MAV → strong cyan', heatColor(22, 8, 20, 10) === 'rgba(0,123,168,0.95)');
-  const alpha = c => parseFloat(c.match(/,([\d.]+)\)$/)[1]);
-  T('heatColor amber intensity rises with volume', alpha(heatColor(6, 8, 20, 10)) > alpha(heatColor(2, 8, 20, 10)));
-  // Crossing MEV upward must not fade: green at MEV ≥ amber just below MEV.
-  T('heatColor intensity is monotonic across the MEV boundary',
-    alpha(heatColor(8, 8, 20, 10)) > alpha(heatColor(7.9, 8, 20, 10)),
-    `${heatColor(7.9, 8, 20, 10)} vs ${heatColor(8, 8, 20, 10)}`);
-  T('heatColor null-MEV muscle scales vs max', /^rgba\(0,123,168,/.test(heatColor(3, null, null, 6)));
-  T('heatColor mev=0 (front delts) never divides by zero', /^rgba\(12,128,80,/.test(heatColor(3, 0, 12, 10)));
+  T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20) === '');
+  T('heatColor under MEV → solid amber', heatColor(4, 8, 20) === '#b26102');
+  T('heatColor MEV..MAV → solid green', heatColor(12, 8, 20) === '#0c8050');
+  T('heatColor ≥MAV → solid cyan', heatColor(22, 8, 20) === '#007ba8');
+  T('heatColor no-MEV-landmark muscle → muted, not a band it cannot be judged against',
+    heatColor(3, null, null) === '#5a6478');
+  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#0c8050');
+  // The band is a reserved STATE, so it must not vary with magnitude inside the band —
+  // that precision lives in the bars below, which carry the exact number and the tag.
+  T('heatColor is constant within a band', heatColor(2, 8, 20) === heatColor(7.9, 8, 20));
+  T('heatColor changes state exactly at MEV', heatColor(7.9, 8, 20) !== heatColor(8, 8, 20));
+  T('heatColor changes state exactly at MAV', heatColor(19.9, 8, 20) !== heatColor(20, 8, 20));
+
+  // ── Contrast: the defect this replaced ──
+  // The old alpha ramp put the under-MEV floor at 1.26:1 (light) / 1.45:1 (dark) against
+  // the untrained fill — the one state that asks the user to act was the least visible.
+  // Every band must now clear the 3:1 non-text floor in BOTH themes. Measured off
+  // HEAT_PAL directly so a retune in one theme cannot silently skip the other.
+  const srgb = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) };
+  const hex2 = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const lum = h => { const [r, g, b] = hex2(h); return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b) };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) };
+  for (const mode of ['light', 'dark']) {
+    const p = HEAT_PAL[mode];
+    for (const band of ['under', 'ok', 'high', 'notgt']) {
+      const r = contrast(p[band], p.none);
+      T(`heat ${band} band ≥3:1 vs untrained fill (${mode})`, r >= 3, `${r.toFixed(2)}:1`);
+    }
+    // The under-MEV outline has to read against its own fill, not just the surface.
+    const f = contrast(p.flag, p.under);
+    T(`heat under-MEV outline ≥3:1 vs the amber it outlines (${mode})`, f >= 3, `${f.toFixed(2)}:1`);
+  }
+  T('heat palette defines the same bands in both themes',
+    JSON.stringify(Object.keys(HEAT_PAL.light).sort()) === JSON.stringify(Object.keys(HEAT_PAL.dark).sort()));
   // Every tracked muscle appears in at least one view.
   const covered = new Set([...BODY_REGIONS_F, ...BODY_REGIONS_B].map(r => r.m));
   T('body regions cover every MG_INFO key', MG_INFO.every(([k]) => covered.has(k)),
@@ -1481,6 +1503,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('bodyHeatH titles carry sets/wk', /Chest — 9 sets\/wk/.test(hm));
   T('bodyHeatH regions are tappable muscle selectors', /STAT_MG='chest'/.test(hm));
   T('bodyHeatH renders the legend', /heat-legend/.test(hm) && /under MEV/.test(hm));
+  // ── Under-MEV never rests on hue alone (quads 3 vs MEV 8; chest 9 is over its MEV 8) ──
+  const quadFill = hm.slice(hm.indexOf('STAT_MG=\'quads\'') - 400, hm.indexOf('STAT_MG=\'quads\'') + 20);
+  T('under-MEV region carries the dashed outline', /stroke-dasharray/.test(quadFill), quadFill.slice(-160));
+  const chestFill = hm.slice(hm.indexOf('STAT_MG=\'chest\'') - 400, hm.indexOf('STAT_MG=\'chest\'') + 20);
+  T('a productive region carries NO outline (the cue means one thing)', !/stroke-dasharray/.test(chestFill));
+  T('under-MEV state is also in the title text, not just the shape', /Quads — 3 sets\/wk · under MEV/.test(hm));
+  T('legend explains the outline cue', /heat-legend[\s\S]*dashed/.test(hm));
 }
 
 // ── Rolling 8-week consistency (the status verdict's input) ──
