@@ -642,4 +642,43 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('the Priority nudge still fires when there IS history below MEV', /Priority:/.test(R.getA()), 'nudge missing on a populated account');
 }
 
+// ── audit fix: every screen has a heading outline ──
+// The app had two heading tags total across five screens, so a screen-reader user had nothing
+// to navigate by. The persistent header <h1> is the app; each screen is an <h2> (the visible
+// pg-title where one exists, an sr-only one where the design has no title text); sections
+// below that are <h3>. Nothing moves visually — sr-only is clipped, not hidden from AT.
+{
+  const headings = markup => [...markup.matchAll(/<(h[1-6])\b/g)].map(m => m[1]);
+  // NOTE the view keys. render() dispatches via `fn[VIEW]||rHome`, so a typo'd key silently
+  // renders Home — an earlier draft of this test asked for 'hist', got the Home screen, and
+  // passed. Any screen added here must be spot-checked against that fallback.
+  const screens = [
+    ['home', () => R.go('home')],
+    ['progress', () => { R.setSEG('overview'); R.go('stats') }],
+    ['body', () => R.go('body')],
+    ['history', () => R.go('history')],
+    ['settings', () => R.go('settings')],
+    ['cardio', () => R.go('cardio')],
+    ['logpast', () => R.go('logpast')],
+    ['plates', () => R.go('plates')],
+  ];
+  for (const [name, nav] of screens) {
+    nav();
+    const hs = headings(R.getA());
+    T(`${name}: renders exactly one h2 screen title`, hs.filter(h => h === 'h2').length === 1, JSON.stringify(hs));
+    // #app never contains the app-level h1 — that lives in the persistent header.
+    T(`${name}: does not add a second h1`, !hs.includes('h1'), JSON.stringify(hs));
+    // No level skips: the first heading must be the h2, and no h4+ before an h3.
+    const firstBad = hs.findIndex((h, i) => i > 0 && Number(h[1]) > Number(hs[i - 1][1]) + 1);
+    T(`${name}: no heading level is skipped`, firstBad === -1, JSON.stringify(hs));
+  }
+  // The workout screen is reached differently (beginW, not go).
+  R.getD().location = 'home';
+  R.beginW('A');
+  const wh = headings(R.getA());
+  T('workout: renders exactly one h2 screen title', wh.filter(h => h === 'h2').length === 1, JSON.stringify(wh));
+  // sr-only must be clipped, not display:none — display:none is invisible to screen readers too.
+  T('the sr-only utility clips rather than hides', /\.sr-only\{[^}]*clip:rect/.test(html) && !/\.sr-only\{[^}]*display:none/.test(html));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
