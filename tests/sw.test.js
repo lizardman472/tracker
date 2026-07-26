@@ -251,6 +251,60 @@ const CACHE = SW_SRC.match(/const C = '([^']+)'/)[1];
     T('an unavailable font resolves to a 504 rather than rejecting', r.status === 504);
     T('...and caches nothing', sw.caches._dump(CACHE).length === 0, JSON.stringify(sw.caches._dump(CACHE)));
   }
+  // ── Audit 6 / F5: the font branch needs the navigation branch's deadline ─────────────────
+  // The .catch above only fires on a FAILED fetch. On a captive portal or a dead-but-connected
+  // signal the request HANGS, and the font stylesheet is render- and script-blocking — so the
+  // app never boots. Measured in Chromium with the font host hanging: cached shell served in
+  // 43ms, app screen still not rendered after 20s. And this is not a first-load-only edge:
+  // activate() evicts the previous release's cache, so the launch after every update re-fetches
+  // the fonts.
+  {
+    let resolveNet;
+    const sw = loadSW({ fetchImpl: () => new Promise(res => { resolveNet = res }) });
+    const fontReq = Req('https://fonts.googleapis.com/css2?family=Archivo');
+    const ev = sw.fetchEvent(fontReq);
+    // The font deadline is armed AFTER the cache lookup resolves (only the network is timed),
+    // so the microtask queue has to drain before the fake clock can see the timer at all.
+    await flush();
+    let settled = false;
+    ev.response.then(() => { settled = true });
+    await sw.clock.advance(2499);
+    T('a hung font request is still waiting just before the deadline', settled === false);
+    await sw.clock.advance(1);
+    const r = await ev.response;
+    T('a hung font request resolves at the deadline instead of blocking the boot', r.status === 504, String(r && r.status));
+    T('the hung font request is held open by waitUntil', ev.waits.length === 1, String(ev.waits.length));
+    // The worker is still alive, so a late font still lands in the cache for next launch.
+    resolveNet(new Res('late-font', { type: 'cors' }));
+    await flush(); await flush();
+    T('a late font response still fills the cache', sw.caches._dump(CACHE).includes(fontReq.url), JSON.stringify(sw.caches._dump(CACHE)));
+  }
+  {
+    // A slow-but-in-time font still wins, and its timer must not be left pending.
+    let resolveNet;
+    const sw = loadSW({ fetchImpl: () => new Promise(res => { resolveNet = res }) });
+    const fontReq = Req('https://fonts.gstatic.com/s/slow.woff2');
+    const ev = sw.fetchEvent(fontReq);
+    await flush();
+    await sw.clock.advance(1500);
+    resolveNet(new Res('woff', { type: 'cors' }));
+    const r = await ev.response;
+    T('a slow-but-in-time font still wins the race', r.body === 'woff', r && r.body);
+    T('...and the font deadline timer is cleared rather than left pending', sw.clock.pending() === 0, String(sw.clock.pending()));
+  }
+  {
+    // A cache HIT must not arm a timer or touch the network at all — cache-first is unchanged.
+    let hits = 0;
+    const sw = loadSW({ fetchImpl: () => { hits++; return new Promise(() => {}) } });
+    const fontReq = Req('https://fonts.gstatic.com/s/hit.woff2');
+    await sw.caches.open(CACHE).then(c => c.put(fontReq, new Res('cached')));
+    const ev = sw.fetchEvent(fontReq);
+    await flush();
+    const r = await ev.response;
+    T('a cached font still short-circuits before the network', r.body === 'cached' && hits === 0, `${r && r.body} hits=${hits}`);
+    T('a cached font arms no deadline timer', sw.clock.pending() === 0, String(sw.clock.pending()));
+    T('a cached font releases the keep-alive promise', await ev.waits[0].then(() => true, () => false) === true);
+  }
 
   // ── navigation branch ─────────────────────────────────────────────────────────────────────
   const navReq = () => Req('https://app/workout', { mode: 'navigate', accept: 'text/html' });

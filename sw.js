@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v80';
+const C = 'rft-v81';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -40,14 +40,40 @@ self.addEventListener('fetch', e => {
   let host = '';
   try { host = new URL(req.url).hostname; } catch (_) {}
   if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+    // The font STYLESHEET is render- and script-blocking: it sits in <head> above the inline
+    // app script, so until it settles the app does not boot at all. The .catch below only
+    // fires on a FAILED fetch — on a captive portal or a dead-but-connected signal the request
+    // simply HANGS, and the page stays blank indefinitely. Measured with the font host hanging:
+    // the SW served the cached shell in 43ms and the app screen had still not rendered after
+    // 20s. That is the same hazard the navigation branch races a timer against, and it bites
+    // more often than "first load only" — activate() evicts the previous release's cache, so
+    // the launch right after every update re-fetches the fonts from the network.
+    // Cache-first is unchanged; only a MISS is put on a deadline, and losing the race costs
+    // nothing but a fallback typeface for one load.
+    const FONT_TIMEOUT = 2500;
+    // Claimed synchronously (waitUntil is only legal while the event is active) so a font
+    // fetch that outlives the response still finishes writing to the cache.
+    let keepAlive;
+    e.waitUntil(new Promise(res => { keepAlive = res }));
     e.respondWith(
-      caches.match(req).then(r => r || fetch(req).then(resp => {
-        if (resp && (resp.ok || resp.type === 'opaque')) {
-          const clone = resp.clone();
-          caches.open(C).then(c => c.put(req, clone)).catch(() => {});
-        }
-        return resp;
-      }).catch(() => new Response('', { status: 504 })))
+      caches.match(req).then(hit => {
+        if (hit) { keepAlive(); return hit; }
+        const net = fetch(req).then(resp => {
+          if (resp && (resp.ok || resp.type === 'opaque')) {
+            const clone = resp.clone();
+            caches.open(C).then(c => c.put(req, clone)).catch(() => {});
+          }
+          return resp;
+        });
+        net.then(keepAlive, keepAlive);
+        return new Promise(resolve => {
+          let settled = false;
+          const done = v => { if (!settled) { settled = true; resolve(v); } };
+          const timer = setTimeout(() => done(new Response('', { status: 504 })), FONT_TIMEOUT);
+          net.then(r => { clearTimeout(timer); done(r); })
+             .catch(() => { clearTimeout(timer); done(new Response('', { status: 504 })); });
+        });
+      })
     );
     return;
   }
