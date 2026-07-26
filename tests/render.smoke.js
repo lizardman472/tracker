@@ -616,4 +616,13 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 }
 
 
+// The document title had been stuck at v12 for many releases; it is the PWA's install name
+// and the browser-tab label, so a stale version number is user-visible.
+{
+  const fsx = require('fs'), pathx = require('path');
+  const raw = fsx.readFileSync(pathx.join(__dirname, '..', 'index.html'), 'utf8');
+  const t = raw.match(/<title>([^<]*)<\/title>/);
+  T('document title carries no stale version number', t && !/v\d+/i.test(t[1]), t && t[1]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);

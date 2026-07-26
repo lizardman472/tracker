@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Tracker">
 <meta name="theme-color" content="#f4f6fb">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Rack-Free Tracker v12</title>
+<title>Rack-Free Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1124,7 +1124,12 @@ if(Array.isArray(d.sessions)){
 // ('what you see now is a fresh/demo state') on every boot after the first — the exact
 // misleading copy this fix set out to remove, shown to a user whose history is fine.
 if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED))}catch(_){}
-if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
+// Cue KEYS are interpolated into the delete-button onclick, so mergeImport constrains their
+// charset. load() accepted anything, leaving the stored store as an unguarded path to the
+// same sink — guard both ends identically rather than trusting that one entrance is safe.
+if(!d.cues||typeof d.cues!=='object')d.cues={};
+else{const cz={};for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))cz[k]=v;d.cues=cz}
+if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
@@ -1172,7 +1177,9 @@ function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bod
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
 // can't resurrect the just-wiped sessions into the blank slate.
 function resetAll(){D=freshState();try{D.gen=Number(localStorage.getItem(SK+'-gen'))||0}catch(_){}
-clearAW();clearTimer();save();go('home')}
+// freshState() resets theme to 'auto', but the palette already painted on the page stays
+// until a manual reload — a factory reset that visibly keeps your old theme looks broken.
+clearAW();clearTimer();applyTheme();save();go('home')}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation.
 // Audit: session notes + warm-up checklist ride along too — they were silently
 // lost on an app kill while every set survived.

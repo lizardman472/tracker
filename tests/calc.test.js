@@ -915,6 +915,20 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // finishW/resumeW guards above) — a true-ish call whose result is ignored is the bug.
   T('saveSumm branches its warning on the saveAW result', /const backed=saveAW\(\)/.test(String(saveSumm)) && /backed\s*\n?\s*\?/.test(String(saveSumm)), String(saveSumm).slice(0, 60));
 
+  // ── cue keys are constrained on BOTH entrances, not just import ──
+  // Keys are interpolated into the delete-button onclick. mergeImport has always filtered
+  // them; load() accepted anything, so the stored store was an unguarded path to the same
+  // sink for anyone who edited it (or any code that wrote it badly).
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], cues: { hex_dl: 'push the floor away', "ohp');alert(1);//": 'evil', ok_key: 'fine' } });
+  load();
+  T('load keeps well-formed cue keys', getD().cues.hex_dl === 'push the floor away' && getD().cues.ok_key === 'fine', JSON.stringify(getD().cues));
+  T('load drops a cue key that would break out of the onclick', Object.keys(getD().cues).every(k => /^[\w-]{1,60}$/.test(k)), JSON.stringify(Object.keys(getD().cues)));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], cues: 'not-an-object' });
+  load();
+  T('load survives a non-object cues field', typeof getD().cues === 'object' && !Array.isArray(getD().cues));
+  // resetAll must repaint: freshState() sets theme 'auto' but the applied palette lingers.
+  T('resetAll re-applies the theme', /applyTheme\(\)/.test(String(resetAll)), String(resetAll).slice(0, 120));
+
   global.localStorage = realLS;
   setD(freshD());
 }
