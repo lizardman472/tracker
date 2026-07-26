@@ -111,7 +111,11 @@ input[type=number]{-moz-appearance:textfield}
 .cd{background:var(--cd);border-radius:var(--rad);padding:14px 16px;margin-bottom:10px;border:1px solid var(--cb);box-shadow:var(--sh)}
 
 /* Type */
-.lb{font-family:var(--disp);font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-weight:700}
+/* display:block is load-bearing, not decorative: several .lb elements are <label for>
+   rather than <div> so the visible caption is the control's accessible name. A label is
+   inline by default, which would drop the margin-bottom and pull the control onto the
+   same line. Every .lb was already a block-level div, so this changes nothing visually. */
+.lb{display:block;font-family:var(--disp);font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-weight:700}
 .mu{font-size:12px;color:var(--mu)}.dm{font-size:11px;color:var(--dm)}
 
 /* Badges */
@@ -2225,21 +2229,40 @@ if(TIMER.left<=0&&!TIMER.done){TIMER.done=true;startAlarm();notifyRestDone()}rTi
 // scheduled "train today" pushes need a server, so we only fire what the browser
 // will honour from a live (even if hidden) page.
 function notifyOK(){return D.notify&&D.notify.enabled&&D.notify.rest&&typeof Notification!=='undefined'&&Notification.permission==='granted'}
+// ONE delivery path for every notification this app fires. Prefer the service worker:
+// reg.showNotification honours requireInteraction + vibrate + renotify (page-context
+// `new Notification` does not on most mobile browsers, and on Android Chrome the
+// constructor throws outright inside an installed PWA). The constructor is the fallback
+// for desktop browsers with no controlling worker, not the primary.
+//
+// This used to be inlined in notifyRestDone only, so the two notifications the user
+// actually SEES first — the "Notifications on ✓" confirmation and the "Send test ping"
+// button — went through the constructor, wrapped in a bare catch. On Android both did
+// nothing, silently: you granted permission, saw no confirmation, tapped a button
+// labelled "Send test ping", saw nothing, and concluded notifications were broken —
+// while the real rest ping, on the working path, would have fired. A test that exercises
+// a different path from the thing it is testing proves nothing about the thing.
+function showNotif(title,opts){
+try{if(typeof navigator!=='undefined'&&navigator.serviceWorker&&navigator.serviceWorker.ready){
+  return navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,opts))
+    .catch(()=>{try{new Notification(title,opts)}catch(e){}});
+}
+new Notification(title,opts)}catch(e){}}
 function notifyRestDone(){if(!notifyOK())return;
 if(typeof document!=='undefined'&&document.visibilityState==='visible')return; // takeover+alarm already on-screen
-// Fire via the service worker when possible: reg.showNotification honours requireInteraction
-// + vibrate + renotify (page-context new Notification does not on most mobile browsers), so the
-// lock-screen ping is as persistent as a backend-less PWA can manage. Falls back to new Notification.
 const ic=notifIcon();
 const opts={body:'Back to it — next set.',tag:'rft-rest',renotify:true,requireInteraction:true,silent:false,vibrate:[500,200,500,200,500,200,500]};
 if(ic){opts.icon=ic;opts.badge=ic}
-try{if(navigator.serviceWorker&&navigator.serviceWorker.ready){
-navigator.serviceWorker.ready.then(reg=>reg.showNotification('Rest complete 💪',opts)).catch(()=>{try{new Notification('Rest complete 💪',opts)}catch(e){}});
-}else{new Notification('Rest complete 💪',opts)}}catch(e){}}
+showNotif('Rest complete 💪',opts)}
+// The confirmation and the test ping deliberately carry the same icon/badge as the real
+// rest ping — if the icon is what breaks delivery, the test must break with it.
+function notifTest(title,body){const ic=notifIcon();const opts={body,tag:'rft-test'};
+if(ic){opts.icon=ic;opts.badge=ic}
+showNotif(title,opts)}
 function reqNotify(){if(typeof Notification==='undefined'){alert('This browser does not support notifications.');return}
 Notification.requestPermission().then(p=>{D.notify=D.notify||{enabled:false,rest:true};
 D.notify.enabled=(p==='granted');if(p==='granted'){D.notify.rest=true;
-try{new Notification('Notifications on ✓',{body:'Rest timers will ping you when they finish.',tag:'rft-test'})}catch(e){}}
+notifTest('Notifications on ✓','Rest timers will ping you when they finish.')}
 else if(p==='denied')alert('Notifications are blocked. Enable them for this site in your browser settings.');
 save();render()})}
 function toggleNotifyRest(){D.notify=D.notify||{enabled:false,rest:true};D.notify.rest=!D.notify.rest;save();render()}
@@ -2397,8 +2420,8 @@ const wuSig=D.sessions.length+'-'+wuSk;
 if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" style="background:var(--rdl);border-color:#f3c3d6;color:var(--rd);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>⚠ Warm-ups skipped ${wuSk}/3 recent sessions</span><button onclick="dismissBanner('warmup','${wuSig}')" aria-label="Dismiss" style="background:0;border:none;color:var(--rd);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0;padding:12px;margin:-12px">✕</button></div>`;
 const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
-if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${dl.wk}wk since deload · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
-else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${dl.wk}wk since deload · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 
 // Hero — show rest-day card if last session was today or yesterday
 const ls=isP?'2':'1';
@@ -2408,6 +2431,21 @@ if(D.sessions.length){
   const daysSince=dayDiff(today(),lastS.date);
   if(daysSince===0)restDay={state:'today',last:lastS};
   else if(daysSince===1)restDay={state:'yesterday',last:lastS}}
+
+// Day picker + rotation warning. Defined once for BOTH heroes: the rest-day card used to
+// ship only a "Day X anyway" button, so on a rest day the suggested day was the only one
+// reachable in one tap — you could train, but not choose. `nd` already honours PICK_DAY, so
+// this exposes a pick the rest of the screen was already wired for.
+const days=['A','B','C'];
+const sugg=D.nextDay||'A';
+let picker=`<div class="dpick">`;
+for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
+picker+=`</div>`;
+const overridden=nd!==sugg;
+// Repeating yesterday's day stacks the same movement patterns (pressing especially)
+// back-to-back — the fixed A→B→C rotation normally prevents that, so warn on override.
+const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
+const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
 
 if(restDay){
   const lastLoc=(restDay.last.loc||'home')==='partner'?'2':'1';
@@ -2425,22 +2463,13 @@ if(restDay){
     ${restDay.last.difficulty?`<span style="margin-left:6px;color:${RPE_COLORS[restDay.last.difficulty-1]};font-weight:700">RPE ${restDay.last.difficulty}</span>`:''}
     ${restDay.last.duration?`<span style="margin-left:6px">${restDay.last.duration}m</span>`:''}
   </div>
+  ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
     <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}')">Day ${nd}${ls} anyway</button>
   </div>
   </div>`;
 }else{
-  const days=['A','B','C'];
-  const sugg=D.nextDay||'A';
-  let picker=`<div class="dpick">`;
-  for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
-  picker+=`</div>`;
-  const overridden=nd!==sugg;
-  // Repeating yesterday's day stacks the same movement patterns (pressing especially)
-  // back-to-back — the fixed A→B→C rotation normally prevents that, so warn on override.
-  const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
-  const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
   <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
@@ -2737,7 +2766,7 @@ h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;m
 <button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}"${dcur<dvw[dvw.length-1]?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
 if(dcur>0)h+=dbPlateH(dcur,ex.loadUnit==='per_db')+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
 } else if(ex.tp==='band'){
-h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
+h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" aria-label="Band for ${esc(ex.nm)}" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
 } else if(ex.tp==='carry'&&ex.bar){
 // Bar-loaded carries (the 7kg hex bar) log like the other bar lifts: same +/− ladder
@@ -2814,7 +2843,7 @@ for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoint
 h+=`</div>`}h+=`</div>`;
 
 // Notes
-h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." oninput="setL('${ex.id}','notes',this.value)" onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
+h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." aria-label="Notes for ${esc(ex.nm)}" oninput="setL('${ex.id}','notes',this.value)" onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
 h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><button class="btn-ghost" style="font-size:10px" onclick="editCue('${ex.id}')">✏ ${cue?'Edit':'Add'} cue</button>
 <span class="dm" style="font-size:9px;max-width:55%;text-align:right">${esc(ex.rl)}</span></div>`;
 h+=`</div>`; // ex-expand
@@ -2826,8 +2855,8 @@ h+=`</div>`; // ex-row cur
 }}
 
 // Session notes
-h+=`<div style="margin-top:8px"><div class="lb">Session Notes</div>
-<textarea class="sess-note" placeholder="Context..." oninput="SNOTES=this.value" onchange="saveAW()">${esc(SNOTES)}</textarea></div>`;
+h+=`<div style="margin-top:8px"><label class="lb" for="sess-note">Session Notes</label>
+<textarea class="sess-note" id="sess-note" placeholder="Context..." oninput="SNOTES=this.value" onchange="saveAW()">${esc(SNOTES)}</textarea></div>`;
 if(dC>=exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:8px;font-size:13px" onclick="finishW()">Finish Session ✓</button>`;
 h+=`</div>`;el.innerHTML=h;
 setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scrollIntoView({behavior:'smooth',block:'nearest'})},80)}
@@ -2990,8 +3019,8 @@ let h=`<div class="sec"><div style="display:flex;justify-content:space-between;m
 for(const t of['Rowing','Walking','Cycling','Stretching','Other'])
 h+=`<button type="button" class="cardio-btn${t===CARDIO_T?' sel':''}" aria-pressed="${t===CARDIO_T}" onclick="setCardioT('${t}')">${t}</button>`;
 h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
-<div style="flex:1"><div class="lb">Duration (min)</div><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
-<div style="flex:1"><div class="lb">Intensity</div><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
+<div style="flex:1"><label class="lb" for="c-dur">Duration (min)</label><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
+<div style="flex:1"><label class="lb" for="c-int">Intensity</label><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
 <button class="btn btn-pr" onclick="saveCardio()">Save</button></div></div>`;el.innerHTML=h}
 let CARDIO_T='Rowing';
 // Preserve typed duration/intensity across the selection re-render (inputs are id-bound).
@@ -3516,7 +3545,7 @@ else if(logged.size){h+=`<div class="cd" style="text-align:center;padding:16px">
 
 // Exercise deep-dive
 h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Exercise Detail</div>`;
-h+=`<select class="ex-sel" onchange="STAT_EX=this.value;render()">`;
+h+=`<select class="ex-sel" aria-label="Exercise" onchange="STAT_EX=this.value;render()">`;
 const loggedList=pickIds.filter(id=>logged.has(id));
 const newList=pickIds.filter(id=>!logged.has(id)&&(prog.has(id)||id===STAT_EX));
 const legacyList=STAT_ALL?pickIds.filter(id=>!logged.has(id)&&!prog.has(id)&&id!==STAT_EX):[];
@@ -3898,7 +3927,7 @@ const loggedToday=BODY_METRICS.some(m=>todayE[m.k]!=null&&todayE[m.k]!=='');
 h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Log Today · <span class="dm" style="text-transform:none;letter-spacing:0">${fmtD(t)}</span></div>
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
 for(const m of BODY_METRICS){const val=todayE[m.k]!=null?todayE[m.k]:'';
-h+=`<div><div class="lb">${m.lb} <span style="color:var(--dm)">${m.u}</span></div>
+h+=`<div><label class="lb" for="bm_${m.k}">${m.lb} <span style="color:var(--dm)">${m.u}</span></label>
 <input type="number" step="${m.step}" class="body-input" id="bm_${m.k}" value="${val}" placeholder="—" inputmode="decimal"></div>`}
 h+=`</div><button class="btn btn-pr" style="padding:12px" onclick="saveBod()">${loggedToday?'Update Today':'Log Today'}</button>
 <div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Blank skips a field — clearing one that already has a value removes that reading.</div></div>`;
@@ -4037,7 +4066,7 @@ let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:12px">Log Past
 <div class="cd" style="margin-bottom:10px">
 <div style="display:flex;gap:8px;margin-bottom:8px">
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Date</div>
-<input type="date" class="bs" value="${LP.date||today()}" max="${today()}" onchange="LP.date=this.value;render()"></div>
+<input type="date" class="bs" aria-label="Session date" value="${LP.date||today()}" max="${today()}" onchange="LP.date=this.value;render()"></div>
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Location</div>
 ${locSwitchH(LP.loc,'setLPLoc')}</div></div>
 <div style="display:flex;gap:6px">`;
@@ -4053,15 +4082,15 @@ h+=`<div class="cd" style="padding:10px 14px;margin-bottom:6px">
 // Weight input
 if(ex.tp==='bb'||ex.tp==='db'||ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb')
 h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-<input type="number" step="${ex.tp==='db'?'0.5':'1'}" class="body-input" style="width:70px" id="${inputId}_wt" placeholder="kg" inputmode="decimal">
+<input type="number" step="${ex.tp==='db'?'0.5':'1'}" class="body-input" style="width:70px" id="${inputId}_wt" placeholder="kg" aria-label="Weight for ${esc(ex.nm)}, kilograms" inputmode="decimal">
 <span class="dm">${ex.tp==='db'?'kg/DB':'kg'}</span></div>`;
 // Band input
 if(ex.tp==='band')
-h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${inputId}_band"><option value="">Band...</option>
+h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${inputId}_band" aria-label="Band for ${esc(ex.nm)}"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select></div>`;
 // Rep inputs
 h+=`<div style="display:flex;gap:6px">`;
-for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:46px;height:46px;font-size:17px" id="${inputId}_r${i}" placeholder="S${i+1}" inputmode="numeric">`;
+for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:46px;height:46px;font-size:17px" id="${inputId}_r${i}" placeholder="S${i+1}" aria-label="${esc(ex.nm)} set ${i+1} reps" inputmode="numeric">`;
 h+=`</div></div>`}
 
 h+=`<div style="display:flex;gap:8px;margin-top:14px">
@@ -4152,7 +4181,7 @@ else if(!on){h+=`<div style="font-size:12px;margin-bottom:8px">Get a ping when y
 else{h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <span style="font-size:12px;font-weight:600">Rest-timer alerts</span>
 <button class="toggle${D.notify.rest?' on':''}" onclick="toggleNotifyRest()"><span class="toggle-dot"></span></button></div>
-<button class="btn btn-wh btn-sm" onclick="notifyRestDone.__test=1;(function(){try{new Notification('Test ping 🔔',{body:'Notifications are working.',tag:'rft-test'})}catch(e){}})()">Send test ping</button>
+<button class="btn btn-wh btn-sm" onclick="notifTest('Test ping 🔔','Notifications are working.')">Send test ping</button>
 <div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled "train today" reminders aren't possible without a server.</div>`;}
 h+=`</div>`;}
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Screen</div>`;
@@ -4175,7 +4204,7 @@ h+=`</div></div>
 const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.find(e=>e.id===k);
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
 <div><span style="font-size:12px;font-weight:600">${esc(ex?.nm||k)}</span> · <span style="color:var(--pr);font-size:11px">${esc(D.cues[k])}</span></div>
-<button class="btn-sm btn-rd" onclick="delete D.cues['${k}'];save();render()">✕</button></div>`}}
+<button class="btn-sm btn-rd" aria-label="Delete cue for ${esc(ex?.nm||k)}" onclick="delete D.cues['${k}'];save();render()">✕</button></div>`}}
 else h+=emptyH('💡','No cues yet','Add one from any exercise during a workout — it pins your own reminder to that lift.');
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thickest → thinnest)</div>
 <div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips): band helps you. Thinner = harder = progress. Move right.</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>

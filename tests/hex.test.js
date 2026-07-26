@@ -16,7 +16,14 @@ const code = script.slice(0, script.indexOf('// ══════════�
   '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-global.navigator = {};
+// `global.navigator = {...}` is a SILENT NO-OP on Node 18+ (navigator is a getter-only
+// accessor), so every harness here had an inert stub. See tests/calc.test.js for the full note.
+function setNavigator(v) {
+  Object.defineProperty(globalThis, 'navigator', { value: v, configurable: true, writable: true });
+  if (globalThis.navigator !== v) throw new Error('navigator stub did not take');
+  return v;
+}
+setNavigator({});
 global.window = {};
 eval(code);
 const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;

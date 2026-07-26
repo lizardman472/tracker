@@ -743,3 +743,104 @@ The habit to copy is not "add carefully"; it is "do not add".)*
 Still open, with nothing left that was mis-stated: the rest-day day-picker (low severity —
 "Day X anyway" already ships, only the A/B/C picker is missing); the light install splash
 (platform limitation, above); no extensor-endurance slot (accepted since v16).
+
+*(§15 verifies this section's numbers — all of them reproduce — closes the day-picker, and
+adds one contrast pair this section's sweep did not measure. Read §15 for the current list.)*
+
+---
+
+## 15 · Sixth pass — the form layer, the notification path, and a dead stub (26 Jul 2026)
+
+### §14 is the first pass in this branch whose claims all hold
+
+Every number §14 recorded was re-derived from scratch — WCAG luminance written from the spec
+text rather than borrowed from the suite that computes it, program volume re-summed from
+`getProgram` × `MG` — and every one reproduced exactly:
+
+| §14 claimed | Re-measured |
+|---|---|
+| amber 3.55/6.10, green 3.87/6.17, cyan 3.71/5.12, mute 4.62/5.05 (light/dark vs untrained) | identical to two decimals, all ≥ 3:1 |
+| home over MAV: Back 22.5/22, Glutes 16/12, Triceps 15/14; partner clean; every muscle ≥ MEV | identical |
+| `hex.test.js` and `render.smoke.js` now exit non-zero | confirmed by mutation, both suites |
+| History heading reports the true total; `HIST_N` resets on `go` | confirmed |
+| `saveBod` clears a blanked field and no-ops on a first log | confirmed — **and it has five test calls, contrary to a claim this pass nearly made; see the method note** |
+
+Four passes running, the backlog was the least reliable document in the repo. This time it
+was right. The thing that was wrong this pass was the *auditing*, twice — both times mine.
+
+### Fixed
+
+| Finding | Before → after |
+|---|---|
+| **The accessibility pattern stopped at the form layer.** §13 gave every screen a heading outline and completed the tab pattern, then stopped. **1 of 4 `<select>`s and 4 of 12 `<input>`s had an accessible name**; the rest leaned on a placeholder (`—`, `kg`, `S1`, `Notes...`) or on a `<div class="lb">` caption associated with nothing. A screen-reader user reached the cardio form and heard "edit text", twice. | The captions became `<label for>` (they already sat above controls that already had ids — nothing was invented, only connected); controls with no visible caption got `aria-label`. `.lb` gains `display:block`, which is now load-bearing: a `<label>` is inline by default and would collapse onto the control's line. |
+| Three icon-only `✕` buttons had no name — two deload dismissers and the cue delete. The warm-up dismisser **three lines above the first** already had `aria-label="Dismiss"`. | All three named. |
+| **The two notifications a user meets first both used the delivery path that does not work.** `notifyRestDone` routes through `reg.showNotification` and its own comment says why — page-context `new Notification` is unhonoured on most mobile browsers and throws outright on Android Chrome in an installed PWA. The **permission confirmation** and the **"Send test ping" button** used the constructor anyway, each behind a bare `catch`. On Android both did nothing, silently: grant permission, see no confirmation, tap a button labelled "Send test ping", see nothing, conclude notifications are broken — while the real rest ping would have fired. | One `showNotif(title,opts)` helper, SW-first, constructor as documented fallback. All three sites call it. The test ping now carries the real ping's icon and badge too — if the icon is what breaks delivery, the test must break with it. |
+| The same button carried `notifyRestDone.__test=1;` in its `onclick`. `__test` is read nowhere in `index.html` or `tests/`. | Deleted. |
+| **`sw.js` returned a failed asset fetch as a 200.** `new Response('Offline')` defaults to status 200, so a stylesheet or script that never loaded came back as a *successful* response whose body is the word `Offline` — CSS silently no-ops, JS throws a syntax error, and neither reads as "offline". The fonts branch in the same file already returned 504. | `504`, matching the fonts branch. The old test asserted `r.body === 'Offline'` and so passed on exactly this bug; it now asserts the status. |
+| **Backlog cleared: the rest-day card had no day picker.** It shipped "Day X anyway", so on the day after a session the suggested day was the only one reachable in one tap — you could train, but not choose. | Both heroes now share one `picker`/`repeatHint` definition. No engine change: `nd` already came from `PICK_DAY||D.nextDay` and the "anyway" button already honoured it — the picker was simply never rendered on that branch. |
+
+### Recorded, not fixed — one number §14's sweep never took
+
+§14 measured all four *trained* bands against the untrained fill and cleared 3:1 everywhere.
+It never measured the untrained fill itself. Against the silhouette it sits on, `none` is
+**1.09:1 in light and 1.14:1 in dark** — worse than the 1.26/1.45 under-MEV floor that §14
+called "the one state that asks the user to act was the hardest to see", and zero sets is at
+least as actionable as under-MEV.
+
+It is not fixed here because `none` is the reference all eight passing ratios are measured
+*against*: moving it re-derives every one of them. That is a palette pass, not a token tweak,
+and half-doing it is how §13's "half-fixed and called done" entries happened. Both values are
+now **pinned in `calc.test.js`** at their known-bad measurements, so the number cannot drift
+in either direction while it stays open — the same treatment §14 gave the accepted MAV
+overages.
+
+### The harness, a fifth time
+
+**`global.navigator = {...}` is a silent no-op on Node 18+.** `navigator` is a getter-only
+accessor on `globalThis`; the assignment neither takes nor throws. All three eval-based
+harnesses used it, so **every `navigator` stub in this repo has been inert since it was
+written** — anything reading `navigator` got Node's real one. Nothing depended on it yet, so
+nothing failed. It was a trap set for the first test that did, and this pass was that test:
+the notification routing test failed with `Cannot read properties of undefined` on a stub that
+looked assigned. All three now use `Object.defineProperty` and **throw if the stub did not
+take**.
+
+That is the fifth harness defect in six passes, after an over-escaping stub, a suite that
+drained the event loop and exited 0, a test pointed at the wrong screen, and two suites with
+no `process.exit(1)`.
+
+Two more from this pass, both caught only by mutation:
+
+- The new accessible-name sweep **passed over two controls that were never rendered** — the
+  Progress exercise picker (on the `lifts` segment; the sweep only visited `overview`) and the
+  Settings cue-delete button (the fixture had no cues). Both mutations escaped. A sweep is
+  only as wide as the fixture: it now walks all six Progress segments and seeds a cue, with
+  explicit assertions that each screen renders the controls it is being swept for.
+- `calc.test.js` gained its first async block. Printing the total inline would have reported a
+  figure taken before those assertions ran *and exited 0 while they were still pending* — the
+  same defect class as the two suites that exited 0 with failures. It has an `exit` hook that
+  fails the run if the suite ever finishes without reporting.
+
+### Method note — I made §14's own mistakes, twice
+
+§14 ends by warning that a `grep | head -12` truncated away the evidence and produced a
+confident, wrong claim. This pass ran `grep "saveBod\|bodyLog" tests/*.js | head`, watched the
+`bodyLog` hits fill the window, and concluded **"§14's `saveBod` fix shipped with no test."**
+It has five test calls and a full block of assertions. `grep -c` first, then read.
+
+And the first four mutations run against §14's exit-code claim all "escaped" — one `sed` that
+did not match, three aimed at strings no suite asserts. §14 warns about exactly the first of
+those. **A mutation that does not mutate, or that mutates something untested, is not evidence
+the suite is broken — it is evidence the auditor is.** Every mutation in this pass checks that
+the file changed and names the suite it expects to fail.
+
+**1000 passing** — calc 423 · hex 225 · render.smoke 312 · sw 40 — plus 16/16 mutations
+caught. SW cache `rft-v77`.
+
+*(Read from the runner, and this time summed by the shell too:
+`for f in calc.test hex.test render.smoke sw.test; do node tests/$f.js | tail -1 | grep -o '^[0-9]*'; done | paste -sd+ | bc`.
+Six hand-summed totals in this branch have been wrong. The seventh was not attempted.)*
+
+Still open: the untrained-vs-silhouette heat contrast (above — measured, pinned, needs a
+palette pass); the light install splash (platform limitation — the manifest has no media
+mechanism); no extensor-endurance slot (accepted since v16).

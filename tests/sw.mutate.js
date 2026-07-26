@@ -44,8 +44,12 @@ const MUTATIONS = [
 
   ['makes the asset branch network-first, losing instant cached loads',
     s => s.replace(/e\.respondWith\(\s*caches\.match\(req\)\.then\(r => r \|\| fetch\(req\)\.then\(resp => \{\s*\/\/ Same-origin/,
-      'e.respondWith(\n    fetch(req).then(resp => {\n      // Same-origin')
-      .replace('}).catch(() => new Response(\'Offline\')))', '}).catch(() => new Response(\'Offline\')))')],
+      'e.respondWith(\n    fetch(req).then(resp => {\n      // Same-origin')],
+
+  // The pre-v77 behaviour: a failed asset fetch resolved as a 200 whose body was the word
+  // "Offline", so a dead stylesheet was indistinguishable from a live one.
+  ['returns the offline asset fallback as a 200 instead of a 504',
+    s => s.replace("new Response('', { status: 504, statusText: 'Offline' })", "new Response('Offline')")],
 
   ['caches a 404 asset',
     s => s.replace("resp && resp.status === 200 && resp.type === 'basic'", 'resp')],

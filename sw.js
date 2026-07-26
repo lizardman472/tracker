@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v76';
+const C = 'rft-v77';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -93,6 +93,11 @@ self.addEventListener('fetch', e => {
         caches.open(C).then(c => c.put(req, clone));
       }
       return resp;
-    }).catch(() => new Response('Offline')))
+      // A failed asset fetch must NOT look like a successful one. `new Response('Offline')`
+      // defaults to status 200, so a stylesheet or script that never loaded was handed back
+      // as a 200 whose body is the word "Offline" — CSS silently no-ops and JS throws a
+      // syntax error, neither of which reads as "you are offline". 504 matches the fonts
+      // branch above and lets the page tell the two apart.
+    }).catch(() => new Response('', { status: 504, statusText: 'Offline' })))
   );
 });

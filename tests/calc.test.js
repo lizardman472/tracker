@@ -21,7 +21,17 @@ const code = script.slice(0, script.indexOf('// ══════════�
   '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-global.navigator = {};
+// `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
+// accessor on globalThis, so the assignment neither takes nor throws. Every harness in this
+// repo used it, which meant the stub was inert and any code reading navigator got Node's
+// real one. Nothing depended on it yet, so nothing failed; it was a trap set for the first
+// test that did. defineProperty is what actually replaces it.
+function setNavigator(v) {
+  Object.defineProperty(globalThis, 'navigator', { value: v, configurable: true, writable: true });
+  if (globalThis.navigator !== v) throw new Error('navigator stub did not take');
+  return v;
+}
+setNavigator({});
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
 const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK } = global.__X;
@@ -1492,6 +1502,19 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     const f = contrast(p.flag, p.under);
     T(`heat under-MEV outline ≥3:1 vs the amber it outlines (${mode})`, f >= 3, `${f.toFixed(2)}:1`);
   }
+  // The pair the sweep above does NOT cover, and the reason it is pinned rather than fixed:
+  // an UNTRAINED region (`none`) against the silhouette it sits on (`base`) measures
+  // 1.09:1 light / 1.14:1 dark. Zero sets is at least as actionable as under-MEV, and it is
+  // currently the least visible thing on the map. It is not fixed here because `none` is the
+  // reference every band above is measured against — moving it re-derives all eight of those
+  // ratios, which is a palette pass, not a token tweak. Pinned to the measured values so the
+  // number cannot drift silently in either direction while it stays open (§15).
+  {
+    const l = contrast(HEAT_PAL.light.none, HEAT_PAL.light.base);
+    const d = contrast(HEAT_PAL.dark.none, HEAT_PAL.dark.base);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad light value', Math.abs(l - 1.09) < 0.01, `${l.toFixed(2)}:1`);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad dark value', Math.abs(d - 1.14) < 0.01, `${d.toFixed(2)}:1`);
+  }
   T('heat palette defines the same bands in both themes',
     JSON.stringify(Object.keys(HEAT_PAL.light).sort()) === JSON.stringify(Object.keys(HEAT_PAL.dark).sort()));
   // Every tracked muscle appears in at least one view.
@@ -1535,5 +1558,81 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('young history divides by its own span', cy.perWk8 >= 2.9 && cy.perWk8 <= 3.6, cy.perWk8);
 }
 
+// ── audit fix: one delivery path for every notification ──
+// notifyRestDone routed through reg.showNotification and explained why: page-context
+// `new Notification` is not honoured on most mobile browsers, and on Android Chrome the
+// constructor throws inside an installed PWA. The two notifications the user meets FIRST —
+// the permission confirmation and the "Send test ping" button — used that constructor
+// anyway, each behind a bare catch, so on Android both did nothing and did it silently.
+// These assert the routing, not the rendering: the whole defect was a call going somewhere
+// other than where the working one went.
+{
+  const realNav = globalThis.navigator, realNotification = global.Notification;
+  const calls = { sw: [], ctor: [] };
+  global.Notification = function (title, opts) { calls.ctor.push([title, opts]) };
+  global.Notification.permission = 'granted';
+  const reg = { showNotification: (title, opts) => { calls.sw.push([title, opts]); return Promise.resolve() } };
+  setNavigator({ serviceWorker: { ready: Promise.resolve(reg) } });
+
+  showNotif('Rest complete 💪', { tag: 'rft-rest' });
+  showNotif('Notifications on ✓', { tag: 'rft-test' });
+  showNotif('Test ping 🔔', { tag: 'rft-test' });
+  // showNotif returns the ready-promise chain; drain it before reading the tallies.
+  globalThis.navigator.serviceWorker.ready.then(() => {
+    T('every notification goes through the service worker when one is available', calls.sw.length === 3, JSON.stringify(calls.sw.map(c => c[0])));
+    T('...and none falls back to the page-context constructor', calls.ctor.length === 0, JSON.stringify(calls.ctor.map(c => c[0])));
+    T('the confirmation and the test ping use the SAME path as the real rest ping',
+      calls.sw.some(c => c[0] === 'Rest complete 💪') && calls.sw.some(c => c[0] === 'Notifications on ✓') && calls.sw.some(c => c[0] === 'Test ping 🔔'));
+
+    // Desktop with no worker: the constructor is the documented fallback, not the primary.
+    calls.sw.length = 0; calls.ctor.length = 0;
+    setNavigator({});
+    showNotif('Rest complete 💪', { tag: 'rft-rest' });
+    T('with no service worker it falls back to the constructor', calls.ctor.length === 1, JSON.stringify(calls.ctor.map(c => c[0])));
+
+    // A throwing constructor (Android's behaviour) must not take the caller down with it.
+    calls.ctor.length = 0;
+    global.Notification = function () { throw new TypeError('Illegal constructor') };
+    let threw = false;
+    try { showNotif('Rest complete 💪', {}) } catch (_) { threw = true }
+    T('a throwing Notification constructor is contained', !threw);
+
+    // notifTest carries the real ping's icon/badge — if the icon is what breaks delivery,
+    // the test ping must break with it rather than passing on a lighter payload.
+    setNavigator({ serviceWorker: { ready: Promise.resolve(reg) } });
+    global.Notification = function (title, opts) { calls.ctor.push([title, opts]) };
+    calls.sw.length = 0;
+    notifTest('Test ping 🔔', 'Notifications are working.');
+    globalThis.navigator.serviceWorker.ready.then(() => {
+      const real = {}; { const ic = notifIcon(); if (ic) { real.icon = ic; real.badge = ic } }
+      const sent = (calls.sw[0] || [])[1] || {};
+      T('the test ping carries the same icon/badge as the real rest ping',
+        sent.icon === real.icon && sent.badge === real.badge, JSON.stringify({ sent: sent.icon && 'set', real: real.icon && 'set' }));
+      T('the test ping is tagged as a test, not as a rest ping', sent.tag === 'rft-test', sent.tag);
+
+      setNavigator(realNav); global.Notification = realNotification;
+      finish();
+    });
+  });
+}
+
+// The notification assertions above resolve on the microtask queue, so the tally has to be
+// printed from their continuation — printing it inline would report a total taken before
+// they ran and, worse, exit 0 while they were still pending. This suite is synchronous
+// everywhere else; this is the one block that is not.
+let FINISHED = false;
+function finish() {
+FINISHED = true;
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+}
+// If the block above ever stops calling finish() — a rejected promise, a renamed global —
+// the process would drain its queue and exit 0 having printed no total at all. That is the
+// same class of defect as the two suites that exited 0 with failing assertions, so it gets
+// an explicit guard rather than trust.
+process.on('exit', code => {
+  if (code === 0 && !FINISHED) {
+    console.log('\nFAIL: the suite exited without reporting — the async notification block never completed');
+    process.exitCode = 1;
+  }
+});

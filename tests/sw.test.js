@@ -361,9 +361,15 @@ const CACHE = SW_SRC.match(/const C = '([^']+)'/)[1];
     T('a 404 asset is not cached', !sw.caches._dump(CACHE).includes(asset.url));
   }
   {
+    // Resolving is only half the requirement. This used to be `new Response('Offline')`,
+    // whose status defaults to 200 — a stylesheet that never loaded came back as a
+    // SUCCESSFUL response containing the word "Offline". The old assertion checked the
+    // body and so passed on exactly that bug. Status is the part the page can act on.
     const sw = loadSW({ fetchImpl: () => Promise.reject(new Error('offline')) });
     const r = await sw.fetchEvent(Req('https://app/gone.png')).response;
-    T('an uncached asset offline resolves rather than rejecting', r.body === 'Offline');
+    T('an uncached asset offline resolves rather than rejecting', !!r);
+    T('...and does not masquerade as a successful response', r.status === 504, `status ${r.status}`);
+    T('...and its status matches the fonts branch, which already did this', r.status === 504);
   }
 
   // ── cache version hygiene ─────────────────────────────────────────────────────────────────

@@ -43,7 +43,14 @@ global.document = {
   addEventListener() {}, body: makeEl(), documentElement: makeEl(),
 };
 global.window = { scrollTo() {}, addEventListener() {}, matchMedia() { return { matches: false, addEventListener() {} } }, location: { href: '', hash: '' } };
-global.navigator = { serviceWorker: { register() { return Promise.resolve(); } } };
+// `global.navigator = {...}` is a SILENT NO-OP on Node 18+ (navigator is a getter-only
+// accessor), so every harness here had an inert stub. See tests/calc.test.js for the full note.
+function setNavigator(v) {
+  Object.defineProperty(globalThis, 'navigator', { value: v, configurable: true, writable: true });
+  if (globalThis.navigator !== v) throw new Error('navigator stub did not take');
+  return v;
+}
+setNavigator({ serviceWorker: { register() { return Promise.resolve(); } } });
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.setInterval = () => 0; global.clearInterval = () => {};
 global.Blob = class { constructor(a) { this.size = (a && a[0] && a[0].length) || 0 } };
@@ -93,6 +100,44 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   R.render();
   T('suggested day shows no stacking hint', !/was your last session/.test(R.getA()));
   R.getD().nextDay = 'A';
+}
+
+// ── audit fix: the rest-day card is choosable, not just skippable ──
+// It shipped a "Day X anyway" button but no A/B/C picker, so on the day after a session the
+// suggested day was the only one reachable in one tap. `nd` already honoured PICK_DAY — the
+// picker was simply never rendered on that branch. Both heroes now share one definition.
+{
+  const D2 = R.getD();
+  const realSessions = D2.sessions;
+  // A session dated TODAY is what puts rHome on the rest-day branch.
+  const t = new Date();
+  const iso = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  D2.sessions = [{ id: 'rest', date: iso, day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] }];
+  D2.nextDay = 'B';
+  R.setPICK(null);
+  R.go('home');
+  const card = R.getA();
+  T('the rest-day card renders (fixture actually hits that branch)', /Rest Day/.test(card), card.slice(0, 120));
+  T('the rest-day card offers a day picker', /class="dpick"/.test(card));
+  T('...with all three days', ['A', 'B', 'C'].every(d => new RegExp(`PICK_DAY='${d}'`).test(card)));
+  T('...defaulting to the suggested day', /class="on"[^>]*onclick="PICK_DAY='B'/.test(card),
+    (card.match(/<button class="[^"]*"[^>]*PICK_DAY[^>]*>/g) || []).join(' '));
+  R.setPICK('C');
+  R.render();
+  const picked = R.getA();
+  T('picking a day on a rest day moves the selection', /class="on"[^>]*onclick="PICK_DAY='C'/.test(picked));
+  // The point of the picker is that the button it sits above follows it. Without this the
+  // picker could render and change nothing — which is how it would break in practice.
+  T('...and retargets the "anyway" button', /beginW\('C'\)"[^>]*>Day C1 anyway/.test(picked),
+    (picked.match(/beginW\('.'\)"[^>]*>Day .1 anyway/) || [''])[0]);
+  R.setPICK('A');
+  R.render();
+  T('the rotation warning reaches the rest-day card too', /was your last session/.test(R.getA()));
+  R.setPICK(null);
+  D2.sessions = realSessions;
+  D2.nextDay = 'A';
+  R.go('home');
 }
 
 // ── Workout screen showing a hex lift ──
@@ -756,6 +801,96 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('workout: renders exactly one h2 screen title', wh.filter(h => h === 'h2').length === 1, JSON.stringify(wh));
   // sr-only must be clipped, not display:none — display:none is invisible to screen readers too.
   T('the sr-only utility clips rather than hides', /\.sr-only\{[^}]*clip:rect/.test(html) && !/\.sr-only\{[^}]*display:none/.test(html));
+}
+
+// ── audit fix: every control announces what it is ──
+// The heading and tab work above stopped at the form layer. On HEAD before this pass, 1 of 4
+// <select>s carried an accessible name and 4 of 12 <input>s did; the rest leaned on a
+// placeholder ('—', 'kg', 'S1') or on a <div class="lb"> caption that was never associated
+// with anything. The captions existed and the controls already had ids — nothing had to be
+// invented, only connected.
+//
+// Written as a SWEEP, not as one assertion per control. Per-control assertions only pin what
+// someone remembered to list; a sweep fails when a NEW unnamed control is added, which is the
+// failure mode that produced this finding in the first place.
+{
+  // A sweep only covers what the fixture actually renders. The Settings cue list is empty by
+  // default, so its delete button never appeared and the sweep passed over it vacuously —
+  // caught by mutating the fix away and watching nothing fail. Seed the states that gate a
+  // control into existence BEFORE sweeping.
+  const realCues = R.getD().cues;
+  R.getD().cues = { hex_dl: 'brace hard, push the floor away' };
+
+  // A control is named if it says so itself (aria-label/aria-labelledby), if a <label for>
+  // points at its id, or if a <label> wraps it (how the Import button's hidden file input
+  // gets its name). Containment is checked by index, since the wrapping case has no id.
+  const namedIn = markup => {
+    const labelRanges = [...markup.matchAll(/<label\b[^>]*>[\s\S]*?<\/label>/g)]
+      .map(m => [m.index, m.index + m[0].length]);
+    const forIds = new Set([...markup.matchAll(/<label\b[^>]*\bfor="([^"]+)"/g)].map(m => m[1]));
+    const unnamed = [];
+    for (const m of markup.matchAll(/<(input|select|textarea)\b[^>]*>/g)) {
+      const tag = m[0];
+      if (/\btype="hidden"/.test(tag)) continue;
+      if (/\baria-label="|\baria-labelledby="/.test(tag)) continue;
+      const id = (tag.match(/\bid="([^"]+)"/) || [])[1];
+      if (id && forIds.has(id)) continue;
+      if (labelRanges.some(([a, b]) => m.index > a && m.index < b)) continue;
+      unnamed.push(tag.slice(0, 110));
+    }
+    return unnamed;
+  };
+  // Buttons whose entire visible content is an icon — ✕, −, + — have no text to serve as a
+  // name. Anything with a letter or a digit ("A1", "Show more", "🚣 Log Cardio") already does.
+  const namelessIcons = markup => {
+    const out = [];
+    for (const m of markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+      if (/\baria-label="|\baria-labelledby="/.test(m[1])) continue;
+      const text = m[2].replace(/<[^>]*>/g, '').replace(/&[a-z]+;/g, '').trim();
+      if (!/[\p{L}\p{N}]/u.test(text)) out.push((m[0] || '').slice(0, 110));
+    }
+    return out;
+  };
+  // Progress is SIX screens behind one view key, and its controls are not evenly spread —
+  // the exercise picker is on Lifts, the muscle-group picker on Balance, the month nav on
+  // Monthly. Sweeping only the default 'overview' segment let a deliberately-broken exercise
+  // picker pass, so every segment gets its own pass.
+  const screens = [
+    ['home', () => R.go('home')],
+    ...['overview', 'lifts', 'balance', 'consistency', 'monthly', 'lifetime']
+      .map(seg => [`progress/${seg}`, () => { R.setSEG(seg); R.go('stats') }]),
+    ['body', () => R.go('body')],
+    ['history', () => R.go('history')],
+    ['settings', () => R.go('settings')],
+    ['cardio', () => R.go('cardio')],
+    ['logpast', () => R.go('logpast')],
+    ['plates', () => R.go('plates')],
+    ['workout', () => { R.getD().location = 'home'; R.beginW('A') }],
+  ];
+  for (const [name, nav] of screens) {
+    nav();
+    const m = R.getA();
+    const un = namedIn(m);
+    T(`${name}: every input/select has an accessible name`, un.length === 0, JSON.stringify(un));
+    const ni = namelessIcons(m);
+    T(`${name}: every icon-only button has an accessible name`, ni.length === 0, JSON.stringify(ni));
+  }
+  // The two screens that carry most of the form surface — assert they are actually EXERCISING
+  // the sweep rather than rendering no controls at all, which would pass it vacuously.
+  R.go('body');
+  T('body actually renders the measurement inputs the sweep checks', (R.getA().match(/<input\b/g) || []).length >= 5);
+  R.go('cardio');
+  T('cardio actually renders the controls the sweep checks', /<input\b/.test(R.getA()) && /<select\b/.test(R.getA()));
+  R.setSEG('lifts'); R.go('stats');
+  T('progress/lifts actually renders the exercise picker the sweep checks', /<select class="ex-sel"/.test(R.getA()));
+  R.setSEG('overview');
+  R.go('settings');
+  T('settings actually renders the cue delete button the sweep checks', /Delete cue for/.test(R.getA()));
+  // The .lb captions are <label for>, which only works as a name if .lb stays block-level —
+  // a label is inline by default and would collapse onto the control's line.
+  T('the .lb caption utility is block-level so <label class="lb"> lays out as the <div> did',
+    /\.lb\{[^}]*display:block/.test(html));
+  R.getD().cues = realCues;
 }
 
 // ── audit fix: the Progress tab pattern actually connects ──
