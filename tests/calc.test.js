@@ -224,6 +224,23 @@ T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg))
   d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [third([6, 6, 6, 6, 6])];
   sg = getSmartSugg(fpC);
   T('an extra-set low-rep session without prior stalls is not a free pass', sg.type === 'stay' && /1\/3 stalls/.test(sg.detail), JSON.stringify(sg));
+
+  // ── the reprieve is SINGLE-USE: the ladder must always terminate ──
+  // Forgiving every cluster let a lifter hold the same load indefinitely on 5×6 — the
+  // escalation ladder simply never ended. Exactly one cluster is forgiven; the next one
+  // scores as the ordinary below-range session it is.
+  const fourth = reps => ({ id: 'cl4', date: ymd(new Date(Date.now() - 25 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] });
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6]), fourth([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a SECOND cluster is not a second reprieve — the ladder terminates', sg.type === 'dn', JSON.stringify(sg));
+  // ...and the deload count must not bill the lifter for the session the app prescribed.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6]), fourth([6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a failed retry after a cluster deloads at 3, not 4', sg.type === 'dn' && /3 sessions below/.test(sg.detail), sg.detail);
+  // A cluster that lands mid-run still cannot be conjured without the advice being earned.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [twoStalls()[0], third([6, 6, 6, 6, 6])];
+  T('one stall + a cluster shape is still only 2 stalls, not a hold', getSmartSugg(fpC).type === 'stay' && /2\/3 stalls/.test(getSmartSugg(fpC).detail), getSmartSugg(fpC).detail);
 }
 
 // ── audit fix: ACCESSORY sets past the prescription are not judged as working sets ──

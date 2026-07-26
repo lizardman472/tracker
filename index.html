@@ -1624,9 +1624,38 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   // Total reps across the WORKING sets only — the basis for the user-visible "reps dropped"
   // warning, which must not fire (or be silenced) because accessory sets came and went.
   const workReps=h=>workSets(h).reduce((a,b)=>a+b,0);
-  // CONSECUTIVE trailing stalls at the current weight — a failure 4 sessions ago followed
-  // by two clean sessions is history, not a stall-in-progress, and must not trip a deload.
-  const stalls=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(!wEq(loadOf(h),lastLoad))break;if(inRange(h))break;n++}return n})();
+  // The 2-stall branch below PRESCRIBES (ex.s+1)×(mn-2) — reps deliberately under the range
+  // minimum — so scoring a compliant session against the base range made the app's own advice
+  // the third strike. Recognise the attempt by its shape.
+  // Reads UNSLICED reps on purpose: the extra sets ARE the signal, which is exactly why the
+  // workSets slice above must not be applied here.
+  const clusterFloor=Math.max(1,mn-2);
+  const isClusterAttempt=h=>{const v=effectiveReps(ex,h.reps);
+    return v.length>=ex.s+1&&v.every(r=>r>=clusterFloor)};
+  // The current stall RUN at this load, oldest→newest: consecutive below-range sessions
+  // ending now. A failure 4 sessions ago followed by two clean sessions is history, not a
+  // stall-in-progress, and must not trip a deload.
+  const stallRun=(()=>{const r=[];
+    for(let i=hist.length-1;i>=0;i--){const h=hist[i];
+      if(!wEq(loadOf(h),lastLoad))break;
+      if(inRange(h))break;
+      r.unshift(h)}
+    return r})();
+  // Count the run forward, forgiving at most ONE cluster — and only where the advice had
+  // actually been earned (≥2 stalls already banked at that point in the run). Two failure
+  // modes this threads between: counting the cluster punished a lifter for doing exactly what
+  // the app prescribed, while forgiving EVERY cluster let them hold the same load forever on
+  // 5×6 with the ladder never terminating. A second cluster scores as the ordinary
+  // below-range session it is, and a cluster-shaped session nobody prescribed earns nothing.
+  // clusterHeld additionally records whether the session being judged RIGHT NOW is that
+  // forgiven cluster — i.e. the advice had been shown and the lifter has just taken it. A
+  // cluster-shaped session nobody prescribed must not print "that was the prescribed
+  // intervention", even though holding the load is the same outcome either way.
+  const {stalls,clusterHeld}=(()=>{let n=0,forgiven=false,held=false;
+    for(const h of stallRun){
+      if(!forgiven&&n>=2&&isClusterAttempt(h)){forgiven=true;held=(h===stallRun[stallRun.length-1]);continue}
+      n++;held=false}
+    return{stalls:n,clusterHeld:held}})();
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
   // Confirm brake counts CONSECUTIVE recent clean target-hits at the current weight ending
   // now — not lifetime hits — so re-approaching a previously-confirmed weight (after a
@@ -1736,22 +1765,10 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
-    // The 2-stall branch below PRESCRIBES (ex.s+1)×(mn-2) — reps deliberately under the range
-    // minimum. Scoring that against the base range made the intervention itself strike three,
-    // so a lifter who did exactly what the app told them was deloaded by the very next render
-    // ("...this session before any load cut" → −10% anyway). Recognise the attempt by its
-    // shape and judge it against the cluster prescription instead.
-    // NOTE: reads UNSLICED reps on purpose — the extra sets ARE the signal here, which is why
-    // workSets (which drops them) must not be used for this test.
-    const clusterFloor=Math.max(1,mn-2);
-    const isClusterAttempt=h=>{const v=effectiveReps(ex,h.reps);
-      return v.length>=ex.s+1&&v.every(r=>r>=clusterFloor)};
-    // Only a genuine response to the advice counts — the two sessions before this one must
-    // have been consecutive stalls at this load (i.e. the cluster card was actually shown).
-    // Without that guard any high-set low-rep session would be a free pass past the deload.
-    const priorStalls=(()=>{let n=0;for(let i=hist.length-2;i>=0;i--){const h=hist[i];
-      if(!wEq(loadOf(h),lastLoad))break;if(inRange(h))break;n++}return n})();
-    if(priorStalls>=2&&isClusterAttempt(last)){
+    // clusterHeld is true only for the ONE forgiven cluster, and only on the session that
+    // took the advice. A second cluster scores as an ordinary stall, pushing stalls to 3 and
+    // falling through to the deload below — that is what stops the hold repeating forever.
+    if(clusterHeld){
       const cv=effectiveReps(ex,last.reps);
       return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
         detail:`Cluster hit (${cv.length}×${Math.min(...cv)}) — that was the prescribed intervention, not a third stall. Retry ${ex.s}×${mn}${ex.perSide?'/side':''} at ${lastLoad}kg before any load cut.`,regress}}
