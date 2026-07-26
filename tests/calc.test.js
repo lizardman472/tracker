@@ -1283,6 +1283,52 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 
+// ── Audit 6 / F1: a quota-blocked save must NOT advance the write generation ──
+// It used to bump D.gen before the setItem, so a failed write left the tab's gen ABOVE the
+// sidecar. save()'s conflict guard (sg > D.gen) then read false and skipped the merge, and
+// the next successful save — right after the user frees space, which is exactly what the
+// quota alert instructs — silently destroyed the other tab's sessions.
+{
+  const store5 = {};
+  let allow = true;
+  global.localStorage = {
+    getItem: k => store5[k] ?? null,
+    setItem: (k, v) => { if (!allow && k === 'rft-v12') { const e = new Error('QuotaExceededError'); e.name = 'QuotaExceededError'; throw e; } store5[k] = v; },
+    removeItem: k => { delete store5[k]; }
+  };
+  const mkSess = (id, date, wt) => ({ id, date, day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '', notes: '' }] });
+
+  // Tab A boots, saves once cleanly → gen 1.
+  const dA = freshD();
+  dA.sessions = [mkSess('q1', '2026-06-01', 56)];
+  dA.gen = 0;
+  save();
+  T('quota: baseline save lands at gen 1', getD().gen === 1 && store5['rft-v12-gen'] === '1');
+
+  // Storage fills up. Two save attempts fail.
+  allow = false;
+  getD().sessions.push(mkSess('qA', '2026-06-02', 58));
+  T('quota: a blocked save reports failure', save() === false);
+  T('quota: a blocked save leaves gen where it was', getD().gen === 1, `gen=${getD().gen}`);
+  T('quota: a second blocked save still leaves gen where it was', (save(), getD().gen) === 1, `gen=${getD().gen}`);
+  T('quota: the stored blob is untouched by a blocked save', JSON.parse(store5['rft-v12']).sessions.map(s => s.id).join() === 'q1');
+
+  // Meanwhile the OTHER tab writes a session of its own at gen 2.
+  const other = JSON.parse(store5['rft-v12']);
+  other.sessions.push(mkSess('qB', '2026-06-03', 60));
+  other.gen = 2;
+  store5['rft-v12'] = JSON.stringify(other);
+  store5['rft-v12-gen'] = '2';
+
+  // The user frees space and taps Save again — the conflict merge must still fire.
+  allow = true;
+  T('quota: the recovery save succeeds', save() === true);
+  const after = JSON.parse(store5['rft-v12']).sessions.map(s => s.id);
+  T('quota: the other tab’s session survives the recovery save', after.includes('qB'), JSON.stringify(after));
+  T('quota: this tab’s own session is written too', after.includes('qA'), JSON.stringify(after));
+  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
 // ── Per-set weight overrides (v15: optional ex.wts[] alongside reps[]) ──
 {
   // tonnage: overrides apply per set, null inherits wt, multipliers stay per-set

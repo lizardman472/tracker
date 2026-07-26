@@ -1215,8 +1215,15 @@ if(sg>(D.gen||0)){
   // lose this tab's just-logged work to protect a store that didn't parse anyway.
   try{const theirs=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,theirs)}catch(_){}
   D.gen=Math.max(D.gen||0,sg)}
-D.gen=(D.gen||0)+1;
-localStorage.setItem(SK,JSON.stringify(D));
+// The generation must only advance for a write that ACTUALLY LANDED. It used to be
+// bumped before the setItem, so a quota-blocked save still incremented it — leaving the
+// tab's in-memory gen ABOVE the sidecar. The conflict guard above then read
+// sg > D.gen as false and skipped the merge, so the next successful save (right after
+// the user frees space, which is exactly what the quota alert tells them to do)
+// clobbered whatever the other tab had written in the meantime. Roll back on failure.
+const prev=D.gen||0;
+D.gen=prev+1;
+try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){D.gen=prev;return false}
 try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
