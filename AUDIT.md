@@ -508,3 +508,61 @@ timeout.
 were wrong — carried over from the 25 Jul audit without re-deriving. Computed from
 `getProgram` × `RELATED_EX` the count is 6, and `hex_row` has had a seed all along. All six are
 closed in §12.)*
+
+---
+
+## 12 · Third pass — auditing the two previous passes (26 Jul 2026)
+
+The first two passes were audited against their own claims rather than re-read. **Three of the
+eleven fixes had shipped with regressions, and two more were incomplete.** Every one was found
+by running the fixed code one step past the scenario its own tests covered.
+
+### Regressions introduced by the earlier passes
+
+| Fix | Defect | Why the tests missed it |
+|---|---|---|
+| **§11 cluster** | Forgiving *every* cluster made the hold unbounded — logging 5×6 repeatedly held the load forever, so the escalation ladder never terminated. Worse than the deload it prevented. And the cluster still scored as a stall next session, so a failed retry deloaded citing "4 sessions below 4×8" — billing the lifter for the app's own prescription, the exact miscount the fix targeted. | The suite asserted the FIRST cluster after two stalls and stopped. Nothing ran a second cluster, or the session after a hold. |
+| **§11 load-drop banner** | `LOAD_DROPPED` describes the boot that set it; the rescue copy outlives it. From boot 2 the banner fell back to the total-loss copy — *"what you see now is a fresh/demo state"* — to a user whose history was fine. Boot 1 lasts one session, so the wrong message is what users actually live with. | The test booted the app once. Booting twice against the same store is what exposed it. |
+| **§11 SW timeout** | No `e.waitUntil`, so when the timer won, the browser was free to kill the worker mid-refresh. The commit's claim that "the next load picks up the new shell" was unreliable *precisely* on the slow connections the timeout exists for. | No committed SW coverage at all — flagged at the time, and this is the cost. |
+
+### Gaps the earlier passes left open
+
+- **The set-count window had a cap but no floor.** `nS` takes its count from the session so a
+  3-set Day-B session satisfies a 4-set Day-A slot — but one set at target earned a full
+  increase, captioned "Hit 4×10". Floored at `ex.s-1`, verified against the program: only
+  `db_lateral` and `db_rear_fly` vary, both 4→3.
+- **Weight-only rows read as failed sessions.** `savePast` commits a row on a weight alone;
+  three of them forced a ~10% deload and raised `stalledMajor`, built entirely from rows
+  containing no reps.
+
+### Also closed
+
+`load()` accepted any cue key while `mergeImport` constrained the charset (keys are
+interpolated into an onclick — guarding one entrance and not the other is the asymmetry that
+gets relied on later); the document `<title>` still said v12, which is the PWA install name;
+`resetAll` never re-applied the theme, so a factory reset visibly kept the old palette.
+
+### What this pass changes about how to audit this repo
+
+**A fix's own tests are written by the person who believes the fix works.** Every regression
+above sat inside a green suite. What found them was running the code one step past the case
+the fix was designed around — a second cluster, a second boot, a second session after a hold.
+
+Two habits worth keeping: assert the *sequence*, not the moment (an escalation ladder needs a
+test that it terminates, not just that it holds once); and never let a test double be safer
+than production — the over-escaping render stub hid the `esc()` bug for its entire life, and
+one new branch here threw a TDZ `ReferenceError` on the exact case it was added to handle
+while the suite stayed green, because nothing exercised it.
+
+**781 passing** — calc 384 · hex 220 · render.smoke 177. SW cache `rft-v74`.
+
+*(Two commit messages in this pass state inflated totals — 785 and 789 — from adding the
+per-suite numbers wrong. The counts above are the measured ones. Noted rather than rewritten:
+the history is accurate about what changed, only the arithmetic in two footers is off.)*
+
+Still open, untouched: cardio inflating the fatigue frequency term; rest-day card UX; Balance
+"Priority" nudge on an empty account; heading structure and tab semantics (a11y); History
+pagination; dark-mode under-MEV heat fill; `saveBod` can't clear a mistyped measurement;
+two-tab merge drops cues/noProg; `checkResume` re-parses every render; manifest `theme_color`
+is light-only; duplicated dark-theme token block; home venue exceeds 3 MAV landmarks; glute
+credit inflated; no extensor-endurance slot (accepted since v16).
