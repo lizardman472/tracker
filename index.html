@@ -4140,8 +4140,14 @@ return{...s,id,day,ex}}
 // smuggle malformed sessions past the load-path validation.
 function mergeStores(mine,theirs){const W=structuredClone(mine);
 if(!theirs||typeof theirs!=='object')return W;
-const sIds=new Set(W.sessions.map(s=>s.id));
-for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(v&&!sIds.has(v.id))W.sessions.push(v)}
+const sIds=new Map(W.sessions.map(s=>[s.id,s]));
+for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(!v)continue;
+  const mine=sIds.get(v.id);
+  // On an id collision the local row wins — EXCEPT for noProg, which marks a session the user
+  // deliberately excluded from progression. Dropping it silently re-admitted that session to
+  // the engine, so the flag is sticky: set in either tab, it survives.
+  if(mine){if(v.noProg)mine.noProg=true;continue}
+  sIds.set(v.id,v);W.sessions.push(v)}
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 const cIds=new Set(W.cardioLog.map(c=>c.id));
 for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){if(c&&typeof c==='object'&&c.id&&!cIds.has(c.id))W.cardioLog.push(c)}
@@ -4151,6 +4157,14 @@ for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x=
 W.bodyLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const dKeys=new Set(W.discomfort.map(x=>x.date+x.exId+x.joint));
 for(const x of(Array.isArray(theirs.discomfort)?theirs.discomfort:[])){if(x&&typeof x==='object'&&!dKeys.has(x.date+x.exId+x.joint))W.discomfort.push(x)}
+// Cues had no branch here at all, so a coaching cue typed in one tab was dropped the moment
+// the other tab saved. Union by key, local wins a conflict (this tab is the live one), and
+// apply the SAME charset guard load() and mergeImport use — cue keys are interpolated into a
+// delete-button onclick, and this is the third entrance to that sink.
+if(!W.cues||typeof W.cues!=='object')W.cues={};
+if(theirs.cues&&typeof theirs.cues==='object'){
+  for(const[k,v] of Object.entries(theirs.cues))
+    if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k)&&!(k in W.cues))W.cues[k]=v}
 return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).

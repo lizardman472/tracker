@@ -1247,6 +1247,32 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('mergeStores: their sessions still union in', ms.sessions.some(s => s.id === 'tt9'));
   T('mergeStores: malformed their-session dropped by validSession', mergeStores(mineS, { sessions: [{ junk: 1 }] }).sessions.length === 0);
 
+  // ── audit fix: cues and noProg survive the two-tab conflict merge ──
+  // mergeStores unions sessions, cardio, body log and discomfort — cues had no branch at all,
+  // so a coaching cue typed in one tab was silently dropped the moment the other tab saved.
+  {
+    const mineC = { ...freshState(), cues: { hex_dl: 'mine wins', ohp: 'only in mine' } };
+    const theirsC = { ...freshState(), cues: { hex_dl: 'theirs loses', floor_press: 'only in theirs' } };
+    const mc = mergeStores(mineC, theirsC);
+    T('mergeStores: a cue added in the other tab survives', mc.cues.floor_press === 'only in theirs', JSON.stringify(mc.cues));
+    T('mergeStores: this tab keeps its own cues', mc.cues.ohp === 'only in mine');
+    T('mergeStores: the local value wins a key conflict', mc.cues.hex_dl === 'mine wins', mc.cues.hex_dl);
+    // Cue keys reach an onclick — this is the THIRD entrance to that sink, after load() and
+    // mergeImport, and it needs the same charset guard the other two apply.
+    const evil = mergeStores(mineC, { ...freshState(), cues: { "x');alert(1);//": 'evil', good_key: 'ok' } });
+    T('mergeStores: a malformed cue key from the other tab is rejected', Object.keys(evil.cues).every(k => /^[\w-]{1,60}$/.test(k)), JSON.stringify(Object.keys(evil.cues)));
+    T('mergeStores: well-formed keys still cross', evil.cues.good_key === 'ok');
+    T('mergeStores: a non-object cues field is survivable', typeof mergeStores(mineC, { ...freshState(), cues: 'nope' }).cues === 'object');
+
+    // noProg marks a session the user deliberately excluded from progression. On an id
+    // collision the existing row wins, which silently re-admitted it to the engine.
+    const sess = (id, over = {}) => ({ ...mkSess(id, '2026-06-09', 60), ...over });
+    const npMine = { ...freshState(), sessions: [sess('np1')] };
+    const npTheirs = { ...freshState(), sessions: [sess('np1', { noProg: true })] };
+    T('mergeStores: noProg set in the other tab survives an id collision', mergeStores(npMine, npTheirs).sessions[0].noProg === true, JSON.stringify(mergeStores(npMine, npTheirs).sessions[0]));
+    T('mergeStores: noProg set locally is not cleared by the other tab', mergeStores(npTheirs, npMine).sessions[0].noProg === true);
+  }
+
   // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
   T('resetAll adopts the sidecar gen (source check)', /D=freshState\(\);try\{D\.gen=Number\(localStorage\.getItem\(SK\+'-gen'\)\)/.test(String(resetAll)), String(resetAll));
   store4['rft-v12-gen'] = '7';
