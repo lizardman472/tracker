@@ -564,4 +564,40 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.render();
 }
 
+// ── audit fix: steppers are real buttons, and "disabled" actually disables ──
+// The barbell and bar-carry steppers were <div onclick>, while the DB stepper beside them
+// was already a <button> — same class, same look, no keyboard access and no accessible name
+// on two of the three. Separately, the .dis class was purely cosmetic on ALL of them: a
+// greyed-out control still fired stepWt (harmless only because nxUp/nxDn clamp).
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  R.render();
+  const bb = R.getA();
+  T('barbell stepper controls are buttons, not divs',
+    /<button[^>]*class="stp-b[^"]*"[^>]*aria-label="Step weight down"[^>]*onclick="stepWt\('hex_dl',-1\)"/.test(bb) &&
+    /<button[^>]*aria-label="Step weight up"[^>]*onclick="stepWt\('hex_dl',1\)"/.test(bb), bb.match(/stp-b[^>]{0,90}/g));
+  // Note the char class: `stp-big` is the legitimate flex container, not a stepper control.
+  T('no stepper control is left as a bare div', !/<div class="stp-b["\s$]/.test(bb));
+  // Drive the ladder to its floor: bar-only must really disable the down control.
+  R.getLOG()['hex_dl'].wt = 7; // HEXBAR — nothing below it
+  R.render();
+  const atFloor = R.getA();
+  const downBtn = atFloor.match(/<button[^>]*aria-label="Step weight down"[^>]*>/);
+  T('a stepper at the bottom of the ladder is genuinely disabled',
+    downBtn && /\bdisabled\b/.test(downBtn[0]) && /\bdis\b/.test(downBtn[0]), downBtn && downBtn[0]);
+  const upBtn = atFloor.match(/<button[^>]*aria-label="Step weight up"[^>]*>/);
+  T('...while the usable direction stays enabled', upBtn && !/\bdisabled\b/.test(upBtn[0]), upBtn && upBtn[0]);
+  // The bar-loaded carry stepper got the same treatment.
+  R.beginW('C');
+  R.setCIDX(R.dayExs('C').findIndex(e => e.id === 'hex_carry'));
+  R.getLOG()['hex_carry'].wt = 30;
+  R.render();
+  T('bar-carry stepper is a button with an accessible name',
+    /<button[^>]*aria-label="Step weight (up|down)"[^>]*onclick="stepWt\('hex_carry'/.test(R.getA()));
+  R.getD().location = 'home';
+}
+
+
 console.log(`\n${pass} passed, ${fail} failed`);

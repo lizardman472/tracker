@@ -127,8 +127,11 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Weight stepper */
 .stp{display:flex;align-items:center;gap:8px;justify-content:center}
-.stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
-.stp-b:active{background:var(--pr);color:var(--ink);transform:scale(.92)}.stp-b.dis{color:var(--dm)}
+.stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-family:inherit;font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
+/* .dis is the visual state; :disabled is the real one. Both are emitted together so a
+   greyed-out stepper genuinely stops responding instead of only looking inert. */
+.stp-b:active:not(:disabled){background:var(--pr);color:var(--ink);transform:scale(.92)}
+.stp-b.dis,.stp-b:disabled{color:var(--dm);cursor:default}
 .stp-b.stp-sm{width:44px;height:44px;font-size:20px;border-radius:12px}
 /* Dominant weight readout for the active barbell card */
 .stp-big{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
@@ -2582,8 +2585,8 @@ const canDn=nxDn(cur,vw)<cur,canUp=nxUp(cur,vw)>cur; // indexOf-based disable br
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
-<div class="stp-b${canDn?'':' dis'}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${canUp?'':' dis'}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+<button type="button" class="stp-b${canDn?'':' dis'}"${canDn?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b${canUp?'':' dis'}"${canUp?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
 h+=plateH(cur,bar,ex.lm)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${ex.lm?'Landmine · load 1 end · ':bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar,ex.lm))}</div>`;
 if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
@@ -2593,9 +2596,9 @@ h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" s
 // per_db lifts, whole pool for single-bell), free typing stays for improvisation.
 const dvw=dbwOf(ex),dcur=Number(log.wt)||0;
 h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px">
-<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}" aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}"${dcur>dvw[0]?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
 <input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">${ex.loadUnit==='per_db'?'kg/DB':'kg'}</span>
-<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}" aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
+<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}"${dcur<dvw[dvw.length-1]?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
 if(dcur>0)h+=dbPlateH(dcur,ex.loadUnit==='per_db')+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
@@ -2607,8 +2610,8 @@ const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar;
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
-<div class="stp-b${cur<=vw[0]?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${cur>=vw[vw.length-1]?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+<button type="button" class="stp-b${cur<=vw[0]?' dis':''}"${cur<=vw[0]?' disabled':''} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b${cur>=vw[vw.length-1]?' dis':''}"${cur>=vw[vw.length-1]?' disabled':''} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
 h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
 } else if(ex.tp==='carry'){
 // Dumbbell/suitcase carries have no bar to load — free weight entry like other DB/KB moves.
