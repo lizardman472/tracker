@@ -1048,6 +1048,39 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // what was lifted (35), not the untouched stepper value (40).
   T('exMaxWt does not seed the unlifted working weight', exMaxWt({ wt: 40, reps: [5, 5], wts: [35, 35] }) === 35);
 
+  // ── sessLoad: the load SUSTAINED across the working sets (the progression anchor) ──
+  // The engine used to read the bare `wt` field, so a session logged at wt 32 with every set
+  // overridden to 35 proposed "up 32.5kg" while minting a 35kg weight PR from the same row.
+  T('sessLoad collapses to e.wt with no overrides', sessLoad({ wt: 32, reps: [10, 10, 10, 10] }, 4) === 32);
+  T('sessLoad ignores an all-null wts array', sessLoad({ wt: 32, reps: [10, 10], wts: [null, null] }, 2) === 32);
+  T('sessLoad = min across the working sets (partial ramp)', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [32, 35, 35, 35] }, 4) === 32);
+  T('sessLoad rises when every working set is overridden', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [35, 35, 35, 35] }, 4) === 35);
+  T('sessLoad is the MIN, so one hot top set cannot re-anchor', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [32, 32, 32, 40] }, 4) === 32);
+  // Accessory sets past the window do not drag the anchor down (pairs with the workSets slice).
+  T('sessLoad ignores a lighter back-off set beyond the window', sessLoad({ wt: 32, reps: [10, 10, 10, 10, 8], wts: [35, 35, 35, 35, 25] }, 4) === 35);
+  // Interior zero-rep sets must not shift the wts index (the exSetE1RMMax trap).
+  T('sessLoad keeps wts aligned across interior zero-rep sets', sessLoad({ wt: 40, reps: [5, 0, 5], wts: [45, 99, 45] }, 2) === 45);
+
+  // ── the anchor drives the actual suggestion ──
+  {
+    const fp = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 rp '8-10'
+    const sugg = (wt, wts, reps) => { const dd = freshD({ phase: 1, phaseStart: '2026-01-01' });
+      dd.sessions = [{ id: 'ov', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt, reps, wts, band: '' }] }];
+      return getSmartSugg(fp) };
+    const all35 = sugg(32, [35, 35, 35, 35], [10, 10, 10, 10]);
+    T('all working sets overridden → progression anchors on 35, not the stored 32', all35.wt > 35, JSON.stringify(all35));
+    const ramp = sugg(32, [32, 35, 35, 35], [10, 10, 10, 10]);
+    T('a partial ramp holds the sustained load', ramp.wt > 32 && ramp.wt < 35, JSON.stringify(ramp));
+    T('...and discloses the top set the user must match', /top set 35kg/.test(ramp.detail), ramp.detail);
+    T('no-override control is unchanged', sugg(32, undefined, [10, 10, 10, 10]).wt === ramp.wt);
+    // Stalls bucket by sustained load: three failing sessions all worked at 38, so the
+    // deload must cut from 38 — cutting from the untouched stepper value would under-deload.
+    const dd = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    dd.sessions = [40, 35, 30].map((off, i) => ({ id: 'ovs' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [6, 6, 6, 6], wts: [38, 38, 38, 38], band: '' }] }));
+    const st = getSmartSugg(fp);
+    T('stalls bucket by sustained load, and the deload cuts from it', st.type === 'dn' && st.wt <= 38 * 0.9 + 0.001 && st.wt > 32 * 0.9, JSON.stringify(st));
+  }
+
   // PRs from override sets
   let d = freshD();
   d.sessions = [{ id: 'w1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] }];

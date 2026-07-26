@@ -1295,6 +1295,26 @@ const rr=e.reps||[];let m=0;
 for(let i=0;i<rr.length;i++){if(!(Number(rr[i])>0))continue;
 const w=setWt(e,i);if(w>m)m=w}
 return m}
+// The load actually SUSTAINED across the working sets: the heaviest weight every one of the
+// first nSets counted sets carried, i.e. min(setWt) over that window. This is the anchor the
+// progression engine reasons about — it used to read the bare `wt` field, so a session logged
+// as wt 32 with all four sets overridden to 35 proposed "up 32.5kg" while simultaneously
+// minting a 35kg weight PR from exMaxWt. Deliberately the MIN, not the max: three sets at 35
+// out of a prescribed four is not yet a 35kg session, and one hot top single must never
+// re-anchor the whole lift.
+// Walks RAW rep indices (not effectiveReps, which compacts) — a compacted index read against
+// wts[i] scores the wrong set whenever a zero-rep set precedes an override, the same trap
+// exSetE1RMMax documents. Entries without wts return e.wt exactly, so every session logged
+// before v15 — and every uniform session, since finishW only persists wts when a counted set
+// differs from wt — is completely unaffected.
+function sessLoad(e,nSets){
+if(!e)return 0;
+const base=Number(e.wt)>0?Number(e.wt):0;
+if(!Array.isArray(e.wts))return base;
+const rr=e.reps||[];let n=0,m=Infinity;
+for(let i=0;i<rr.length&&n<nSets;i++){if(!(Number(rr[i])>0))continue;n++;
+const w=setWt(e,i);if(!(w>0))return base;if(w<m)m=w}
+return m===Infinity?base:m}
 // Live in-workout totals from the LOG global's shape: only CHECKED sets count
 // (the Hevy semantic — the header shows work banked, not work planned).
 function liveStats(log){let sets=0,vol=0;
@@ -1475,37 +1495,50 @@ else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor
 const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
 if(dlDay!=null&&dlDay>=0&&dlDay<7&&!discWarn)discWarn=`🛌 Deload week · day ${dlDay+1}/7 — take ~10% off, stop 2-3 reps shy`;
 
+// How many sets of a logged session count as WORKING sets: today's prescription, capped by
+// what was actually logged (the same id can be 4 sets on one day and 3 on another).
+const nS=h=>Math.min(ex.s,(h.reps||[]).length||ex.s);
+// The load a session is judged AT. Per-set kg overrides make the bare `wt` field a lie about
+// what was lifted, so progression anchors on sessLoad — the weight every working set carried.
+const loadOf=h=>sessLoad(h,nS(h));
+const lastLoad=loadOf(last);
+
 // ─── WEIGHT-BASED (bb, mace, db, kb) — handle null wt fallback for type migrations (e.g., Cossack bw→bb) ───
 // kb (legacy kettlebell moves) progresses like db: rep-first double progression with
 // micro-load steps, rather than falling through to a bare "Continue".
 if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
   // Find most recent session with a valid weight; if none, treat as a brand-new exercise
-  const lastWithWt=[...hist].reverse().find(h=>h.wt&&Number(h.wt)>0);
+  const lastWithWt=[...hist].reverse().find(h=>loadOf(h)>0);
   if(!lastWithWt){
     return{text:'First weighted session — find your starting load',type:'new',wt:null,traj:[],detail:'Earlier sessions were bodyweight or unrecorded.',regress:discWarn}}
   // If most recent session had no weight but earlier ones did, use the earlier weight as reference
-  if(!last.wt){
-    return{text:`→ ${lastWithWt.wt}kg`,type:'stay',wt:lastWithWt.wt,traj:[],detail:`Last weighted: ${lastWithWt.wt}kg on ${lastWithWt.date}`,regress:discWarn}}
+  if(!lastLoad){
+    const lw=loadOf(lastWithWt);
+    return{text:`→ ${lw}kg`,type:'stay',wt:lw,traj:[],detail:`Last weighted: ${lw}kg on ${lastWithWt.date}`,regress:discWarn}}
   // kb→bb conversion (dead bugs v26): legacy kettlebell history sits BELOW the bar
   // weight, which isn't a loadable barbell number — the empty bar is the floor.
   // Re-anchor there once; the normal plate ladder takes over from the next session.
-  if(ex.tp==='bb'&&last.wt<barOf(ex)){
+  if(ex.tp==='bb'&&lastLoad<barOf(ex)){
     return{text:`→ ${barOf(ex)}kg (bar only)`,type:'new',wt:barOf(ex),traj:[],
-      detail:`Now on the barbell — the empty bar (${barOf(ex)}kg) already outweighs the old ${last.wt}kg load. Control first, then progress on the plate ladder.`,regress:discWarn}}
+      detail:`Now on the barbell — the empty bar (${barOf(ex)}kg) already outweighs the old ${lastLoad}kg load. Control first, then progress on the plate ladder.`,regress:discWarn}}
 }
-if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
+if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   const mn=getRepMin(ex);
-  const atW=hist.filter(h=>wEq(h.wt,last.wt));
+  const atW=hist.filter(h=>wEq(loadOf(h),lastLoad));
+  // Disclosure when the session ran heavier than its anchor: the user overrode some sets up
+  // but not all of them, so progression correctly holds at the sustained load — say why, and
+  // name the number they need to match on every set to move the anchor.
+  const topSet=exMaxWt(last);
+  const topNote=topSet>lastLoad?` · top set ${topSet}kg — match all ${ex.s} sets at ${topSet}kg to progress there`:'';
   // hitTarget gates a weight INCREASE — you must complete ALL prescribed sets at/above target.
   // inRange gates STALL detection — judge only the sets actually performed: a session with a
   // skipped/blank trailing set (stored as 0, then dropped by effectiveReps) whose performed
   // sets all clear the minimum must NOT count as a stall (that produced phantom deloads on
   // clearly strong, over-target sessions). A genuine stall (full or partial sets BELOW min)
   // still fails this and accrues toward the deload.
-  // Set-count context comes from the SESSION (reps array length), not today's ex.s —
-  // the same id can be prescribed 4 sets on one day and 3 on another (db_lateral A/B),
+  // Set-count context comes from the SESSION (reps array length, via nS above), not today's
+  // ex.s — the same id can be prescribed 4 sets on one day and 3 on another (db_lateral A/B),
   // and a clean 3/3 session must read as a hit even when today asks for 4.
-  const nS=h=>Math.min(ex.s,(h.reps||[]).length||ex.s);
   // CONVENTION: the first nS counted sets are the WORKING sets; anything logged after them
   // is accessory volume (a back-off set, a drop set, a bonus AMRAP) and must not be judged
   // against the working prescription. Capping the COUNT alone wasn't enough — the every()
@@ -1520,12 +1553,12 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const workReps=h=>workSets(h).reduce((a,b)=>a+b,0);
   // CONSECUTIVE trailing stalls at the current weight — a failure 4 sessions ago followed
   // by two clean sessions is history, not a stall-in-progress, and must not trip a deload.
-  const stalls=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(!wEq(h.wt,last.wt))break;if(inRange(h))break;n++}return n})();
+  const stalls=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(!wEq(loadOf(h),lastLoad))break;if(inRange(h))break;n++}return n})();
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
   // Confirm brake counts CONSECUTIVE recent clean target-hits at the current weight ending
   // now — not lifetime hits — so re-approaching a previously-confirmed weight (after a
   // deload) still requires a fresh confirm session rather than advancing immediately.
-  const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(h.wt,last.wt)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
+  const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(loadOf(h),lastLoad)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
   const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
   // traj is deliberately NOT sliced — the trend glyph reports total work done, and an extra
   // set genuinely is more work. Only the judging paths (hit/stall/regress) use workSets.
@@ -1535,16 +1568,16 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   let regress='';
   if(atW.length>=2){const prev=atW[atW.length-2],curr=atW[atW.length-1];
     const pT=workReps(prev),cT=workReps(curr);
-    if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${last.wt}kg`}
-  if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
-    if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt)&&!inRange(last))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
-    else if(wEq(prev.wt,last.wt)){const pT=workReps(prev),cT=workReps(last);
+    if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${lastLoad}kg`}
+  if(!regress&&hist.length>=2){const prev=hist[hist.length-2],pL=loadOf(prev);
+    if(pL&&lastLoad&&lastLoad<pL&&!wEq(lastLoad,pL)&&!inRange(last))regress=`Weight dropped ${pL}→${lastLoad}kg`;
+    else if(wEq(pL,lastLoad)){const pT=workReps(prev),cT=workReps(last);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(discWarn)regress=discWarn;
   const dbInc=ex.tp==='db'?0.5:1;
   const u=ex.loadUnit==='per_db'?'/DB':''; // per-DB label only when the load really is per dumbbell
   // Discomfort override — hold weight if moderate pain trending
-  if(modDisc>=2){return{text:`→ ${last.wt}kg${u} (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress}}
+  if(modDisc>=2){return{text:`→ ${lastLoad}kg${u} (hold)`,type:'stay',wt:lastLoad,traj,detail:'Holding due to discomfort trend',regress}}
   // Phase-transition re-anchor: if the last session belongs to the PREVIOUS phase and this
   // lift's rep target changed, re-derive the working load for the new target.
   // • Phase membership: sessions are stamped with `phase` at save time (exact — survives a
@@ -1558,13 +1591,13 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const epleyF=r=>r<=1?1:1+r/30;
   const prePhase=last.phase!=null?last.phase!==D.phase:(D.phaseStart&&last.date<D.phaseStart);
   if(PHASE_ADJ_IDS.has(ex.id)&&prePhase){
-    const bestMin=Math.max(0,...atW.map(h=>{const v=effectiveReps(ex,h.reps);return v.length?Math.min(...v):0}));
+    const bestMin=Math.max(0,...atW.map(h=>{const v=workSets(h);return v.length?Math.min(...v):0}));
     const repsAch=Math.min(bestMin>0?bestMin:ex.tg,ex.tg);
-    if(last.wt>0){
-      const raw=last.wt*epleyF(repsAch)/epleyF(ex.tg);
+    if(lastLoad>0){
+      const raw=lastLoad*epleyF(repsAch)/epleyF(ex.tg);
       const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
-      if(tgt>0&&tgt!==last.wt){
-        const dir=tgt<last.wt?'lighter':'heavier';
+      if(tgt>0&&!wEq(tgt,lastLoad)){
+        const dir=tgt<lastLoad?'lighter':'heavier';
         return{text:`→ ${tgt}kg${u}`,type:'new',wt:tgt,traj,
           detail:`New phase (${(PHASES[D.phase]||PHASES[1]).name}) — re-anchored ${dir} for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}. Adjust to taste, then progress from here.`,regress}}
     }
@@ -1572,7 +1605,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   // FORM GATE — hit the reps but a working set was rated below clean: hold load and
   // clean it up rather than advancing on broken-down reps.
   if(hitTarget(last)&&!sessClean(last)){
-    return{text:`→ ${last.wt}kg${u} (clean up)`,type:'stay',wt:last.wt,traj,
+    return{text:`→ ${lastLoad}kg${u} (clean up)`,type:'stay',wt:lastLoad,traj,
       detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
   // HIT TARGET (single-session double progression). AMRAP signal = reps over target on the last set.
   if(lastHit){
@@ -1595,38 +1628,38 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     // so it only fires when EVERY set is well over target. Re-fires until you land in range.
     if(over>=4){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
-      const raw=last.wt*(1+pct);
+      const raw=lastLoad*(1+pct);
       const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
-      if(nxt>last.wt){
-        const jump=Math.round((nxt-last.wt)*10)/10;
+      if(nxt>lastLoad){
+        const jump=Math.round((nxt-lastLoad)*10)/10;
         return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
           detail:`Hit ${ex.s}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
     }
     // Heavy spinal compounds keep a 1-session confirm brake (joint safety): need 2 sessions at target.
     if(isConfirmLift&&hitsAtW<2){
-      return{text:`→ Confirm ${last.wt}kg`,type:'cf',wt:last.wt,traj,detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑`,regress}}
+      return{text:`→ Confirm ${lastLoad}kg`,type:'cf',wt:lastLoad,traj,detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑${topNote}`,regress}}
     if(ex.tp==='bb'){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
-      const nxt=nxUpN(last.wt,steps,vwOf(ex));
+      const nxt=nxUpN(lastLoad,steps,vwOf(ex));
       // nxUpN can't exceed the plate inventory, so "at ceiling" shows up as no
       // movement (nxt===last.wt), not as nxt>MAX_BB — that branch was unreachable.
-      if(nxt<=last.wt){
-        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
-      const jump=Math.round((nxt-last.wt)*10)/10;
-      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
+      if(nxt<=lastLoad){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
+      const jump=Math.round((nxt-lastLoad)*10)/10;
+      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // DB: walk the real spinlock ladder (rungs the rack can actually build) — the old
     // flat +0.5 could propose unloadable weights. AMRAP scales rungs (1, or 2 if ≥3 over).
     if(ex.tp==='db'){
       const steps=over>=3?2:1;
-      const nxt=nxUpN(last.wt,steps,dbwOf(ex));
-      if(nxt<=last.wt){
-        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
-      const jump=Math.round((nxt-last.wt)*10)/10;
-      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
+      const nxt=nxUpN(lastLoad,steps,dbwOf(ex));
+      if(nxt<=lastLoad){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
+      const jump=Math.round((nxt-lastLoad)*10)/10;
+      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // KB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
     const steps=over>=3?2:1;
-    const nxt=Math.round((last.wt+dbInc*steps)*10)/10;
+    const nxt=Math.round((lastLoad+dbInc*steps)*10)/10;
     return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
@@ -1635,28 +1668,28 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
       // ladder, so it sent you straight back into the same wall). bb snaps to the
       // nearest valid weight ≤90% (never below the bar); micro-load lifts round to 0.5kg.
       let d;
-      if(ex.tp==='bb'){const vw=vwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
-      else if(ex.tp==='db'){const vw=dbwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
-      else d=Math.max(0,Math.round(last.wt*0.9*2)/2);
+      if(ex.tp==='bb'){const vw=vwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else if(ex.tp==='db'){const vw=dbwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else d=Math.max(0,Math.round(lastLoad*0.9*2)/2);
       // At/near the lightest load (bar-only) there is no lower rung — a "deload" would be a
       // phantom 0kg cut. Switch to rep/tempo rebuild instead of printing a fake percentage.
-      if(d>=last.wt){
-        return{text:`→ ${last.wt}kg${u} (rebuild)`,type:'stay',wt:last.wt,traj,stalled:true,
-          detail:`${stalls} stalls at ${last.wt}kg — already the lightest load. Add tempo/pauses and rebuild ${ex.s}×${mn}${ex.perSide?'/side':''} reps before adding load.`,regress}}
-      const cut=Math.round((last.wt-d)*10)/10;
-      const pct=Math.round((last.wt-d)/last.wt*100);
+      if(d>=lastLoad){
+        return{text:`→ ${lastLoad}kg${u} (rebuild)`,type:'stay',wt:lastLoad,traj,stalled:true,
+          detail:`${stalls} stalls at ${lastLoad}kg — already the lightest load. Add tempo/pauses and rebuild ${ex.s}×${mn}${ex.perSide?'/side':''} reps before adding load.`,regress}}
+      const cut=Math.round((lastLoad-d)*10)/10;
+      const pct=Math.round((lastLoad-d)/lastLoad*100);
       return{text:`↓ ${d}kg${u}`,type:'dn',wt:d,traj,stalled:true,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — deload to ${d}kg (−${cut}kg, ~${pct}%) and rebuild`,regress}}
     if(stalls===2){
       // Before the reset: try a cluster/rep-scheme tweak (GZCLP-style) to break through
-      return{text:`→ ${last.wt}kg (cluster)`,type:'stay',wt:last.wt,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}
-    return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:`Below min. ${stalls}/3 stalls. Push for ${ex.s}×${mn}+${ex.perSide?' /side':''}`,regress}}
+      return{text:`→ ${lastLoad}kg (cluster)`,type:'stay',wt:lastLoad,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}
+    return{text:`→ ${lastLoad}kg`,type:'stay',wt:lastLoad,traj,detail:`Below min. ${stalls}/3 stalls. Push for ${ex.s}×${mn}+${ex.perSide?' /side':''}`,regress}}
   // IN RANGE but not at target → push reps; if stuck for many sessions, escalate to adding a set
-  const eR=effectiveReps(ex,last.reps);
+  const eR=workSets(last);
   const avgRep=eR.length?Math.round(eR.reduce((a,b)=>a+b,0)/eR.length):0;
   let tip=`Push for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}`;
   if(plateauSess>=4)tip=`${plateauSess} sessions stuck at ~${avgRep}. Add a set (${ex.s+1}×) to push volume, or try ${Math.min(avgRep+1,ex.tg)},${avgRep},${avgRep}.`;
   else if(plateauSess>=2)tip=`Building at ~${avgRep}. Push the top set for ${Math.min(avgRep+1,ex.tg)}.`;
-  return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:tip,regress}}
+  return{text:`→ ${lastLoad}kg`,type:'stay',wt:lastLoad,traj,detail:tip+topNote,regress}}
 
 // ─── CLUB exercises (perSide-aware) ───
 if(ex.tp==='club'){
