@@ -405,3 +405,7 @@ T('bird dog history below target still reads stay/push via its stub', (() => { c
 T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 console.log(`\n${pass} passed, ${fail} failed`);
+// A suite that cannot fail the build is not a test suite. CI runs these files directly and
+// reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how
+// many assertions failed — 468 of the branch's 926 assertions were invisible to CI.
+if (fail) process.exit(1);

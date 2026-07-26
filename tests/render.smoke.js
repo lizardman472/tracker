@@ -808,4 +808,43 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('...without adding height to the set row', !/button\.set-prev\{[^}]*padding:\s*\d*[1-9]/.test(html));
 }
 
+// ── History pagination ──
+// Every session used to be rendered into one innerHTML string on every render, including
+// every tap of a card. The heading count must stay the TRUE total — paging the cards must
+// not make the user think sessions were lost.
+{
+  const back = R.getD().sessions;
+  const many = Array.from({ length: 65 }, (_, i) => ({
+    id: 'p' + i, date: '2026-0' + (1 + (i % 3)) + '-' + String(1 + (i % 28)).padStart(2, '0'),
+    day: 'ABC'[i % 3], loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }));
+  R.getD().sessions = many;
+  R.go('history');
+  const cards = m => (m.match(/EXP=EXP===/g) || []).length;
+  let sc = R.getA();
+  T('History heading reports the true total, not the page', /· 65 sessions/.test(sc));
+  T('History renders one page of cards', cards(sc) === 30, String(cards(sc)));
+  T('History offers the rest behind a control', /Show 30 more · 35 older sessions/.test(sc));
+  moreHist();
+  sc = R.getA();
+  T('Show more extends the page', cards(sc) === 60, String(cards(sc)));
+  T('the control counts down as it extends', /Show 5 more · 5 older sessions/.test(sc));
+  moreHist();
+  sc = R.getA();
+  T('the last page renders every remaining session', cards(sc) === 65, String(cards(sc)));
+  T('the control disappears once nothing is left', !/Show \d+ more/.test(sc));
+  // Leaving and returning starts at page one again.
+  R.go('home'); R.go('history');
+  T('re-entering History resets to the first page', cards(R.getA()) === 30, String(cards(R.getA())));
+  // A short history needs no control at all.
+  R.getD().sessions = many.slice(0, 12);
+  R.go('history');
+  sc = R.getA();
+  T('a short history renders in full with no control', cards(sc) === 12 && !/Show \d+ more/.test(sc), String(cards(sc)));
+  R.getD().sessions = back;
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
+// A suite that cannot fail the build is not a test suite. CI runs these files directly and
+// reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how
+// many assertions failed — 468 of the branch's 926 assertions were invisible to CI.
+if (fail) process.exit(1);
