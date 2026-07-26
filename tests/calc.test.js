@@ -570,6 +570,48 @@ T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
   d.cardioLog = [0, 2, 4].map(o => walk(o, 'easy', 45));
   const withEasy = getFatigue();
   T('hard cardio outweighs the same count of easy sessions', withHard.score > withEasy.score, JSON.stringify({ hard: withHard.score, easy: withEasy.score }));
+
+  // ── Audit 6 / F2: monotonicity, tested as a PROPERTY rather than at one point ──
+  // The single "adding activity never lowers the fatigue score" case above happened to be a
+  // state where the old load-weighted means held. They did not hold in general — any mean is
+  // non-monotone, because the added entry lands in the numerator AND the denominator. The
+  // worst measured case was a whole extra LIFTING session: one brutal session read 8.6
+  // Fatigued and adding an easy light one dropped it to 4.9 Ready.
+  {
+    const one = (rpe, vol) => ({ rpe, vol });
+    const mkState = (sess, card) => {
+      const s = freshD(); s.sessions = []; s.cardioLog = [];
+      sess.forEach((x, i) => s.sessions.push({ id: 'mf' + i, date: ymd(new Date(Date.now() - (i % 7) * 864e5)), day: 'A', loc: 'home', difficulty: x.rpe, ex: [{ id: 'deadlift', wt: x.vol / 15, reps: [5, 5, 5], band: '' }] }));
+      card.forEach((c, i) => s.cardioLog.push({ id: 'mc' + i, date: ymd(new Date(Date.now() - (i % 7) * 864e5)), type: 'Walking', duration: c.min, intensity: c.int }));
+      return getFatigue().score;
+    };
+    // The headline regression, pinned exactly.
+    const brutal = [one(5, 10000)];
+    T('one brutal session reads Fatigued', mkState(brutal, []) >= 8, mkState(brutal, []));
+    T('adding an easy LIFTING session cannot lower the meter', mkState([...brutal, one(1, 1000)], []) >= mkState(brutal, []),
+      JSON.stringify({ before: mkState(brutal, []), after: mkState([...brutal, one(1, 1000)], []) }));
+    // Deterministic sweep: every week shape × every added entry. 0 violations required.
+    const SESS = [[], [one(5, 8000)], [one(3, 3000), one(5, 9000)], [one(4, 5000), one(2, 1500), one(5, 7000)],
+      [one(3, 2500), one(3, 2500), one(3, 2500), one(4, 6000)]];
+    const CARD = [[], [{ min: 30, int: 'easy' }], [{ min: 45, int: 'hard' }, { min: 20, int: 'easy' }]];
+    const ADD_S = [one(1, 500), one(2, 1500), one(3, 3000), one(5, 12000)];
+    const ADD_C = [{ min: 10, int: 'easy' }, { min: 30, int: 'moderate' }, { min: 60, int: 'hard' }];
+    let drops = 0, checked = 0;
+    for (const s of SESS) for (const c of CARD) {
+      const base = mkState(s, c);
+      for (const a of ADD_S) { checked++; if (mkState([...s, a], c) < base) drops++; }
+      for (const a of ADD_C) { checked++; if (mkState(s, [...c, a]) < base) drops++; }
+    }
+    T('fatigue score is monotone: no addition of work ever lowers it', drops === 0, `${drops}/${checked} additions lowered the score`);
+    T('the monotonicity sweep actually ran', checked === 105, checked);
+
+    // Calibration must survive the reformulation — these are the three anchors the source
+    // comment names, and a uniform week is exactly where peak == mean.
+    T('anchor holds: 3×RPE3 ~2.9t reads Ready ≈5', (() => { const v = mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []); return v >= 4.5 && v <= 5.2 })(), mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []));
+    T('anchor holds: 5 hard sessions read Fatigued ≥8', mkState([one(5, 4000), one(4, 4000), one(5, 4000), one(4, 4000), one(5, 4000)], []) >= 8);
+    T('anchor holds: one light session reads Fresh ≈2', mkState([one(2, 2000)], []) <= 2.5, mkState([one(2, 2000)], []));
+    T('a week of easy walks alone still reads Fresh', mkState([], [1, 2, 3, 4, 5, 6, 7].map(() => ({ min: 30, int: 'easy' }))) <= 3);
+  }
 }
 
 // ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
