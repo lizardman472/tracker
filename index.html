@@ -626,8 +626,11 @@ C:[
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine press landed in v13 as lm_press (two-hand, Day C) — Day-B OHP stays barbell.
-// v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C (only
-// calf slot; calves are tracked but not MEV-gated). Home Day C is now 9 exercises.
+// v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C at both
+// venues. SUPERSEDED by the v16 Day-C trim below, which retired both calf slots (Day C ran
+// 12 exercises and was too long). The program now has NO direct calf work by decision; the
+// calf lifts survive as legacy stubs with their MG credit so pre-trim history resolves, and
+// calves is deliberately absent from MG_INFO so no empty dashboard row is rendered.
 // v26 dead-bug conversion: Dead Bugs (Day A) moved kb→bb — bar held at arm's length over
 // the chest on the 11kg straight bar, so the load rides the same plate system as every
 // other bar lift (stepper + plate breakdown + VW ladder + warm-up). Legacy KB history
@@ -665,7 +668,11 @@ C:[
 // so they never compete with hinge recovery; static like the dead bugs/carries (no PHASES.adj
 // entry); and — a deliberate first — the ids are SHARED across home/partner (identical
 // movement, no implement, so one progression history is correct where every prior cross-venue
-// pair differed by equipment). Day counts: home A=8 B=8 C=10, partner A=7 B=9 C=9.
+// pair differed by equipment).
+// PARTIALLY SUPERSEDED: the v16 Day-C trim removed bird_dog again (Day C was too long), so
+// only side_plank remains and the extensor-ENDURANCE axis is once more unfilled — a known,
+// accepted gap, not an oversight. side_plank still covers anti-lateral-flexion at both venues.
+// Current day counts: home A=9 B=8 C=10, partner A=7 B=9 C=7.
 // v13 (= programVersion 13 — the data-migration counter, distinct from the narrative
 // numbers above) — reviewed home tune-up:
 //   • Day B: hex_squat_b rest 3:30→3:00; bb_skullcr (lying extension) swapped for
@@ -862,15 +869,20 @@ const MG={
   db_curl:{biceps:1}, db_dead_bug:{core:1},
   pb_pullup_a:{back:1,biceps:0.5}, pb_pullup_c:{back:1,biceps:0.5},
   pb_dips:{chest:1,triceps:1},
-  // Calves — the only direct calf work, one slot/venue on Day C. Tracked (see MG_INFO)
-  // but not MEV-gated: 3 maintenance sets are deliberately below a growth MEV, so a
-  // permanent "below MEV" nag would be wrong. calves:1 (single-leg counts once, per-side).
+  // Calves — kept for HISTORY only. The v27 calf slots were retired from Day C at both
+  // venues by the v16 trim, so no active exercise credits calves; the MG entries (and the
+  // SPLIT_GROUPS row below) keep pre-trim sessions resolving in tonnage, PRs and the
+  // per-session muscle split. Deliberately absent from MG_INFO — a dashboard row no
+  // exercise can ever fill just renders a permanent ≈0. calves:1 (single-leg counts once).
   calf_raise:{calves:1}, db_calf_raise:{calves:1}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
+// Drives the Balance dashboard, the body heat map and the Set Count picker — so every key
+// here must be reachable from at least one ACTIVE exercise (see MG above for the calves
+// exception, which is history-only and therefore not listed).
 const MG_INFO=[
   ['chest','Chest',8,20],['back','Back/Lats',10,22],['quads','Quads',8,18],
-  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],['calves','Calves',null,null],
+  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],
   ['sidedelt','Side Delts',8,22],
   ['fdelt','Front Delts',0,12],['reardelt','Rear Delts',6,16],['biceps','Biceps',8,20],
   ['triceps','Triceps',6,14],['core','Core',6,16],['cuff','Rotator Cuff',null,null]
@@ -953,8 +965,9 @@ const BODY_REGIONS_B=[
   {m:'back',d:'M44,38 C50,43 70,43 76,38 L74,62 C68,68 52,68 46,62 Z'},
   {m:'triceps',e:[[30.9,48,3.3,6.5],[89.1,48,3.3,6.5]]},
   {m:'glutes',e:[[52.5,84,7.5,7.5],[67.5,84,7.5,7.5]]},
-  {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]},
-  {m:'calves',e:[[51.5,150,4.8,13],[68.5,150,4.8,13]]}];
+  {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]}];
+// (No calves region — the calf slots were retired by the v16 Day-C trim, so the ellipses
+// could only ever render as "untrained". Restore both together if a calf slot returns.)
 let HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills (theme-switched)
 let HEAT_AMBER='178,97,2',HEAT_GREEN='12,128,80',HEAT_CYAN='0,123,168'; // rgb channels for heatColor
 // Fill for a region at v sets/week. Literal rgba (not CSS vars) — SVG fills are

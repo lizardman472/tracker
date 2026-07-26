@@ -140,10 +140,13 @@ The user chose the recommended default for every open decision. Applied and test
   the app stops endorsing a cadence that breaks its own weekly-MEV math. Quads (8),
   side delts (8.5) and biceps (8.5) stay near floor by design — the stricter threshold is
   their guard; dips also push chest to 11.5.
-- **P2 · Calves** — NEW single-leg calf raise 3×15–20 on Day C at both venues (`calf_raise`
-  KB at home, `db_calf_raise` DB at the partner's), plus a **Calves row on the balance
-  dashboard**. Tracked but not MEV-gated (3 maintenance sets are deliberately below a
-  growth MEV; treated like the rotator-cuff row so it never shows a false "below MEV").
+- **P2 · Calves** — ⚠ **SUPERSEDED by the v16 Day-C trim (see §11).** A single-leg calf raise
+  3×15–20 was added to Day C at both venues (`calf_raise` KB at home, `db_calf_raise` DB at
+  the partner's) with a Calves row on the balance dashboard. v16 later removed both slots
+  (Day C ran 12 exercises and was too long). **The program has no direct calf work today.**
+  The lifts survive as legacy stubs carrying their `MG` credit so pre-trim history still
+  resolves; the Calves row is gone from `MG_INFO` (a row no active exercise can fill only
+  ever rendered ≈0 sets).
 - **P3 · Partner dips** — NEW band-assisted `pb_dips` 3×4–8 on partner Day B, mirroring
   home. Dips now train at both venues (frequency is the fix for the pinned sticking point);
   partner chest → 11.5, triceps → 11, both well under MAV.
@@ -184,7 +187,8 @@ The user chose the recommended default for every open decision. Applied and test
 
 ## 5 · Verification
 
-- **317/317 tests pass** — calc 137, hex 126, render.smoke 54 — including 22 new v27
+- *(counts below are as of v27 — see §11 for current totals)*
+  **317/317 tests pass** — calc 137, hex 126, render.smoke 54 — including 22 new v27
   regression tests (calf raises exist/seed/track/tonnage at both venues, partner dips,
   MEV-floor buffer set counts, Phase-3 quality-slot ranges, `lm_pallof` tempo, cadence-aware
   phase + deload clocks, and the 85 kg plate ceiling) on top of both prior rounds' suites.
@@ -293,6 +297,11 @@ stated once (Overview) instead of three times; balance numbers hedged with ≈ a
   check (deutan ΔE ~10, tritan ~9, validated with a palette checker). Shared
   `DAY_COLORS` const + `.bg-b`; heatmap cells now also carry their day letter
   (secondary encoding), cardio a dot.
+  ⚠ **Palette superseded — see §11.** The shipped day trio is now
+  A `#0069b8` azure / B `#ea62ab` pink / C `#0b7a3f` green (its own validation run:
+  protan ΔE 9.5, normal 21.0). The purple-B trio described here is history; the
+  *reasoning* — validate every pair, keep the day letter as a secondary encoding —
+  still holds and is mirrored in the `:root` comment block.
 - Chart craft: titles wear text ink (never series color), native `<title>` tooltips
   on bars/dots, recessive grid, 2px lines, 8px markers, flat-series tick-dedup fix.
 - Screenshot review at 360px found the other screens already solid; targeted fixes
@@ -314,6 +323,10 @@ noProg, two-tab gen sidecar — zero console errors at 360px). SW cache → `rft
   backdrop rgba, theme-color meta, manifest colors/icons). Day palette re-validated
   for colorblind separation (lime/purple/green/amber — weakest pair ΔE 13.7 deutan,
   above the 12 target; heatmap day letters retained as secondary encoding).
+  ⚠ **SUPERSEDED — see §11.** The shipped identity is a **light cyan** theme
+  (`--pr:#007ba8` on a cool near-white base, with a full dark-mode mirror), not volt
+  lime on graphite. The token-discipline point stands: every hardcoded mirror still
+  moves with the CSS vars, which is why `applyTheme()` exists.
 - **Deeper stats** (all four user-selected):
   - `periodCompare` — Overview "Last 4 wk vs prior 4 wk" strip (tonnage %, sessions,
     sets, neutral-colored RPE delta); hidden until a full prior window exists.
@@ -416,6 +429,12 @@ static like the dead bugs/carries — no `PHASES.adj` entries):
   reasoning as `db_sl_rdl`). Core rises 7.5 → 13.5 effective sets/cycle at both venues —
   ≥ MEV 6, ≤ MAV 16. Day counts: home A=8 B=8 C=10, partner A=7 B=9 C=9.
 
+⚠ **PARTIALLY SUPERSEDED by the v16 Day-C trim (see §11).** `bird_dog` was removed again
+(Day C was too long), so **only `side_plank` shipped**. Anti-lateral-flexion is covered at
+both venues; the extensor-**endurance** axis this section identifies is once more unfilled —
+a known, accepted gap rather than an oversight. Current day counts: **home A=9 B=8 C=10,
+partner A=7 B=9 C=7.**
+
 **Verification: 549 tests** (calc 232 · hex 208 · render 109) — the home day-count
 assertion updated, plus 12 new v28 assertions: slots exist at both venues with shared
 ids and a single deduped `ALL_EX` definition, `core:1` credit, core ≥ MEV and ≤ MAV at
@@ -423,3 +442,63 @@ both venues, bw holds excluded from tonnage, no phase adjustment at P1–P3, 3×
 as progress / below-target as stay, and a partner-logged session feeds the home
 suggestion. Live Chromium check: both slots render on their days at both venues (set
 inputs, no kg input, coach note visible), zero console errors. SW cache → `rft-v56`.
+
+---
+
+## 11 · Engine-correctness pass + doc reconciliation (25–26 Jul 2026)
+
+### Read this first — how to use §1–§10
+
+Sections above are a **chronological log, not a description of HEAD.** Several decisions
+were later reverted and the entries were never updated, which cost a full audit round
+re-deriving the program from source. The superseded ones are now flagged in place
+(§4-P2 calves, §7/§8 palette, §10 bird dog). The reversals all trace to one commit —
+**v16 "trim calf raise + bird dog from Day C (both venues)"**, which landed *after*
+v27/v28 in real time despite the lower narrative number.
+
+**Ground truth at HEAD** (assert these, don't trust prose):
+
+| | Value |
+|---|---|
+| Day counts | home **A=9 B=8 C=10** · partner **A=7 B=9 C=7** |
+| Direct calf work | **none** (stubs + `MG` credit kept for history; no `MG_INFO` row) |
+| Extensor-endurance slot | **none** (`side_plank` covers anti-lateral only) |
+| Theme | light **cyan** `--pr:#007ba8` + full dark mirror |
+| Day trio | A `#0069b8` · B `#ea62ab` · C `#0b7a3f` |
+| Tests | **726** — calc 354 · hex 212 · render.smoke 160 |
+
+A new hex assertion — *every `MG_INFO` key is reachable from an active exercise* — makes
+this class of drift fail CI instead of surviving three release cycles.
+
+### Fixed — engine (all three reproduced before and after)
+
+| Defect | Fix |
+|---|---|
+| **An accessory set turned a target-hitting session into a failure.** `hitTarget`/`inRange` capped the set COUNT but still scanned EVERY performed set, so 4×10 + a lighter back-off set read as "below min" — and three of them forced an ~11% deload on a lifter who hit target every time. The engine walked users into it: its own plateau tip says "Add a set", and the workout screen ships a "+ Add set" button. | `nS(h)`/`workSets(h)` slice judging to the first `ex.s` counted sets — **convention: the first `ex.s` sets are the working sets, the rest is accessory volume.** Applied to hit/stall/regress *and* the AMRAP overshoot (a back-off set used to drag `minRep` under target and silently suppress the proportional jump). `traj` stays unsliced — extra work is still work. Also completes the cross-day set-count fix in the untested direction (a 4-set Day-A session now satisfies the 3-set Day-B slot). |
+| **Per-set kg overrides were invisible to progression** — the same session minted a 35 kg weight PR (`exMaxWt`) and recommended 32.5 kg. | New `sessLoad(e,nSets)`: the load **sustained** across the working sets, i.e. `min(setWt)` over that window. Deliberately the MIN — three sets at 35 out of four is not a 35 kg session, and one hot top single must never re-anchor a lift. When the session ran heavier than its anchor the suggestion names the number to match on every set. **Strictly additive**: `wts` is absent on all pre-v15 and all uniform sessions, so `sessLoad` returns `e.wt` unchanged and no prior assertion moved. |
+| **The 2-stall cluster prescription triggered the deload it exists to prevent.** The advice is `(s+1)×(mn-2)` — deliberately sub-minimum — so a compliant session scored as strike three and the next render cut 10%. | `isClusterAttempt` detects it by shape (same load, ≥ `ex.s+1` sets, every set ≥ `mn-2`) and holds the load so the base scheme gets a fresh attempt. Reads **unsliced** reps — the extra sets are the signal, the one place the new slice must not apply. Guarded on two prior consecutive stalls at that load, so it can't become a free pass. Missing the floor still deloads. |
+
+### Fixed — data integrity
+
+- **`load()` discarded malformed sessions silently.** No counter, no banner, and no rescue
+  copy (the `-corrupt` snapshot was written only from the `catch`, which a parseable-but-
+  malformed store never reaches) — so the next `save()` made the loss permanent with nothing
+  to recover from. A non-array `sessions` field emptied the whole log just as quietly. Now
+  counted into module-scope `LOAD_DROPPED` (never persisted/exported/merged), the raw store
+  is parked under the existing `-corrupt` key, and the rHome rescue banner distinguishes a
+  partial drop ("N sessions couldn't be read, the rest loaded normally") from a total loss.
+  Import already reported skipped sessions; the load path now matches it.
+- **`saveSumm` promised safety it hadn't verified.** Its quota-failure path called `saveAW()`
+  — a bare `try/catch` — then unconditionally said "your workout is still safe in the resume
+  backup". A full localStorage is exactly when *that* write fails too. `saveAW` now returns
+  whether the write landed and the warning branches on it.
+
+### Deliberately not taken in this pass
+
+Still open from the 25 Jul audit, in rough priority order: 12 home lifts with no fresh-device
+seed (`ohp`, `floor_press`, `hex_row`, both pull-up slots, dips…) — the same gap §9 closed for
+the partner program; `lastDeload` adoption not gated on `wasFresh` in `mergeImport`;
+`esc()` is not attribute-safe (self-XSS + a `"` in a note corrupts the input, and the render
+stub over-escapes so no test can catch it); the barbell stepper is a `<div>` while the DB
+stepper beside it is a `<button>`; `beginW`'s resume guard is inert once a blob is hidden by a
+venue/phase switch; the service worker's navigation fetch is network-first with no timeout.

@@ -230,7 +230,18 @@ const partPr = getProgram(1, 'partner');
 T('calf raises are OUT of both Day C programs (v16 trim)', !homePr.C.some(x => x.id === 'calf_raise') && !partPr.C.some(x => x.id === 'db_calf_raise'));
 T('calf raise stubs still resolve for history', (() => { const a = ALL_EX.find(x => x.id === 'calf_raise'), b = ALL_EX.find(x => x.id === 'db_calf_raise'); return a && a.perSide === true && b && b.perSide === true && /legacy/i.test(a.rl) && /legacy/i.test(b.rl); })());
 T('calf raises keep their calves MG map', (MG.calf_raise || {}).calves === 1 && (MG.db_calf_raise || {}).calves === 1);
-T('calves is a tracked-but-not-gated dashboard row (null MEV)', (() => { const r = MG_INFO.find(x => x[0] === 'calves'); return r && r[2] == null && r[3] == null; })());
+// The v27 calves row outlived the v16 trim that removed both calf slots, so the Balance
+// dashboard, the Set Count picker and the heat map all carried a permanently-≈0 Calves entry.
+// The row is gone; the MG credit and SPLIT_GROUPS stay so pre-trim history still resolves.
+T('calves is NOT a dashboard row (no active exercise can fill it)', !MG_INFO.some(x => x[0] === 'calves'));
+T('every MG_INFO key is reachable from an active exercise', (() => {
+  const active = new Set();
+  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) active.add(ex.id);
+  const credited = new Set();
+  for (const id of active) for (const m of Object.keys(MG[id] || {})) credited.add(m);
+  return MG_INFO.every(([k]) => credited.has(k));
+})(), MG_INFO.filter(([k]) => { const active = new Set(); for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) for (const m of Object.keys(MG[ex.id] || {})) active.add(m); return !active.has(k) }).map(([k]) => k).join());
+T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).calves === 1);
 T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
 // Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
 T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());
