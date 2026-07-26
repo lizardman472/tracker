@@ -843,6 +843,61 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.getD().sessions = back;
 }
 
+// ── Body measurements: a prefilled field can be cleared ──
+// The form loads today's stored values, so a blank field means two different things.
+// Blanking one that showed a number is the only way to retract a bad reading; blanking
+// one that was already empty still means "not measuring this today".
+{
+  const alerts = [];
+  const realAlert = global.alert;
+  global.alert = m => alerts.push(String(m));
+  const t = today();
+  const inp = k => document.getElementById('bm_' + k);
+  const fill = o => { for (const m of ['weight', 'neck', 'shoulders', 'chest']) inp(m).value = o[m] == null ? '' : String(o[m]) };
+
+  // 1. Clearing a prefilled field retracts that reading and leaves the others alone.
+  R.getD().bodyLog = [{ date: t, weight: 80, neck: 38 }];
+  fill({ weight: 80, neck: '' });
+  window.saveBod();
+  let e = R.getD().bodyLog.find(b => b.date === t);
+  T('clearing a prefilled measurement removes it', !('neck' in e), JSON.stringify(e));
+  T('clearing one measurement leaves the others', e.weight === 80, JSON.stringify(e));
+
+  // 2. A blank field on a FIRST log of the day is still just "skip" — nothing written.
+  R.getD().bodyLog = [];
+  fill({ weight: 75, neck: '' });
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('a blank field on a fresh log writes nothing for that metric', e && !('neck' in e), JSON.stringify(e));
+  T('a fresh log still records the filled metric', e && e.weight === 75, JSON.stringify(e));
+
+  // 3. A blank field must not resurrect a value the user just cleared on re-save.
+  fill({ weight: 75, neck: '' });
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('re-saving does not resurrect a cleared metric', !('neck' in e), JSON.stringify(e));
+
+  // 4. Clearing EVERYTHING points at the explicit delete instead of silently dropping the day.
+  R.getD().bodyLog = [{ date: t, weight: 80, neck: 38 }];
+  alerts.length = 0;
+  fill({});
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('clearing every field does not silently delete the day', e && e.weight === 80, JSON.stringify(e));
+  T('clearing every field points at the delete control', /delete the whole day/.test(alerts[0] || ''), alerts[0]);
+
+  // 5. An empty form on a day with no entry keeps the original message.
+  R.getD().bodyLog = [];
+  alerts.length = 0;
+  fill({});
+  window.saveBod();
+  T('an empty form on a fresh day still asks for a measurement', /at least one measurement/.test(alerts[0] || ''), alerts[0]);
+  T('an empty form on a fresh day writes no entry', R.getD().bodyLog.length === 0);
+
+  global.alert = realAlert;
+  R.getD().bodyLog = [{ date: '2026-06-12', weight: 80 }];
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and
 // reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how

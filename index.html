@@ -3901,7 +3901,7 @@ for(const m of BODY_METRICS){const val=todayE[m.k]!=null?todayE[m.k]:'';
 h+=`<div><div class="lb">${m.lb} <span style="color:var(--dm)">${m.u}</span></div>
 <input type="number" step="${m.step}" class="body-input" id="bm_${m.k}" value="${val}" placeholder="—" inputmode="decimal"></div>`}
 h+=`</div><button class="btn btn-pr" style="padding:12px" onclick="saveBod()">${loggedToday?'Update Today':'Log Today'}</button>
-<div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Leave a field blank to skip it.</div></div>`;
+<div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Blank skips a field — clearing one that already has a value removes that reading.</div></div>`;
 // ── DATA PRESENTATION ──
 // Trend: pick any tracked metric to chart. Chips show only metrics with data.
 const charted=BODY_METRICS.filter(m=>bodySeries(m.k).length>=2);
@@ -3951,9 +3951,24 @@ window.saveBod=function(){
 const t=today();const ix=D.bodyLog.findIndex(b=>b.date===t);
 // Merge onto today's existing entry so a partial re-log doesn't wipe earlier fields.
 const entry=ix>=0?{...D.bodyLog[ix]}:{date:t};
-for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);const v=el?parseFloat(el.value):NaN;
-if(!isNaN(v))entry[m.k]=Math.round(v*100)/100}
-if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){alert('Enter at least one measurement');return}
+// A blank field means two different things, and which one depends on whether the field
+// was PREFILLED. The form loads today's stored values, so blanking a field that showed a
+// number is the only way to say "that reading was wrong, remove it" — previously the
+// merge just kept the old value and a mistyped 850kg could not be taken back except by
+// deleting the whole day. Blanking a field that was already empty still means "not
+// measuring this today" and writes nothing.
+// A blank field deletes the key. On a FIRST log of the day that is a no-op (entry starts
+// as {date} and has no key to delete), which is what makes "blank = skip" and
+// "blank = retract" the same line of code rather than two branches.
+for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);if(!el)continue;
+const raw=(el.value==null?'':String(el.value)).trim();const v=parseFloat(raw);
+if(!isNaN(v))entry[m.k]=Math.round(v*100)/100;
+else if(raw==='')delete entry[m.k]}
+// Clearing every field is a request to remove the day, not a malformed save — but deleting
+// a log silently on a blank form would be a nasty surprise, so point at the explicit
+// control instead. delBod() is confirm-gated and already does exactly this.
+if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){
+alert(ix>=0?'That would clear every measurement for today. Use ✕ on the entry below to delete the whole day.':'Enter at least one measurement');return}
 if(ix>=0)D.bodyLog[ix]=entry;else D.bodyLog.push(entry);
 D.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));save();render()}
 window.delBod=function(date){if(!confirm('Delete this measurement log?'))return;
