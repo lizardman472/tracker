@@ -15,7 +15,12 @@ const code = script.slice(0, script.indexOf('// ══════════�
   '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
-const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// Mirrors what a browser ACTUALLY does when you set textContent and read innerHTML back:
+// it escapes &, < and > only — quotes are left alone, because in text position they are
+// harmless. Escaping them here too made the stub SAFER than the real DOM, which meant a
+// test could never catch an unescaped quote breaking out of an attribute. Do not "harden"
+// this: its job is to be faithful, and esc() is where the hardening belongs.
+const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const els = {};
 function makeEl() {
   // _h backs innerHTML; setting textContent escapes into _h so esc() (createElement→
@@ -531,6 +536,32 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('total loss keeps the fresh/demo wording', /Stored data was corrupted/.test(total) && /fresh\/demo state/.test(total));
   global.localStorage = realLS;
   R.setD(D);
+}
+// ── audit fix: esc() must be safe in ATTRIBUTE position, not just text position ──
+// esc() is createElement→textContent→innerHTML, which escapes & < > but NOT quotes. The
+// per-exercise notes input interpolates it into value="...", so a double quote in a note
+// terminated the attribute early: the note came back truncated on reload, and everything
+// after the quote was parsed as markup. It survived because the stub above used to escape
+// quotes too — the test double was safer than the browser.
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  const noteLog = R.getLOG()['hex_dl'];
+  noteLog.notes = 'felt 6" off the floor';
+  R.render();
+  const withNote = R.getA();
+  const m = withNote.match(/class="ni"[^>]*value="([^"]*)"/);
+  T('a double quote in a note does not terminate the value attribute',
+    m && m[1] === 'felt 6&quot; off the floor', m ? m[1] : 'NO MATCH');
+  noteLog.notes = 'x" onfocus="alert(1)" data-y="';
+  R.render();
+  T('a note cannot inject an attribute into the notes input', !/onfocus="alert\(1\)"/.test(R.getA()));
+  // Text position is unchanged — a quote there was always harmless and must stay readable.
+  T('esc still leaves markup-significant chars escaped', esc('<b>&</b>') === '&lt;b&gt;&amp;&lt;/b&gt;', esc('<b>&</b>'));
+  T('the textContent stub matches browser semantics (quotes untouched)', escHtml('a"b\'c') === 'a"b\'c', escHtml('a"b\'c'));
+  noteLog.notes = '';
+  R.render();
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

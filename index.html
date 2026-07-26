@@ -1202,7 +1202,14 @@ if(d.phase&&d.phase!==D.phase)return null;
 if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.id);
 if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){clearAW();return null}d.drifted=true}}
 return d}catch(e){return null}}
-function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+// textContent→innerHTML escapes & < > but leaves QUOTES alone, which is fine in text position
+// and broken in attribute position: the notes input interpolates esc() into value="...", so a
+// double quote in a note ended the attribute early — the note came back truncated on reload
+// and the rest was parsed as markup. Escape quotes too, so esc is safe in BOTH positions and
+// callers never have to pick the right helper. Text output is unaffected: a browser renders
+// &quot; / &#39; as " / ' wherever they land.
+function esc(s){const d=document.createElement('div');d.textContent=s||'';
+return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 // Shared empty-state card — one voice + one visual for every screen's no-data state.
 function emptyH(icon,title,hint){return`<div class="cd" style="text-align:center;padding:22px 16px"><div style="font-size:22px;margin-bottom:6px">${icon}</div><div style="font-size:12px;font-weight:700;margin-bottom:3px">${title}</div>${hint?`<div class="dm">${hint}</div>`:''}</div>`}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
