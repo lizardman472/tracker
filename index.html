@@ -1626,7 +1626,14 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   // three such sessions forced an ~11% deload on a lifter who hit target every time. That
   // also fought the engine's own advice, which tells you to add a set when you plateau.
   const workSets=h=>effectiveReps(ex,h.reps).slice(0,nS(h));
-  const hitTarget=h=>{const v=workSets(h);return v.length>=nS(h)&&v.every(r=>r>=ex.tg)};
+  // Floor on how much of the prescription must actually be covered to EARN a load increase.
+  // nS deliberately takes its count from the session (the same id is 4 sets on one day and 3
+  // on another), but that had no lower bound — a single set at target read as a full hit and
+  // moved the weight up, captioned "Hit 4×10" for a 1×10 session. Checked against the real
+  // program: only db_lateral and db_rear_fly vary across days, both 4→3, so ex.s-1 preserves
+  // every legitimate cross-day case exactly while blocking 2-of-4 and below.
+  const minSets=Math.max(1,ex.s-1);
+  const hitTarget=h=>{const v=workSets(h);return v.length>=nS(h)&&v.length>=minSets&&v.every(r=>r>=ex.tg)};
   const inRange=h=>{const v=workSets(h);return v.length>=1&&v.every(r=>r>=mn)};
   // Total reps across the WORKING sets only — the basis for the user-visible "reps dropped"
   // warning, which must not fire (or be silenced) because accessory sets came and went.
@@ -1669,6 +1676,9 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   // deload) still requires a fresh confirm session rather than advancing immediately.
   const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(loadOf(h),lastLoad)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
   const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
+  // Report what was ACTUALLY covered. A 3-of-4 cross-day session legitimately earns the
+  // increase, but captioning it "Hit 4×10" claims work that wasn't done.
+  const lastSets=workSets(last).length||ex.s;
   // traj is deliberately NOT sliced — the trend glyph reports total work done, and an extra
   // set genuinely is more work. Only the judging paths (hit/stall/regress) use workSets.
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
@@ -1711,11 +1721,17 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
           detail:`New phase (${(PHASES[D.phase]||PHASES[1]).name}) — re-anchored ${dir} for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}. Adjust to taste, then progress from here.`,regress}}
     }
   }
+  // SHORT SESSION — every logged set cleared target, but too few of them to earn the load.
+  // Without this the session fell through to the generic "Push for 4×10", which is confusing
+  // when the reps you did were all at target; say plainly that it's the set count that's short.
+  if(lastSets<minSets&&workSets(last).length&&workSets(last).every(r=>r>=ex.tg)){
+    return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+      detail:`Only ${lastSets} of ${ex.s} sets logged — all at target, but complete the prescription before adding load.`,regress}}
   // FORM GATE — hit the reps but a working set was rated below clean: hold load and
   // clean it up rather than advancing on broken-down reps.
   if(hitTarget(last)&&!sessClean(last)){
     return{text:`→ ${lastLoad}kg${u} (clean up)`,type:'stay',wt:lastLoad,traj,
-      detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
+      detail:`Hit ${lastSets}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
   // HIT TARGET (single-session double progression). AMRAP signal = reps over target on the last set.
   if(lastHit){
     const isConfirmLift=CONFIRM_LIFTS.has(ex.id);
@@ -1742,11 +1758,11 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
       if(nxt>lastLoad){
         const jump=Math.round((nxt-lastLoad)*10)/10;
         return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
-          detail:`Hit ${ex.s}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
+          detail:`Hit ${lastSets}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
     }
     // Heavy spinal compounds keep a 1-session confirm brake (joint safety): need 2 sessions at target.
     if(isConfirmLift&&hitsAtW<2){
-      return{text:`→ Confirm ${lastLoad}kg`,type:'cf',wt:lastLoad,traj,detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑${topNote}`,regress}}
+      return{text:`→ Confirm ${lastLoad}kg`,type:'cf',wt:lastLoad,traj,detail:`Hit ${lastSets}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑${topNote}`,regress}}
     if(ex.tp==='bb'){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
@@ -1756,7 +1772,7 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
       if(nxt<=lastLoad){
         return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
       const jump=Math.round((nxt-lastLoad)*10)/10;
-      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`)+topNote,regress}}
+      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${lastSets}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${lastSets}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // DB: walk the real spinlock ladder (rungs the rack can actually build) — the old
     // flat +0.5 could propose unloadable weights. AMRAP scales rungs (1, or 2 if ≥3 over).
     if(ex.tp==='db'){
@@ -1765,11 +1781,11 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
       if(nxt<=lastLoad){
         return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
       const jump=Math.round((nxt-lastLoad)*10)/10;
-      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`)+topNote,regress}}
+      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${lastSets}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${lastSets}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // KB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
     const steps=over>=3?2:1;
     const nxt=Math.round((lastLoad+dbInc*steps)*10)/10;
-    return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
+    return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${lastSets}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${lastSets}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
     // clusterHeld is true only for the ONE forgiven cluster, and only on the session that

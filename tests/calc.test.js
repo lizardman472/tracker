@@ -279,6 +279,23 @@ T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg))
   d.sessions = [{ id: 'ov_bo', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20, 5], band: '' }] }];
   sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
   T('a back-off set does not suppress the big-overshoot jump', sg.type === 'up' && sg.wt >= 35, JSON.stringify(sg));
+
+  // ── the set-count window needs a FLOOR as well as a cap ──
+  // nS takes its count from the session so a 3-set Day-B session can satisfy a 4-set Day-A
+  // slot — but it had no lower bound, so a single set at target read as a full hit, moved the
+  // weight up, and captioned itself "Hit 4×10". Floor is ex.s-1: verified against the real
+  // program, only db_lateral and db_rear_fly differ across days and both are 4→3.
+  const shortSess = reps => { d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    d.sessions = [{ id: 'sh', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] }];
+    return getSmartSugg(fpDef) };
+  T('4 of 4 at target still earns the increase', shortSess([10, 10, 10, 10]).type === 'up');
+  T('3 of 4 at target still earns it (the cross-day case)', shortSess([10, 10, 10]).type === 'up', JSON.stringify(shortSess([10, 10, 10])));
+  T('2 of 4 at target does NOT earn a load increase', shortSess([10, 10]).type === 'stay', JSON.stringify(shortSess([10, 10])));
+  T('1 of 4 at target does NOT earn a load increase', shortSess([10]).type === 'stay', JSON.stringify(shortSess([10])));
+  T('...and the hold says the set count is what is short', /Only 2 of 4 sets logged/.test(shortSess([10, 10]).detail), shortSess([10, 10]).detail);
+  // The caption must report what was covered, not always the full prescription.
+  T('a 3-of-4 hit is captioned 3×10, not 4×10', /Hit 3×10/.test(shortSess([10, 10, 10]).detail), shortSess([10, 10, 10]).detail);
+  T('a full session is still captioned 4×10', /Hit 4×10/.test(shortSess([10, 10, 10, 10]).detail), shortSess([10, 10, 10, 10]).detail);
 }
 
 // ── audit fix: a successful (in-range) deload is not flagged as a "Weight dropped" regression ──
