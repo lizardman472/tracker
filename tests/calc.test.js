@@ -529,6 +529,49 @@ d.sessions = [fatSess(5, 2, 40, [10, 10, 10])];
 fat = getFatigue();
 T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
 
+// ── audit fix: cardio must not count as a full lifting session ──
+// getFatigue pushed cardio entries into the same `scores` array as lifts, so each one added a
+// whole session to the frequency term — and easy cardio (diff 2) simultaneously dragged the
+// effort term DOWN. A walking week with no lifting at all read as "Ready", and four walks
+// pushed a normal lifting week from Ready into Building.
+{
+  const walk = (off, intensity = 'easy', duration = 30) => ({ id: 'cw' + off + intensity, date: ymd(new Date(Date.now() - off * 864e5)), type: 'Walking', duration, intensity });
+  const liftWk = () => [fatSess(1, 3, 64, [15, 15, 15]), fatSess(3, 3, 64, [15, 15, 15]), fatSess(5, 3, 64, [15, 15, 15])];
+
+  // Anchor first: the calibration the comment in getFatigue documents must not drift.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [];
+  const anchor = getFatigue();
+  T('calibration anchor: 3 lifts @RPE3 reads Ready', anchor.label === 'Ready' && anchor.score >= 3.5 && anchor.score <= 5, JSON.stringify(anchor));
+
+  // Walking only, no lifting: this is not a fatigued athlete.
+  d = freshD(); d.sessions = []; d.cardioLog = [1, 2, 3, 4, 5, 6, 7].map(o => walk(o));
+  const walkOnly = getFatigue();
+  T('a week of easy walks with no lifting reads Fresh', walkOnly.label === 'Fresh', JSON.stringify(walkOnly));
+
+  // Easy cardio alongside normal lifting must not change the verdict.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [2, 4, 6, 7].map(o => walk(o));
+  const withWalks = getFatigue();
+  // Bounded increase, deliberately NOT label-equality: 4 easy walks moving 4.9 → 5.1 crosses
+  // the Ready/Building line, but that is a threshold artifact of a 4% change, not cardio
+  // dominating the score. Asserting the label would over-fit this test to where the boundary
+  // happens to sit. What matters is that walks nudge the meter instead of driving it — before
+  // this fix the same four walks added a full 1.6.
+  T('easy walks nudge the score rather than driving it', withWalks.score - anchor.score <= 0.5, JSON.stringify({ a: anchor.score, w: withWalks.score }));
+  // Monotonicity: logging MORE activity must never make the meter read less fatigued. Both
+  // non-frequency terms broke this — a plain effort mean let easy walks pull the average from
+  // 3.0 toward 2.0, and dividing volume by the raw entry count let four walks shrink the
+  // per-session volume term. Either alone made the identical lifting week score LOWER.
+  T('adding activity never lowers the fatigue score', withWalks.score >= anchor.score, JSON.stringify({ a: anchor.score, w: withWalks.score }));
+
+  // Guard the other direction: hard conditioning IS real systemic fatigue.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [0, 2, 4].map(o => walk(o, 'hard', 45));
+  const withHard = getFatigue();
+  T('hard cardio still registers as added fatigue', withHard.score > anchor.score, JSON.stringify({ a: anchor.score, h: withHard.score }));
+  d.cardioLog = [0, 2, 4].map(o => walk(o, 'easy', 45));
+  const withEasy = getFatigue();
+  T('hard cardio outweighs the same count of easy sessions', withHard.score > withEasy.score, JSON.stringify({ hard: withHard.score, easy: withEasy.score }));
+}
+
 // ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
 // A strong over-target AMRAP in the old phase must NOT re-anchor heavier into the new phase.

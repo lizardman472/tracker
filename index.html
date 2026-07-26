@@ -2097,16 +2097,33 @@ return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true
 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
-D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3})});
+D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3,load:1})});
 // Cardio intensity maps onto the effort term too (hard 4 / moderate 3 / easy 2) —
 // a hard 40-min row is real fatigue; flat diff:3 made intensity nearly invisible.
-D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2}))}
+// `load` is what the entry is worth in the FREQUENCY term. Cardio used to count as a whole
+// lifting session there, which broke the meter in both directions at once: seven easy walks
+// and zero lifting read "Ready", while four walks pushed a normal lifting week from Ready
+// into Building — and because easy cardio carries diff 2, it simultaneously dragged the
+// effort term down. A hard row is genuine systemic fatigue and still registers; a 30-minute
+// walk is not a squat session.
+D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2,load:c.intensity==='hard'?.5:c.intensity==='moderate'?.35:.2}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // Calibration (audit fix): the old weights (f*1.2 + ad*0.9 + vol/1200f) pushed a
 // perfectly normal week — 3 sessions, RPE 3, ~9t — to 8.8/10 "Fatigued", so the meter
 // red-lined permanently. Target anchors: 3 sessions @RPE3 & normal volume ≈ 5 (Ready);
 // 5-6 hard sessions @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh).
-const f=scores.length,ad=scores.reduce((a,b)=>a+b.diff,0)/f,tv=scores.reduce((a,b)=>a+b.vol,0);
+// f is session-EQUIVALENTS (summed load), not a raw entry count — see `load` above.
+// ad is a load-WEIGHTED mean, for the same reason. A plain mean let four easy walks pull the
+// average effort from 3.0 toward 2.0, so logging extra activity made the meter read LESS
+// fatigued than the identical week without it — adding work must never lower the score.
+// All three terms are driven by f (session-EQUIVALENTS) rather than a raw entry count, so a
+// low-load entry can never shrink a term just by existing. Both of the other means used the
+// raw count and both broke monotonicity because of it: a plain effort mean let easy walks pull
+// the average down, and dividing volume by the entry count let four walks shrink the
+// per-session volume term. Logging more work must never make the meter read less fatigued.
+const f=scores.reduce((a,b)=>a+(b.load??1),0);
+const ad=f>0?scores.reduce((a,b)=>a+b.diff*(b.load??1),0)/f:0;
+const tv=scores.reduce((a,b)=>a+b.vol,0);
 const sc=Math.round(Math.min(10,Math.max(0,f*.8+Math.max(0,ad-2)*1.5+tv/(3000*Math.max(1,f))))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
