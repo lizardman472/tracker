@@ -6,9 +6,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#f4f6fb">
+<!-- Browser chrome colour. The media-scoped pair is the PRE-JS paint: a dark-OS device
+     used to get light chrome from parse until applyTheme() ran at INIT. Browsers use the
+     first theme-color whose media matches, so the dark rule wins on a dark OS and the
+     unmediated #tc below is the fallback. Once applyTheme() runs it REMOVES the pair and
+     owns #tc outright -- otherwise an explicit light preference on a dark-OS device would
+     stay overridden by the dark media rule. -->
+<meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="tc" content="#f4f6fb">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Rack-Free Tracker v12</title>
+<title>Rack-Free Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,18 +50,16 @@
 /* ── Dark theme: mirrors every color token. Applies when the SYSTEM prefers dark
    (unless the user forces light in Settings) or when the user forces dark.
    Accents brighten so text passes on the dark cards; --ink flips near-black so
-   filled buttons/badges keep ≥4.5:1 under the brighter fills. The JS chart/day
-   palette mirrors these in applyTheme() — keep in sync. ── */
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
---tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
---prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
---gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
---pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
---dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;
---p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
---sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
---hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}}
+   filled buttons/badges keep ≥4.5:1 under the brighter fills.
+
+   ONE block serves both paths. applyTheme() writes the RESOLVED theme to data-theme
+   ('auto' on a dark-OS device writes 'dark'), so explicit-dark and auto-dark reach the
+   same selector. These 40 tokens used to be duplicated verbatim into an
+   @media(prefers-color-scheme:dark) block as well, so a token retuned in one place and
+   not the other silently diverged the two paths, with nothing to catch it.
+
+   Still mirrored by hand, and still the thing to keep in sync: the JS chart/day palette
+   in applyTheme(), for canvas and string-built SVG that CSS vars cannot reach. ── */
 :root[data-theme=dark]{
 --bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
 --tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
@@ -64,6 +70,11 @@
 --p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
 --sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
 --hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}
+/* Pre-JS paint ONLY: applyTheme() runs at INIT and sets data-theme, but between parse and
+   that call a dark-OS device would flash the light background. Two tokens, not forty --
+   just enough that the flash is the right colour. Self-disables the moment applyTheme()
+   stamps the attribute, whichever way it resolves. */
+@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#0e1220;--tx:#e9edf8}}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* atmospheric backdrop: subtle cyan glow top, deep fade */
@@ -89,7 +100,11 @@ input[type=number]{-moz-appearance:textfield}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
 /* One screen-title treatment for every page (the nav bar hides on workout/summary/
    cardio/logpast, so in-screen titles are the only wayfinding there) */
-.pg-title{font-family:var(--disp);font-size:16px;font-weight:900;letter-spacing:.5px;margin-bottom:10px}
+.pg-title{font-family:var(--disp);font-size:16px;font-weight:900;letter-spacing:.5px;margin:0 0 10px}
+/* Screen titles are <h2> so the app has a real heading outline under the header's <h1>.
+   Screens with no VISIBLE title (Home, Workout, Progress) get an sr-only one rather than
+   new on-screen text — the structure is for screen readers, not a redesign. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 /* Cards */
@@ -127,8 +142,11 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Weight stepper */
 .stp{display:flex;align-items:center;gap:8px;justify-content:center}
-.stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
-.stp-b:active{background:var(--pr);color:var(--ink);transform:scale(.92)}.stp-b.dis{color:var(--dm)}
+.stp-b{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:var(--rad-sm);border:1px solid var(--ibr);background:var(--ib);color:var(--tx);font-family:inherit;font-size:24px;font-weight:700;cursor:pointer;user-select:none;transition:.12s}
+/* .dis is the visual state; :disabled is the real one. Both are emitted together so a
+   greyed-out stepper genuinely stops responding instead of only looking inert. */
+.stp-b:active:not(:disabled){background:var(--pr);color:var(--ink);transform:scale(.92)}
+.stp-b.dis,.stp-b:disabled{color:var(--dm);cursor:default}
 .stp-b.stp-sm{width:44px;height:44px;font-size:20px;border-radius:12px}
 /* Dominant weight readout for the active barbell card */
 .stp-big{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
@@ -232,7 +250,10 @@ padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0
 .add-set:active{border-color:var(--pr);color:var(--pr)}
 .add-set.rm{flex:0 0 46px;color:var(--rd)}
 /* Tappable Previous cell */
-button.set-prev{border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit}
+button.set-prev{border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit;position:relative}
+/* The visible text is 10px tall, far under any usable touch target. Grow the HIT AREA with
+   an overlay instead of padding, so the set row's height is unchanged. */
+button.set-prev::after{content:'';position:absolute;inset:-9px -6px}
 button.set-prev:active{color:var(--pr)}
 /* Delta pills (Muscle Trend, Monthly) */
 .delta-pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;vertical-align:2px}
@@ -255,7 +276,7 @@ button.set-prev:active{color:var(--pr)}
 .mt-cur{height:100%;background:var(--pr);border-radius:3px}
 /* Body heat-map legend */
 .heat-legend{display:flex;gap:12px;justify-content:center;font-size:9px;color:var(--mu);margin-top:8px}
-.heat-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.heat-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
 @keyframes tickpop{0%{transform:scale(.6)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
 
 /* Toggle switch */
@@ -315,7 +336,7 @@ button.set-prev:active{color:var(--pr)}
 /* Hero start */
 .start-hero{background:linear-gradient(140deg,var(--prl),var(--cd));border:1px solid rgba(var(--prRGB),.25);color:var(--tx);border-radius:var(--rad);padding:22px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden;box-shadow:var(--shm)}
 .start-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(80% 100% at 50% 0%,rgba(var(--prRGB),.18),transparent 70%);pointer-events:none}
-.start-hero h2{font-family:var(--disp);font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:.5px;text-transform:uppercase;position:relative}
+.start-hero h3{font-family:var(--disp);font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:.5px;text-transform:uppercase;position:relative}
 .start-hero .meta{font-size:11px;color:var(--mu);margin-bottom:16px;position:relative;letter-spacing:.3px}
 .start-hero button{background:var(--pr);color:var(--ink);border:none;border-radius:var(--rad-sm);padding:14px 40px;font-family:var(--disp);font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 20px rgba(var(--prRGB),.3);position:relative}
 .start-hero button:active{transform:scale(.96)}
@@ -626,8 +647,11 @@ C:[
 // via Day-B band rear-delt 3→4 sets. Day counts: A=8, B=7, C=8 (sets ~27/27/23).
 // STILL banded (correct tool): pull-ups, dips (band-assisted BW), Band External Rotation.
 // Landmine press landed in v13 as lm_press (two-hand, Day C) — Day-B OHP stays barbell.
-// v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C (only
-// calf slot; calves are tracked but not MEV-gated). Home Day C is now 9 exercises.
+// v27 (open-issues pass): added direct calf work — Single-Leg Calf Raise on Day C at both
+// venues. SUPERSEDED by the v16 Day-C trim below, which retired both calf slots (Day C ran
+// 12 exercises and was too long). The program now has NO direct calf work by decision; the
+// calf lifts survive as legacy stubs with their MG credit so pre-trim history resolves, and
+// calves is deliberately absent from MG_INFO so no empty dashboard row is rendered.
 // v26 dead-bug conversion: Dead Bugs (Day A) moved kb→bb — bar held at arm's length over
 // the chest on the 11kg straight bar, so the load rides the same plate system as every
 // other bar lift (stepper + plate breakdown + VW ladder + warm-up). Legacy KB history
@@ -665,7 +689,11 @@ C:[
 // so they never compete with hinge recovery; static like the dead bugs/carries (no PHASES.adj
 // entry); and — a deliberate first — the ids are SHARED across home/partner (identical
 // movement, no implement, so one progression history is correct where every prior cross-venue
-// pair differed by equipment). Day counts: home A=8 B=8 C=10, partner A=7 B=9 C=9.
+// pair differed by equipment).
+// PARTIALLY SUPERSEDED: the v16 Day-C trim removed bird_dog again (Day C was too long), so
+// only side_plank remains and the extensor-ENDURANCE axis is once more unfilled — a known,
+// accepted gap, not an oversight. side_plank still covers anti-lateral-flexion at both venues.
+// Current day counts: home A=9 B=8 C=10, partner A=7 B=9 C=7.
 // v13 (= programVersion 13 — the data-migration counter, distinct from the narrative
 // numbers above) — reviewed home tune-up:
 //   • Day B: hex_squat_b rest 3:30→3:00; bb_skullcr (lying extension) swapped for
@@ -862,15 +890,20 @@ const MG={
   db_curl:{biceps:1}, db_dead_bug:{core:1},
   pb_pullup_a:{back:1,biceps:0.5}, pb_pullup_c:{back:1,biceps:0.5},
   pb_dips:{chest:1,triceps:1},
-  // Calves — the only direct calf work, one slot/venue on Day C. Tracked (see MG_INFO)
-  // but not MEV-gated: 3 maintenance sets are deliberately below a growth MEV, so a
-  // permanent "below MEV" nag would be wrong. calves:1 (single-leg counts once, per-side).
+  // Calves — kept for HISTORY only. The v27 calf slots were retired from Day C at both
+  // venues by the v16 trim, so no active exercise credits calves; the MG entries (and the
+  // SPLIT_GROUPS row below) keep pre-trim sessions resolving in tonnage, PRs and the
+  // per-session muscle split. Deliberately absent from MG_INFO — a dashboard row no
+  // exercise can ever fill just renders a permanent ≈0. calves:1 (single-leg counts once).
   calf_raise:{calves:1}, db_calf_raise:{calves:1}
 };
 // Muscle display order + MEV/MAV landmarks (Israetel). null = not a hypertrophy target.
+// Drives the Balance dashboard, the body heat map and the Set Count picker — so every key
+// here must be reachable from at least one ACTIVE exercise (see MG above for the calves
+// exception, which is history-only and therefore not listed).
 const MG_INFO=[
   ['chest','Chest',8,20],['back','Back/Lats',10,22],['quads','Quads',8,18],
-  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],['calves','Calves',null,null],
+  ['hams','Hamstrings',6,16],['glutes','Glutes',4,12],
   ['sidedelt','Side Delts',8,22],
   ['fdelt','Front Delts',0,12],['reardelt','Rear Delts',6,16],['biceps','Biceps',8,20],
   ['triceps','Triceps',6,14],['core','Core',6,16],['cuff','Rotator Cuff',null,null]
@@ -953,34 +986,67 @@ const BODY_REGIONS_B=[
   {m:'back',d:'M44,38 C50,43 70,43 76,38 L74,62 C68,68 52,68 46,62 Z'},
   {m:'triceps',e:[[30.9,48,3.3,6.5],[89.1,48,3.3,6.5]]},
   {m:'glutes',e:[[52.5,84,7.5,7.5],[67.5,84,7.5,7.5]]},
-  {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]},
-  {m:'calves',e:[[51.5,150,4.8,13],[68.5,150,4.8,13]]}];
-let HEAT_BASE='#e8ecf5',HEAT_NONE='#dde3f0'; // silhouette / untrained-region fills (theme-switched)
-let HEAT_AMBER='178,97,2',HEAT_GREEN='12,128,80',HEAT_CYAN='0,123,168'; // rgb channels for heatColor
-// Fill for a region at v sets/week. Literal rgba (not CSS vars) — SVG fills are
-// string-built and the tests assert exact values. Untracked muscles (mev null,
-// e.g. calves/cuff) scale against mav or the overall max instead.
-// Alpha is MONOTONIC across the MEV boundary (amber tops out at .50, green starts
-// at .55) — crossing MEV upward must never make the region visibly fade.
-function heatColor(v,mev,mav,mx){
+  {m:'hams',e:[[50.5,110,6.5,20],[69.5,110,6.5,20]]}];
+// (No calves region — the calf slots were retired by the v16 Day-C trim, so the ellipses
+// could only ever render as "untrained". Restore both together if a calf slot returns.)
+// Heat-map palette, both themes in ONE place. applyTheme() switches via setHeatPal()
+// instead of restating the hexes, and the tests measure contrast for BOTH modes straight
+// off this object — so a band can't be added or retuned in one theme and forgotten in
+// the other. Band fills are SOLID and identical to the --am/--gr/--pr/--mu tokens the
+// "Weekly Volume by Muscle" bars below already use for the same states; literal hex
+// (not CSS vars) because SVG fills are string-built and the tests assert exact values.
+// `flag` is the under-MEV outline — the --ink contrast partner for that theme's amber.
+const HEAT_PAL={
+light:{base:'#e8ecf5',none:'#dde3f0',under:'#b26102',ok:'#0c8050',high:'#007ba8',notgt:'#5a6478',flag:'#ffffff'},
+dark: {base:'#222b42',none:'#2a3450',under:'#f0a848',ok:'#3ecf8e',high:'#2fb3e8',notgt:'#9aa6c2',flag:'#08101e'}};
+let HEAT_BASE,HEAT_NONE,HEAT_AMBER,HEAT_GREEN,HEAT_CYAN,HEAT_MUTE,HEAT_FLAG;
+function setHeatPal(dk){const p=HEAT_PAL[dk?'dark':'light'];
+HEAT_BASE=p.base;HEAT_NONE=p.none;HEAT_AMBER=p.under;HEAT_GREEN=p.ok;HEAT_CYAN=p.high;HEAT_MUTE=p.notgt;HEAT_FLAG=p.flag}
+setHeatPal(false); // light defaults; applyTheme() re-runs this on boot and on every theme change
+// Fill for a region at v sets/week — one of three RESERVED STATES (under MEV /
+// productive / at-or-over MAV), not a magnitude ramp.
+//
+// This WAS an alpha ramp (amber .20–.50, green .55–.85, cyan .95) encoding sets/week
+// within each band. At the amber floor that measured 1.26:1 against the untrained fill
+// in light and 1.45:1 in dark — an under-MEV muscle, the one state that asks the user to
+// act, was the hardest to see. The ramp cannot be rescued by raising alpha: solid amber
+// is only 3.55:1 in light, so there is no room below it for a legible gradient AND the
+// 3:1 floor. The magnitude it encoded is not lost — the bars directly below carry the
+// exact number, the tag and a proportional fill, and every region has a <title> with
+// sets/week. So the map keeps the job it is good at (state at a glance) and drops the
+// precision it was rendering illegibly.
+//
+// Measured against the untrained fill, light/dark: amber 3.55/6.10, green 3.87/6.17,
+// cyan 3.71/5.12, mute 4.62/5.05 — all clear the 3:1 non-text floor in both themes.
+// Muscles with no MEV landmark (mev null, e.g. rotator cuff) get the muted fill rather
+// than a band they cannot be judged against, mirroring var(--mu) in the bar list.
+function heatColor(v,mev,mav){
 if(!(v>0))return'';
-if(mev==null){const ref=mav||mx||1;const t=Math.min(1,v/ref);return`rgba(${HEAT_CYAN},${(0.2+0.6*t).toFixed(2)})`}
-if(v<mev)return`rgba(${HEAT_AMBER},${(0.2+0.3*(v/mev)).toFixed(2)})`;
-if(mav&&v<mav)return`rgba(${HEAT_GREEN},${(0.55+0.3*((v-mev)/(mav-mev))).toFixed(2)})`;
-return`rgba(${HEAT_CYAN},0.95)`}
+if(mev==null)return HEAT_MUTE;
+if(v<mev)return HEAT_AMBER;
+if(mav&&v<mav)return HEAT_GREEN;
+return HEAT_CYAN}
+// Under MEV is the only state that asks for action, so it never rests on hue alone —
+// the region also carries a dashed outline (§7 set this precedent with the day letters
+// on the heatmap cells). Shape survives colorblindness, forced-colors and print.
+// Dash geometry was picked by rendering, not by taste: on the narrow quad/ham ellipses
+// a 2.5/1.5 dash crenellates into what reads as a rendering artifact, and a solid ring
+// reads as gloss on the light amber. 4/2.5 at width 1 is legible as a deliberate mark
+// on every region shape (thin ellipse, wide rect, torso path) in both themes.
+function heatUnder(v,mev){return v>0&&mev!=null&&v<mev}
 // Two side-by-side SVG figures + legend; regions are tappable and select the
 // muscle in the Set Count chart (STAT_MG).
 function bodyHeatH(wv){
-const mx=Math.max(...MG_INFO.map(([k])=>wv[k]||0),1);
 const draw=(regions,cap)=>{
 let s=`<svg viewBox="0 0 120 192" style="width:100%;height:auto" role="img" aria-label="${cap} muscle heat map">`;
 for(const sh of BODY_SIL)s+=sh.c?`<circle cx="${sh.c[0]}" cy="${sh.c[1]}" r="${sh.c[2]}" fill="${HEAT_BASE}"/>`
   :sh.d?`<path d="${sh.d}" fill="${HEAT_BASE}"/>`
   :`<rect x="${sh.r[0]}" y="${sh.r[1]}" width="${sh.r[2]}" height="${sh.r[3]}" rx="${sh.r[4]}" fill="${HEAT_BASE}"/>`;
 for(const rg of regions){const mi=MG_INFO.find(x=>x[0]===rg.m);const v=Math.round((wv[rg.m]||0)*10)/10;
-const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null,mx)||HEAT_NONE;
-const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk</title>`;
-const attrs=`fill="${fill}" style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
+const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null)||HEAT_NONE;
+const und=heatUnder(v,mi?mi[2]:null);
+const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · under MEV':''}</title>`;
+const attrs=`fill="${fill}"${und?` stroke="${HEAT_FLAG}" stroke-width="1" stroke-dasharray="4 2.5"`:''} style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
 if(rg.d)s+=`<path d="${rg.d}" ${attrs}>${t}</path>`;
 if(rg.r)s+=`<rect x="${rg.r[0]}" y="${rg.r[1]}" width="${rg.r[2]}" height="${rg.r[3]}" rx="${rg.r[4]}" ${attrs}>${t}</rect>`;
 if(rg.e)for(const e of rg.e)s+=`<ellipse cx="${e[0]}" cy="${e[1]}" rx="${e[2]}" ry="${e[3]}" ${attrs}>${t}</ellipse>`}
@@ -988,7 +1054,7 @@ return s+`</svg>`};
 return`<div style="display:flex;gap:14px;justify-content:center">
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
-<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:rgba(${HEAT_AMBER},.4)"></i>under MEV</span><span><i style="background:rgba(${HEAT_GREEN},.7)"></i>productive</span><span><i style="background:rgba(${HEAT_CYAN},.95)"></i>high</span></div>`}
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>under MEV</span><span><i style="background:${HEAT_GREEN}"></i>productive</span><span><i style="background:${HEAT_CYAN}"></i>high</span><span><i style="background:${HEAT_MUTE}"></i>no target</span></div>`}
 
 // ═══════════════ SEED ═══════════════
 const SEED={sessions:[
@@ -1075,7 +1141,11 @@ if(d.programVersion>=17)return d;
 d.programVersion=17;
 return d}
 
-function load(){try{let s=localStorage.getItem(SK);
+// How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
+// unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
+// or merged — it describes this boot, not the data. Read by the rHome rescue banner.
+let LOAD_DROPPED=0;
+function load(){LOAD_DROPPED=0;try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
 // entered) — import treats it like a fresh device and adopts backup metadata wholesale.
@@ -1085,8 +1155,31 @@ let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true;
 d.phaseStart=today()}
 // Guard the load path like import does — drop malformed sessions so a partially corrupted
 // (but still parseable) store can't crash render. Good data passes through unchanged.
-d.sessions=Array.isArray(d.sessions)?d.sessions.map(validSession).filter(Boolean):[];
-if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
+// Losses are COUNTED and the raw store is parked under SK+'-corrupt' first. This used to be
+// silent: the rescue copy was written only from the catch below (which a parseable-but-
+// malformed store never reaches), so dropped sessions vanished and the next save() — any
+// banner dismiss, tick or theme tap — made it permanent with nothing to recover from.
+// Import already reports "N malformed sessions skipped"; the load path now matches it.
+if(Array.isArray(d.sessions)){
+  const kept=d.sessions.map(validSession).filter(Boolean);
+  LOAD_DROPPED=d.sessions.length-kept.length;
+  d.sessions=kept;
+}else{
+  // Not even an array — treat as total loss rather than silently booting an empty log.
+  LOAD_DROPPED=d.sessions==null?0:-1;
+  d.sessions=[];
+}
+// The COUNT is persisted next to the copy: LOAD_DROPPED describes this boot only, and the
+// rescue copy outlives it, so without this the banner reverted to the total-loss wording
+// ('what you see now is a fresh/demo state') on every boot after the first — the exact
+// misleading copy this fix set out to remove, shown to a user whose history is fine.
+if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED))}catch(_){}
+// Cue KEYS are interpolated into the delete-button onclick, so mergeImport constrains their
+// charset. load() accepted anything, leaving the stored store as an unguarded path to the
+// same sink — guard both ends identically rather than trusting that one entrance is safe.
+if(!d.cues||typeof d.cues!=='object')d.cues={};
+else{const cz={};for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))cz[k]=v;d.cues=cz}
+if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
@@ -1106,7 +1199,10 @@ D=d;
 // One-time hygiene: the old-version key was copied into SK above, so stale copies
 // under rft-v5..v11 are dead weight in the storage quota — clear them.
 try{for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
-}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw)}catch(_){}D=structuredClone(SEED);D.seeded=true}}
+}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw);
+// Unparseable store = total loss. Clear any partial-drop count from an earlier rescue so
+// the banner doesn't under-report this as 'N sessions couldn't be read'.
+localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=structuredClone(SEED);D.seeded=true}}
 // Returns false on quota/write failure so callers can warn instead of losing data silently.
 // Two-tab guard: D.gen is the generation of the snapshot this tab loaded; a cheap sidecar
 // key mirrors the last-written gen. If another tab wrote since we loaded (sidecar > ours),
@@ -1131,13 +1227,19 @@ function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bod
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
 // can't resurrect the just-wiped sessions into the blank slate.
 function resetAll(){D=freshState();try{D.gen=Number(localStorage.getItem(SK+'-gen'))||0}catch(_){}
-clearAW();clearTimer();save();go('home')}
+// freshState() resets theme to 'auto', but the palette already painted on the page stays
+// until a manual reload — a factory reset that visibly keeps your old theme looks broken.
+clearAW();clearTimer();applyTheme();save();go('home')}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation.
 // Audit: session notes + warm-up checklist ride along too — they were silently
 // lost on an app kill while every set survived.
-function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
+// Returns whether the backup actually reached storage. saveSumm's quota-failure path told the
+// user "your workout is still safe in the resume backup" unconditionally — but a full or
+// blocked localStorage is exactly when this write fails too, so the reassurance was at its
+// least true precisely when it mattered most. Callers must not claim safety without checking.
+function saveAW(){if(!ADAY)return false;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}))}catch(e){}}
+loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}));return true}catch(e){return false}}
 function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
@@ -1146,15 +1248,35 @@ function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // is surfaced with computed `stale`/`drifted` flags (never persisted) and waits for an
 // explicit Resume/Discard. Location/phase mismatches stay hidden-not-deleted:
 // switching back makes them resumable again.
+// Does a resume blob carry real logged work? Shared by checkResume (which uses it to decide
+// whether a stale/drifted blob is worth keeping) and pendingAW (which uses it to decide
+// whether Start needs to warn) — one definition so the two can never disagree.
+function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0)))}
+// What checkResume would HIDE. checkResume deliberately returns null for a blob whose venue or
+// phase no longer matches while leaving it in storage (hide, don't delete) — but beginW's
+// data-loss guard was asking checkResume, so it saw null in exactly that case and let Start
+// run: saveAW then overwrote the blob with no prompt. Log Day A at home, switch venue, tap
+// Start, and 45 minutes of logging was gone silently. This reports the blob's EXISTENCE and
+// why it is hidden, so the guard works when the workout is least recoverable.
+function pendingAW(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+if(!awHasReps(d))return null; // nothing logged yet — starting fresh costs the user nothing
+return{day:d.day,hasReps:true,why:d.loc&&d.loc!==D.location?'venue':d.phase&&d.phase!==D.phase?'phase':null,loc:d.loc,phase:d.phase}}catch(e){return null}}
 function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
-const hasReps=d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0));
+const hasReps=awHasReps(d);
 if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
 if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.id);
 if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){clearAW();return null}d.drifted=true}}
 return d}catch(e){return null}}
-function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+// textContent→innerHTML escapes & < > but leaves QUOTES alone, which is fine in text position
+// and broken in attribute position: the notes input interpolates esc() into value="...", so a
+// double quote in a note ended the attribute early — the note came back truncated on reload
+// and the rest was parsed as markup. Escape quotes too, so esc is safe in BOTH positions and
+// callers never have to pick the right helper. Text output is unaffected: a browser renders
+// &quot; / &#39; as " / ' wherever they land.
+function esc(s){const d=document.createElement('div');d.textContent=s||'';
+return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 // Shared empty-state card — one voice + one visual for every screen's no-data state.
 function emptyH(icon,title,hint){return`<div class="cd" style="text-align:center;padding:22px 16px"><div style="font-size:22px;margin-bottom:6px">${icon}</div><div style="font-size:12px;font-weight:700;margin-bottom:3px">${title}</div>${hint?`<div class="dm">${hint}</div>`:''}</div>`}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
@@ -1295,6 +1417,26 @@ const rr=e.reps||[];let m=0;
 for(let i=0;i<rr.length;i++){if(!(Number(rr[i])>0))continue;
 const w=setWt(e,i);if(w>m)m=w}
 return m}
+// The load actually SUSTAINED across the working sets: the heaviest weight every one of the
+// first nSets counted sets carried, i.e. min(setWt) over that window. This is the anchor the
+// progression engine reasons about — it used to read the bare `wt` field, so a session logged
+// as wt 32 with all four sets overridden to 35 proposed "up 32.5kg" while simultaneously
+// minting a 35kg weight PR from exMaxWt. Deliberately the MIN, not the max: three sets at 35
+// out of a prescribed four is not yet a 35kg session, and one hot top single must never
+// re-anchor the whole lift.
+// Walks RAW rep indices (not effectiveReps, which compacts) — a compacted index read against
+// wts[i] scores the wrong set whenever a zero-rep set precedes an override, the same trap
+// exSetE1RMMax documents. Entries without wts return e.wt exactly, so every session logged
+// before v15 — and every uniform session, since finishW only persists wts when a counted set
+// differs from wt — is completely unaffected.
+function sessLoad(e,nSets){
+if(!e)return 0;
+const base=Number(e.wt)>0?Number(e.wt):0;
+if(!Array.isArray(e.wts))return base;
+const rr=e.reps||[];let n=0,m=Infinity;
+for(let i=0;i<rr.length&&n<nSets;i++){if(!(Number(rr[i])>0))continue;n++;
+const w=setWt(e,i);if(!(w>0))return base;if(w<m)m=w}
+return m===Infinity?base:m}
 // Live in-workout totals from the LOG global's shape: only CHECKED sets count
 // (the Hevy semantic — the header shows work banked, not work planned).
 function liveStats(log){let sets=0,vol=0;
@@ -1329,6 +1471,21 @@ const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#b3134d']; //
 //   mult — multiplier on related weight (default 1.0)
 //   addKg — kg to add after multiplication (default 0)
 const RELATED_EX={
+  // Home staples that had no first-session fallback. These are NOT new lifts — they simply
+  // never got a seed, because the bundled demo carries history for them and that masked the
+  // gap. The moment a user restores a real backup the demo rows are dropped (mergeImport), so
+  // any of these the backup doesn't cover fell through to a bare "First weighted session —
+  // find your starting load" with no number at all. `dead_bugs_a` had no fallback either way.
+  // Seeded conservatively — bar-only / heaviest assist — because undershooting is cheap now
+  // that the big-overshoot re-anchor works (≈2.5%/rep over target, capped +12%/session, so a
+  // light seed self-corrects in 2-3 sessions), while overshooting a first session risks a
+  // joint. Anyone already stronger just types their real number once.
+  'ohp':            {id:null,               seedWt:BAR, note:'First logged session — start with the empty 11kg bar and add plates once the groove feels solid. Strict, no leg drive.'},
+  'floor_press':    {id:null,               seedWt:BAR, note:'First logged session — empty 11kg bar to find the groove, then build. Wrist wraps if you have them.'},
+  'dead_bugs_a':    {id:null,               seedWt:BAR, note:"Bar held at arm's length over the chest — start with the empty 11kg bar and keep the low back flat. Add load only once the ribs stay down for every rep."},
+  'pullup_a':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue) and reduce assistance as reps come. Full ROM, control through the bottom.'},
+  'pullup_c':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — volume slot, so start on the heaviest assist band (Blue) and drop a band once you clear the target.'},
+  'dips':           {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue). Depth to upper-arm parallel before reducing assistance.'},
   // Home program new exercises
   // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
   // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
@@ -1450,6 +1607,21 @@ hist=hist.filter(h=>!h.noProg);
 // (edge case), keep it — a light anchor beats "first time".
 if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const dlEnd=ymd(de);
   const f=hist.filter(h=>h.date<D.lastDeload||h.date>dlEnd);if(f.length)hist=f}
+// Rows with a weight but NO reps carry no progression signal. savePast saves one as soon as a
+// weight or band is entered (`if(wt)hasData=true`), so "I trained this at 32kg" with the rep
+// boxes left blank produced a session the engine read as below-range — three of them forced a
+// full ~10% deload and raised the stalled-lift count feeding the deload banner. Dropped from
+// the ENGINE's view only; they still count for history, tonnage and the muscle split.
+{const withReps=hist.filter(h=>effectiveReps(ex,h.reps).length>0);
+ // All we have is weight-only rows: don't fall through to the first-session seed as though
+ // nothing were known — the load IS known, the reps aren't. Say exactly that.
+ if(!withReps.length&&hist.length){
+   const lw=hist[hist.length-1],w=Number(lw.wt)>0?Number(lw.wt):exMaxWt(lw);
+   if(w>0)return{text:`→ ${w}kg`,type:'stay',wt:w,traj:[],
+     detail:`Logged at ${w}kg but with no reps recorded — log your reps to start progressing this lift.`,regress:''};
+   if(lw.band)return{text:`→ ${lw.band}`,type:'stay',wt:null,band:lw.band,traj:[],
+     detail:`Logged with a band but no reps — log your reps to start progressing this lift.`,regress:''}}
+ hist=withReps}
 hist=hist.slice(-5);
 const last=hist.length?hist[hist.length-1]:null;
 if(!last){
@@ -1475,63 +1647,128 @@ else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor
 const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
 if(dlDay!=null&&dlDay>=0&&dlDay<7&&!discWarn)discWarn=`🛌 Deload week · day ${dlDay+1}/7 — take ~10% off, stop 2-3 reps shy`;
 
+// How many sets of a logged session count as WORKING sets: today's prescription, capped by
+// what was actually logged (the same id can be 4 sets on one day and 3 on another).
+const nS=h=>Math.min(ex.s,(h.reps||[]).length||ex.s);
+// The load a session is judged AT. Per-set kg overrides make the bare `wt` field a lie about
+// what was lifted, so progression anchors on sessLoad — the weight every working set carried.
+const loadOf=h=>sessLoad(h,nS(h));
+const lastLoad=loadOf(last);
+
 // ─── WEIGHT-BASED (bb, mace, db, kb) — handle null wt fallback for type migrations (e.g., Cossack bw→bb) ───
 // kb (legacy kettlebell moves) progresses like db: rep-first double progression with
 // micro-load steps, rather than falling through to a bare "Continue".
 if(ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb'){
   // Find most recent session with a valid weight; if none, treat as a brand-new exercise
-  const lastWithWt=[...hist].reverse().find(h=>h.wt&&Number(h.wt)>0);
+  const lastWithWt=[...hist].reverse().find(h=>loadOf(h)>0);
   if(!lastWithWt){
     return{text:'First weighted session — find your starting load',type:'new',wt:null,traj:[],detail:'Earlier sessions were bodyweight or unrecorded.',regress:discWarn}}
   // If most recent session had no weight but earlier ones did, use the earlier weight as reference
-  if(!last.wt){
-    return{text:`→ ${lastWithWt.wt}kg`,type:'stay',wt:lastWithWt.wt,traj:[],detail:`Last weighted: ${lastWithWt.wt}kg on ${lastWithWt.date}`,regress:discWarn}}
+  if(!lastLoad){
+    const lw=loadOf(lastWithWt);
+    return{text:`→ ${lw}kg`,type:'stay',wt:lw,traj:[],detail:`Last weighted: ${lw}kg on ${lastWithWt.date}`,regress:discWarn}}
   // kb→bb conversion (dead bugs v26): legacy kettlebell history sits BELOW the bar
   // weight, which isn't a loadable barbell number — the empty bar is the floor.
   // Re-anchor there once; the normal plate ladder takes over from the next session.
-  if(ex.tp==='bb'&&last.wt<barOf(ex)){
+  if(ex.tp==='bb'&&lastLoad<barOf(ex)){
     return{text:`→ ${barOf(ex)}kg (bar only)`,type:'new',wt:barOf(ex),traj:[],
-      detail:`Now on the barbell — the empty bar (${barOf(ex)}kg) already outweighs the old ${last.wt}kg load. Control first, then progress on the plate ladder.`,regress:discWarn}}
+      detail:`Now on the barbell — the empty bar (${barOf(ex)}kg) already outweighs the old ${lastLoad}kg load. Control first, then progress on the plate ladder.`,regress:discWarn}}
 }
-if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
+if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   const mn=getRepMin(ex);
-  const atW=hist.filter(h=>wEq(h.wt,last.wt));
+  const atW=hist.filter(h=>wEq(loadOf(h),lastLoad));
+  // Disclosure when the session ran heavier than its anchor: the user overrode some sets up
+  // but not all of them, so progression correctly holds at the sustained load — say why, and
+  // name the number they need to match on every set to move the anchor.
+  const topSet=exMaxWt(last);
+  const topNote=topSet>lastLoad?` · top set ${topSet}kg — match all ${ex.s} sets at ${topSet}kg to progress there`:'';
   // hitTarget gates a weight INCREASE — you must complete ALL prescribed sets at/above target.
   // inRange gates STALL detection — judge only the sets actually performed: a session with a
   // skipped/blank trailing set (stored as 0, then dropped by effectiveReps) whose performed
   // sets all clear the minimum must NOT count as a stall (that produced phantom deloads on
   // clearly strong, over-target sessions). A genuine stall (full or partial sets BELOW min)
   // still fails this and accrues toward the deload.
-  // Set-count context comes from the SESSION (reps array length), not today's ex.s —
-  // the same id can be prescribed 4 sets on one day and 3 on another (db_lateral A/B),
+  // Set-count context comes from the SESSION (reps array length, via nS above), not today's
+  // ex.s — the same id can be prescribed 4 sets on one day and 3 on another (db_lateral A/B),
   // and a clean 3/3 session must read as a hit even when today asks for 4.
-  const hitTarget=h=>{const v=effectiveReps(ex,h.reps);const nSets=Math.min(ex.s,(h.reps||[]).length||ex.s);return v.length>=nSets&&v.every(r=>r>=ex.tg)};
-  const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=1&&v.every(r=>r>=mn)};
-  // CONSECUTIVE trailing stalls at the current weight — a failure 4 sessions ago followed
-  // by two clean sessions is history, not a stall-in-progress, and must not trip a deload.
-  const stalls=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(!wEq(h.wt,last.wt))break;if(inRange(h))break;n++}return n})();
+  // CONVENTION: the first nS counted sets are the WORKING sets; anything logged after them
+  // is accessory volume (a back-off set, a drop set, a bonus AMRAP) and must not be judged
+  // against the working prescription. Capping the COUNT alone wasn't enough — the every()
+  // scan still saw the extra sets, so 4×10 followed by a lighter 6 read as "below min", and
+  // three such sessions forced an ~11% deload on a lifter who hit target every time. That
+  // also fought the engine's own advice, which tells you to add a set when you plateau.
+  const workSets=h=>effectiveReps(ex,h.reps).slice(0,nS(h));
+  // Floor on how much of the prescription must actually be covered to EARN a load increase.
+  // nS deliberately takes its count from the session (the same id is 4 sets on one day and 3
+  // on another), but that had no lower bound — a single set at target read as a full hit and
+  // moved the weight up, captioned "Hit 4×10" for a 1×10 session. Checked against the real
+  // program: only db_lateral and db_rear_fly vary across days, both 4→3, so ex.s-1 preserves
+  // every legitimate cross-day case exactly while blocking 2-of-4 and below.
+  const minSets=Math.max(1,ex.s-1);
+  const hitTarget=h=>{const v=workSets(h);return v.length>=nS(h)&&v.length>=minSets&&v.every(r=>r>=ex.tg)};
+  const inRange=h=>{const v=workSets(h);return v.length>=1&&v.every(r=>r>=mn)};
+  // Total reps across the WORKING sets only — the basis for the user-visible "reps dropped"
+  // warning, which must not fire (or be silenced) because accessory sets came and went.
+  const workReps=h=>workSets(h).reduce((a,b)=>a+b,0);
+  // The 2-stall branch below PRESCRIBES (ex.s+1)×(mn-2) — reps deliberately under the range
+  // minimum — so scoring a compliant session against the base range made the app's own advice
+  // the third strike. Recognise the attempt by its shape.
+  // Reads UNSLICED reps on purpose: the extra sets ARE the signal, which is exactly why the
+  // workSets slice above must not be applied here.
+  const clusterFloor=Math.max(1,mn-2);
+  const isClusterAttempt=h=>{const v=effectiveReps(ex,h.reps);
+    return v.length>=ex.s+1&&v.every(r=>r>=clusterFloor)};
+  // The current stall RUN at this load, oldest→newest: consecutive below-range sessions
+  // ending now. A failure 4 sessions ago followed by two clean sessions is history, not a
+  // stall-in-progress, and must not trip a deload.
+  const stallRun=(()=>{const r=[];
+    for(let i=hist.length-1;i>=0;i--){const h=hist[i];
+      if(!wEq(loadOf(h),lastLoad))break;
+      if(inRange(h))break;
+      r.unshift(h)}
+    return r})();
+  // Count the run forward, forgiving at most ONE cluster — and only where the advice had
+  // actually been earned (≥2 stalls already banked at that point in the run). Two failure
+  // modes this threads between: counting the cluster punished a lifter for doing exactly what
+  // the app prescribed, while forgiving EVERY cluster let them hold the same load forever on
+  // 5×6 with the ladder never terminating. A second cluster scores as the ordinary
+  // below-range session it is, and a cluster-shaped session nobody prescribed earns nothing.
+  // clusterHeld additionally records whether the session being judged RIGHT NOW is that
+  // forgiven cluster — i.e. the advice had been shown and the lifter has just taken it. A
+  // cluster-shaped session nobody prescribed must not print "that was the prescribed
+  // intervention", even though holding the load is the same outcome either way.
+  const {stalls,clusterHeld}=(()=>{let n=0,forgiven=false,held=false;
+    for(const h of stallRun){
+      if(!forgiven&&n>=2&&isClusterAttempt(h)){forgiven=true;held=(h===stallRun[stallRun.length-1]);continue}
+      n++;held=false}
+    return{stalls:n,clusterHeld:held}})();
   const plateauSess=atW.filter(h=>inRange(h)&&!hitTarget(h)).length;
   // Confirm brake counts CONSECUTIVE recent clean target-hits at the current weight ending
   // now — not lifetime hits — so re-approaching a previously-confirmed weight (after a
   // deload) still requires a fresh confirm session rather than advancing immediately.
-  const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(h.wt,last.wt)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
+  const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(loadOf(h),lastLoad)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
   const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
+  // Report what was ACTUALLY covered. A 3-of-4 cross-day session legitimately earns the
+  // increase, but captioning it "Hit 4×10" claims work that wasn't done.
+  const lastSets=workSets(last).length||ex.s;
+  // traj is deliberately NOT sliced — the trend glyph reports total work done, and an extra
+  // set genuinely is more work. Only the judging paths (hit/stall/regress) use workSets.
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
     const ps=effectiveReps(ex,p.reps).reduce((a,b)=>a+b,0),cs=effectiveReps(ex,h.reps).reduce((a,b)=>a+b,0);
     return cs>ps?{s:'↗',c:'up'}:cs<ps?{s:'↘',c:'dn'}:{s:'→',c:'same'}});
   let regress='';
   if(atW.length>=2){const prev=atW[atW.length-2],curr=atW[atW.length-1];
-    const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,curr.reps).reduce((a,b)=>a+b,0);
-    if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${last.wt}kg`}
-  if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
-    if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt)&&!inRange(last))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
-    else if(wEq(prev.wt,last.wt)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,last.reps).reduce((a,b)=>a+b,0);
+    const pT=workReps(prev),cT=workReps(curr);
+    if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${lastLoad}kg`}
+  if(!regress&&hist.length>=2){const prev=hist[hist.length-2],pL=loadOf(prev);
+    if(pL&&lastLoad&&lastLoad<pL&&!wEq(lastLoad,pL)&&!inRange(last))regress=`Weight dropped ${pL}→${lastLoad}kg`;
+    else if(wEq(pL,lastLoad)){const pT=workReps(prev),cT=workReps(last);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(discWarn)regress=discWarn;
   const dbInc=ex.tp==='db'?0.5:1;
   const u=ex.loadUnit==='per_db'?'/DB':''; // per-DB label only when the load really is per dumbbell
   // Discomfort override — hold weight if moderate pain trending
-  if(modDisc>=2){return{text:`→ ${last.wt}kg${u} (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress}}
+  if(modDisc>=2){return{text:`→ ${lastLoad}kg${u} (hold)`,type:'stay',wt:lastLoad,traj,detail:'Holding due to discomfort trend',regress}}
   // Phase-transition re-anchor: if the last session belongs to the PREVIOUS phase and this
   // lift's rep target changed, re-derive the working load for the new target.
   // • Phase membership: sessions are stamped with `phase` at save time (exact — survives a
@@ -1545,27 +1782,35 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   const epleyF=r=>r<=1?1:1+r/30;
   const prePhase=last.phase!=null?last.phase!==D.phase:(D.phaseStart&&last.date<D.phaseStart);
   if(PHASE_ADJ_IDS.has(ex.id)&&prePhase){
-    const bestMin=Math.max(0,...atW.map(h=>{const v=effectiveReps(ex,h.reps);return v.length?Math.min(...v):0}));
+    const bestMin=Math.max(0,...atW.map(h=>{const v=workSets(h);return v.length?Math.min(...v):0}));
     const repsAch=Math.min(bestMin>0?bestMin:ex.tg,ex.tg);
-    if(last.wt>0){
-      const raw=last.wt*epleyF(repsAch)/epleyF(ex.tg);
+    if(lastLoad>0){
+      const raw=lastLoad*epleyF(repsAch)/epleyF(ex.tg);
       const tgt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
-      if(tgt>0&&tgt!==last.wt){
-        const dir=tgt<last.wt?'lighter':'heavier';
+      if(tgt>0&&!wEq(tgt,lastLoad)){
+        const dir=tgt<lastLoad?'lighter':'heavier';
         return{text:`→ ${tgt}kg${u}`,type:'new',wt:tgt,traj,
           detail:`New phase (${(PHASES[D.phase]||PHASES[1]).name}) — re-anchored ${dir} for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}. Adjust to taste, then progress from here.`,regress}}
     }
   }
+  // SHORT SESSION — every logged set cleared target, but too few of them to earn the load.
+  // Without this the session fell through to the generic "Push for 4×10", which is confusing
+  // when the reps you did were all at target; say plainly that it's the set count that's short.
+  if(lastSets<minSets&&workSets(last).length&&workSets(last).every(r=>r>=ex.tg)){
+    return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+      detail:`Only ${lastSets} of ${ex.s} sets logged — all at target, but complete the prescription before adding load.`,regress}}
   // FORM GATE — hit the reps but a working set was rated below clean: hold load and
   // clean it up rather than advancing on broken-down reps.
   if(hitTarget(last)&&!sessClean(last)){
-    return{text:`→ ${last.wt}kg${u} (clean up)`,type:'stay',wt:last.wt,traj,
-      detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
+    return{text:`→ ${lastLoad}kg${u} (clean up)`,type:'stay',wt:lastLoad,traj,
+      detail:`Hit ${lastSets}×${ex.tg}${ex.perSide?'/side':''} but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — hold and get strict reps before adding load.`,regress}}
   // HIT TARGET (single-session double progression). AMRAP signal = reps over target on the last set.
   if(lastHit){
     const isConfirmLift=CONFIRM_LIFTS.has(ex.id);
     // AMRAP: how many reps over target on the lowest working set drives the jump size.
-    const eRl=effectiveReps(ex,last.reps);
+    // Working sets only — an accessory back-off set used to drag minRep below target and
+    // silently suppress the big-overshoot re-anchor on an otherwise crushing session.
+    const eRl=workSets(last);
     const minRep=eRl.length?Math.min(...eRl):ex.tg;
     const over=minRep-ex.tg; // 0 = just hit target; higher = lots in reserve
     // NOTE: the big-overshoot check runs BEFORE the confirm brake — confirming a load you
@@ -1580,68 +1825,75 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
     // so it only fires when EVERY set is well over target. Re-fires until you land in range.
     if(over>=4){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
-      const raw=last.wt*(1+pct);
+      const raw=lastLoad*(1+pct);
       const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
-      if(nxt>last.wt){
-        const jump=Math.round((nxt-last.wt)*10)/10;
+      if(nxt>lastLoad){
+        const jump=Math.round((nxt-lastLoad)*10)/10;
         return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
-          detail:`Hit ${ex.s}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
+          detail:`Hit ${lastSets}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
     }
     // Heavy spinal compounds keep a 1-session confirm brake (joint safety): need 2 sessions at target.
     if(isConfirmLift&&hitsAtW<2){
-      return{text:`→ Confirm ${last.wt}kg`,type:'cf',wt:last.wt,traj,detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑`,regress}}
+      return{text:`→ Confirm ${lastLoad}kg`,type:'cf',wt:lastLoad,traj,detail:`Hit ${lastSets}×${ex.tg}${ex.perSide?'/side':''} — confirm once more (heavy lift), then ↑${topNote}`,regress}}
     if(ex.tp==='bb'){
       // joint-capped: 1 plate-step normally, 2 steps only if comfortably over (≥3 reps past target on every set)
       const steps=over>=3?2:1;
-      const nxt=nxUpN(last.wt,steps,vwOf(ex));
+      const nxt=nxUpN(lastLoad,steps,vwOf(ex));
       // nxUpN can't exceed the plate inventory, so "at ceiling" shows up as no
       // movement (nxt===last.wt), not as nxt>MAX_BB — that branch was unreachable.
-      if(nxt<=last.wt){
-        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
-      const jump=Math.round((nxt-last.wt)*10)/10;
-      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
+      if(nxt<=lastLoad){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`At plate ceiling. Expand rep range or add tempo.`,regress,maxed:true}}
+      const jump=Math.round((nxt-lastLoad)*10)/10;
+      return{text:`↑ ${nxt}kg`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${lastSets}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${lastSets}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // DB: walk the real spinlock ladder (rungs the rack can actually build) — the old
     // flat +0.5 could propose unloadable weights. AMRAP scales rungs (1, or 2 if ≥3 over).
     if(ex.tp==='db'){
       const steps=over>=3?2:1;
-      const nxt=nxUpN(last.wt,steps,dbwOf(ex));
-      if(nxt<=last.wt){
-        return{text:`🔒 MAX — push reps`,type:'st',wt:last.wt,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
-      const jump=Math.round((nxt-last.wt)*10)/10;
-      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${ex.s}×${ex.tg} — +${jump}kg`,regress}}
+      const nxt=nxUpN(lastLoad,steps,dbwOf(ex));
+      if(nxt<=lastLoad){
+        return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
+      const jump=Math.round((nxt-lastLoad)*10)/10;
+      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${lastSets}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${lastSets}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // KB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
     const steps=over>=3?2:1;
-    const nxt=Math.round((last.wt+dbInc*steps)*10)/10;
-    return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
+    const nxt=Math.round((lastLoad+dbInc*steps)*10)/10;
+    return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${lastSets}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${lastSets}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
+    // clusterHeld is true only for the ONE forgiven cluster, and only on the session that
+    // took the advice. A second cluster scores as an ordinary stall, pushing stalls to 3 and
+    // falling through to the deload below — that is what stops the hold repeating forever.
+    if(clusterHeld){
+      const cv=effectiveReps(ex,last.reps);
+      return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+        detail:`Cluster hit (${cv.length}×${Math.min(...cv)}) — that was the prescribed intervention, not a third stall. Retry ${ex.s}×${mn}${ex.perSide?'/side':''} at ${lastLoad}kg before any load cut.`,regress}}
     if(stalls>=3){
       // True deload: back off ~10% (the prior one-rung step was <2% on a micro-plate
       // ladder, so it sent you straight back into the same wall). bb snaps to the
       // nearest valid weight ≤90% (never below the bar); micro-load lifts round to 0.5kg.
       let d;
-      if(ex.tp==='bb'){const vw=vwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
-      else if(ex.tp==='db'){const vw=dbwOf(ex),cap=last.wt*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
-      else d=Math.max(0,Math.round(last.wt*0.9*2)/2);
+      if(ex.tp==='bb'){const vw=vwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else if(ex.tp==='db'){const vw=dbwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+      else d=Math.max(0,Math.round(lastLoad*0.9*2)/2);
       // At/near the lightest load (bar-only) there is no lower rung — a "deload" would be a
       // phantom 0kg cut. Switch to rep/tempo rebuild instead of printing a fake percentage.
-      if(d>=last.wt){
-        return{text:`→ ${last.wt}kg${u} (rebuild)`,type:'stay',wt:last.wt,traj,stalled:true,
-          detail:`${stalls} stalls at ${last.wt}kg — already the lightest load. Add tempo/pauses and rebuild ${ex.s}×${mn}${ex.perSide?'/side':''} reps before adding load.`,regress}}
-      const cut=Math.round((last.wt-d)*10)/10;
-      const pct=Math.round((last.wt-d)/last.wt*100);
+      if(d>=lastLoad){
+        return{text:`→ ${lastLoad}kg${u} (rebuild)`,type:'stay',wt:lastLoad,traj,stalled:true,
+          detail:`${stalls} stalls at ${lastLoad}kg — already the lightest load. Add tempo/pauses and rebuild ${ex.s}×${mn}${ex.perSide?'/side':''} reps before adding load.`,regress}}
+      const cut=Math.round((lastLoad-d)*10)/10;
+      const pct=Math.round((lastLoad-d)/lastLoad*100);
       return{text:`↓ ${d}kg${u}`,type:'dn',wt:d,traj,stalled:true,detail:`${stalls} sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — deload to ${d}kg (−${cut}kg, ~${pct}%) and rebuild`,regress}}
     if(stalls===2){
       // Before the reset: try a cluster/rep-scheme tweak (GZCLP-style) to break through
-      return{text:`→ ${last.wt}kg (cluster)`,type:'stay',wt:last.wt,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}
-    return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:`Below min. ${stalls}/3 stalls. Push for ${ex.s}×${mn}+${ex.perSide?' /side':''}`,regress}}
+      return{text:`→ ${lastLoad}kg (cluster)`,type:'stay',wt:lastLoad,traj,detail:`${stalls}/3 stalls. Try clusters: ${ex.s+1}×${Math.max(1,mn-2)} this session before any load cut.`,regress}}
+    return{text:`→ ${lastLoad}kg`,type:'stay',wt:lastLoad,traj,detail:`Below min. ${stalls}/3 stalls. Push for ${ex.s}×${mn}+${ex.perSide?' /side':''}`,regress}}
   // IN RANGE but not at target → push reps; if stuck for many sessions, escalate to adding a set
-  const eR=effectiveReps(ex,last.reps);
+  const eR=workSets(last);
   const avgRep=eR.length?Math.round(eR.reduce((a,b)=>a+b,0)/eR.length):0;
   let tip=`Push for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}`;
   if(plateauSess>=4)tip=`${plateauSess} sessions stuck at ~${avgRep}. Add a set (${ex.s+1}×) to push volume, or try ${Math.min(avgRep+1,ex.tg)},${avgRep},${avgRep}.`;
   else if(plateauSess>=2)tip=`Building at ~${avgRep}. Push the top set for ${Math.min(avgRep+1,ex.tg)}.`;
-  return{text:`→ ${last.wt}kg`,type:'stay',wt:last.wt,traj,detail:tip,regress}}
+  return{text:`→ ${lastLoad}kg`,type:'stay',wt:lastLoad,traj,detail:tip+topNote,regress}}
 
 // ─── CLUB exercises (perSide-aware) ───
 if(ex.tp==='club'){
@@ -1796,21 +2048,24 @@ try{return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)
 function applyTheme(){const dk=isDarkTheme();
 if(dk){CH_GRID='#2a3450';CH_TXT='#9aa6c2';CH_DOT='#1a2032';CH_TARGET='#ff5f8d';CH_TITLE='#e9edf8';CH_PR='#f0a848';
 C_PR='#2fb3e8';C_BL='#5b9bf0';C_GR='#3ecf8e';
-HEAT_BASE='#222b42';HEAT_NONE='#2a3450';HEAT_AMBER='240,168,72';HEAT_GREEN='62,207,142';HEAT_CYAN='47,179,232';
 DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',cardio:'#f0a848'};
 DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e'};
 FORM_C=['','var(--rd)','#e8703a','var(--am)','#7fb069','var(--gr)'];
 }else{CH_GRID='#dde3f0';CH_TXT='#5a6478';CH_DOT='#ffffff';CH_TARGET='#d61f5e';CH_TITLE='#111527';CH_PR='#b26102';
 C_PR='#007ba8';C_BL='#1263d6';C_GR='#0c8050';
-HEAT_BASE='#e8ecf5';HEAT_NONE='#dde3f0';HEAT_AMBER='178,97,2';HEAT_GREEN='12,128,80';HEAT_CYAN='0,123,168';
 DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'};
 DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
 FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
+setHeatPal(dk);
 if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
-try{const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
-if(t==='auto')delete document.documentElement.dataset.theme;
-else document.documentElement.dataset.theme=t;
-const meta=document.querySelector('meta[name=theme-color]');
+// data-theme carries the RESOLVED theme, never the preference: 'auto' on a dark-OS device
+// writes 'dark'. That is what lets one CSS block serve both the explicit and the automatic
+// dark path. The user's preference stays in D.theme, which is what the settings UI reads.
+try{document.documentElement.dataset.theme=dk?'dark':'light';
+// Drop the pre-JS media pair and own #tc: with the pair still present, an explicit light
+// preference on a dark-OS device would keep losing to the dark media rule.
+document.querySelectorAll('meta[name=theme-color][media]').forEach(m=>m.remove());
+const meta=document.getElementById('tc');
 if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // --dayA/--dayB/--dayC tokens. Trio validated full-strength on white, all pairs
@@ -1895,16 +2150,33 @@ return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true
 
 function getFatigue(){const now=new Date(),scores=[];
 for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
-D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3})});
+D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3,load:1})});
 // Cardio intensity maps onto the effort term too (hard 4 / moderate 3 / easy 2) —
 // a hard 40-min row is real fatigue; flat diff:3 made intensity nearly invisible.
-D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2}))}
+// `load` is what the entry is worth in the FREQUENCY term. Cardio used to count as a whole
+// lifting session there, which broke the meter in both directions at once: seven easy walks
+// and zero lifting read "Ready", while four walks pushed a normal lifting week from Ready
+// into Building — and because easy cardio carries diff 2, it simultaneously dragged the
+// effort term down. A hard row is genuine systemic fatigue and still registers; a 30-minute
+// walk is not a squat session.
+D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2,load:c.intensity==='hard'?.5:c.intensity==='moderate'?.35:.2}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // Calibration (audit fix): the old weights (f*1.2 + ad*0.9 + vol/1200f) pushed a
 // perfectly normal week — 3 sessions, RPE 3, ~9t — to 8.8/10 "Fatigued", so the meter
 // red-lined permanently. Target anchors: 3 sessions @RPE3 & normal volume ≈ 5 (Ready);
 // 5-6 hard sessions @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh).
-const f=scores.length,ad=scores.reduce((a,b)=>a+b.diff,0)/f,tv=scores.reduce((a,b)=>a+b.vol,0);
+// f is session-EQUIVALENTS (summed load), not a raw entry count — see `load` above.
+// ad is a load-WEIGHTED mean, for the same reason. A plain mean let four easy walks pull the
+// average effort from 3.0 toward 2.0, so logging extra activity made the meter read LESS
+// fatigued than the identical week without it — adding work must never lower the score.
+// All three terms are driven by f (session-EQUIVALENTS) rather than a raw entry count, so a
+// low-load entry can never shrink a term just by existing. Both of the other means used the
+// raw count and both broke monotonicity because of it: a plain effort mean let easy walks pull
+// the average down, and dividing volume by the entry count let four walks shrink the
+// per-session volume term. Logging more work must never make the meter read less fatigued.
+const f=scores.reduce((a,b)=>a+(b.load??1),0);
+const ad=f>0?scores.reduce((a,b)=>a+b.diff*(b.load??1),0)/f:0;
+const tv=scores.reduce((a,b)=>a+b.vol,0);
 const sc=Math.round(Math.min(10,Math.max(0,f*.8+Math.max(0,ad-2)*1.5+tv/(3000*Math.max(1,f))))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
@@ -2043,7 +2315,9 @@ if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');i
 // live volume/sets track typed reps without a full re-render
 const lvv=document.getElementById('lv-vol'),lvs=document.getElementById('lv-sets');
 if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol.toLocaleString('en-NZ');if(lvs)lvs.textContent=lv.sets}},1000)}
-function go(v){VIEW=v;EXP=null;render();window.scrollTo(0,0)}
+// HIST_N resets with EXP: leaving History and coming back should start at the first page,
+// not at however deep the last visit paged.
+function go(v){VIEW=v;EXP=null;HIST_N=HIST_PAGE;render();window.scrollTo(0,0)}
 function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t==='new'?'sg-nw':'sg-st'}
 
 // Training-cycle position + rest-day gaps for the home cue.
@@ -2074,7 +2348,7 @@ const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
 const nd=!['A','B','C'].includes(nd0)?'A':nd0;
 const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledMajor);
 const resume=checkResume();
-let h='<div class="sec">';
+let h='<div class="sec"><h2 class="sr-only">Today</h2>';
 
 if(resume){const ageMin=Math.max(0,Math.round((Date.now()-resume.start)/60000));
 const ageLbl=ageMin<120?`${ageMin} min ago`:ageMin<2880?`${Math.round(ageMin/60)}h ago`:`${Math.round(ageMin/1440)}d ago`;
@@ -2084,14 +2358,22 @@ ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="resumeW()">Resume</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="clearAW();render()">Discard</button></div></div>`}
 
-// Corrupt-store rescue: load() parked the unparseable raw store under SK+'-corrupt' and
-// fell back to demo data — but never told the user. Surface it with a way out.
+// Corrupt-store rescue: load() parked the raw store under SK+'-corrupt' and either fell back
+// to demo data (unparseable) or dropped the sessions it couldn't validate (parseable but
+// malformed) — but never told the user. Surface it with a way out. The copy outlives the
+// boot that made it, so the drop COUNT is persisted beside it — keying the wording off this
+// boot's LOAD_DROPPED alone meant every boot after the first fell back to the total-loss copy.
 try{if(localStorage.getItem(SK+'-corrupt')){
+// Prefer this boot's count, fall back to the one stored with the rescue copy.
+const dropN=LOAD_DROPPED>0?LOAD_DROPPED:Number(localStorage.getItem(SK+'-corrupt-n'))||0;
+const partial=dropN>0;
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
-<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ Stored data was corrupted</div>
-<div class="dm" style="margin-bottom:8px">Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.</div>
+<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${dropN} session${dropN>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
+<div class="dm" style="margin-bottom:8px">${partial
+?`${dropN} stored session${dropN>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
+:`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
-<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');render()}">Discard</button></div></div>`}}catch(e){}
+<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
@@ -2159,7 +2441,7 @@ if(restDay){
   // back-to-back — the fixed A→B→C rotation normally prevents that, so warn on override.
   const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
   const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
-  h+=`<div class="start-hero"><h2>Day ${nd}${ls}${isP?" · Partner's":''}</h2>
+  h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
   <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
   <button onclick="beginW('${nd}')">Start Workout</button></div>`;
@@ -2303,7 +2585,14 @@ SWAP_OPEN=null;saveAW();render()}
 function beginW(day){
 // A pending resumable session dies the moment a new one starts (saveAW overwrites the
 // blob) — one accidental tap on Start used to silently destroy 45 minutes of logging.
-if(checkResume()&&typeof confirm==='function'&&!confirm('You have an unfinished workout waiting to resume — starting a new one discards it. Continue?'))return;
+// Guards on pendingAW, NOT checkResume: a blob hidden by a venue/phase switch is still
+// sitting in storage about to be overwritten, and that is precisely when it is hardest to
+// get back (the Resume card isn't showing, so the user has no idea it exists). Name the
+// mismatch so the prompt isn't baffling when no Resume card is visible.
+const pend=pendingAW();
+if(pend&&typeof confirm==='function'){
+  const where=pend.why==='venue'?` from a different venue (${pend.loc})`:pend.why==='phase'?` from phase ${pend.phase}`:'';
+  if(!confirm(`You have an unfinished workout${where} waiting to resume — starting a new one discards it. Continue?`))return}
 ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
@@ -2329,7 +2618,7 @@ VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
 function rWork(el){
 const exs=dayExs(ADAY);const isP=D.location==='partner';
-let h='<div class="sec">';
+let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
 
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
@@ -2432,8 +2721,8 @@ const canDn=nxDn(cur,vw)<cur,canUp=nxUp(cur,vw)>cur; // indexOf-based disable br
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
-<div class="stp-b${canDn?'':' dis'}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${canUp?'':' dis'}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+<button type="button" class="stp-b${canDn?'':' dis'}"${canDn?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b${canUp?'':' dis'}"${canUp?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
 h+=plateH(cur,bar,ex.lm)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${ex.lm?'Landmine · load 1 end · ':bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar,ex.lm))}</div>`;
 if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
@@ -2443,9 +2732,9 @@ h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" s
 // per_db lifts, whole pool for single-bell), free typing stays for improvisation.
 const dvw=dbwOf(ex),dcur=Number(log.wt)||0;
 h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px">
-<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}" aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}"${dcur>dvw[0]?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
 <input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">${ex.loadUnit==='per_db'?'kg/DB':'kg'}</span>
-<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}" aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
+<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}"${dcur<dvw[dvw.length-1]?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
 if(dcur>0)h+=dbPlateH(dcur,ex.loadUnit==='per_db')+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
@@ -2457,8 +2746,8 @@ const vw=vwOf(ex),bar=barOf(ex),cur=Number(log.wt)||bar;
 h+=`<div class="stp-big">
 <div class="stp-hero">${cur}<sub>kg</sub></div>
 <div class="stp-row">
-<div class="stp-b${cur<=vw[0]?' dis':''}" onclick="stepWt('${ex.id}',-1)">−</div>
-<div class="stp-b${cur>=vw[vw.length-1]?' dis':''}" onclick="stepWt('${ex.id}',1)">+</div></div></div>`;
+<button type="button" class="stp-b${cur<=vw[0]?' dis':''}"${cur<=vw[0]?' disabled':''} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" class="stp-b${cur>=vw[vw.length-1]?' dis':''}"${cur>=vw[vw.length-1]?' disabled':''} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
 h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
 } else if(ex.tp==='carry'){
 // Dumbbell/suitcase carries have no bar to load — free weight entry like other DB/KB moves.
@@ -2483,7 +2772,7 @@ const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
 ${pl==='—'?`<span class="set-prev">—</span>`
-:`<button type="button" class="set-prev" title="Use previous" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
+:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
@@ -2525,7 +2814,7 @@ for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoint
 h+=`</div>`}h+=`</div>`;
 
 // Notes
-h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
+h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." oninput="setL('${ex.id}','notes',this.value)" onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
 h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><button class="btn-ghost" style="font-size:10px" onclick="editCue('${ex.id}')">✏ ${cue?'Edit':'Add'} cue</button>
 <span class="dm" style="font-size:9px;max-width:55%;text-align:right">${esc(ex.rl)}</span></div>`;
 h+=`</div>`; // ex-expand
@@ -2680,8 +2969,12 @@ D.nextDay=NEXT_DAY[S.day]||'A';
 if(!save()){
   // Roll back the in-memory pushes so state matches storage; re-stamp the resume
   // backup so it can't age out of the 2h window while the user frees space.
-  D.sessions.pop();D.discomfort.length=dN;saveAW();
-  alert('⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.');
+  D.sessions.pop();D.discomfort.length=dN;
+  // Only promise the backup if it was actually written — see saveAW.
+  const backed=saveAW();
+  alert(backed
+    ?'⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.'
+    :'⚠ Could not save — storage is full or blocked, and the resume backup could not be written either. Do NOT close this screen: free some space (or export a backup from Settings in another tab), then tap Save again. Your workout only exists on this screen right now.');
   return}
 clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')}
 
@@ -2689,7 +2982,7 @@ clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={
 // ─── CARDIO ──────────────────────────────────
 function rCardio(el){
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;margin-bottom:14px">
-<div class="pg-title" style="margin:0">Log Cardio</div>
+<h2 class="pg-title" style="margin:0">Log Cardio</h2>
 <button class="btn-ghost" style="color:var(--rd);font-size:12px" onclick="go('home')">Cancel</button></div>
 <div class="cd"><div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">`;
 // Real buttons + module state (CARDIO_T) — the old div/classList pattern kept the
@@ -3081,7 +3374,7 @@ const snap=statSnapshot();
 const wv=(()=>{const raw=getWeeklyVolume(10),o={};for(const k in raw)o[k]=Math.round(raw[k]*7/10*10)/10;return o})();
 const logged=loggedExIds();
 
-let h=`<div class="sec">`;
+let h=`<div class="sec"><h2 class="sr-only">Progress</h2>`;
 
 // ═══ STATUS — instant read before the detail. Synthesises strength
 // momentum, consistency and volume balance into three coloured verdicts so
@@ -3114,9 +3407,15 @@ h+=`<div class="status-hd">
 
 // ── Segment chips: five focused sub-views instead of one ~6-screen scroll ──
 const SEGS=[['overview','Overview'],['lifts','Lifts'],['balance','Balance'],['consistency','Consistency'],['monthly','Monthly'],['lifetime','Lifetime']];
+// A tab must control something. These carried role="tab" in a role="tablist" with no
+// tabpanel anywhere and no aria-controls, which announces a relationship the DOM does not
+// have — worse than a plain button, because assistive tech tells the user there is a panel
+// to move to. Each chip now has a stable id and points at the single panel below; the panel
+// names the SELECTED chip back, so the association follows the switch.
 h+=`<div class="seg-row" role="tablist" aria-label="Progress sections">`;
-for(const[k,l] of SEGS)h+=`<button type="button" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" onclick="STAT_SEG='${k}';render()">${l}</button>`;
+for(const[k,l] of SEGS)h+=`<button type="button" id="segtab-${k}" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" aria-controls="seg-panel" onclick="STAT_SEG='${k}';render()">${l}</button>`;
 h+=`</div>`;
+h+=`<div id="seg-panel" role="tabpanel" aria-labelledby="segtab-${STAT_SEG}" tabindex="0">`;
 
 if(STAT_SEG==='overview'){
 // ═══ OVERVIEW — am I getting stronger, and what needs attention? ═══
@@ -3178,7 +3477,12 @@ if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;paddin
 
 // Priority nudge — the ONE canonical "what to fix" line (it used to be restated
 // three times: here-ish, in the balance card, and in the status cell).
+// Needs history to be meaningful: with nothing logged, EVERY gated muscle sits at 0 and the
+// largest MEV wins by default, so a brand-new account was told "Back/Lats is furthest below
+// MEV — add a set there" before it had seen a single session. Nothing to prioritise yet is
+// not the same as a deficit, and the trend card above already stays quiet on an empty account.
 {let worst=null,worstGap=0;
+if(D.sessions.length)
 for(const[key,label,mev] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
 if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set there first. Details in Balance.</span></div>`;}
 
@@ -3543,7 +3847,7 @@ if(allPrs.length>8)h+=`<div style="text-align:center;margin-top:4px"><button cla
 h+=`</div>`}
 h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="go('body')">📏 Body Tracking</button>`;
 }
-h+=`</div>`;el.innerHTML=h;
+h+=`</div></div>`;el.innerHTML=h;  // close #seg-panel, then .sec
 // The chip row scrolls with a hidden scrollbar — keep the active segment visible
 // (Monthly/Lifetime start off-screen on phones). block:'nearest' avoids page jumps.
 setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}},60)}
@@ -3581,7 +3885,7 @@ function bodyStat(k){const s=bodySeries(k);if(!s.length)return null;
 function rBody(el){
 const bl=D.bodyLog||[];
 const wStat=bodyStat('weight');
-let h=`<div class="sec"><div class="pg-title">Body Tracking</div>`;
+let h=`<div class="sec"><h2 class="pg-title">Body Tracking</h2>`;
 // headline strip — bodyweight is the anchor metric
 if(wStat){const wc=wStat.change;
 h+=`<div class="estrip">
@@ -3597,7 +3901,7 @@ for(const m of BODY_METRICS){const val=todayE[m.k]!=null?todayE[m.k]:'';
 h+=`<div><div class="lb">${m.lb} <span style="color:var(--dm)">${m.u}</span></div>
 <input type="number" step="${m.step}" class="body-input" id="bm_${m.k}" value="${val}" placeholder="—" inputmode="decimal"></div>`}
 h+=`</div><button class="btn btn-pr" style="padding:12px" onclick="saveBod()">${loggedToday?'Update Today':'Log Today'}</button>
-<div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Leave a field blank to skip it.</div></div>`;
+<div class="dm" style="margin-top:8px">Measure at a consistent time (e.g. fasted, morning). Blank skips a field — clearing one that already has a value removes that reading.</div></div>`;
 // ── DATA PRESENTATION ──
 // Trend: pick any tracked metric to chart. Chips show only metrics with data.
 const charted=BODY_METRICS.filter(m=>bodySeries(m.k).length>=2);
@@ -3647,21 +3951,44 @@ window.saveBod=function(){
 const t=today();const ix=D.bodyLog.findIndex(b=>b.date===t);
 // Merge onto today's existing entry so a partial re-log doesn't wipe earlier fields.
 const entry=ix>=0?{...D.bodyLog[ix]}:{date:t};
-for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);const v=el?parseFloat(el.value):NaN;
-if(!isNaN(v))entry[m.k]=Math.round(v*100)/100}
-if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){alert('Enter at least one measurement');return}
+// A blank field means two different things, and which one depends on whether the field
+// was PREFILLED. The form loads today's stored values, so blanking a field that showed a
+// number is the only way to say "that reading was wrong, remove it" — previously the
+// merge just kept the old value and a mistyped 850kg could not be taken back except by
+// deleting the whole day. Blanking a field that was already empty still means "not
+// measuring this today" and writes nothing.
+// A blank field deletes the key. On a FIRST log of the day that is a no-op (entry starts
+// as {date} and has no key to delete), which is what makes "blank = skip" and
+// "blank = retract" the same line of code rather than two branches.
+for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);if(!el)continue;
+const raw=(el.value==null?'':String(el.value)).trim();const v=parseFloat(raw);
+if(!isNaN(v))entry[m.k]=Math.round(v*100)/100;
+else if(raw==='')delete entry[m.k]}
+// Clearing every field is a request to remove the day, not a malformed save — but deleting
+// a log silently on a blank form would be a nasty surprise, so point at the explicit
+// control instead. delBod() is confirm-gated and already does exactly this.
+if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){
+alert(ix>=0?'That would clear every measurement for today. Use ✕ on the entry below to delete the whole day.':'Enter at least one measurement');return}
 if(ix>=0)D.bodyLog[ix]=entry;else D.bodyLog.push(entry);
 D.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));save();render()}
 window.delBod=function(date){if(!confirm('Delete this measurement log?'))return;
 D.bodyLog=(D.bodyLog||[]).filter(b=>b.date!==date);save();render()}
 
 // ─── HISTORY ─────────────────────────────────
+// How many session cards History builds per render. Every session used to be rendered
+// into a single innerHTML string, so a few years of training (3/wk ≈ 150/yr) meant
+// hundreds of cards — each with badges, and an expanded one carrying per-exercise rows
+// and plate math — rebuilt on every render, including every tap of a card.
+// The count in the heading stays the TRUE total; only the cards are paged.
+const HIST_PAGE=30;let HIST_N=HIST_PAGE;
+function moreHist(){HIST_N+=HIST_PAGE;render()}
 function rHist(el){const ss=[...D.sessions].reverse();
+const shown=ss.slice(0,HIST_N),rest=ss.length-shown.length;
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-<div class="pg-title" style="margin:0">History <span class="dm" style="font-size:11px;font-weight:600">· ${ss.length} session${ss.length===1?"":"s"}</span></div>
+<h2 class="pg-title" style="margin:0">History <span class="dm" style="font-size:11px;font-weight:600">· ${ss.length} session${ss.length===1?"":"s"}</span></h2>
 <button class="btn-sm btn-pr" onclick="go('logpast')">+ Log Past</button></div>`;
 if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
-for(const s of ss){const locBadge=s.loc==='partner'?' 🏘':'';
+for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}${s.loc==='partner'?'2':'1'}</span>
@@ -3684,7 +4011,9 @@ h+=`<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap
 <button class="btn-sm btn-rd" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button>
 <button class="btn-sm btn-wh" onclick="event.stopPropagation();toggleNoProg('${s.id}')">${s.noProg?'▶ Include in progression':'⏸ Ignore for progression'}</button></div>
 ${s.noProg?`<div style="font-size:10px;color:var(--am);margin-top:4px">Ignored by weight suggestions — still counts for rotation, history &amp; charts.</div>`:''}</div>`}
-h+=`</div>`}h+=`</div>`;el.innerHTML=h}
+h+=`</div>`}
+if(rest>0)h+=`<button class="btn btn-wh" style="width:100%;margin-top:4px" onclick="moreHist()">Show ${Math.min(HIST_PAGE,rest)} more · ${rest} older session${rest===1?'':'s'}</button>`;
+h+=`</div>`;el.innerHTML=h}
 // Per-session progression exclusion — for bad data (e.g. a glitch session logged at
 // submaximal loads) that should stay in the rotation/history record but never anchor
 // a weight suggestion. Additive flag: old backups without it import unchanged.
@@ -3704,7 +4033,7 @@ const pr=getProgram(D.phase,LP.loc);
 const days=['A','B','C'];
 const exs=pr[LP.day]||[];
 const suffix=LP.loc==='partner'?'2':'1';
-let h=`<div class="sec"><div class="pg-title" style="margin-bottom:12px">Log Past Session</div>
+let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:12px">Log Past Session</h2>
 <div class="cd" style="margin-bottom:10px">
 <div style="display:flex;gap:8px;margin-bottom:8px">
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Date</div>
@@ -3784,7 +4113,7 @@ function rPlates(el){
       ${j?`<div style="font-size:9px;color:var(--gr)">${j}</div>`:''}</div></div>`;prev=w}
     return h;
   };
-  let h=`<div class="sec"><div class="pg-title" style="margin-bottom:2px">All Valid Weights</div>`;
+  let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:2px">All Valid Weights</h2>`;
   h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false,BAR);
   h+=ladder('Hex Bar (7kg)','Hex deadlift / squat / row / RDL / floor press / carry all load on this ladder — the lighter bar shifts every total down 4kg vs the straight bar.',VWH,false,HEXBAR);
   h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true,BAR);
@@ -3795,7 +4124,7 @@ function rPlates(el){
 
 // ─── SETTINGS ────────────────────────────────
 function rSet(el){const sz=(new Blob([JSON.stringify(D)])).size;const phi=getPhaseInfo();
-let h=`<div class="sec"><div class="pg-title">Settings</div>
+let h=`<div class="sec"><h2 class="pg-title">Settings</h2>
 <div class="lb" style="margin-bottom:6px">Data</div>
 <div class="cd"><div class="estrip" style="margin-bottom:8px">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${D.sessions.length}</div><div class="estrip-lbl">Sessions</div></div>
@@ -3902,8 +4231,14 @@ return{...s,id,day,ex}}
 // smuggle malformed sessions past the load-path validation.
 function mergeStores(mine,theirs){const W=structuredClone(mine);
 if(!theirs||typeof theirs!=='object')return W;
-const sIds=new Set(W.sessions.map(s=>s.id));
-for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(v&&!sIds.has(v.id))W.sessions.push(v)}
+const sIds=new Map(W.sessions.map(s=>[s.id,s]));
+for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(!v)continue;
+  const mine=sIds.get(v.id);
+  // On an id collision the local row wins — EXCEPT for noProg, which marks a session the user
+  // deliberately excluded from progression. Dropping it silently re-admitted that session to
+  // the engine, so the flag is sticky: set in either tab, it survives.
+  if(mine){if(v.noProg)mine.noProg=true;continue}
+  sIds.set(v.id,v);W.sessions.push(v)}
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 const cIds=new Set(W.cardioLog.map(c=>c.id));
 for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){if(c&&typeof c==='object'&&c.id&&!cIds.has(c.id))W.cardioLog.push(c)}
@@ -3913,6 +4248,14 @@ for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x=
 W.bodyLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const dKeys=new Set(W.discomfort.map(x=>x.date+x.exId+x.joint));
 for(const x of(Array.isArray(theirs.discomfort)?theirs.discomfort:[])){if(x&&typeof x==='object'&&!dKeys.has(x.date+x.exId+x.joint))W.discomfort.push(x)}
+// Cues had no branch here at all, so a coaching cue typed in one tab was dropped the moment
+// the other tab saved. Union by key, local wins a conflict (this tab is the live one), and
+// apply the SAME charset guard load() and mergeImport use — cue keys are interpolated into a
+// delete-button onclick, and this is the third entrance to that sink.
+if(!W.cues||typeof W.cues!=='object')W.cues={};
+if(theirs.cues&&typeof theirs.cues==='object'){
+  for(const[k,v] of Object.entries(theirs.cues))
+    if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k)&&!(k in W.cues))W.cues[k]=v}
 return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
@@ -3957,9 +4300,9 @@ for(const x of d.bodyLog){if(!bKeys.has(x.date))W.bodyLog.push(x)}
 W.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));
 // Cue KEYS are interpolated into the delete-button onclick — constrain the charset.
 for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))W.cues[k]=v;
-if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
-// Adopt global metadata (phase clock / venue) ONLY when migrating into a fresh device,
-// and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted verbatim.
+// Adopt global metadata (phase clock / venue / deload date) ONLY when migrating into a fresh
+// device, and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted
+// verbatim.
 // Deliberately DEVICE-LOCAL (never imported): `notify` mirrors THIS device's Notification
 // permission; `dismissed` banners are situational; `lastBackup`/`lastBackupCount` must stay
 // unset so a fresh device is nagged into its own first backup; `gen` is this device's
@@ -3968,6 +4311,12 @@ if(wasFresh){
   if([1,2,3].includes(d.phase))W.phase=d.phase;
   if(typeof d.phaseStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.phaseStart))W.phaseStart=d.phaseStart;
   if(['home','partner'].includes(d.location))W.location=d.location;
+  // lastDeload belongs with the phase clock, not with the additive merges above. It used to
+  // be adopted UNCONDITIONALLY, which broke two ways on a device that already had history:
+  // getSmartSugg drops sessions falling inside the deload week, so an imported date landing
+  // on top of real training silently removed those sessions from every suggestion; and the
+  // `: null` fallback meant a backup with a malformed lastDeload wiped a valid local one.
+  if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
 }
 // Update nextDay from latest session — location aware
 if(W.sessions.length){const last=W.sessions[W.sessions.length-1];

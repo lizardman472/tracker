@@ -13,13 +13,13 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -223,6 +223,32 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
+
+// ── MAV ceilings ──
+// §7 claimed "back ≤ MAV. Exact-value tests added so drift fails loud." No MAV assertion
+// was ever written, and back has since drifted to 22.5 against a MAV of 22 with nothing to
+// notice. These are that guard. Three home muscles sit over MAV and all three are
+// deliberate — MAV is a guideline ceiling, not a cap — so they are pinned at their accepted
+// values rather than merely allowed to exceed. A change either way fails here.
+const mavOf = key => (MG_INFO.find(r => r[0] === key) || [])[3];
+const ACCEPTED_OVER_MAV = { glutes: 16, back: 22.5, triceps: 15 };
+for (const [k, v] of Object.entries(ACCEPTED_OVER_MAV)) {
+  T(`home ${k} holds at its accepted ${v}/wk (MAV ${mavOf(k)})`, wkVol[k] === v, `${wkVol[k]} vs accepted ${v}`);
+}
+// Everything else must stay at or under its landmark. Without this, the next slot added to
+// a day silently pushes a fourth muscle over and nothing says so.
+T('no OTHER home muscle exceeds MAV',
+  MG_INFO.every(([k, , , mav]) => mav == null || k in ACCEPTED_OVER_MAV || (wkVol[k] || 0) <= mav),
+  MG_INFO.filter(([k, , , mav]) => mav != null && !(k in ACCEPTED_OVER_MAV) && (wkVol[k] || 0) > mav)
+    .map(([k, , , mav]) => `${k} ${wkVol[k]}>${mav}`).join(', '));
+
+// The partner venue carries no accepted overage, so it takes the plain ceiling.
+const partVol = {};
+for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) partVol[k] = (partVol[k] || 0) + ex.s * m[k]; }
+T('no partner muscle exceeds MAV',
+  MG_INFO.every(([k, , , mav]) => mav == null || (partVol[k] || 0) <= mav),
+  MG_INFO.filter(([k, , , mav]) => mav != null && (partVol[k] || 0) > mav).map(([k, , , mav]) => `${k} ${partVol[k]}>${mav}`).join(', '));
+T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (partVol[k] || 0) >= mev), JSON.stringify(partVol));
 T('home days A=9, B=8, C=10 (v16 trimmed calf raise + bird dog from Day C)', homePr.A.length === 9 && homePr.B.length === 8 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
@@ -230,7 +256,44 @@ const partPr = getProgram(1, 'partner');
 T('calf raises are OUT of both Day C programs (v16 trim)', !homePr.C.some(x => x.id === 'calf_raise') && !partPr.C.some(x => x.id === 'db_calf_raise'));
 T('calf raise stubs still resolve for history', (() => { const a = ALL_EX.find(x => x.id === 'calf_raise'), b = ALL_EX.find(x => x.id === 'db_calf_raise'); return a && a.perSide === true && b && b.perSide === true && /legacy/i.test(a.rl) && /legacy/i.test(b.rl); })());
 T('calf raises keep their calves MG map', (MG.calf_raise || {}).calves === 1 && (MG.db_calf_raise || {}).calves === 1);
-T('calves is a tracked-but-not-gated dashboard row (null MEV)', (() => { const r = MG_INFO.find(x => x[0] === 'calves'); return r && r[2] == null && r[3] == null; })());
+// The v27 calves row outlived the v16 trim that removed both calf slots, so the Balance
+// dashboard, the Set Count picker and the heat map all carried a permanently-≈0 Calves entry.
+// The row is gone; the MG credit and SPLIT_GROUPS stay so pre-trim history still resolves.
+T('calves is NOT a dashboard row (no active exercise can fill it)', !MG_INFO.some(x => x[0] === 'calves'));
+T('every MG_INFO key is reachable from an active exercise', (() => {
+  const active = new Set();
+  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) active.add(ex.id);
+  const credited = new Set();
+  for (const id of active) for (const m of Object.keys(MG[id] || {})) credited.add(m);
+  return MG_INFO.every(([k]) => credited.has(k));
+})(), MG_INFO.filter(([k]) => { const active = new Set(); for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) for (const m of Object.keys(MG[ex.id] || {})) active.add(m); return !active.has(k) }).map(([k]) => k).join());
+T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).calves === 1);
+
+// ── audit fix: every loadable lift must have a first-session starting suggestion ──
+// getRelatedSuggestion returns null for a lift with no RELATED_EX entry, so getSmartSugg
+// falls through to a bare "First weighted session — find your starting load" with no number.
+// Six home staples relied on the bundled demo's history to hide that; the moment a user
+// restores a real backup the demo rows are dropped and the gap is exposed. The partner
+// program has been complete since v13 — this is the invariant that keeps both that way.
+{
+  const LOADABLE = ['bb', 'db', 'kb', 'mace', 'band', 'carry'];
+  const unseeded = [];
+  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
+    for (const ex of getProgram(1, loc)[day])
+      if (LOADABLE.includes(ex.tp) && !RELATED_EX[ex.id]) unseeded.push(`${loc}/${ex.id}`);
+  T('every loadable lift has a fresh-device starting suggestion', unseeded.length === 0, unseeded.join(', '));
+
+  // Shape checks on the six added seeds: band-assisted lifts start on the most assistance
+  // available, bar lifts start at the bar (never below it — an unloadable number).
+  for (const id of ['pullup_a', 'pullup_c', 'dips'])
+    T(`${id} seeds on the heaviest assist band`, RELATED_EX[id].seedBand === 'Blue (heaviest)', JSON.stringify(RELATED_EX[id]));
+  for (const id of ['ohp', 'floor_press', 'dead_bugs_a'])
+    T(`${id} seeds at bar weight, not below it`, RELATED_EX[id].seedWt === BAR, JSON.stringify(RELATED_EX[id]));
+  // A seed is only useful if it actually reaches the suggestion, so drive one end-to-end.
+  setD({ ...structuredClone(SEED), sessions: [], location: 'home', phase: 1, phaseStart: '2026-01-01' });
+  const sug = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+  T('an unseeded-before lift now suggests a real starting load', /11/.test(sug.text) || sug.wt === BAR, JSON.stringify(sug));
+}
 T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
 // Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
 T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());
@@ -343,8 +406,11 @@ T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core
 // v14 amendment: pull-ups restored to 4 sets by explicit user choice with the new
 // lm_bstance_squat's 0.5-back credit on board → back sits at a DELIBERATE 22.5, half a
 // set over the nominal MAV of 22 (MAV is guidance, not a cap — "more is fine if
-// recovering well"). Guard allows exactly that overage so accidental creep still fails.
-T('home back at the deliberate 22.5 ceiling (MAV 22 + accepted 0.5 overage)', wkVol.back <= ((MG_INFO.find(r => r[0] === 'back') || [])[3] + 0.5), `${wkVol.back}`);
+// recovering well").
+// The ceiling guard for back now lives with the other two accepted overages in
+// ACCEPTED_OVER_MAV above, pinned to the exact value rather than to "≤ MAV + 0.5" —
+// that one-sided bound let back drift DOWN silently, and said nothing about glutes or
+// triceps, which are also over.
 
 // ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
 // The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
@@ -368,3 +434,7 @@ T('bird dog history below target still reads stay/push via its stub', (() => { c
 T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 console.log(`\n${pass} passed, ${fail} failed`);
+// A suite that cannot fail the build is not a test suite. CI runs these files directly and
+// reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how
+// many assertions failed — 468 of the branch's 926 assertions were invisible to CI.
+if (fail) process.exit(1);

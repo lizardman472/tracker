@@ -12,10 +12,15 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
-const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// Mirrors what a browser ACTUALLY does when you set textContent and read innerHTML back:
+// it escapes &, < and > only — quotes are left alone, because in text position they are
+// harmless. Escaping them here too made the stub SAFER than the real DOM, which meant a
+// test could never catch an unescaped quote breaking out of an attribute. Do not "harden"
+// this: its job is to be faithful, and esc() is where the hardening belongs.
+const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const els = {};
 function makeEl() {
   // _h backs innerHTML; setting textContent escapes into _h so esc() (createElement→
@@ -400,6 +405,28 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   T('session committed with RPE', R.getD().sessions.length === nBefore + 1 && saved.difficulty === 3, JSON.stringify({ n: R.getD().sessions.length, diff: saved && saved.difficulty }));
   T('dead trainingWeek field no longer written to sessions', saved.trainingWeek === undefined);
   R.getD().sessions = R.getD().sessions.filter(s => s !== saved);
+
+  // ── audit fix: switching venue must not turn Start into a silent shredder ──
+  // checkResume hides a venue-mismatched blob but keeps it in storage, and beginW's guard
+  // used to ask checkResume — so it saw null and let Start overwrite the workout with no
+  // prompt, exactly when no Resume card was on screen to tell the user it existed.
+  R.beginW('A');
+  const lg = R.getLOG()['hex_dl'];
+  lg.touched = true; lg.wt = 40; lg.reps = ['5', '5', '5'];
+  R.getD().location = 'home';
+  saveAW(); // stamp the blob at the home venue with real logged reps
+  R.getD().location = 'partner'; // user switches venue — blob is now hidden, not deleted
+  T('venue switch hides the blob from checkResume but keeps it', checkResume() === null && store[R.AW_KEY] != null);
+  let msg = null;
+  global.confirm = m => { msg = m; return false };
+  R.beginW('B');
+  T('Start prompts before discarding a venue-hidden workout', /different venue \(home\)/.test(msg || ''), String(msg));
+  T('declining leaves the hidden workout intact', JSON.parse(store[R.AW_KEY]).log.hex_dl.reps.join() === '5,5,5', store[R.AW_KEY]);
+  global.confirm = () => true;
+  R.beginW('B');
+  T('accepting proceeds and starts the new workout', R.getD().location === 'partner' && JSON.parse(store[R.AW_KEY]).day === 'B');
+  delete global.confirm;
+  R.getD().location = 'home';
   global.localStorage = realLS;
 }
 
@@ -468,16 +495,93 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   applyTheme();
   const dk = R.getPal();
   T('applyTheme(dark) swaps the chart grid color', dk.grid === '#2a3450', dk.grid);
-  T('applyTheme(dark) swaps the heat-map channels', dk.cyan === '47,179,232', dk.cyan);
-  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20, 10) === 'rgba(47,179,232,0.95)', heatColor(22, 8, 20, 10));
+  T('applyTheme(dark) swaps the heat-map palette', dk.cyan === '#2fb3e8', dk.cyan);
+  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20) === '#2fb3e8', heatColor(22, 8, 20));
+  T('heatColor emits the dark amber under MEV', heatColor(4, 8, 20) === '#f0a848', heatColor(4, 8, 20));
+  // The under-MEV outline flips with the theme — a near-white rule would vanish on the
+  // brighter dark-mode amber, so dark uses the near-black --ink partner instead.
+  T('the under-MEV outline flips to dark ink in dark mode',
+    /stroke="#08101e"[^>]*stroke-dasharray/.test(bodyHeatH({ quads: 3 })), bodyHeatH({ quads: 3 }).slice(0, 0) || 'no dark outline');
   T('body-metric line colors switch too', dk.bm0 === '#2fb3e8', dk.bm0);
   R.setSEG('balance');
   tryRender('Balance renders under the dark palette', () => R.go('stats'));
   tryRender('Body renders under the dark palette', () => R.go('body'));
+  T('explicit dark resolves data-theme to dark', R.getThemeAttr() === 'dark', R.getThemeAttr());
   R.getD().theme = 'auto';
   applyTheme(); // matchMedia stub reports light → auto restores the light palette
   const lt = R.getPal();
   T('applyTheme(auto) restores the light palette', lt.grid === before.grid && lt.cyan === before.cyan);
+
+  // ── data-theme carries the RESOLVED theme, which is what lets one CSS block serve
+  //    both the explicit-dark and auto-dark paths. 'auto' must never leave the attribute
+  //    unset or set to the literal 'auto': the dark tokens key off [data-theme=dark].
+  T('auto on a light OS resolves data-theme to light', R.getThemeAttr() === 'light', R.getThemeAttr());
+  const realMM = global.window.matchMedia;
+  global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
+  applyTheme();
+  T('auto on a dark OS resolves data-theme to dark', R.getThemeAttr() === 'dark', R.getThemeAttr());
+  T('auto on a dark OS also swaps the JS palette', R.getPal().grid === '#2a3450', R.getPal().grid);
+  R.getD().theme = 'light';
+  applyTheme();
+  T('an explicit light preference beats a dark OS', R.getThemeAttr() === 'light', R.getThemeAttr());
+  T('explicit light on a dark OS keeps the light JS palette', R.getPal().grid === before.grid);
+  global.window.matchMedia = realMM;
+  R.getD().theme = 'auto';
+  applyTheme();
+}
+
+// ── Browser chrome colour ──
+// The head carries a media-scoped theme-color pair so a dark-OS device gets dark chrome
+// before JS boots. applyTheme() must then REMOVE that pair and drive #tc itself —
+// otherwise an explicit light preference on a dark OS keeps losing to the dark media rule.
+{
+  const head = html.slice(0, html.indexOf('</head>'));
+  const metas = head.match(/<meta name="theme-color"[^>]*>/g) || [];
+  T('head declares a light + dark theme-color pair plus the JS-owned one', metas.length === 3, String(metas.length));
+  T('the pre-JS pair is media-scoped', metas.filter(m => /media=/.test(m)).length === 2);
+  T('the JS-owned theme-color is addressable by id', metas.some(m => /id="tc"/.test(m)));
+
+  const removed = [];
+  const realQSA = global.document.querySelectorAll, realGEI = global.document.getElementById;
+  let tc = null;
+  global.document.querySelectorAll = sel => /\[media\]/.test(sel)
+    ? [{ remove() { removed.push('light') } }, { remove() { removed.push('dark') } }] : [];
+  global.document.getElementById = id => id === 'tc'
+    ? { setAttribute(k, v) { if (k === 'content') tc = v } } : realGEI.call(global.document, id);
+
+  R.getD().theme = 'dark';
+  applyTheme();
+  T('applyTheme removes the pre-JS theme-color pair', removed.length === 2, JSON.stringify(removed));
+  T('applyTheme paints dark chrome for an explicit dark preference', tc === '#0e1220', String(tc));
+
+  const realMM = global.window.matchMedia;
+  global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
+  R.getD().theme = 'light';
+  applyTheme();
+  T('an explicit light preference paints light chrome even on a dark OS', tc === '#f4f6fb', String(tc));
+  global.window.matchMedia = realMM;
+
+  global.document.querySelectorAll = realQSA;
+  global.document.getElementById = realGEI;
+  R.getD().theme = 'auto';
+  applyTheme();
+}
+
+// ── The dark token block must exist exactly ONCE ──
+// It used to be duplicated verbatim into an @media(prefers-color-scheme:dark) rule, so a
+// token retuned in one copy and not the other silently diverged auto-dark from explicit
+// dark. Nothing caught that. This is the guard.
+{
+  const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const full = (css.match(/--prRGB:47,179,232/g) || []).length;
+  T('the dark token block is declared exactly once', full === 1, `found ${full}`);
+  // The surviving media query is the pre-JS paint only — two tokens, not a second palette.
+  const mq = css.match(/@media\(prefers-color-scheme:dark\)\{[^}]*\{([^}]*)\}\}/);
+  T('the pre-JS dark fallback exists', !!mq);
+  const toks = mq ? (mq[1].match(/--[\w-]+:/g) || []).length : 99;
+  T('the pre-JS dark fallback stays minimal (≤4 tokens)', toks <= 4, `${toks} tokens`);
+  // It must yield the moment applyTheme() stamps the attribute, either way.
+  T('the pre-JS fallback is scoped to the un-stamped root', !!mq && /:root:not\(\[data-theme\]\)/.test(mq[0]), mq && mq[0].slice(0, 80));
 }
 // Settings: title + Appearance chips + carded cue empty state.
 R.go('settings');
@@ -486,4 +590,316 @@ T('Settings has a screen title', /pg-title">Settings</.test(setScr));
 T('Settings shows the Appearance theme chips', /Appearance/.test(setScr) && /D.theme='dark'/.test(setScr) && /aria-pressed/.test(setScr));
 T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.test(setScr));
 
+// ── Corrupt-store rescue banner: partial-drop wording vs total-loss wording ──
+// load() now counts sessions it had to discard and parks the raw store; the banner must say
+// which happened. The old copy always claimed "what you see now is a fresh/demo state",
+// which is wrong (and alarming) when most of the history loaded fine.
+{
+  const store = {};
+  const realLS = global.localStorage;
+  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+  const good = { id: 'ok1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] };
+  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
+  R.load();
+  tryRender('home renders after a partial-drop load', () => R.go('home'));
+  const partial = R.getA();
+  T('partial drop names the count, not a demo reset', /1 session couldn.{0,6}t be read/.test(partial) && !/fresh\/demo state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
+  T('partial-drop banner still offers the raw-copy download', /dlCorrupt\(\)/.test(partial));
+  // Unparseable store → the original total-loss wording.
+  store[R.SK] = '{not json';
+  R.load();
+  tryRender('home renders after an unparseable load', () => R.go('home'));
+  const total = R.getA();
+  T('total loss keeps the fresh/demo wording', /Stored data was corrupted/.test(total) && /fresh\/demo state/.test(total));
+  // ...and a total loss must clear any partial count left by an earlier rescue, or the
+  // banner would under-report a wiped store as "1 session couldn't be read".
+  T('total loss clears a stale partial-drop count', store[R.SK + '-corrupt-n'] == null);
+  // The rescue copy outlives the boot that made it, so the COUNT has to as well: keying the
+  // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh/demo reset
+  // to a user whose history had actually loaded fine.
+  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
+  R.load();
+  R.go('home');
+  T('boot 1 reports the partial drop', /1 session couldn.{0,6}t be read/.test(R.getA()));
+  R.load();          // reboot: data is clean now, but the rescue copy is still parked
+  R.go('home');
+  const boot2 = R.getA();
+  T('boot 2 still reports the partial drop, not a demo reset',
+    /1 session couldn.{0,6}t be read/.test(boot2) && !/fresh\/demo state/.test(boot2),
+    boot2.slice(boot2.indexOf('\u26a0'), boot2.indexOf('\u26a0') + 150));
+  global.localStorage = realLS;
+  R.setD(D);
+}
+// ── audit fix: esc() must be safe in ATTRIBUTE position, not just text position ──
+// esc() is createElement→textContent→innerHTML, which escapes & < > but NOT quotes. The
+// per-exercise notes input interpolates it into value="...", so a double quote in a note
+// terminated the attribute early: the note came back truncated on reload, and everything
+// after the quote was parsed as markup. It survived because the stub above used to escape
+// quotes too — the test double was safer than the browser.
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  const noteLog = R.getLOG()['hex_dl'];
+  noteLog.notes = 'felt 6" off the floor';
+  R.render();
+  const withNote = R.getA();
+  const m = withNote.match(/class="ni"[^>]*value="([^"]*)"/);
+  T('a double quote in a note does not terminate the value attribute',
+    m && m[1] === 'felt 6&quot; off the floor', m ? m[1] : 'NO MATCH');
+  noteLog.notes = 'x" onfocus="alert(1)" data-y="';
+  R.render();
+  T('a note cannot inject an attribute into the notes input', !/onfocus="alert\(1\)"/.test(R.getA()));
+  // Text position is unchanged — a quote there was always harmless and must stay readable.
+  T('esc still leaves markup-significant chars escaped', esc('<b>&</b>') === '&lt;b&gt;&amp;&lt;/b&gt;', esc('<b>&</b>'));
+  T('the textContent stub matches browser semantics (quotes untouched)', escHtml('a"b\'c') === 'a"b\'c', escHtml('a"b\'c'));
+  noteLog.notes = '';
+  R.render();
+}
+
+// ── audit fix: steppers are real buttons, and "disabled" actually disables ──
+// The barbell and bar-carry steppers were <div onclick>, while the DB stepper beside them
+// was already a <button> — same class, same look, no keyboard access and no accessible name
+// on two of the three. Separately, the .dis class was purely cosmetic on ALL of them: a
+// greyed-out control still fired stepWt (harmless only because nxUp/nxDn clamp).
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  R.render();
+  const bb = R.getA();
+  T('barbell stepper controls are buttons, not divs',
+    /<button[^>]*class="stp-b[^"]*"[^>]*aria-label="Step weight down"[^>]*onclick="stepWt\('hex_dl',-1\)"/.test(bb) &&
+    /<button[^>]*aria-label="Step weight up"[^>]*onclick="stepWt\('hex_dl',1\)"/.test(bb), bb.match(/stp-b[^>]{0,90}/g));
+  // Note the char class: `stp-big` is the legitimate flex container, not a stepper control.
+  T('no stepper control is left as a bare div', !/<div class="stp-b["\s$]/.test(bb));
+  // Drive the ladder to its floor: bar-only must really disable the down control.
+  R.getLOG()['hex_dl'].wt = 7; // HEXBAR — nothing below it
+  R.render();
+  const atFloor = R.getA();
+  const downBtn = atFloor.match(/<button[^>]*aria-label="Step weight down"[^>]*>/);
+  T('a stepper at the bottom of the ladder is genuinely disabled',
+    downBtn && /\bdisabled\b/.test(downBtn[0]) && /\bdis\b/.test(downBtn[0]), downBtn && downBtn[0]);
+  const upBtn = atFloor.match(/<button[^>]*aria-label="Step weight up"[^>]*>/);
+  T('...while the usable direction stays enabled', upBtn && !/\bdisabled\b/.test(upBtn[0]), upBtn && upBtn[0]);
+  // The bar-loaded carry stepper got the same treatment.
+  R.beginW('C');
+  R.setCIDX(R.dayExs('C').findIndex(e => e.id === 'hex_carry'));
+  R.getLOG()['hex_carry'].wt = 30;
+  R.render();
+  T('bar-carry stepper is a button with an accessible name',
+    /<button[^>]*aria-label="Step weight (up|down)"[^>]*onclick="stepWt\('hex_carry'/.test(R.getA()));
+  R.getD().location = 'home';
+}
+
+
+// The document title had been stuck at v12 for many releases; it is the PWA's install name
+// and the browser-tab label, so a stale version number is user-visible.
+{
+  const fsx = require('fs'), pathx = require('path');
+  const raw = fsx.readFileSync(pathx.join(__dirname, '..', 'index.html'), 'utf8');
+  const t = raw.match(/<title>([^<]*)<\/title>/);
+  T('document title carries no stale version number', t && !/v\d+/i.test(t[1]), t && t[1]);
+}
+
+// ── audit fix: the Balance "Priority" nudge must not fire on an empty account ──
+// It has no history guard, so with zero sessions every MEV-gated muscle has gap == mev and
+// the largest MEV wins: a user who has logged nothing was told to add sets to Back/Lats. The
+// Overview screen two lines above it already handles its own empty state; this follows suit.
+{
+  const realD = R.getD();
+  R.setD({ ...structuredClone(R.SEED), sessions: [], cardioLog: [], bodyLog: [], discomfort: [], cues: {}, location: 'home' });
+  R.setSEG('overview');
+  tryRender('Progress renders on a completely empty account', () => R.go('stats'));
+  T('no Priority nudge with zero logged sessions', !/Priority:/.test(R.getA()), (R.getA().match(/Priority:[^<]{0,60}/) || [''])[0]);
+  // ...but the nudge must still appear once there is real history sitting below MEV.
+  R.setD(realD);
+  R.setSEG('overview');
+  R.go('stats');
+  T('the Priority nudge still fires when there IS history below MEV', /Priority:/.test(R.getA()), 'nudge missing on a populated account');
+}
+
+// ── audit fix: every screen has a heading outline ──
+// The app had two heading tags total across five screens, so a screen-reader user had nothing
+// to navigate by. The persistent header <h1> is the app; each screen is an <h2> (the visible
+// pg-title where one exists, an sr-only one where the design has no title text); sections
+// below that are <h3>. Nothing moves visually — sr-only is clipped, not hidden from AT.
+{
+  const headings = markup => [...markup.matchAll(/<(h[1-6])\b/g)].map(m => m[1]);
+  // NOTE the view keys. render() dispatches via `fn[VIEW]||rHome`, so a typo'd key silently
+  // renders Home — an earlier draft of this test asked for 'hist', got the Home screen, and
+  // passed. Any screen added here must be spot-checked against that fallback.
+  const screens = [
+    ['home', () => R.go('home')],
+    ['progress', () => { R.setSEG('overview'); R.go('stats') }],
+    ['body', () => R.go('body')],
+    ['history', () => R.go('history')],
+    ['settings', () => R.go('settings')],
+    ['cardio', () => R.go('cardio')],
+    ['logpast', () => R.go('logpast')],
+    ['plates', () => R.go('plates')],
+  ];
+  for (const [name, nav] of screens) {
+    nav();
+    const hs = headings(R.getA());
+    T(`${name}: renders exactly one h2 screen title`, hs.filter(h => h === 'h2').length === 1, JSON.stringify(hs));
+    // #app never contains the app-level h1 — that lives in the persistent header.
+    T(`${name}: does not add a second h1`, !hs.includes('h1'), JSON.stringify(hs));
+    // No level skips: the first heading must be the h2, and no h4+ before an h3.
+    const firstBad = hs.findIndex((h, i) => i > 0 && Number(h[1]) > Number(hs[i - 1][1]) + 1);
+    T(`${name}: no heading level is skipped`, firstBad === -1, JSON.stringify(hs));
+  }
+  // The workout screen is reached differently (beginW, not go).
+  R.getD().location = 'home';
+  R.beginW('A');
+  const wh = headings(R.getA());
+  T('workout: renders exactly one h2 screen title', wh.filter(h => h === 'h2').length === 1, JSON.stringify(wh));
+  // sr-only must be clipped, not display:none — display:none is invisible to screen readers too.
+  T('the sr-only utility clips rather than hides', /\.sr-only\{[^}]*clip:rect/.test(html) && !/\.sr-only\{[^}]*display:none/.test(html));
+}
+
+// ── audit fix: the Progress tab pattern actually connects ──
+// The seg-chips carried role="tab" inside a role="tablist", but nothing was a tabpanel and no
+// chip had aria-controls. A control that announces itself as a tab and controls nothing is
+// worse than a plain button: it promises a relationship the DOM does not have.
+{
+  const idsIn = m => new Set([...m.matchAll(/\bid="([^"]+)"/g)].map(x => x[1]));
+  for (const seg of ['overview', 'lifts', 'balance', 'consistency', 'monthly']) {
+    R.setSEG(seg);
+    R.go('stats');
+    const m = R.getA(), ids = idsIn(m);
+    const controls = [...m.matchAll(/role="tab"[^>]*aria-controls="([^"]+)"|aria-controls="([^"]+)"[^>]*role="tab"/g)]
+      .map(x => x[1] || x[2]);
+    // Derived, not hardcoded: SEGS has six entries and an earlier draft asserted five, which
+    // would have started failing the day a segment was added or removed for reasons unrelated
+    // to the tab wiring. Every element with role="tab" must declare aria-controls.
+    const tabCount = (m.match(/role="tab"/g) || []).length;
+    T(`${seg}: every tab declares aria-controls`, tabCount > 0 && controls.length === tabCount, JSON.stringify({ tabCount, controls: controls.length }));
+    T(`${seg}: every aria-controls target exists`, controls.every(c => ids.has(c)), JSON.stringify({ controls: [...new Set(controls)], present: [...ids].slice(0, 8) }));
+    const panel = m.match(/role="tabpanel"[^>]*aria-labelledby="([^"]+)"|aria-labelledby="([^"]+)"[^>]*role="tabpanel"/);
+    T(`${seg}: a tabpanel exists and names its tab`, !!panel, 'no tabpanel');
+    if (panel) {
+      const labelledBy = panel[1] || panel[2];
+      T(`${seg}: the panel points back at a real tab`, ids.has(labelledBy), labelledBy);
+      // ...and specifically at the SELECTED tab, so the label tracks the switch.
+      const selected = m.match(/id="([^"]+)"[^>]*role="tab"[^>]*aria-selected="true"|role="tab"[^>]*aria-selected="true"[^>]*id="([^"]+)"/);
+      const selId = selected && (selected[1] || selected[2]);
+      T(`${seg}: the panel is labelled by the SELECTED tab`, selId === labelledBy, JSON.stringify({ selId, labelledBy }));
+    }
+  }
+  R.setSEG('overview');
+}
+
+// ── audit tail: notes survive without a blur; the "use previous" target is reachable ──
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  R.render();
+  const m = R.getA();
+  // onchange fires on blur, so a note typed and then killed was lost. SNOTES already kept
+  // memory in sync via oninput; the per-exercise note now matches that pattern.
+  T('the per-exercise note updates on input, not only on blur', /class="ni"[^>]*oninput="setL\('hex_dl','notes'/.test(m), (m.match(/class="ni"[^>]*/) || [''])[0].slice(0, 150));
+  T('...and still persists on change', /class="ni"[^>]*onchange="setL\('hex_dl','notes',this\.value\);saveAW\(\)"/.test(m));
+  // The "use previous" control is a real button, but its visible text is 10px tall — the hit
+  // area is grown with an overlay rather than padding so the set row's height is unchanged.
+  T('the use-previous control carries an accessible name', /class="set-prev"[^>]*aria-label="Use previous set \d+/.test(m), (m.match(/class="set-prev"[^>]*/) || [''])[0].slice(0, 130));
+  T('its hit area is expanded beyond the 10px text', /button\.set-prev::after\{[^}]*inset:-9px -6px/.test(html));
+  T('...without adding height to the set row', !/button\.set-prev\{[^}]*padding:\s*\d*[1-9]/.test(html));
+}
+
+// ── History pagination ──
+// Every session used to be rendered into one innerHTML string on every render, including
+// every tap of a card. The heading count must stay the TRUE total — paging the cards must
+// not make the user think sessions were lost.
+{
+  const back = R.getD().sessions;
+  const many = Array.from({ length: 65 }, (_, i) => ({
+    id: 'p' + i, date: '2026-0' + (1 + (i % 3)) + '-' + String(1 + (i % 28)).padStart(2, '0'),
+    day: 'ABC'[i % 3], loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }));
+  R.getD().sessions = many;
+  R.go('history');
+  const cards = m => (m.match(/EXP=EXP===/g) || []).length;
+  let sc = R.getA();
+  T('History heading reports the true total, not the page', /· 65 sessions/.test(sc));
+  T('History renders one page of cards', cards(sc) === 30, String(cards(sc)));
+  T('History offers the rest behind a control', /Show 30 more · 35 older sessions/.test(sc));
+  moreHist();
+  sc = R.getA();
+  T('Show more extends the page', cards(sc) === 60, String(cards(sc)));
+  T('the control counts down as it extends', /Show 5 more · 5 older sessions/.test(sc));
+  moreHist();
+  sc = R.getA();
+  T('the last page renders every remaining session', cards(sc) === 65, String(cards(sc)));
+  T('the control disappears once nothing is left', !/Show \d+ more/.test(sc));
+  // Leaving and returning starts at page one again.
+  R.go('home'); R.go('history');
+  T('re-entering History resets to the first page', cards(R.getA()) === 30, String(cards(R.getA())));
+  // A short history needs no control at all.
+  R.getD().sessions = many.slice(0, 12);
+  R.go('history');
+  sc = R.getA();
+  T('a short history renders in full with no control', cards(sc) === 12 && !/Show \d+ more/.test(sc), String(cards(sc)));
+  R.getD().sessions = back;
+}
+
+// ── Body measurements: a prefilled field can be cleared ──
+// The form loads today's stored values, so a blank field means two different things.
+// Blanking one that showed a number is the only way to retract a bad reading; blanking
+// one that was already empty still means "not measuring this today".
+{
+  const alerts = [];
+  const realAlert = global.alert;
+  global.alert = m => alerts.push(String(m));
+  const t = today();
+  const inp = k => document.getElementById('bm_' + k);
+  const fill = o => { for (const m of ['weight', 'neck', 'shoulders', 'chest']) inp(m).value = o[m] == null ? '' : String(o[m]) };
+
+  // 1. Clearing a prefilled field retracts that reading and leaves the others alone.
+  R.getD().bodyLog = [{ date: t, weight: 80, neck: 38 }];
+  fill({ weight: 80, neck: '' });
+  window.saveBod();
+  let e = R.getD().bodyLog.find(b => b.date === t);
+  T('clearing a prefilled measurement removes it', !('neck' in e), JSON.stringify(e));
+  T('clearing one measurement leaves the others', e.weight === 80, JSON.stringify(e));
+
+  // 2. A blank field on a FIRST log of the day is still just "skip" — nothing written.
+  R.getD().bodyLog = [];
+  fill({ weight: 75, neck: '' });
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('a blank field on a fresh log writes nothing for that metric', e && !('neck' in e), JSON.stringify(e));
+  T('a fresh log still records the filled metric', e && e.weight === 75, JSON.stringify(e));
+
+  // 3. A blank field must not resurrect a value the user just cleared on re-save.
+  fill({ weight: 75, neck: '' });
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('re-saving does not resurrect a cleared metric', !('neck' in e), JSON.stringify(e));
+
+  // 4. Clearing EVERYTHING points at the explicit delete instead of silently dropping the day.
+  R.getD().bodyLog = [{ date: t, weight: 80, neck: 38 }];
+  alerts.length = 0;
+  fill({});
+  window.saveBod();
+  e = R.getD().bodyLog.find(b => b.date === t);
+  T('clearing every field does not silently delete the day', e && e.weight === 80, JSON.stringify(e));
+  T('clearing every field points at the delete control', /delete the whole day/.test(alerts[0] || ''), alerts[0]);
+
+  // 5. An empty form on a day with no entry keeps the original message.
+  R.getD().bodyLog = [];
+  alerts.length = 0;
+  fill({});
+  window.saveBod();
+  T('an empty form on a fresh day still asks for a measurement', /at least one measurement/.test(alerts[0] || ''), alerts[0]);
+  T('an empty form on a fresh day writes no entry', R.getD().bodyLog.length === 0);
+
+  global.alert = realAlert;
+  R.getD().bodyLog = [{ date: '2026-06-12', weight: 80 }];
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
+// A suite that cannot fail the build is not a test suite. CI runs these files directly and
+// reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how
+// many assertions failed — 468 of the branch's 926 assertions were invisible to CI.
+if (fail) process.exit(1);

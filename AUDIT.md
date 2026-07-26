@@ -140,10 +140,13 @@ The user chose the recommended default for every open decision. Applied and test
   the app stops endorsing a cadence that breaks its own weekly-MEV math. Quads (8),
   side delts (8.5) and biceps (8.5) stay near floor by design — the stricter threshold is
   their guard; dips also push chest to 11.5.
-- **P2 · Calves** — NEW single-leg calf raise 3×15–20 on Day C at both venues (`calf_raise`
-  KB at home, `db_calf_raise` DB at the partner's), plus a **Calves row on the balance
-  dashboard**. Tracked but not MEV-gated (3 maintenance sets are deliberately below a
-  growth MEV; treated like the rotator-cuff row so it never shows a false "below MEV").
+- **P2 · Calves** — ⚠ **SUPERSEDED by the v16 Day-C trim (see §11).** A single-leg calf raise
+  3×15–20 was added to Day C at both venues (`calf_raise` KB at home, `db_calf_raise` DB at
+  the partner's) with a Calves row on the balance dashboard. v16 later removed both slots
+  (Day C ran 12 exercises and was too long). **The program has no direct calf work today.**
+  The lifts survive as legacy stubs carrying their `MG` credit so pre-trim history still
+  resolves; the Calves row is gone from `MG_INFO` (a row no active exercise can fill only
+  ever rendered ≈0 sets).
 - **P3 · Partner dips** — NEW band-assisted `pb_dips` 3×4–8 on partner Day B, mirroring
   home. Dips now train at both venues (frequency is the fix for the pinned sticking point);
   partner chest → 11.5, triceps → 11, both well under MAV.
@@ -184,7 +187,8 @@ The user chose the recommended default for every open decision. Applied and test
 
 ## 5 · Verification
 
-- **317/317 tests pass** — calc 137, hex 126, render.smoke 54 — including 22 new v27
+- *(counts below are as of v27 — see §11 for current totals)*
+  **317/317 tests pass** — calc 137, hex 126, render.smoke 54 — including 22 new v27
   regression tests (calf raises exist/seed/track/tonnage at both venues, partner dips,
   MEV-floor buffer set counts, Phase-3 quality-slot ranges, `lm_pallof` tempo, cadence-aware
   phase + deload clocks, and the 85 kg plate ceiling) on top of both prior rounds' suites.
@@ -293,6 +297,11 @@ stated once (Overview) instead of three times; balance numbers hedged with ≈ a
   check (deutan ΔE ~10, tritan ~9, validated with a palette checker). Shared
   `DAY_COLORS` const + `.bg-b`; heatmap cells now also carry their day letter
   (secondary encoding), cardio a dot.
+  ⚠ **Palette superseded — see §11.** The shipped day trio is now
+  A `#0069b8` azure / B `#ea62ab` pink / C `#0b7a3f` green (its own validation run:
+  protan ΔE 9.5, normal 21.0). The purple-B trio described here is history; the
+  *reasoning* — validate every pair, keep the day letter as a secondary encoding —
+  still holds and is mirrored in the `:root` comment block.
 - Chart craft: titles wear text ink (never series color), native `<title>` tooltips
   on bars/dots, recessive grid, 2px lines, 8px markers, flat-series tick-dedup fix.
 - Screenshot review at 360px found the other screens already solid; targeted fixes
@@ -314,6 +323,10 @@ noProg, two-tab gen sidecar — zero console errors at 360px). SW cache → `rft
   backdrop rgba, theme-color meta, manifest colors/icons). Day palette re-validated
   for colorblind separation (lime/purple/green/amber — weakest pair ΔE 13.7 deutan,
   above the 12 target; heatmap day letters retained as secondary encoding).
+  ⚠ **SUPERSEDED — see §11.** The shipped identity is a **light cyan** theme
+  (`--pr:#007ba8` on a cool near-white base, with a full dark-mode mirror), not volt
+  lime on graphite. The token-discipline point stands: every hardcoded mirror still
+  moves with the CSS vars, which is why `applyTheme()` exists.
 - **Deeper stats** (all four user-selected):
   - `periodCompare` — Overview "Last 4 wk vs prior 4 wk" strip (tonnage %, sessions,
     sets, neutral-colored RPE delta); hidden until a full prior window exists.
@@ -416,6 +429,12 @@ static like the dead bugs/carries — no `PHASES.adj` entries):
   reasoning as `db_sl_rdl`). Core rises 7.5 → 13.5 effective sets/cycle at both venues —
   ≥ MEV 6, ≤ MAV 16. Day counts: home A=8 B=8 C=10, partner A=7 B=9 C=9.
 
+⚠ **PARTIALLY SUPERSEDED by the v16 Day-C trim (see §11).** `bird_dog` was removed again
+(Day C was too long), so **only `side_plank` shipped**. Anti-lateral-flexion is covered at
+both venues; the extensor-**endurance** axis this section identifies is once more unfilled —
+a known, accepted gap rather than an oversight. Current day counts: **home A=9 B=8 C=10,
+partner A=7 B=9 C=7.**
+
 **Verification: 549 tests** (calc 232 · hex 208 · render 109) — the home day-count
 assertion updated, plus 12 new v28 assertions: slots exist at both venues with shared
 ids and a single deduped `ALL_EX` definition, `core:1` credit, core ≥ MEV and ≤ MAV at
@@ -423,3 +442,304 @@ both venues, bw holds excluded from tonnage, no phase adjustment at P1–P3, 3×
 as progress / below-target as stay, and a partner-logged session feeds the home
 suggestion. Live Chromium check: both slots render on their days at both venues (set
 inputs, no kg input, coach note visible), zero console errors. SW cache → `rft-v56`.
+
+---
+
+## 11 · Engine-correctness pass + doc reconciliation (25–26 Jul 2026)
+
+### Read this first — how to use §1–§10
+
+Sections above are a **chronological log, not a description of HEAD.** Several decisions
+were later reverted and the entries were never updated, which cost a full audit round
+re-deriving the program from source. The superseded ones are now flagged in place
+(§4-P2 calves, §7/§8 palette, §10 bird dog). The reversals all trace to one commit —
+**v16 "trim calf raise + bird dog from Day C (both venues)"**, which landed *after*
+v27/v28 in real time despite the lower narrative number.
+
+**Ground truth at HEAD** (assert these, don't trust prose):
+
+| | Value |
+|---|---|
+| Day counts | home **A=9 B=8 C=10** · partner **A=7 B=9 C=7** |
+| Direct calf work | **none** (stubs + `MG` credit kept for history; no `MG_INFO` row) |
+| Extensor-endurance slot | **none** (`side_plank` covers anti-lateral only) |
+| Theme | light **cyan** `--pr:#007ba8` + full dark mirror |
+| Day trio | A `#0069b8` · B `#ea62ab` · C `#0b7a3f` |
+| Tests | **726** — calc 354 · hex 212 · render.smoke 160 |
+
+A new hex assertion — *every `MG_INFO` key is reachable from an active exercise* — makes
+this class of drift fail CI instead of surviving three release cycles.
+
+### Fixed — engine (all three reproduced before and after)
+
+| Defect | Fix |
+|---|---|
+| **An accessory set turned a target-hitting session into a failure.** `hitTarget`/`inRange` capped the set COUNT but still scanned EVERY performed set, so 4×10 + a lighter back-off set read as "below min" — and three of them forced an ~11% deload on a lifter who hit target every time. The engine walked users into it: its own plateau tip says "Add a set", and the workout screen ships a "+ Add set" button. | `nS(h)`/`workSets(h)` slice judging to the first `ex.s` counted sets — **convention: the first `ex.s` sets are the working sets, the rest is accessory volume.** Applied to hit/stall/regress *and* the AMRAP overshoot (a back-off set used to drag `minRep` under target and silently suppress the proportional jump). `traj` stays unsliced — extra work is still work. Also completes the cross-day set-count fix in the untested direction (a 4-set Day-A session now satisfies the 3-set Day-B slot). |
+| **Per-set kg overrides were invisible to progression** — the same session minted a 35 kg weight PR (`exMaxWt`) and recommended 32.5 kg. | New `sessLoad(e,nSets)`: the load **sustained** across the working sets, i.e. `min(setWt)` over that window. Deliberately the MIN — three sets at 35 out of four is not a 35 kg session, and one hot top single must never re-anchor a lift. When the session ran heavier than its anchor the suggestion names the number to match on every set. **Strictly additive**: `wts` is absent on all pre-v15 and all uniform sessions, so `sessLoad` returns `e.wt` unchanged and no prior assertion moved. |
+| **The 2-stall cluster prescription triggered the deload it exists to prevent.** The advice is `(s+1)×(mn-2)` — deliberately sub-minimum — so a compliant session scored as strike three and the next render cut 10%. | `isClusterAttempt` detects it by shape (same load, ≥ `ex.s+1` sets, every set ≥ `mn-2`) and holds the load so the base scheme gets a fresh attempt. Reads **unsliced** reps — the extra sets are the signal, the one place the new slice must not apply. Guarded on two prior consecutive stalls at that load, so it can't become a free pass. Missing the floor still deloads. |
+
+### Fixed — data integrity
+
+- **`load()` discarded malformed sessions silently.** No counter, no banner, and no rescue
+  copy (the `-corrupt` snapshot was written only from the `catch`, which a parseable-but-
+  malformed store never reaches) — so the next `save()` made the loss permanent with nothing
+  to recover from. A non-array `sessions` field emptied the whole log just as quietly. Now
+  counted into module-scope `LOAD_DROPPED` (never persisted/exported/merged), the raw store
+  is parked under the existing `-corrupt` key, and the rHome rescue banner distinguishes a
+  partial drop ("N sessions couldn't be read, the rest loaded normally") from a total loss.
+  Import already reported skipped sessions; the load path now matches it.
+- **`saveSumm` promised safety it hadn't verified.** Its quota-failure path called `saveAW()`
+  — a bare `try/catch` — then unconditionally said "your workout is still safe in the resume
+  backup". A full localStorage is exactly when *that* write fails too. `saveAW` now returns
+  whether the write landed and the warning branches on it.
+
+### Deliberately not taken in this pass
+
+Still open from the 25 Jul audit, in rough priority order: **6** home lifts with no
+fresh-device seed (`ohp`, `floor_press`, `dead_bugs_a`, both pull-up slots, `dips`) — the same
+gap §9 closed for the partner program; `lastDeload` adoption not gated on `wasFresh` in
+`mergeImport`; `esc()` is not attribute-safe (self-XSS + a `"` in a note corrupts the input,
+and the render stub over-escapes so no test can catch it); the barbell stepper is a `<div>`
+while the DB stepper beside it is a `<button>`; `beginW`'s resume guard is inert once a blob is
+hidden by a venue/phase switch; the service worker's navigation fetch is network-first with no
+timeout.
+
+*(Corrected 26 Jul: this paragraph originally said "12 home lifts" and listed `hex_row`. Both
+were wrong — carried over from the 25 Jul audit without re-deriving. Computed from
+`getProgram` × `RELATED_EX` the count is 6, and `hex_row` has had a seed all along. All six are
+closed in §12.)*
+
+---
+
+## 12 · Third pass — auditing the two previous passes (26 Jul 2026)
+
+The first two passes were audited against their own claims rather than re-read. **Three of the
+eleven fixes had shipped with regressions, and two more were incomplete.** Every one was found
+by running the fixed code one step past the scenario its own tests covered.
+
+### Regressions introduced by the earlier passes
+
+| Fix | Defect | Why the tests missed it |
+|---|---|---|
+| **§11 cluster** | Forgiving *every* cluster made the hold unbounded — logging 5×6 repeatedly held the load forever, so the escalation ladder never terminated. Worse than the deload it prevented. And the cluster still scored as a stall next session, so a failed retry deloaded citing "4 sessions below 4×8" — billing the lifter for the app's own prescription, the exact miscount the fix targeted. | The suite asserted the FIRST cluster after two stalls and stopped. Nothing ran a second cluster, or the session after a hold. |
+| **§11 load-drop banner** | `LOAD_DROPPED` describes the boot that set it; the rescue copy outlives it. From boot 2 the banner fell back to the total-loss copy — *"what you see now is a fresh/demo state"* — to a user whose history was fine. Boot 1 lasts one session, so the wrong message is what users actually live with. | The test booted the app once. Booting twice against the same store is what exposed it. |
+| **§11 SW timeout** | No `e.waitUntil`, so when the timer won, the browser was free to kill the worker mid-refresh. The commit's claim that "the next load picks up the new shell" was unreliable *precisely* on the slow connections the timeout exists for. | No committed SW coverage at all — flagged at the time, and this is the cost. |
+
+### Gaps the earlier passes left open
+
+- **The set-count window had a cap but no floor.** `nS` takes its count from the session so a
+  3-set Day-B session satisfies a 4-set Day-A slot — but one set at target earned a full
+  increase, captioned "Hit 4×10". Floored at `ex.s-1`, verified against the program: only
+  `db_lateral` and `db_rear_fly` vary, both 4→3.
+- **Weight-only rows read as failed sessions.** `savePast` commits a row on a weight alone;
+  three of them forced a ~10% deload and raised `stalledMajor`, built entirely from rows
+  containing no reps.
+
+### Also closed
+
+`load()` accepted any cue key while `mergeImport` constrained the charset (keys are
+interpolated into an onclick — guarding one entrance and not the other is the asymmetry that
+gets relied on later); the document `<title>` still said v12, which is the PWA install name;
+`resetAll` never re-applied the theme, so a factory reset visibly kept the old palette.
+
+### What this pass changes about how to audit this repo
+
+**A fix's own tests are written by the person who believes the fix works.** Every regression
+above sat inside a green suite. What found them was running the code one step past the case
+the fix was designed around — a second cluster, a second boot, a second session after a hold.
+
+Two habits worth keeping: assert the *sequence*, not the moment (an escalation ladder needs a
+test that it terminates, not just that it holds once); and never let a test double be safer
+than production — the over-escaping render stub hid the `esc()` bug for its entire life, and
+one new branch here threw a TDZ `ReferenceError` on the exact case it was added to handle
+while the suite stayed green, because nothing exercised it.
+
+**819 passing** — calc 384 · hex 220 · render.smoke 177 · **sw 38** — plus a 15-mutation check.
+SW cache `rft-v74`.
+
+*(Two commit messages in this pass state inflated totals — 785 and 789 — from adding the
+per-suite numbers wrong. The counts above are the measured ones. Noted rather than rewritten:
+the history is accurate about what changed, only the arithmetic in two footers is off.)*
+
+### `sw.js` now has coverage — and the coverage has coverage
+
+`sw.js` was the only shipped file with no tests, which is precisely where the `waitUntil`
+regression above slipped through. `tests/sw.test.js` covers install, activate,
+notificationclick and all four fetch branches, including the caching guards that keep a 503
+deploy response from poisoning the offline shell.
+
+Two things about it worth keeping in mind:
+
+- **A new test file passing on its first run has proved nothing.** `tests/sw.mutate.js` breaks
+  `sw.js` fifteen ways — drops `waitUntil`, reverts the navigation deadline, caches an
+  unsuccessful shell, loses the `./index.html` fallback, stops evicting old caches — and
+  requires every one to be caught. If a mutation stops applying because `sw.js` moved on, that
+  is reported as a failure too, so the check can't quietly rot into a no-op.
+- **One mutation escaped on the first run, and the reason mattered more than the fix.**
+  Reverting the navigation to no-deadline makes the handler never respond, so an `await` hung,
+  Node drained the event loop and exited **0 with no summary** — CI would have read that as a
+  pass. The battery now fails on any exit that happens before it prints its summary. A test
+  suite that can exit silently is worse than no suite.
+
+The stubs are written to mirror real behaviour including the inconvenient parts — Cache Storage
+keys on URL, so `addAll(['./index.html'])` genuinely does not match a navigation to `/workout`,
+which is why `sw.js` needs its explicit shell fallback. A lenient cache double would have hidden
+that requirement, the same way the over-escaping render stub hid the `esc()` bug.
+
+Still open, untouched: cardio inflating the fatigue frequency term; rest-day card UX; Balance
+"Priority" nudge on an empty account; heading structure and tab semantics (a11y); History
+pagination; dark-mode under-MEV heat fill; `saveBod` can't clear a mistyped measurement;
+two-tab merge drops cues/noProg; `checkResume` re-parses every render; manifest `theme_color`
+is light-only; duplicated dark-theme token block; home venue exceeds 3 MAV landmarks; glute
+credit inflated; no extensor-endurance slot (accepted since v16).
+
+---
+
+## 13 · Fourth pass — re-check + backlog clearance (26 Jul 2026)
+
+### The third pass's own work held up
+
+14 adversarial cases against HEAD, all correct: cluster run boundaries (first-ever session,
+load change mid-run, a clean session resetting the run, 6-set clusters), repless rows
+interleaved in a stall run, and the `minSets` floor against both legitimate cross-day cases.
+Worth recording: `band_er` has `s=2`, which would give it a floor of 1 — but it is a band lift
+and never enters the weighted branch where `minSets` lives, so the floor is sound for every
+lift it actually governs.
+
+### Fixed
+
+| Finding | Before → after |
+|---|---|
+| **Cardio counted as a full session in the fatigue score.** Each entry added a whole session to the frequency term, and easy cardio (`diff 2`) simultaneously dragged the effort term down. | 7 easy walks + zero lifting: **5.0 Ready → 1.2 Fresh**. Both documented calibration anchors unmoved. |
+| **The two-tab conflict merge dropped cues.** `mergeStores` had no `cues` branch at all, so a cue typed in one tab vanished when the other saved. `noProg` was lost the same way on an id collision, silently re-admitting an excluded session to the engine. | Cues union by key (local wins); `noProg` is sticky from either side. |
+| **The Balance "Priority" nudge fired on an empty account** — every gated muscle sits at 0, so the largest MEV won by default and a brand-new user was told to add sets to Back/Lats. | Guarded on having history, matching the empty state the card above it already used. |
+| **No heading structure** — two heading tags across nine screens. | `h1` app / `h2` screen / `h3` section, with sr-only titles where the design has no title text. Nothing moved visually. |
+| **Incomplete tab pattern** — `role="tab"` in a `role="tablist"`, no `tabpanel`, no `aria-controls`. | Chips get ids + `aria-controls`; a `tabpanel` names the *selected* chip back, so the association follows the switch. |
+| Session notes only reached memory on blur (`onchange`), unlike `SNOTES` which already synced on input. | `oninput` added; a kill mid-typing no longer loses the text. |
+| The "use previous" control is a real `<button>`, but its hit area was the 10px text. | Expanded via an overlay pseudo-element — target grows, set-row height unchanged — plus a real `aria-label` (`title` is unreliable on touch). |
+
+### Re-documented, not fixed — the previous entries were imprecise
+
+- **Under-MEV heat contrast is NOT dark-mode-specific.** Measured against the untrained cell:
+  **dark 1.29:1, light 1.15:1** — light is worse. Reaching the 3:1 non-text threshold needs
+  alpha ≈0.6 in dark and is unreachable in light without changing the amber itself. That is a
+  palette re-derivation against both themes, not a coefficient tweak, so it stays open with
+  numbers attached rather than being half-fixed and called done.
+- **The rest-day card does not block training.** It ships a "Day X anyway" button; what it
+  omits is the A/B/C *picker*, so the suggested day is the only one reachable in one tap. The
+  original entry overstated this. Low severity, and de-emphasising training on a rest day looks
+  deliberate.
+- **`saveBod` genuinely cannot clear a measurement** (`if(!isNaN(v))` skips empty inputs, so the
+  old value persists). Not a one-liner: blank normally means "not measuring this today", so
+  clearing needs an explicit affordance to express intent. Stays open.
+
+### What this pass says about testing, again
+
+Three of this pass's own tests were wrong before they were right, all in the same direction —
+**passing against something other than what they claimed to check**:
+
+- The heading test asked for view `'hist'`. `render()` dispatches via `fn[VIEW]||rHome`, so it
+  silently rendered **Home** and passed while asserting nothing about History.
+- The tab test hardcoded 5 tabs; `SEGS` has 6. It now derives the count from the rendered
+  markup.
+- One suite run was committed with a failing assertion because the shell pipeline ended in
+  `tail`, which masks the exit code. Test commands now check exit status explicitly.
+
+The pattern across four passes is consistent: the code under test is usually fine, and the
+thing that lies is the harness — an over-escaping stub, a suite that exits silently, a test
+pointed at the wrong screen. Distrust the scaffolding first.
+
+**892 passing** — calc 398 · hex 220 · render.smoke 236 · sw 38 — plus 15/15 mutations caught.
+SW cache `rft-v75`.
+
+*(Corrected: this line first read 868. Three totals in this branch — two in §12, one here —
+were wrong because they were summed by hand. Read the figures from the runner, not from the
+prose: `for f in calc.test hex.test render.smoke sw.test; do node tests/$f.js | tail -1; done`.)*
+
+Still open: History pagination; `checkResume` re-parses every render (6 calls); manifest
+`theme_color` is light-only; duplicated dark-theme token block; under-MEV heat contrast (above);
+`saveBod` clearing (above); rest-day day-picker (above); home venue exceeds 3 MAV landmarks;
+glute credit inflated; no extensor-endurance slot (accepted since v16).
+
+*(§14 works this list and finds four of its nine entries wrong. Read it before trusting the
+line above.)*
+
+---
+
+## 14 · Fifth pass — clearing the backlog, and correcting it (26 Jul 2026)
+
+The §13 backlog was the input to this pass. Verifying it before working it changed it: **four
+of the nine entries were wrong or overstated.** Two of those errors had already been repeated
+forward into the PR description.
+
+### The backlog was wrong
+
+| §13 said | Measured |
+|---|---|
+| `checkResume` re-parses **every render (6 calls)** | **One** call, on the Home render only (`rHome`). The other five call sites are user-action handlers — phase change, venue switch, resume. Not a per-render cost. **Nothing to fix; entry withdrawn.** |
+| manifest `theme_color` is light-only | `applyTheme()` was already rewriting the `theme-color` **meta** at runtime, so the address bar followed the theme from INIT onward. The real gap was the pre-JS paint, which is fixed below. The manifest itself has no media mechanism, so the **install splash stays light in both themes — a platform limitation, not an open defect.** |
+| under-MEV 3:1 is "unreachable in light without changing the amber" | Unreachable only under the old `alpha ≤ 0.5` cap. Solid amber is **3.55:1**, which clears it. The correct read is not "the hue is wrong" but "the alpha ramp was the wrong channel". |
+| §7: "back ≤ MAV. Exact-value tests added so drift fails loud" | Back is **22.5 vs MAV 22**. One guard did exist (`≤ MAV + 0.5`) — an earlier draft of this section claimed there was none, which was wrong. But it was one-sided, so back could drift *down* unnoticed, and **glutes (16/12) and triceps (15/14) had no ceiling guard at all.** |
+
+Re-measured from `getProgram` × `MG`, three home muscles exceed MAV: **Back/Lats 22.5/22
+(+2%), Glutes 16/12 (+33%), Triceps 15/14 (+7%)**. Partner is clean; every muscle at both
+venues is ≥ MEV.
+
+**Decision on the glute overage: accepted, not corrected.** The home program is deliberately
+hinge-led — three hinge slots crediting glutes 1.0 each — and MAV is a guideline ceiling, not
+a cap. Re-modelling the credit would retroactively change what every past session reports;
+cutting a set would trade away the volume the program is built around. All three overages are
+now pinned to their exact accepted values in `hex.test.js`, so a change in either direction
+fails loudly. That is the guard §7 said it had added.
+
+### Fixed
+
+| Finding | Before → after |
+|---|---|
+| **Under-MEV muscles were near-invisible on the heat map.** The alpha ramp put the amber floor at **1.26:1** against the untrained fill in light and **1.45:1** in dark — the one state that asks the user to act was the hardest to see. | Bands are solid reserved states: amber **3.55/6.10**, green 3.87/6.17, cyan 3.71/5.12, mute 4.62/5.05 (light/dark), all clearing 3:1. The magnitude the ramp encoded was already carried by the bars directly below, exactly and with a text tag. |
+| Under-MEV rested on hue alone. | It now also carries a dashed outline. Dash geometry chosen by **rendering it** — a tight dash crenellates on the narrow quad/ham ellipses into what reads as a rendering artifact, and a solid ring reads as gloss on the light amber. |
+| Muscles with no MEV landmark (rotator cuff) scaled against the overall max and rendered as cyan **"high"**. | Muted fill — the state the bar list already gives them. |
+| **40 dark tokens declared twice**, byte-identical, one copy per dark path. | `applyTheme()` writes the *resolved* theme to `data-theme`, so one block serves both. A 2-token media rule survives for the pre-JS paint only. |
+| A dark-OS device painted **light browser chrome** from parse until INIT. | Media-scoped `theme-color` pair, which `applyTheme()` removes when it takes ownership — leaving it would let the dark media rule override an explicit light preference. |
+| History rendered **every** session card into one `innerHTML`, on every render including every card tap. | 30 per page behind a "Show more". The heading still reports the true total. |
+| **`saveBod` could not clear a mistyped measurement.** | A blank field deletes the key. On a first log that is a no-op, so "blank = skip" and "blank = retract" are the same line. §13 deferred this as needing an affordance to express intent — the prefill already *is* that affordance, which the earlier entry missed by reading the save path without reading the form. |
+
+### The harness, a fourth time
+
+**`hex.test.js` and `render.smoke.js` had no `process.exit(1)`.** CI runs each suite directly
+and reads the exit code, so both exited 0 no matter how many assertions failed. **468 of the
+branch's 926 assertions could not fail the build** — every render check and every
+program-volume check among them. Both now exit non-zero, verified by mutating `index.html`
+until each one fails.
+
+That is the fourth harness defect in five passes, after an over-escaping stub, a suite that
+drained the event loop and exited 0, and a test pointed at the wrong screen. The tally across
+the branch is lopsided enough to be the branch's main finding: **the scaffolding lied more
+often than the code did.**
+
+Two smaller instances of the same thing, from this pass:
+
+- Two mutation checks "passed" because the `sed` silently didn't match. A mutation that
+  doesn't mutate is indistinguishable from one that isn't caught. Verify the file changed.
+- A `grep | head -12` truncated away the one MAV assertion that did exist, which produced a
+  confident and wrong claim that none did. Corrected above.
+
+### Method note
+
+Contrast was **computed, not eyeballed**, and the tests now compute it too — every band
+against the untrained fill in both themes, read straight off a single `HEAT_PAL` object so a
+retune in one theme cannot skip the other. The dash geometry, by contrast, could only be
+settled by rendering the thing and looking at it; the first choice passed every assertion and
+looked broken.
+
+**949 passing** — calc 414 · hex 225 · render.smoke 272 · sw 38 — plus 15/15 mutations caught.
+SW cache `rft-v76`.
+
+*(Read that total from the runner. **Six** hand-summed totals in this branch have now been
+wrong, three of them in this pass — including, on the first draft, the line directly above
+this one. Every one was caught by re-running the suites, none by re-checking the arithmetic.
+The habit to copy is not "add carefully"; it is "do not add".)*
+
+Still open, with nothing left that was mis-stated: the rest-day day-picker (low severity —
+"Day X anyway" already ships, only the A/B/C picker is missing); the light install splash
+(platform limitation, above); no extensor-endurance slot (accepted since v16).

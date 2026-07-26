@@ -18,13 +18,13 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, setD, getD } = global.__X;
+const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -196,6 +196,132 @@ d = freshD({ phase: 1, phaseStart: '2026-01-01' });
 d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 31, reps: [4, 4, 4, 4], band: '' }] }));
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
+
+// ── audit fix: a row logged with a weight but NO reps is not a failed session ──
+// savePast commits a row as soon as a weight or band is entered (`if(wt)hasData=true`), so
+// "I trained this at 32kg" with the rep boxes blank produced a session the engine read as
+// below-range. Three of them forced a full ~10% deload and raised the stalled-lift count that
+// drives the deload banner — a phantom failure built entirely from rows containing no reps.
+{
+  const fpR = getProgram(1, 'home').A.find(e => e.id === 'floor_press');
+  const repless = n => { d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    d.sessions = Array.from({ length: n }, (_, i) => ({ id: 'wo' + i, date: ymd(new Date(Date.now() - (30 - i * 4) * 864e5)), day: 'A', loc: 'home', retro: true, ex: [{ id: 'floor_press', wt: 32, reps: [0, 0, 0, 0], band: '', notes: '' }] }));
+    return getSmartSugg(fpR) };
+  T('three weight-only rows no longer force a deload', repless(3).type !== 'dn', JSON.stringify(repless(3)));
+  T('...and raise no stall signal for the deload banner', (repless(3), getPhaseInfo().stalledMajor === 0), String(getPhaseInfo().stalledMajor));
+  // The load IS known even though the reps aren't — don't fall back to the first-session seed
+  // as though nothing were on record. (This branch throws if it references discWarn, which is
+  // declared further down the function; that is exactly how the TDZ bug here was caught.)
+  T('a weight-only history holds at the recorded weight, not the seed', repless(3).wt === 32 && /no reps recorded/.test(repless(3).detail), JSON.stringify(repless(3)));
+  T('the weight-only branch does not throw', (() => { try { repless(1); return true } catch (e) { return false } })());
+  // A real session alongside repless rows must still drive progression normally.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [
+    { id: 'real', date: ymd(new Date(Date.now() - 10 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10], band: '' }] },
+    { id: 'wo', date: ymd(new Date(Date.now() - 4 * 864e5)), day: 'A', loc: 'home', retro: true, ex: [{ id: 'floor_press', wt: 32, reps: [0, 0, 0, 0], band: '' }] }];
+  T('a repless row does not mask a real session behind it', getSmartSugg(fpR).type === 'up', JSON.stringify(getSmartSugg(fpR)));
+}
+
+// ── audit fix: the prescribed cluster session is judged against ITS OWN prescription ──
+// At 2 stalls the engine says "Try clusters: (s+1)×(mn-2) this session before any load cut" —
+// reps deliberately UNDER the range minimum. Scoring that against the base range made the
+// intervention itself strike three, so a lifter who did exactly what the app told them was
+// deloaded by the very next render.
+{
+  const fpC = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 mn:8 → cluster 5×6
+  const twoStalls = () => [40, 35].map((off, i) => ({ id: 'cl' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [7, 7, 6, 6], band: '' }] }));
+  const third = reps => ({ id: 'cl3', date: ymd(new Date(Date.now() - 30 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] });
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = twoStalls();
+  T('two stalls still prescribe the cluster', /cluster/i.test(getSmartSugg(fpC).text), getSmartSugg(fpC).text);
+  // Hitting the prescription holds the load and re-runs the base scheme.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a clean cluster holds the load instead of deloading', sg.type === 'stay' && sg.wt === 32, JSON.stringify(sg));
+  T('...and tells the lifter to retry the base scheme', /Cluster hit/.test(sg.detail) && /Retry 4×8/.test(sg.detail), sg.detail);
+  T('a clean cluster raises no stall signal for the deload gate', getPhaseInfo().stalledMajor === 0, JSON.stringify(getPhaseInfo().stalledMajor));
+  // Missing the cluster floor (mn-2 = 6) still deloads — the escalation ladder is intact.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([4, 4, 4, 4, 4])];
+  T('a missed cluster still deloads', getSmartSugg(fpC).type === 'dn', JSON.stringify(getSmartSugg(fpC)));
+  // Same reps but no extra set = not the prescription, so it is an ordinary third stall.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6])];
+  T('a plain below-min session at the base set count still deloads', getSmartSugg(fpC).type === 'dn', JSON.stringify(getSmartSugg(fpC)));
+  // Guard: without two prior stalls the cluster card was never shown, so the shape earns nothing.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [third([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('an extra-set low-rep session without prior stalls is not a free pass', sg.type === 'stay' && /1\/3 stalls/.test(sg.detail), JSON.stringify(sg));
+
+  // ── the reprieve is SINGLE-USE: the ladder must always terminate ──
+  // Forgiving every cluster let a lifter hold the same load indefinitely on 5×6 — the
+  // escalation ladder simply never ended. Exactly one cluster is forgiven; the next one
+  // scores as the ordinary below-range session it is.
+  const fourth = reps => ({ id: 'cl4', date: ymd(new Date(Date.now() - 25 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] });
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6]), fourth([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a SECOND cluster is not a second reprieve — the ladder terminates', sg.type === 'dn', JSON.stringify(sg));
+  // ...and the deload count must not bill the lifter for the session the app prescribed.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6]), fourth([6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a failed retry after a cluster deloads at 3, not 4', sg.type === 'dn' && /3 sessions below/.test(sg.detail), sg.detail);
+  // A cluster that lands mid-run still cannot be conjured without the advice being earned.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [twoStalls()[0], third([6, 6, 6, 6, 6])];
+  T('one stall + a cluster shape is still only 2 stalls, not a hold', getSmartSugg(fpC).type === 'stay' && /2\/3 stalls/.test(getSmartSugg(fpC).detail), getSmartSugg(fpC).detail);
+}
+
+// ── audit fix: ACCESSORY sets past the prescription are not judged as working sets ──
+// The first ex.s counted sets are the working sets; a back-off/drop set logged after them
+// is extra volume. Capping the COUNT wasn't enough — the every() scan still saw the extra
+// set, so 4×10 (target hit) + a lighter 6 read as "below min", and three such sessions
+// forced an ~11% deload on a lifter who hit target every time. The engine's own plateau
+// advice ("Add a set") and its "+ Add set" button both walked users straight into it.
+{
+  const fpDef = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 rp '8-10'
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'bo_1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10, 6], band: '' }] }];
+  sg = getSmartSugg(fpDef);
+  T('4×10 + a lighter back-off set reads as a hit, not a stall', sg.type === 'up' && sg.wt > 32, JSON.stringify(sg));
+  // The CRITICAL repro: three target-hitting sessions with a back-off set each.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [40, 35, 30].map((off, i) => ({ id: 'bo' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10, 6], band: '' }] }));
+  sg = getSmartSugg(fpDef);
+  T('three back-off sessions do not force a deload', sg.type === 'up' && !sg.stalled, JSON.stringify(sg));
+  T('back-off sessions raise no stall signal for the deload gate', getPhaseInfo().stalledMajor === 0 && getPhaseInfo().stalledEx === 0,
+    JSON.stringify({ e: getPhaseInfo().stalledEx, m: getPhaseInfo().stalledMajor }));
+  // A short set INSIDE the working window is still a genuine miss (guard against over-slicing).
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'bo_in', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 6, 10, 10], band: '' }] }];
+  T('a short set inside the working window still blocks the increase', getSmartSugg(fpDef).type !== 'up', JSON.stringify(getSmartSugg(fpDef)));
+  // Cross-day, the OTHER direction from the existing 3-set→4-set test: a 4-set Day-A session
+  // whose first 3 sets met the prescription must satisfy the 3-set Day-B slot.
+  d = freshD({ location: 'partner', phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'xd2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'partner', ex: [{ id: 'db_lateral', wt: 5, reps: [15, 15, 15, 13], band: '' }] }];
+  T('4-set Day-A session satisfies the 3-set Day-B prescription', getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral')).type === 'up',
+    JSON.stringify(getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral'))));
+  T('the same session does NOT satisfy its own 4-set Day-A prescription', getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_lateral')).type !== 'up');
+  // The AMRAP overshoot re-anchor reads the working sets too — a back-off set used to drag
+  // minRep under target and silently suppress the proportional jump.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'ov_bo', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20, 5], band: '' }] }];
+  sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+  T('a back-off set does not suppress the big-overshoot jump', sg.type === 'up' && sg.wt >= 35, JSON.stringify(sg));
+
+  // ── the set-count window needs a FLOOR as well as a cap ──
+  // nS takes its count from the session so a 3-set Day-B session can satisfy a 4-set Day-A
+  // slot — but it had no lower bound, so a single set at target read as a full hit, moved the
+  // weight up, and captioned itself "Hit 4×10". Floor is ex.s-1: verified against the real
+  // program, only db_lateral and db_rear_fly differ across days and both are 4→3.
+  const shortSess = reps => { d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    d.sessions = [{ id: 'sh', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] }];
+    return getSmartSugg(fpDef) };
+  T('4 of 4 at target still earns the increase', shortSess([10, 10, 10, 10]).type === 'up');
+  T('3 of 4 at target still earns it (the cross-day case)', shortSess([10, 10, 10]).type === 'up', JSON.stringify(shortSess([10, 10, 10])));
+  T('2 of 4 at target does NOT earn a load increase', shortSess([10, 10]).type === 'stay', JSON.stringify(shortSess([10, 10])));
+  T('1 of 4 at target does NOT earn a load increase', shortSess([10]).type === 'stay', JSON.stringify(shortSess([10])));
+  T('...and the hold says the set count is what is short', /Only 2 of 4 sets logged/.test(shortSess([10, 10]).detail), shortSess([10, 10]).detail);
+  // The caption must report what was covered, not always the full prescription.
+  T('a 3-of-4 hit is captioned 3×10, not 4×10', /Hit 3×10/.test(shortSess([10, 10, 10]).detail), shortSess([10, 10, 10]).detail);
+  T('a full session is still captioned 4×10', /Hit 4×10/.test(shortSess([10, 10, 10, 10]).detail), shortSess([10, 10, 10, 10]).detail);
+}
 
 // ── audit fix: a successful (in-range) deload is not flagged as a "Weight dropped" regression ──
 d = freshD();
@@ -402,6 +528,49 @@ T('a genuinely heavy week (5 hard sessions) still reads Fatigued', fat.label ===
 d.sessions = [fatSess(5, 2, 40, [10, 10, 10])];
 fat = getFatigue();
 T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
+
+// ── audit fix: cardio must not count as a full lifting session ──
+// getFatigue pushed cardio entries into the same `scores` array as lifts, so each one added a
+// whole session to the frequency term — and easy cardio (diff 2) simultaneously dragged the
+// effort term DOWN. A walking week with no lifting at all read as "Ready", and four walks
+// pushed a normal lifting week from Ready into Building.
+{
+  const walk = (off, intensity = 'easy', duration = 30) => ({ id: 'cw' + off + intensity, date: ymd(new Date(Date.now() - off * 864e5)), type: 'Walking', duration, intensity });
+  const liftWk = () => [fatSess(1, 3, 64, [15, 15, 15]), fatSess(3, 3, 64, [15, 15, 15]), fatSess(5, 3, 64, [15, 15, 15])];
+
+  // Anchor first: the calibration the comment in getFatigue documents must not drift.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [];
+  const anchor = getFatigue();
+  T('calibration anchor: 3 lifts @RPE3 reads Ready', anchor.label === 'Ready' && anchor.score >= 3.5 && anchor.score <= 5, JSON.stringify(anchor));
+
+  // Walking only, no lifting: this is not a fatigued athlete.
+  d = freshD(); d.sessions = []; d.cardioLog = [1, 2, 3, 4, 5, 6, 7].map(o => walk(o));
+  const walkOnly = getFatigue();
+  T('a week of easy walks with no lifting reads Fresh', walkOnly.label === 'Fresh', JSON.stringify(walkOnly));
+
+  // Easy cardio alongside normal lifting must not change the verdict.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [2, 4, 6, 7].map(o => walk(o));
+  const withWalks = getFatigue();
+  // Bounded increase, deliberately NOT label-equality: 4 easy walks moving 4.9 → 5.1 crosses
+  // the Ready/Building line, but that is a threshold artifact of a 4% change, not cardio
+  // dominating the score. Asserting the label would over-fit this test to where the boundary
+  // happens to sit. What matters is that walks nudge the meter instead of driving it — before
+  // this fix the same four walks added a full 1.6.
+  T('easy walks nudge the score rather than driving it', withWalks.score - anchor.score <= 0.5, JSON.stringify({ a: anchor.score, w: withWalks.score }));
+  // Monotonicity: logging MORE activity must never make the meter read less fatigued. Both
+  // non-frequency terms broke this — a plain effort mean let easy walks pull the average from
+  // 3.0 toward 2.0, and dividing volume by the raw entry count let four walks shrink the
+  // per-session volume term. Either alone made the identical lifting week score LOWER.
+  T('adding activity never lowers the fatigue score', withWalks.score >= anchor.score, JSON.stringify({ a: anchor.score, w: withWalks.score }));
+
+  // Guard the other direction: hard conditioning IS real systemic fatigue.
+  d = freshD(); d.sessions = liftWk(); d.cardioLog = [0, 2, 4].map(o => walk(o, 'hard', 45));
+  const withHard = getFatigue();
+  T('hard cardio still registers as added fatigue', withHard.score > anchor.score, JSON.stringify({ a: anchor.score, h: withHard.score }));
+  d.cardioLog = [0, 2, 4].map(o => walk(o, 'easy', 45));
+  const withEasy = getFatigue();
+  T('hard cardio outweighs the same count of easy sessions', withHard.score > withEasy.score, JSON.stringify({ hard: withHard.score, easy: withEasy.score }));
+}
 
 // ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
 d = freshD({ phase: 2, phaseStart: '2026-06-09' });
@@ -631,6 +800,34 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('merge-existing: bodyLog additive by date', m2.W.bodyLog.length === 3);
   T('merge-existing: phase/location NOT adopted onto a non-fresh device', m2.W.phase === 1 && m2.W.location === 'home');
   T('merge-existing: nextDay re-derived, backup override ignored on non-fresh device', m2.W.nextDay === 'A');
+  // lastDeload is global metadata like the phase clock, so it follows the same wasFresh rule.
+  // It used to be adopted unconditionally, which broke two ways on a device with history.
+  T('merge-existing: lastDeload NOT adopted onto a non-fresh device', m2.W.lastDeload === null, String(m2.W.lastDeload));
+  {
+    // A local deload date must survive an import that carries a different one...
+    const local = freshState();
+    local.sessions = [mk('L1', '2026-05-01', 'A', 'home', [{ id: 'hex_dl', wt: 56, reps: [5, 5, 4], band: '', notes: '' }], { phase: 1 })];
+    local.lastDeload = '2026-06-15';
+    T('merge-existing: a local lastDeload survives the import', mergeImport(local, JSON.parse(exported)).W.lastDeload === '2026-06-15');
+    // ...and a MALFORMED imported value must not null it (the old `: null` fallback did).
+    const bad = JSON.parse(exported); bad.lastDeload = 'banana';
+    T('merge-existing: a malformed imported lastDeload cannot null the local one', mergeImport(local, bad).W.lastDeload === '2026-06-15');
+    T('fresh import: a malformed lastDeload still normalises to null', mergeImport(freshState(), bad).W.lastDeload === null);
+
+    // The bite: getSmartSugg drops sessions falling inside the deload week, so an adopted
+    // date landing on top of real training used to remove those sessions from the engine's
+    // view entirely — silently changing the suggestion for every lift trained that week.
+    const eng = freshState();
+    eng.sessions = [12, 8, 4].map((off, i) => ({ id: 'dl' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10], band: '' }] }));
+    const fpDef = getProgram(1, 'home').A.find(e => e.id === 'floor_press');
+    setD(eng); const before = JSON.stringify(getSmartSugg(fpDef));
+    const covering = JSON.parse(exported);
+    covering.lastDeload = ymd(new Date(Date.now() - 10 * 864e5)); // week covers 2 of the 3 sessions
+    const merged = mergeImport(eng, covering);
+    setD(merged.W); const after = JSON.stringify(getSmartSugg(fpDef));
+    T('an imported deload week cannot hide existing sessions from the engine', before === after, `${before}\n${after}`);
+    setD(freshD());
+  }
   {
     const invalid = JSON.parse(exported); invalid.nextDay = 'Z';
     T('fresh import: invalid nextDay falls back to re-derive', mergeImport(freshState(), invalid).W.nextDay === 'A');
@@ -689,10 +886,94 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   r = checkResume();
   T('location-mismatched blob hidden but kept', r === null && store3['rft-active'] != null);
 
+  // ── audit fix: Start must not silently overwrite a HIDDEN blob ──
+  // checkResume hides a venue/phase-mismatched blob (above) but leaves it in storage.
+  // beginW's data-loss guard used to ask checkResume, so it saw null in exactly that case
+  // and let Start run — saveAW then overwrote 45 minutes of logging with no prompt, at the
+  // moment the user had no Resume card telling them the workout existed.
+  T('pendingAW sees a venue-mismatched blob that checkResume hides',
+    (() => { const p = pendingAW(); return p && p.hasReps === true && p.why === 'venue' && p.loc === 'partner' })(), JSON.stringify(pendingAW()));
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, phase: 3 });
+  T('pendingAW flags a phase-mismatched blob', (pendingAW() || {}).why === 'phase', JSON.stringify(pendingAW()));
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3 });
+  T('pendingAW reports a matching blob with no mismatch reason', (() => { const p = pendingAW(); return p && p.hasReps === true && p.why === null })(), JSON.stringify(pendingAW()));
+  // An untouched blob must never nag — starting fresh costs the user nothing.
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, log: { hex_dl: { reps: ['', '', ''], wt: 61 } } });
+  T('pendingAW ignores a blob with no logged reps', pendingAW() === null);
+  delete store3['rft-active'];
+  T('pendingAW is null with no blob at all', pendingAW() === null);
+  // Lock in that beginW actually asks pendingAW — guarding on checkResume is the bug.
+  T('beginW guards on pendingAW, not checkResume', /pendingAW\(\)/.test(String(beginW)) && !/checkResume\(\)/.test(String(beginW)), String(beginW).slice(0, 200));
+
   // Lock in two behaviors the fix depends on (source checks, same style as the saveAW guard):
   T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
   T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
+// ── audit fix: load() never discards sessions silently ──
+// The load path drops sessions validSession rejects. That used to be invisible — the raw
+// rescue copy was written only from the catch (which a parseable-but-malformed store never
+// reaches), so the loss vanished and the next save() made it permanent with nothing to
+// recover from. Import has always reported "N malformed sessions skipped"; load now matches.
+{
+  const store = {};
+  const realLS = global.localStorage;
+  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+  const good = { id: 'ok1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] };
+
+  // One good + one malformed (no ex array → validSession returns null).
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good, { id: 'bad1', date: '2026-06-03', day: 'B' }] });
+  const rawBefore = store[SK];
+  load();
+  T('load keeps the salvageable session', getD().sessions.length === 1 && getD().sessions[0].id === 'ok1', JSON.stringify(getD().sessions));
+  T('load counts what it dropped', getDropped() === 1, String(getDropped()));
+  T('load parks the raw store for recovery', store[SK + '-corrupt'] === rawBefore);
+
+  // Clean store: no loss, no rescue copy, no false alarm.
+  delete store[SK + '-corrupt'];
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good] });
+  load();
+  T('a clean store drops nothing', getDropped() === 0 && getD().sessions.length === 1);
+  T('a clean store writes no corrupt copy', store[SK + '-corrupt'] == null);
+
+  // sessions not an array at all → total loss, flagged, not a silently-empty log.
+  store[SK] = JSON.stringify({ ...freshState(), sessions: { nope: true } });
+  load();
+  T('a non-array sessions field is flagged as total loss', getDropped() === -1 && getD().sessions.length === 0, String(getDropped()));
+  T('total loss still parks a raw copy', store[SK + '-corrupt'] != null);
+
+  // ── saveAW reports whether the backup actually landed ──
+  // saveSumm's quota-failure path promised "still safe in the resume backup"; a full
+  // localStorage is exactly when that write fails too.
+  setD(structuredClone(SEED)); getD().location = 'home';
+  setADAY('A');
+  T('saveAW returns true on a successful write', saveAW() === true);
+  global.localStorage.setItem = () => { throw new Error('QuotaExceededError') };
+  T('saveAW returns false when the write throws', saveAW() === false);
+  global.localStorage.setItem = (k, v) => { store[k] = v };
+  setADAY(null);
+  T('saveAW returns false with no active workout', saveAW() === false);
+  // Lock in that the caller actually branches on it (source check, same style as the
+  // finishW/resumeW guards above) — a true-ish call whose result is ignored is the bug.
+  T('saveSumm branches its warning on the saveAW result', /const backed=saveAW\(\)/.test(String(saveSumm)) && /backed\s*\n?\s*\?/.test(String(saveSumm)), String(saveSumm).slice(0, 60));
+
+  // ── cue keys are constrained on BOTH entrances, not just import ──
+  // Keys are interpolated into the delete-button onclick. mergeImport has always filtered
+  // them; load() accepted anything, so the stored store was an unguarded path to the same
+  // sink for anyone who edited it (or any code that wrote it badly).
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], cues: { hex_dl: 'push the floor away', "ohp');alert(1);//": 'evil', ok_key: 'fine' } });
+  load();
+  T('load keeps well-formed cue keys', getD().cues.hex_dl === 'push the floor away' && getD().cues.ok_key === 'fine', JSON.stringify(getD().cues));
+  T('load drops a cue key that would break out of the onclick', Object.keys(getD().cues).every(k => /^[\w-]{1,60}$/.test(k)), JSON.stringify(Object.keys(getD().cues)));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], cues: 'not-an-object' });
+  load();
+  T('load survives a non-object cues field', typeof getD().cues === 'object' && !Array.isArray(getD().cues));
+  // resetAll must repaint: freshState() sets theme 'auto' but the applied palette lingers.
+  T('resetAll re-applies the theme', /applyTheme\(\)/.test(String(resetAll)), String(resetAll).slice(0, 120));
+
+  global.localStorage = realLS;
+  setD(freshD());
 }
 
 // ── Progress rebuild A2: band-lift progression helpers ──
@@ -966,6 +1247,32 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('mergeStores: their sessions still union in', ms.sessions.some(s => s.id === 'tt9'));
   T('mergeStores: malformed their-session dropped by validSession', mergeStores(mineS, { sessions: [{ junk: 1 }] }).sessions.length === 0);
 
+  // ── audit fix: cues and noProg survive the two-tab conflict merge ──
+  // mergeStores unions sessions, cardio, body log and discomfort — cues had no branch at all,
+  // so a coaching cue typed in one tab was silently dropped the moment the other tab saved.
+  {
+    const mineC = { ...freshState(), cues: { hex_dl: 'mine wins', ohp: 'only in mine' } };
+    const theirsC = { ...freshState(), cues: { hex_dl: 'theirs loses', floor_press: 'only in theirs' } };
+    const mc = mergeStores(mineC, theirsC);
+    T('mergeStores: a cue added in the other tab survives', mc.cues.floor_press === 'only in theirs', JSON.stringify(mc.cues));
+    T('mergeStores: this tab keeps its own cues', mc.cues.ohp === 'only in mine');
+    T('mergeStores: the local value wins a key conflict', mc.cues.hex_dl === 'mine wins', mc.cues.hex_dl);
+    // Cue keys reach an onclick — this is the THIRD entrance to that sink, after load() and
+    // mergeImport, and it needs the same charset guard the other two apply.
+    const evil = mergeStores(mineC, { ...freshState(), cues: { "x');alert(1);//": 'evil', good_key: 'ok' } });
+    T('mergeStores: a malformed cue key from the other tab is rejected', Object.keys(evil.cues).every(k => /^[\w-]{1,60}$/.test(k)), JSON.stringify(Object.keys(evil.cues)));
+    T('mergeStores: well-formed keys still cross', evil.cues.good_key === 'ok');
+    T('mergeStores: a non-object cues field is survivable', typeof mergeStores(mineC, { ...freshState(), cues: 'nope' }).cues === 'object');
+
+    // noProg marks a session the user deliberately excluded from progression. On an id
+    // collision the existing row wins, which silently re-admitted it to the engine.
+    const sess = (id, over = {}) => ({ ...mkSess(id, '2026-06-09', 60), ...over });
+    const npMine = { ...freshState(), sessions: [sess('np1')] };
+    const npTheirs = { ...freshState(), sessions: [sess('np1', { noProg: true })] };
+    T('mergeStores: noProg set in the other tab survives an id collision', mergeStores(npMine, npTheirs).sessions[0].noProg === true, JSON.stringify(mergeStores(npMine, npTheirs).sessions[0]));
+    T('mergeStores: noProg set locally is not cleared by the other tab', mergeStores(npTheirs, npMine).sessions[0].noProg === true);
+  }
+
   // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
   T('resetAll adopts the sidecar gen (source check)', /D=freshState\(\);try\{D\.gen=Number\(localStorage\.getItem\(SK\+'-gen'\)\)/.test(String(resetAll)), String(resetAll));
   store4['rft-v12-gen'] = '7';
@@ -1009,6 +1316,39 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // Regression: all sets overridden LIGHTER than the working weight — the best is
   // what was lifted (35), not the untouched stepper value (40).
   T('exMaxWt does not seed the unlifted working weight', exMaxWt({ wt: 40, reps: [5, 5], wts: [35, 35] }) === 35);
+
+  // ── sessLoad: the load SUSTAINED across the working sets (the progression anchor) ──
+  // The engine used to read the bare `wt` field, so a session logged at wt 32 with every set
+  // overridden to 35 proposed "up 32.5kg" while minting a 35kg weight PR from the same row.
+  T('sessLoad collapses to e.wt with no overrides', sessLoad({ wt: 32, reps: [10, 10, 10, 10] }, 4) === 32);
+  T('sessLoad ignores an all-null wts array', sessLoad({ wt: 32, reps: [10, 10], wts: [null, null] }, 2) === 32);
+  T('sessLoad = min across the working sets (partial ramp)', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [32, 35, 35, 35] }, 4) === 32);
+  T('sessLoad rises when every working set is overridden', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [35, 35, 35, 35] }, 4) === 35);
+  T('sessLoad is the MIN, so one hot top set cannot re-anchor', sessLoad({ wt: 32, reps: [10, 10, 10, 10], wts: [32, 32, 32, 40] }, 4) === 32);
+  // Accessory sets past the window do not drag the anchor down (pairs with the workSets slice).
+  T('sessLoad ignores a lighter back-off set beyond the window', sessLoad({ wt: 32, reps: [10, 10, 10, 10, 8], wts: [35, 35, 35, 35, 25] }, 4) === 35);
+  // Interior zero-rep sets must not shift the wts index (the exSetE1RMMax trap).
+  T('sessLoad keeps wts aligned across interior zero-rep sets', sessLoad({ wt: 40, reps: [5, 0, 5], wts: [45, 99, 45] }, 2) === 45);
+
+  // ── the anchor drives the actual suggestion ──
+  {
+    const fp = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 rp '8-10'
+    const sugg = (wt, wts, reps) => { const dd = freshD({ phase: 1, phaseStart: '2026-01-01' });
+      dd.sessions = [{ id: 'ov', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt, reps, wts, band: '' }] }];
+      return getSmartSugg(fp) };
+    const all35 = sugg(32, [35, 35, 35, 35], [10, 10, 10, 10]);
+    T('all working sets overridden → progression anchors on 35, not the stored 32', all35.wt > 35, JSON.stringify(all35));
+    const ramp = sugg(32, [32, 35, 35, 35], [10, 10, 10, 10]);
+    T('a partial ramp holds the sustained load', ramp.wt > 32 && ramp.wt < 35, JSON.stringify(ramp));
+    T('...and discloses the top set the user must match', /top set 35kg/.test(ramp.detail), ramp.detail);
+    T('no-override control is unchanged', sugg(32, undefined, [10, 10, 10, 10]).wt === ramp.wt);
+    // Stalls bucket by sustained load: three failing sessions all worked at 38, so the
+    // deload must cut from 38 — cutting from the untouched stepper value would under-deload.
+    const dd = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    dd.sessions = [40, 35, 30].map((off, i) => ({ id: 'ovs' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [6, 6, 6, 6], wts: [38, 38, 38, 38], band: '' }] }));
+    const st = getSmartSugg(fp);
+    T('stalls bucket by sustained load, and the deload cuts from it', st.type === 'dn' && st.wt <= 38 * 0.9 + 0.001 && st.wt > 32 * 0.9, JSON.stringify(st));
+  }
 
   // PRs from override sets
   let d = freshD();
@@ -1120,18 +1460,40 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Body heat map ──
 {
-  T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20, 10) === '');
-  T('heatColor under MEV → amber', /^rgba\(178,97,2,/.test(heatColor(4, 8, 20, 10)));
-  T('heatColor MEV..MAV → green', /^rgba\(12,128,80,/.test(heatColor(12, 8, 20, 10)));
-  T('heatColor ≥MAV → strong cyan', heatColor(22, 8, 20, 10) === 'rgba(0,123,168,0.95)');
-  const alpha = c => parseFloat(c.match(/,([\d.]+)\)$/)[1]);
-  T('heatColor amber intensity rises with volume', alpha(heatColor(6, 8, 20, 10)) > alpha(heatColor(2, 8, 20, 10)));
-  // Crossing MEV upward must not fade: green at MEV ≥ amber just below MEV.
-  T('heatColor intensity is monotonic across the MEV boundary',
-    alpha(heatColor(8, 8, 20, 10)) > alpha(heatColor(7.9, 8, 20, 10)),
-    `${heatColor(7.9, 8, 20, 10)} vs ${heatColor(8, 8, 20, 10)}`);
-  T('heatColor null-MEV muscle scales vs max', /^rgba\(0,123,168,/.test(heatColor(3, null, null, 6)));
-  T('heatColor mev=0 (front delts) never divides by zero', /^rgba\(12,128,80,/.test(heatColor(3, 0, 12, 10)));
+  T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20) === '');
+  T('heatColor under MEV → solid amber', heatColor(4, 8, 20) === '#b26102');
+  T('heatColor MEV..MAV → solid green', heatColor(12, 8, 20) === '#0c8050');
+  T('heatColor ≥MAV → solid cyan', heatColor(22, 8, 20) === '#007ba8');
+  T('heatColor no-MEV-landmark muscle → muted, not a band it cannot be judged against',
+    heatColor(3, null, null) === '#5a6478');
+  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#0c8050');
+  // The band is a reserved STATE, so it must not vary with magnitude inside the band —
+  // that precision lives in the bars below, which carry the exact number and the tag.
+  T('heatColor is constant within a band', heatColor(2, 8, 20) === heatColor(7.9, 8, 20));
+  T('heatColor changes state exactly at MEV', heatColor(7.9, 8, 20) !== heatColor(8, 8, 20));
+  T('heatColor changes state exactly at MAV', heatColor(19.9, 8, 20) !== heatColor(20, 8, 20));
+
+  // ── Contrast: the defect this replaced ──
+  // The old alpha ramp put the under-MEV floor at 1.26:1 (light) / 1.45:1 (dark) against
+  // the untrained fill — the one state that asks the user to act was the least visible.
+  // Every band must now clear the 3:1 non-text floor in BOTH themes. Measured off
+  // HEAT_PAL directly so a retune in one theme cannot silently skip the other.
+  const srgb = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) };
+  const hex2 = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const lum = h => { const [r, g, b] = hex2(h); return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b) };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) };
+  for (const mode of ['light', 'dark']) {
+    const p = HEAT_PAL[mode];
+    for (const band of ['under', 'ok', 'high', 'notgt']) {
+      const r = contrast(p[band], p.none);
+      T(`heat ${band} band ≥3:1 vs untrained fill (${mode})`, r >= 3, `${r.toFixed(2)}:1`);
+    }
+    // The under-MEV outline has to read against its own fill, not just the surface.
+    const f = contrast(p.flag, p.under);
+    T(`heat under-MEV outline ≥3:1 vs the amber it outlines (${mode})`, f >= 3, `${f.toFixed(2)}:1`);
+  }
+  T('heat palette defines the same bands in both themes',
+    JSON.stringify(Object.keys(HEAT_PAL.light).sort()) === JSON.stringify(Object.keys(HEAT_PAL.dark).sort()));
   // Every tracked muscle appears in at least one view.
   const covered = new Set([...BODY_REGIONS_F, ...BODY_REGIONS_B].map(r => r.m));
   T('body regions cover every MG_INFO key', MG_INFO.every(([k]) => covered.has(k)),
@@ -1141,6 +1503,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('bodyHeatH titles carry sets/wk', /Chest — 9 sets\/wk/.test(hm));
   T('bodyHeatH regions are tappable muscle selectors', /STAT_MG='chest'/.test(hm));
   T('bodyHeatH renders the legend', /heat-legend/.test(hm) && /under MEV/.test(hm));
+  // ── Under-MEV never rests on hue alone (quads 3 vs MEV 8; chest 9 is over its MEV 8) ──
+  const quadFill = hm.slice(hm.indexOf('STAT_MG=\'quads\'') - 400, hm.indexOf('STAT_MG=\'quads\'') + 20);
+  T('under-MEV region carries the dashed outline', /stroke-dasharray/.test(quadFill), quadFill.slice(-160));
+  const chestFill = hm.slice(hm.indexOf('STAT_MG=\'chest\'') - 400, hm.indexOf('STAT_MG=\'chest\'') + 20);
+  T('a productive region carries NO outline (the cue means one thing)', !/stroke-dasharray/.test(chestFill));
+  T('under-MEV state is also in the title text, not just the shape', /Quads — 3 sets\/wk · under MEV/.test(hm));
+  T('legend explains the outline cue', /heat-legend[\s\S]*dashed/.test(hm));
 }
 
 // ── Rolling 8-week consistency (the status verdict's input) ──
