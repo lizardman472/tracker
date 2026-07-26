@@ -66,6 +66,12 @@ self.addEventListener('fetch', e => {
       // edge 5xx/404) would overwrite the good cached shell and break the next offline load
       // — the exact failure this SW exists to prevent. Mirrors the asset branch's guard.
       .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; });
+    // When the timer wins, respondWith settles from cache and the browser is then free to
+    // kill this worker — taking the still-in-flight refresh with it. waitUntil keeps the
+    // worker alive until the network settles, which is what actually makes "served from
+    // cache now, fresh shell next launch" true. The rejection is swallowed: a failed
+    // background refresh is expected offline and must not mark the fetch event as failed.
+    e.waitUntil(net.catch(() => {}));
     e.respondWith(
       new Promise(resolve => {
         let settled = false;
