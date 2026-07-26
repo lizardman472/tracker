@@ -649,8 +649,12 @@ The pattern across four passes is consistent: the code under test is usually fin
 thing that lies is the harness — an over-escaping stub, a suite that exits silently, a test
 pointed at the wrong screen. Distrust the scaffolding first.
 
-**868 passing** — calc 398 · hex 220 · render.smoke 236 · sw 38 — plus 15/15 mutations caught.
+**892 passing** — calc 398 · hex 220 · render.smoke 236 · sw 38 — plus 15/15 mutations caught.
 SW cache `rft-v75`.
+
+*(Corrected: this line first read 868. Three totals in this branch — two in §12, one here —
+were wrong because they were summed by hand. Read the figures from the runner, not from the
+prose: `for f in calc.test hex.test render.smoke sw.test; do node tests/$f.js | tail -1; done`.)*
 
 Still open: History pagination; `checkResume` re-parses every render (6 calls); manifest
 `theme_color` is light-only; duplicated dark-theme token block; under-MEV heat contrast (above);
