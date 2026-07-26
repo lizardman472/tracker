@@ -660,3 +660,86 @@ Still open: History pagination; `checkResume` re-parses every render (6 calls); 
 `theme_color` is light-only; duplicated dark-theme token block; under-MEV heat contrast (above);
 `saveBod` clearing (above); rest-day day-picker (above); home venue exceeds 3 MAV landmarks;
 glute credit inflated; no extensor-endurance slot (accepted since v16).
+
+*(§14 works this list and finds four of its nine entries wrong. Read it before trusting the
+line above.)*
+
+---
+
+## 14 · Fifth pass — clearing the backlog, and correcting it (26 Jul 2026)
+
+The §13 backlog was the input to this pass. Verifying it before working it changed it: **four
+of the nine entries were wrong or overstated.** Two of those errors had already been repeated
+forward into the PR description.
+
+### The backlog was wrong
+
+| §13 said | Measured |
+|---|---|
+| `checkResume` re-parses **every render (6 calls)** | **One** call, on the Home render only (`rHome`). The other five call sites are user-action handlers — phase change, venue switch, resume. Not a per-render cost. **Nothing to fix; entry withdrawn.** |
+| manifest `theme_color` is light-only | `applyTheme()` was already rewriting the `theme-color` **meta** at runtime, so the address bar followed the theme from INIT onward. The real gap was the pre-JS paint, which is fixed below. The manifest itself has no media mechanism, so the **install splash stays light in both themes — a platform limitation, not an open defect.** |
+| under-MEV 3:1 is "unreachable in light without changing the amber" | Unreachable only under the old `alpha ≤ 0.5` cap. Solid amber is **3.55:1**, which clears it. The correct read is not "the hue is wrong" but "the alpha ramp was the wrong channel". |
+| §7: "back ≤ MAV. Exact-value tests added so drift fails loud" | Back is **22.5 vs MAV 22**. One guard did exist (`≤ MAV + 0.5`) — an earlier draft of this section claimed there was none, which was wrong. But it was one-sided, so back could drift *down* unnoticed, and **glutes (16/12) and triceps (15/14) had no ceiling guard at all.** |
+
+Re-measured from `getProgram` × `MG`, three home muscles exceed MAV: **Back/Lats 22.5/22
+(+2%), Glutes 16/12 (+33%), Triceps 15/14 (+7%)**. Partner is clean; every muscle at both
+venues is ≥ MEV.
+
+**Decision on the glute overage: accepted, not corrected.** The home program is deliberately
+hinge-led — three hinge slots crediting glutes 1.0 each — and MAV is a guideline ceiling, not
+a cap. Re-modelling the credit would retroactively change what every past session reports;
+cutting a set would trade away the volume the program is built around. All three overages are
+now pinned to their exact accepted values in `hex.test.js`, so a change in either direction
+fails loudly. That is the guard §7 said it had added.
+
+### Fixed
+
+| Finding | Before → after |
+|---|---|
+| **Under-MEV muscles were near-invisible on the heat map.** The alpha ramp put the amber floor at **1.26:1** against the untrained fill in light and **1.45:1** in dark — the one state that asks the user to act was the hardest to see. | Bands are solid reserved states: amber **3.55/6.10**, green 3.87/6.17, cyan 3.71/5.12, mute 4.62/5.05 (light/dark), all clearing 3:1. The magnitude the ramp encoded was already carried by the bars directly below, exactly and with a text tag. |
+| Under-MEV rested on hue alone. | It now also carries a dashed outline. Dash geometry chosen by **rendering it** — a tight dash crenellates on the narrow quad/ham ellipses into what reads as a rendering artifact, and a solid ring reads as gloss on the light amber. |
+| Muscles with no MEV landmark (rotator cuff) scaled against the overall max and rendered as cyan **"high"**. | Muted fill — the state the bar list already gives them. |
+| **40 dark tokens declared twice**, byte-identical, one copy per dark path. | `applyTheme()` writes the *resolved* theme to `data-theme`, so one block serves both. A 2-token media rule survives for the pre-JS paint only. |
+| A dark-OS device painted **light browser chrome** from parse until INIT. | Media-scoped `theme-color` pair, which `applyTheme()` removes when it takes ownership — leaving it would let the dark media rule override an explicit light preference. |
+| History rendered **every** session card into one `innerHTML`, on every render including every card tap. | 30 per page behind a "Show more". The heading still reports the true total. |
+| **`saveBod` could not clear a mistyped measurement.** | A blank field deletes the key. On a first log that is a no-op, so "blank = skip" and "blank = retract" are the same line. §13 deferred this as needing an affordance to express intent — the prefill already *is* that affordance, which the earlier entry missed by reading the save path without reading the form. |
+
+### The harness, a fourth time
+
+**`hex.test.js` and `render.smoke.js` had no `process.exit(1)`.** CI runs each suite directly
+and reads the exit code, so both exited 0 no matter how many assertions failed. **468 of the
+branch's 926 assertions could not fail the build** — every render check and every
+program-volume check among them. Both now exit non-zero, verified by mutating `index.html`
+until each one fails.
+
+That is the fourth harness defect in five passes, after an over-escaping stub, a suite that
+drained the event loop and exited 0, and a test pointed at the wrong screen. The tally across
+the branch is lopsided enough to be the branch's main finding: **the scaffolding lied more
+often than the code did.**
+
+Two smaller instances of the same thing, from this pass:
+
+- Two mutation checks "passed" because the `sed` silently didn't match. A mutation that
+  doesn't mutate is indistinguishable from one that isn't caught. Verify the file changed.
+- A `grep | head -12` truncated away the one MAV assertion that did exist, which produced a
+  confident and wrong claim that none did. Corrected above.
+
+### Method note
+
+Contrast was **computed, not eyeballed**, and the tests now compute it too — every band
+against the untrained fill in both themes, read straight off a single `HEAT_PAL` object so a
+retune in one theme cannot skip the other. The dash geometry, by contrast, could only be
+settled by rendering the thing and looking at it; the first choice passed every assertion and
+looked broken.
+
+**949 passing** — calc 414 · hex 225 · render.smoke 272 · sw 38 — plus 15/15 mutations caught.
+SW cache `rft-v76`.
+
+*(Read that total from the runner. **Six** hand-summed totals in this branch have now been
+wrong, three of them in this pass — including, on the first draft, the line directly above
+this one. Every one was caught by re-running the suites, none by re-checking the arithmetic.
+The habit to copy is not "add carefully"; it is "do not add".)*
+
+Still open, with nothing left that was mis-stated: the rest-day day-picker (low severity —
+"Day X anyway" already ships, only the A/B/C picker is missing); the light install splash
+(platform limitation, above); no extensor-endurance slot (accepted since v16).

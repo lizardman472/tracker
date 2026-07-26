@@ -223,6 +223,32 @@ T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevO
 T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
 T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
+
+// ── MAV ceilings ──
+// §7 claimed "back ≤ MAV. Exact-value tests added so drift fails loud." No MAV assertion
+// was ever written, and back has since drifted to 22.5 against a MAV of 22 with nothing to
+// notice. These are that guard. Three home muscles sit over MAV and all three are
+// deliberate — MAV is a guideline ceiling, not a cap — so they are pinned at their accepted
+// values rather than merely allowed to exceed. A change either way fails here.
+const mavOf = key => (MG_INFO.find(r => r[0] === key) || [])[3];
+const ACCEPTED_OVER_MAV = { glutes: 16, back: 22.5, triceps: 15 };
+for (const [k, v] of Object.entries(ACCEPTED_OVER_MAV)) {
+  T(`home ${k} holds at its accepted ${v}/wk (MAV ${mavOf(k)})`, wkVol[k] === v, `${wkVol[k]} vs accepted ${v}`);
+}
+// Everything else must stay at or under its landmark. Without this, the next slot added to
+// a day silently pushes a fourth muscle over and nothing says so.
+T('no OTHER home muscle exceeds MAV',
+  MG_INFO.every(([k, , , mav]) => mav == null || k in ACCEPTED_OVER_MAV || (wkVol[k] || 0) <= mav),
+  MG_INFO.filter(([k, , , mav]) => mav != null && !(k in ACCEPTED_OVER_MAV) && (wkVol[k] || 0) > mav)
+    .map(([k, , , mav]) => `${k} ${wkVol[k]}>${mav}`).join(', '));
+
+// The partner venue carries no accepted overage, so it takes the plain ceiling.
+const partVol = {};
+for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) partVol[k] = (partVol[k] || 0) + ex.s * m[k]; }
+T('no partner muscle exceeds MAV',
+  MG_INFO.every(([k, , , mav]) => mav == null || (partVol[k] || 0) <= mav),
+  MG_INFO.filter(([k, , , mav]) => mav != null && (partVol[k] || 0) > mav).map(([k, , , mav]) => `${k} ${partVol[k]}>${mav}`).join(', '));
+T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (partVol[k] || 0) >= mev), JSON.stringify(partVol));
 T('home days A=9, B=8, C=10 (v16 trimmed calf raise + bird dog from Day C)', homePr.A.length === 9 && homePr.B.length === 8 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
@@ -380,8 +406,11 @@ T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core
 // v14 amendment: pull-ups restored to 4 sets by explicit user choice with the new
 // lm_bstance_squat's 0.5-back credit on board → back sits at a DELIBERATE 22.5, half a
 // set over the nominal MAV of 22 (MAV is guidance, not a cap — "more is fine if
-// recovering well"). Guard allows exactly that overage so accidental creep still fails.
-T('home back at the deliberate 22.5 ceiling (MAV 22 + accepted 0.5 overage)', wkVol.back <= ((MG_INFO.find(r => r[0] === 'back') || [])[3] + 0.5), `${wkVol.back}`);
+// recovering well").
+// The ceiling guard for back now lives with the other two accepted overages in
+// ACCEPTED_OVER_MAV above, pinned to the exact value rather than to "≤ MAV + 0.5" —
+// that one-sided bound let back drift DOWN silently, and said nothing about glutes or
+// triceps, which are also over.
 
 // ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
 // The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
