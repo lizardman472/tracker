@@ -2,7 +2,7 @@
 // Must be a real same-origin file — browsers reject service workers registered
 // from blob: URLs, which is why the previous inline-blob registration silently
 // failed and offline never worked.
-const C = 'rft-v73';
+const C = 'rft-v74';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -54,13 +54,28 @@ self.addEventListener('fetch', e => {
   const isNav = req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
   if (isNav) {
+    // Network-first, but with a deadline. The .catch below only fires on a FAILED fetch —
+    // on a captive portal or dead-but-connected signal the request just hangs, for tens of
+    // seconds, while a perfectly good cached shell sits unused. That is the exact situation
+    // this SW exists for, and the one most likely to happen mid-gym. Race the network
+    // against a short timer and serve the cache if it wins.
+    const NAV_TIMEOUT = 3000;
+    const fromCache = () => caches.match(req).then(r => r || caches.match('./index.html'));
+    const net = fetch(req)
+      // Only cache a SUCCESSFUL same-origin shell. Caching an error (503 during a deploy,
+      // edge 5xx/404) would overwrite the good cached shell and break the next offline load
+      // — the exact failure this SW exists to prevent. Mirrors the asset branch's guard.
+      .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; });
     e.respondWith(
-      fetch(req)
-        // Only cache a SUCCESSFUL same-origin shell. Caching an error (503 during a deploy,
-        // edge 5xx/404) would overwrite the good cached shell and break the next offline load
-        // — the exact failure this SW exists to prevent. Mirrors the asset branch's guard.
-        .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; })
-        .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+      new Promise(resolve => {
+        let settled = false;
+        const done = v => { if (!settled) { settled = true; resolve(v); } };
+        const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);
+        net.then(r => { clearTimeout(timer); done(r); })
+           // A slow network that eventually succeeds still refreshes the cache above, even
+           // though the user was already served from cache — next load gets the new shell.
+           .catch(() => { clearTimeout(timer); done(fromCache()); });
+      })
     );
     return;
   }
