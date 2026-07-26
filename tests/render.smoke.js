@@ -534,6 +534,22 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   tryRender('home renders after an unparseable load', () => R.go('home'));
   const total = R.getA();
   T('total loss keeps the fresh/demo wording', /Stored data was corrupted/.test(total) && /fresh\/demo state/.test(total));
+  // ...and a total loss must clear any partial count left by an earlier rescue, or the
+  // banner would under-report a wiped store as "1 session couldn't be read".
+  T('total loss clears a stale partial-drop count', store[R.SK + '-corrupt-n'] == null);
+  // The rescue copy outlives the boot that made it, so the COUNT has to as well: keying the
+  // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh/demo reset
+  // to a user whose history had actually loaded fine.
+  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
+  R.load();
+  R.go('home');
+  T('boot 1 reports the partial drop', /1 session couldn.{0,6}t be read/.test(R.getA()));
+  R.load();          // reboot: data is clean now, but the rescue copy is still parked
+  R.go('home');
+  const boot2 = R.getA();
+  T('boot 2 still reports the partial drop, not a demo reset',
+    /1 session couldn.{0,6}t be read/.test(boot2) && !/fresh\/demo state/.test(boot2),
+    boot2.slice(boot2.indexOf('\u26a0'), boot2.indexOf('\u26a0') + 150));
   global.localStorage = realLS;
   R.setD(D);
 }

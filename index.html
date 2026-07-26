@@ -1119,7 +1119,11 @@ if(Array.isArray(d.sessions)){
   LOAD_DROPPED=d.sessions==null?0:-1;
   d.sessions=[];
 }
-if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s)}catch(_){}
+// The COUNT is persisted next to the copy: LOAD_DROPPED describes this boot only, and the
+// rescue copy outlives it, so without this the banner reverted to the total-loss wording
+// ('what you see now is a fresh/demo state') on every boot after the first — the exact
+// misleading copy this fix set out to remove, shown to a user whose history is fine.
+if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED))}catch(_){}
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
@@ -1140,7 +1144,10 @@ D=d;
 // One-time hygiene: the old-version key was copied into SK above, so stale copies
 // under rft-v5..v11 are dead weight in the storage quota — clear them.
 try{for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
-}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw)}catch(_){}D=structuredClone(SEED);D.seeded=true}}
+}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw);
+// Unparseable store = total loss. Clear any partial-drop count from an earlier rescue so
+// the banner doesn't under-report this as 'N sessions couldn't be read'.
+localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=structuredClone(SEED);D.seeded=true}}
 // Returns false on quota/write failure so callers can warn instead of losing data silently.
 // Two-tab guard: D.gen is the generation of the snapshot this tab loaded; a cheap sidecar
 // key mirrors the last-written gen. If another tab wrote since we loaded (sidecar > ours),
@@ -2244,17 +2251,19 @@ ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">
 // Corrupt-store rescue: load() parked the raw store under SK+'-corrupt' and either fell back
 // to demo data (unparseable) or dropped the sessions it couldn't validate (parseable but
 // malformed) — but never told the user. Surface it with a way out. The copy outlives the
-// boot that made it, so the wording is keyed off THIS boot's LOAD_DROPPED: a stale copy from
-// an earlier rescue still offers the download without re-claiming a loss that isn't current.
+// boot that made it, so the drop COUNT is persisted beside it — keying the wording off this
+// boot's LOAD_DROPPED alone meant every boot after the first fell back to the total-loss copy.
 try{if(localStorage.getItem(SK+'-corrupt')){
-const partial=LOAD_DROPPED>0;
+// Prefer this boot's count, fall back to the one stored with the rescue copy.
+const dropN=LOAD_DROPPED>0?LOAD_DROPPED:Number(localStorage.getItem(SK+'-corrupt-n'))||0;
+const partial=dropN>0;
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
-<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${LOAD_DROPPED} session${LOAD_DROPPED>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
+<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${dropN} session${dropN>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
 <div class="dm" style="margin-bottom:8px">${partial
-?`${LOAD_DROPPED} stored session${LOAD_DROPPED>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
+?`${dropN} stored session${dropN>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
 :`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
-<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');render()}">Discard</button></div></div>`}}catch(e){}
+<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
