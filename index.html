@@ -4069,9 +4069,9 @@ for(const x of d.bodyLog){if(!bKeys.has(x.date))W.bodyLog.push(x)}
 W.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));
 // Cue KEYS are interpolated into the delete-button onclick — constrain the charset.
 for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))W.cues[k]=v;
-if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
-// Adopt global metadata (phase clock / venue) ONLY when migrating into a fresh device,
-// and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted verbatim.
+// Adopt global metadata (phase clock / venue / deload date) ONLY when migrating into a fresh
+// device, and VALIDATED — phase:9 / phaseStart:'banana' / location:'moon' used to be adopted
+// verbatim.
 // Deliberately DEVICE-LOCAL (never imported): `notify` mirrors THIS device's Notification
 // permission; `dismissed` banners are situational; `lastBackup`/`lastBackupCount` must stay
 // unset so a fresh device is nagged into its own first backup; `gen` is this device's
@@ -4080,6 +4080,12 @@ if(wasFresh){
   if([1,2,3].includes(d.phase))W.phase=d.phase;
   if(typeof d.phaseStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.phaseStart))W.phaseStart=d.phaseStart;
   if(['home','partner'].includes(d.location))W.location=d.location;
+  // lastDeload belongs with the phase clock, not with the additive merges above. It used to
+  // be adopted UNCONDITIONALLY, which broke two ways on a device that already had history:
+  // getSmartSugg drops sessions falling inside the deload week, so an imported date landing
+  // on top of real training silently removed those sessions from every suggestion; and the
+  // `: null` fallback meant a backup with a malformed lastDeload wiped a valid local one.
+  if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
 }
 // Update nextDay from latest session — location aware
 if(W.sessions.length){const last=W.sessions[W.sessions.length-1];

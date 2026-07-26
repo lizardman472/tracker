@@ -698,6 +698,34 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('merge-existing: bodyLog additive by date', m2.W.bodyLog.length === 3);
   T('merge-existing: phase/location NOT adopted onto a non-fresh device', m2.W.phase === 1 && m2.W.location === 'home');
   T('merge-existing: nextDay re-derived, backup override ignored on non-fresh device', m2.W.nextDay === 'A');
+  // lastDeload is global metadata like the phase clock, so it follows the same wasFresh rule.
+  // It used to be adopted unconditionally, which broke two ways on a device with history.
+  T('merge-existing: lastDeload NOT adopted onto a non-fresh device', m2.W.lastDeload === null, String(m2.W.lastDeload));
+  {
+    // A local deload date must survive an import that carries a different one...
+    const local = freshState();
+    local.sessions = [mk('L1', '2026-05-01', 'A', 'home', [{ id: 'hex_dl', wt: 56, reps: [5, 5, 4], band: '', notes: '' }], { phase: 1 })];
+    local.lastDeload = '2026-06-15';
+    T('merge-existing: a local lastDeload survives the import', mergeImport(local, JSON.parse(exported)).W.lastDeload === '2026-06-15');
+    // ...and a MALFORMED imported value must not null it (the old `: null` fallback did).
+    const bad = JSON.parse(exported); bad.lastDeload = 'banana';
+    T('merge-existing: a malformed imported lastDeload cannot null the local one', mergeImport(local, bad).W.lastDeload === '2026-06-15');
+    T('fresh import: a malformed lastDeload still normalises to null', mergeImport(freshState(), bad).W.lastDeload === null);
+
+    // The bite: getSmartSugg drops sessions falling inside the deload week, so an adopted
+    // date landing on top of real training used to remove those sessions from the engine's
+    // view entirely — silently changing the suggestion for every lift trained that week.
+    const eng = freshState();
+    eng.sessions = [12, 8, 4].map((off, i) => ({ id: 'dl' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10], band: '' }] }));
+    const fpDef = getProgram(1, 'home').A.find(e => e.id === 'floor_press');
+    setD(eng); const before = JSON.stringify(getSmartSugg(fpDef));
+    const covering = JSON.parse(exported);
+    covering.lastDeload = ymd(new Date(Date.now() - 10 * 864e5)); // week covers 2 of the 3 sessions
+    const merged = mergeImport(eng, covering);
+    setD(merged.W); const after = JSON.stringify(getSmartSugg(fpDef));
+    T('an imported deload week cannot hide existing sessions from the engine', before === after, `${before}\n${after}`);
+    setD(freshD());
+  }
   {
     const invalid = JSON.parse(exported); invalid.nextDay = 'Z';
     T('fresh import: invalid nextDay falls back to re-derive', mergeImport(freshState(), invalid).W.nextDay === 'A');
