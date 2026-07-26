@@ -554,11 +554,37 @@ than production — the over-escaping render stub hid the `esc()` bug for its en
 one new branch here threw a TDZ `ReferenceError` on the exact case it was added to handle
 while the suite stayed green, because nothing exercised it.
 
-**781 passing** — calc 384 · hex 220 · render.smoke 177. SW cache `rft-v74`.
+**819 passing** — calc 384 · hex 220 · render.smoke 177 · **sw 38** — plus a 15-mutation check.
+SW cache `rft-v74`.
 
 *(Two commit messages in this pass state inflated totals — 785 and 789 — from adding the
 per-suite numbers wrong. The counts above are the measured ones. Noted rather than rewritten:
 the history is accurate about what changed, only the arithmetic in two footers is off.)*
+
+### `sw.js` now has coverage — and the coverage has coverage
+
+`sw.js` was the only shipped file with no tests, which is precisely where the `waitUntil`
+regression above slipped through. `tests/sw.test.js` covers install, activate,
+notificationclick and all four fetch branches, including the caching guards that keep a 503
+deploy response from poisoning the offline shell.
+
+Two things about it worth keeping in mind:
+
+- **A new test file passing on its first run has proved nothing.** `tests/sw.mutate.js` breaks
+  `sw.js` fifteen ways — drops `waitUntil`, reverts the navigation deadline, caches an
+  unsuccessful shell, loses the `./index.html` fallback, stops evicting old caches — and
+  requires every one to be caught. If a mutation stops applying because `sw.js` moved on, that
+  is reported as a failure too, so the check can't quietly rot into a no-op.
+- **One mutation escaped on the first run, and the reason mattered more than the fix.**
+  Reverting the navigation to no-deadline makes the handler never respond, so an `await` hung,
+  Node drained the event loop and exited **0 with no summary** — CI would have read that as a
+  pass. The battery now fails on any exit that happens before it prints its summary. A test
+  suite that can exit silently is worse than no suite.
+
+The stubs are written to mirror real behaviour including the inconvenient parts — Cache Storage
+keys on URL, so `addAll(['./index.html'])` genuinely does not match a navigation to `/workout`,
+which is why `sw.js` needs its explicit shell fallback. A lenient cache double would have hidden
+that requirement, the same way the over-escaping render stub hid the `esc()` bug.
 
 Still open, untouched: cardio inflating the fatigue frequency term; rest-day card UX; Balance
 "Priority" nudge on an empty account; heading structure and tab semantics (a11y); History
