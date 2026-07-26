@@ -495,10 +495,16 @@ this class of drift fail CI instead of surviving three release cycles.
 
 ### Deliberately not taken in this pass
 
-Still open from the 25 Jul audit, in rough priority order: 12 home lifts with no fresh-device
-seed (`ohp`, `floor_press`, `hex_row`, both pull-up slots, dips…) — the same gap §9 closed for
-the partner program; `lastDeload` adoption not gated on `wasFresh` in `mergeImport`;
-`esc()` is not attribute-safe (self-XSS + a `"` in a note corrupts the input, and the render
-stub over-escapes so no test can catch it); the barbell stepper is a `<div>` while the DB
-stepper beside it is a `<button>`; `beginW`'s resume guard is inert once a blob is hidden by a
-venue/phase switch; the service worker's navigation fetch is network-first with no timeout.
+Still open from the 25 Jul audit, in rough priority order: **6** home lifts with no
+fresh-device seed (`ohp`, `floor_press`, `dead_bugs_a`, both pull-up slots, `dips`) — the same
+gap §9 closed for the partner program; `lastDeload` adoption not gated on `wasFresh` in
+`mergeImport`; `esc()` is not attribute-safe (self-XSS + a `"` in a note corrupts the input,
+and the render stub over-escapes so no test can catch it); the barbell stepper is a `<div>`
+while the DB stepper beside it is a `<button>`; `beginW`'s resume guard is inert once a blob is
+hidden by a venue/phase switch; the service worker's navigation fetch is network-first with no
+timeout.
+
+*(Corrected 26 Jul: this paragraph originally said "12 home lifts" and listed `hex_row`. Both
+were wrong — carried over from the 25 Jul audit without re-deriving. Computed from
+`getProgram` × `RELATED_EX` the count is 6, and `hex_row` has had a seed all along. All six are
+closed in §12.)*

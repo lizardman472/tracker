@@ -13,13 +13,13 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -242,6 +242,32 @@ T('every MG_INFO key is reachable from an active exercise', (() => {
   return MG_INFO.every(([k]) => credited.has(k));
 })(), MG_INFO.filter(([k]) => { const active = new Set(); for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) for (const m of Object.keys(MG[ex.id] || {})) active.add(m); return !active.has(k) }).map(([k]) => k).join());
 T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).calves === 1);
+
+// ── audit fix: every loadable lift must have a first-session starting suggestion ──
+// getRelatedSuggestion returns null for a lift with no RELATED_EX entry, so getSmartSugg
+// falls through to a bare "First weighted session — find your starting load" with no number.
+// Six home staples relied on the bundled demo's history to hide that; the moment a user
+// restores a real backup the demo rows are dropped and the gap is exposed. The partner
+// program has been complete since v13 — this is the invariant that keeps both that way.
+{
+  const LOADABLE = ['bb', 'db', 'kb', 'mace', 'band', 'carry'];
+  const unseeded = [];
+  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
+    for (const ex of getProgram(1, loc)[day])
+      if (LOADABLE.includes(ex.tp) && !RELATED_EX[ex.id]) unseeded.push(`${loc}/${ex.id}`);
+  T('every loadable lift has a fresh-device starting suggestion', unseeded.length === 0, unseeded.join(', '));
+
+  // Shape checks on the six added seeds: band-assisted lifts start on the most assistance
+  // available, bar lifts start at the bar (never below it — an unloadable number).
+  for (const id of ['pullup_a', 'pullup_c', 'dips'])
+    T(`${id} seeds on the heaviest assist band`, RELATED_EX[id].seedBand === 'Blue (heaviest)', JSON.stringify(RELATED_EX[id]));
+  for (const id of ['ohp', 'floor_press', 'dead_bugs_a'])
+    T(`${id} seeds at bar weight, not below it`, RELATED_EX[id].seedWt === BAR, JSON.stringify(RELATED_EX[id]));
+  // A seed is only useful if it actually reaches the suggestion, so drive one end-to-end.
+  setD({ ...structuredClone(SEED), sessions: [], location: 'home', phase: 1, phaseStart: '2026-01-01' });
+  const sug = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+  T('an unseeded-before lift now suggests a real starting load', /11/.test(sug.text) || sug.wt === BAR, JSON.stringify(sug));
+}
 T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
 // Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
 T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());

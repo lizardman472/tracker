@@ -1404,6 +1404,21 @@ const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#b3134d']; //
 //   mult — multiplier on related weight (default 1.0)
 //   addKg — kg to add after multiplication (default 0)
 const RELATED_EX={
+  // Home staples that had no first-session fallback. These are NOT new lifts — they simply
+  // never got a seed, because the bundled demo carries history for them and that masked the
+  // gap. The moment a user restores a real backup the demo rows are dropped (mergeImport), so
+  // any of these the backup doesn't cover fell through to a bare "First weighted session —
+  // find your starting load" with no number at all. `dead_bugs_a` had no fallback either way.
+  // Seeded conservatively — bar-only / heaviest assist — because undershooting is cheap now
+  // that the big-overshoot re-anchor works (≈2.5%/rep over target, capped +12%/session, so a
+  // light seed self-corrects in 2-3 sessions), while overshooting a first session risks a
+  // joint. Anyone already stronger just types their real number once.
+  'ohp':            {id:null,               seedWt:BAR, note:'First logged session — start with the empty 11kg bar and add plates once the groove feels solid. Strict, no leg drive.'},
+  'floor_press':    {id:null,               seedWt:BAR, note:'First logged session — empty 11kg bar to find the groove, then build. Wrist wraps if you have them.'},
+  'dead_bugs_a':    {id:null,               seedWt:BAR, note:"Bar held at arm's length over the chest — start with the empty 11kg bar and keep the low back flat. Add load only once the ribs stay down for every rep."},
+  'pullup_a':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue) and reduce assistance as reps come. Full ROM, control through the bottom.'},
+  'pullup_c':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — volume slot, so start on the heaviest assist band (Blue) and drop a band once you clear the target.'},
+  'dips':           {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue). Depth to upper-arm parallel before reducing assistance.'},
   // Home program new exercises
   // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
   // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
