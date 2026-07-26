@@ -1313,6 +1313,25 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     const npTheirs = { ...freshState(), sessions: [sess('np1', { noProg: true })] };
     T('mergeStores: noProg set in the other tab survives an id collision', mergeStores(npMine, npTheirs).sessions[0].noProg === true, JSON.stringify(mergeStores(npMine, npTheirs).sessions[0]));
     T('mergeStores: noProg set locally is not cleared by the other tab', mergeStores(npTheirs, npMine).sessions[0].noProg === true);
+
+    // ── Audit 6 / F3: cardio ids now reach a delete-button onclick, so this branch needs
+    // the same charset guard mergeImport already applies. It used to adopt the other tab's
+    // rows verbatim — the third unguarded entrance to an inline-handler sink.
+    const cMine = { ...freshState(), cardioLog: [{ id: 'c1', date: '2026-06-01', type: 'Rowing', duration: 20, intensity: 'easy' }] };
+    const cEvil = { ...freshState(), cardioLog: [
+      { id: "x');alert(1);//", date: '2026-06-02', type: 'Rowing', duration: 20, intensity: 'easy' },
+      { id: 'c2', date: '2026-06-03', type: 'Walking', duration: 30, intensity: 'easy' }] };
+    const cm = mergeStores(cMine, cEvil);
+    T('mergeStores: cardio ids from the other tab are charset-guarded', cm.cardioLog.every(c => /^[\w.-]+$/.test(c.id)), JSON.stringify(cm.cardioLog.map(c => c.id)));
+    T('mergeStores: well-formed cardio still crosses', cm.cardioLog.some(c => c.id === 'c2'), JSON.stringify(cm.cardioLog.map(c => c.id)));
+    T('mergeStores: this tab keeps its own cardio', cm.cardioLog.some(c => c.id === 'c1'));
+    // Duplicate ids WITHIN the incoming list must not both land — the seen-set was only
+    // seeded from our own rows and never updated inside the loop.
+    const cDup = { ...freshState(), cardioLog: [
+      { id: 'cd', date: '2026-06-04', type: 'Rowing', duration: 10, intensity: 'easy' },
+      { id: 'cd', date: '2026-06-05', type: 'Rowing', duration: 99, intensity: 'easy' }] };
+    T('mergeStores: a duplicate cardio id inside the incoming list lands once',
+      mergeStores({ ...freshState() }, cDup).cardioLog.length === 1, JSON.stringify(mergeStores({ ...freshState() }, cDup).cardioLog));
   }
 
   // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.

@@ -898,6 +898,51 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.getD().bodyLog = [{ date: '2026-06-12', weight: 80 }];
 }
 
+// ── Audit 6 / F3: a mistyped cardio entry must be removable ──
+// Cardio had no delete or edit anywhere in the app. A 300-minute row typed for 30 permanently
+// skewed the fatigue meter, the monthly minutes total, the weekly cardio chart and the heat
+// map, and could not be undone: the cardio merge in both mergeImport and mergeStores is purely
+// additive, so re-importing a corrected backup does not remove it either. Only Reset All Data.
+{
+  const realConfirm = global.confirm;
+  const cl = [
+    { id: 'c1001', date: '2026-06-10', type: 'Rowing', duration: 30, intensity: 'easy' },
+    { id: 'c1002', date: '2026-06-12', type: 'Walking', duration: 300, intensity: 'moderate' }, // the typo
+    { id: 'c1003', date: '2026-06-14', type: 'Cycling', duration: 45, intensity: 'hard' },
+  ];
+  R.getD().cardioLog = structuredClone(cl);
+  tryRender('cardio screen with history', () => R.go('cardio'));
+  const cm = R.getA();
+  T('the cardio screen lists logged entries', /Recent · 3/.test(cm), (cm.match(/Recent · \d+/) || [''])[0]);
+  T('each cardio row carries a delete control', (cm.match(/aria-label="Delete cardio entry"/g) || []).length === 3,
+    String((cm.match(/aria-label="Delete cardio entry"/g) || []).length));
+  T('the delete control targets the entry by id', /delCardio\('c1002'\)/.test(cm));
+  T('the row shows the duration that needs correcting', /300 min/.test(cm));
+
+  // Deleting removes exactly that entry and leaves the rest.
+  global.confirm = () => true;
+  window.delCardio('c1002');
+  T('delCardio removes the targeted entry', R.getD().cardioLog.map(c => c.id).join() === 'c1001,c1003', JSON.stringify(R.getD().cardioLog.map(c => c.id)));
+
+  // ...and a declined confirm changes nothing.
+  global.confirm = () => false;
+  window.delCardio('c1001');
+  T('a declined confirm leaves the cardio log alone', R.getD().cardioLog.length === 2, R.getD().cardioLog.length);
+
+  // A row whose id could break out of the onclick attribute is not rendered with a control
+  // it cannot safely address. (Every writer already strips the charset; this is the sink.)
+  global.confirm = () => true;
+  R.getD().cardioLog = [{ id: "x');alert(1);//", date: '2026-06-10', type: 'Rowing', duration: 20, intensity: 'easy' },
+    { id: 'c_ok', date: '2026-06-11', type: 'Rowing', duration: 20, intensity: 'easy' }];
+  R.go('cardio');
+  const cm2 = R.getA();
+  T('a hostile cardio id never reaches the delete onclick', !/alert\(1\)/.test(cm2), (cm2.match(/delCardio\([^)]*\)/g) || []).join('|'));
+  T('well-formed cardio ids still get a control', /delCardio\('c_ok'\)/.test(cm2));
+
+  if (realConfirm === undefined) delete global.confirm; else global.confirm = realConfirm;
+  R.getD().cardioLog = [];
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and
 // reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how

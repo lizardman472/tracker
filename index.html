@@ -3007,7 +3007,33 @@ h+=`<button type="button" class="cardio-btn${t===CARDIO_T?' sel':''}" aria-press
 h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
 <div style="flex:1"><div class="lb">Duration (min)</div><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
 <div style="flex:1"><div class="lb">Intensity</div><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
-<button class="btn btn-pr" onclick="saveCardio()">Save</button></div></div>`;el.innerHTML=h}
+<button class="btn btn-pr" onclick="saveCardio()">Save</button></div>`;
+// Recent cardio, with a per-entry delete. Cardio had NO delete or edit anywhere in the app,
+// so a mistyped duration (300 for 30) was permanent: it skews the fatigue meter, the monthly
+// minutes total, the weekly cardio chart and the heat map forever. Import could not undo it
+// either — the cardio merge is purely additive, it never removes — so the only escape was
+// Reset All Data, which wipes the training history too. Mirrors the Body screen's pattern.
+{const cl=D.cardioLog||[];
+if(cl.length){h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Recent · ${cl.length}</div>`;
+const IC={Rowing:'🚣',Walking:'🚶',Cycling:'🚴',Stretching:'🧘',Other:'🏃'};
+const ICOL={easy:'var(--gr)',moderate:'var(--am)',hard:'var(--rd)'};
+for(const c of[...cl].reverse().slice(0,20)){
+// Cardio ids reach an inline onclick. Every WRITER already constrains the charset
+// (saveCardio mints 'c'+Date.now(), mergeImport and mergeStores strip anything else), but
+// the render site refuses to emit a row it cannot address rather than trusting that.
+const cid=String(c.id==null?'':c.id);
+if(!/^[\w.-]{1,64}$/.test(cid))continue;
+const lvl=['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy';
+h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+<span style="font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<b>${IC[c.type]||'🏃'} ${esc(String(c.type||'Other'))}</b>
+<span class="dm">${Number(c.duration)||0} min</span>
+<span style="color:${ICOL[lvl]};font-weight:700;font-size:10px;text-transform:uppercase">${lvl}</span></span>
+<span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="dm">${fmtD(c.date)}</span>
+<button onclick="delCardio('${cid}')" title="Delete" aria-label="Delete cardio entry" style="border:none;background:var(--ib);color:var(--rd);width:40px;height:40px;border-radius:8px;font-size:14px;cursor:pointer">✕</button></span></div></div>`}}}
+h+=`</div>`;el.innerHTML=h}
+window.delCardio=function(id){if(!confirm('Delete this cardio entry?'))return;
+D.cardioLog=(D.cardioLog||[]).filter(c=>String(c.id)!==String(id));save();render()}
 let CARDIO_T='Rowing';
 // Preserve typed duration/intensity across the selection re-render (inputs are id-bound).
 function setCardioT(t){const dur=document.getElementById('c-dur')?.value,int=document.getElementById('c-int')?.value;
@@ -4256,7 +4282,14 @@ for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=valid
   sIds.set(v.id,v);W.sessions.push(v)}
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 const cIds=new Set(W.cardioLog.map(c=>c.id));
-for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){if(c&&typeof c==='object'&&c.id&&!cIds.has(c.id))W.cardioLog.push(c)}
+// Cardio ids reach a delete-button onclick (the same sink cue keys do), and this branch
+// adopted whatever the other tab's store held. Apply mergeImport's charset guard here too —
+// guard both entrances identically rather than trusting that one of them is safe.
+for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){
+  if(!c||typeof c!=='object')continue;
+  const cid=String(c.id==null?'':c.id).replace(/[^\w.-]/g,'');
+  if(!cid||cIds.has(cid))continue;
+  cIds.add(cid);W.cardioLog.push({...c,id:cid})}
 W.cardioLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const bKeys=new Set(W.bodyLog.map(x=>x.date));
 for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x==='object'&&x.date&&!bKeys.has(x.date))W.bodyLog.push(x)}
