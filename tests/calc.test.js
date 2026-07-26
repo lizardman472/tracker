@@ -784,6 +784,25 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   r = checkResume();
   T('location-mismatched blob hidden but kept', r === null && store3['rft-active'] != null);
 
+  // ── audit fix: Start must not silently overwrite a HIDDEN blob ──
+  // checkResume hides a venue/phase-mismatched blob (above) but leaves it in storage.
+  // beginW's data-loss guard used to ask checkResume, so it saw null in exactly that case
+  // and let Start run — saveAW then overwrote 45 minutes of logging with no prompt, at the
+  // moment the user had no Resume card telling them the workout existed.
+  T('pendingAW sees a venue-mismatched blob that checkResume hides',
+    (() => { const p = pendingAW(); return p && p.hasReps === true && p.why === 'venue' && p.loc === 'partner' })(), JSON.stringify(pendingAW()));
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, phase: 3 });
+  T('pendingAW flags a phase-mismatched blob', (pendingAW() || {}).why === 'phase', JSON.stringify(pendingAW()));
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3 });
+  T('pendingAW reports a matching blob with no mismatch reason', (() => { const p = pendingAW(); return p && p.hasReps === true && p.why === null })(), JSON.stringify(pendingAW()));
+  // An untouched blob must never nag — starting fresh costs the user nothing.
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, log: { hex_dl: { reps: ['', '', ''], wt: 61 } } });
+  T('pendingAW ignores a blob with no logged reps', pendingAW() === null);
+  delete store3['rft-active'];
+  T('pendingAW is null with no blob at all', pendingAW() === null);
+  // Lock in that beginW actually asks pendingAW — guarding on checkResume is the bug.
+  T('beginW guards on pendingAW, not checkResume', /pendingAW\(\)/.test(String(beginW)) && !/checkResume\(\)/.test(String(beginW)), String(beginW).slice(0, 200));
+
   // Lock in two behaviors the fix depends on (source checks, same style as the saveAW guard):
   T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
   T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));

@@ -1181,8 +1181,21 @@ function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // is surfaced with computed `stale`/`drifted` flags (never persisted) and waits for an
 // explicit Resume/Discard. Location/phase mismatches stay hidden-not-deleted:
 // switching back makes them resumable again.
+// Does a resume blob carry real logged work? Shared by checkResume (which uses it to decide
+// whether a stale/drifted blob is worth keeping) and pendingAW (which uses it to decide
+// whether Start needs to warn) — one definition so the two can never disagree.
+function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0)))}
+// What checkResume would HIDE. checkResume deliberately returns null for a blob whose venue or
+// phase no longer matches while leaving it in storage (hide, don't delete) — but beginW's
+// data-loss guard was asking checkResume, so it saw null in exactly that case and let Start
+// run: saveAW then overwrote the blob with no prompt. Log Day A at home, switch venue, tap
+// Start, and 45 minutes of logging was gone silently. This reports the blob's EXISTENCE and
+// why it is hidden, so the guard works when the workout is least recoverable.
+function pendingAW(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+if(!awHasReps(d))return null; // nothing logged yet — starting fresh costs the user nothing
+return{day:d.day,hasReps:true,why:d.loc&&d.loc!==D.location?'venue':d.phase&&d.phase!==D.phase?'phase':null,loc:d.loc,phase:d.phase}}catch(e){return null}}
 function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
-const hasReps=d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0));
+const hasReps=awHasReps(d);
 if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
@@ -2411,7 +2424,14 @@ SWAP_OPEN=null;saveAW();render()}
 function beginW(day){
 // A pending resumable session dies the moment a new one starts (saveAW overwrites the
 // blob) — one accidental tap on Start used to silently destroy 45 minutes of logging.
-if(checkResume()&&typeof confirm==='function'&&!confirm('You have an unfinished workout waiting to resume — starting a new one discards it. Continue?'))return;
+// Guards on pendingAW, NOT checkResume: a blob hidden by a venue/phase switch is still
+// sitting in storage about to be overwritten, and that is precisely when it is hardest to
+// get back (the Resume card isn't showing, so the user has no idea it exists). Name the
+// mismatch so the prompt isn't baffling when no Resume card is visible.
+const pend=pendingAW();
+if(pend&&typeof confirm==='function'){
+  const where=pend.why==='venue'?` from a different venue (${pend.loc})`:pend.why==='phase'?` from phase ${pend.phase}`:'';
+  if(!confirm(`You have an unfinished workout${where} waiting to resume — starting a new one discards it. Continue?`))return}
 ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);

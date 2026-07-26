@@ -400,6 +400,28 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   T('session committed with RPE', R.getD().sessions.length === nBefore + 1 && saved.difficulty === 3, JSON.stringify({ n: R.getD().sessions.length, diff: saved && saved.difficulty }));
   T('dead trainingWeek field no longer written to sessions', saved.trainingWeek === undefined);
   R.getD().sessions = R.getD().sessions.filter(s => s !== saved);
+
+  // ── audit fix: switching venue must not turn Start into a silent shredder ──
+  // checkResume hides a venue-mismatched blob but keeps it in storage, and beginW's guard
+  // used to ask checkResume — so it saw null and let Start overwrite the workout with no
+  // prompt, exactly when no Resume card was on screen to tell the user it existed.
+  R.beginW('A');
+  const lg = R.getLOG()['hex_dl'];
+  lg.touched = true; lg.wt = 40; lg.reps = ['5', '5', '5'];
+  R.getD().location = 'home';
+  saveAW(); // stamp the blob at the home venue with real logged reps
+  R.getD().location = 'partner'; // user switches venue — blob is now hidden, not deleted
+  T('venue switch hides the blob from checkResume but keeps it', checkResume() === null && store[R.AW_KEY] != null);
+  let msg = null;
+  global.confirm = m => { msg = m; return false };
+  R.beginW('B');
+  T('Start prompts before discarding a venue-hidden workout', /different venue \(home\)/.test(msg || ''), String(msg));
+  T('declining leaves the hidden workout intact', JSON.parse(store[R.AW_KEY]).log.hex_dl.reps.join() === '5,5,5', store[R.AW_KEY]);
+  global.confirm = () => true;
+  R.beginW('B');
+  T('accepting proceeds and starts the new workout', R.getD().location === 'partner' && JSON.parse(store[R.AW_KEY]).day === 'B');
+  delete global.confirm;
+  R.getD().location = 'home';
   global.localStorage = realLS;
 }
 
