@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),load,SK,getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 // Mirrors what a browser ACTUALLY does when you set textContent and read innerHTML back:
@@ -506,10 +506,45 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   R.setSEG('balance');
   tryRender('Balance renders under the dark palette', () => R.go('stats'));
   tryRender('Body renders under the dark palette', () => R.go('body'));
+  T('explicit dark resolves data-theme to dark', R.getThemeAttr() === 'dark', R.getThemeAttr());
   R.getD().theme = 'auto';
   applyTheme(); // matchMedia stub reports light → auto restores the light palette
   const lt = R.getPal();
   T('applyTheme(auto) restores the light palette', lt.grid === before.grid && lt.cyan === before.cyan);
+
+  // ── data-theme carries the RESOLVED theme, which is what lets one CSS block serve
+  //    both the explicit-dark and auto-dark paths. 'auto' must never leave the attribute
+  //    unset or set to the literal 'auto': the dark tokens key off [data-theme=dark].
+  T('auto on a light OS resolves data-theme to light', R.getThemeAttr() === 'light', R.getThemeAttr());
+  const realMM = global.window.matchMedia;
+  global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
+  applyTheme();
+  T('auto on a dark OS resolves data-theme to dark', R.getThemeAttr() === 'dark', R.getThemeAttr());
+  T('auto on a dark OS also swaps the JS palette', R.getPal().grid === '#2a3450', R.getPal().grid);
+  R.getD().theme = 'light';
+  applyTheme();
+  T('an explicit light preference beats a dark OS', R.getThemeAttr() === 'light', R.getThemeAttr());
+  T('explicit light on a dark OS keeps the light JS palette', R.getPal().grid === before.grid);
+  global.window.matchMedia = realMM;
+  R.getD().theme = 'auto';
+  applyTheme();
+}
+
+// ── The dark token block must exist exactly ONCE ──
+// It used to be duplicated verbatim into an @media(prefers-color-scheme:dark) rule, so a
+// token retuned in one copy and not the other silently diverged auto-dark from explicit
+// dark. Nothing caught that. This is the guard.
+{
+  const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const full = (css.match(/--prRGB:47,179,232/g) || []).length;
+  T('the dark token block is declared exactly once', full === 1, `found ${full}`);
+  // The surviving media query is the pre-JS paint only — two tokens, not a second palette.
+  const mq = css.match(/@media\(prefers-color-scheme:dark\)\{[^}]*\{([^}]*)\}\}/);
+  T('the pre-JS dark fallback exists', !!mq);
+  const toks = mq ? (mq[1].match(/--[\w-]+:/g) || []).length : 99;
+  T('the pre-JS dark fallback stays minimal (≤4 tokens)', toks <= 4, `${toks} tokens`);
+  // It must yield the moment applyTheme() stamps the attribute, either way.
+  T('the pre-JS fallback is scoped to the un-stamped root', !!mq && /:root:not\(\[data-theme\]\)/.test(mq[0]), mq && mq[0].slice(0, 80));
 }
 // Settings: title + Appearance chips + carded cue empty state.
 R.go('settings');

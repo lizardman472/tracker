@@ -42,18 +42,16 @@
 /* ── Dark theme: mirrors every color token. Applies when the SYSTEM prefers dark
    (unless the user forces light in Settings) or when the user forces dark.
    Accents brighten so text passes on the dark cards; --ink flips near-black so
-   filled buttons/badges keep ≥4.5:1 under the brighter fills. The JS chart/day
-   palette mirrors these in applyTheme() — keep in sync. ── */
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
---tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
---prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
---gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
---pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
---dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;
---p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
---sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
---hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}}
+   filled buttons/badges keep ≥4.5:1 under the brighter fills.
+
+   ONE block serves both paths. applyTheme() writes the RESOLVED theme to data-theme
+   ('auto' on a dark-OS device writes 'dark'), so explicit-dark and auto-dark reach the
+   same selector. These 40 tokens used to be duplicated verbatim into an
+   @media(prefers-color-scheme:dark) block as well, so a token retuned in one place and
+   not the other silently diverged the two paths, with nothing to catch it.
+
+   Still mirrored by hand, and still the thing to keep in sync: the JS chart/day palette
+   in applyTheme(), for canvas and string-built SVG that CSS vars cannot reach. ── */
 :root[data-theme=dark]{
 --bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
 --tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
@@ -64,6 +62,11 @@
 --p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
 --sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
 --hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}
+/* Pre-JS paint ONLY: applyTheme() runs at INIT and sets data-theme, but between parse and
+   that call a dark-OS device would flash the light background. Two tokens, not forty --
+   just enough that the flash is the right colour. Self-disables the moment applyTheme()
+   stamps the attribute, whichever way it resolves. */
+@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#0e1220;--tx:#e9edf8}}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* atmospheric backdrop: subtle cyan glow top, deep fade */
@@ -2047,9 +2050,10 @@ DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
 FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
 setHeatPal(dk);
 if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
-try{const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
-if(t==='auto')delete document.documentElement.dataset.theme;
-else document.documentElement.dataset.theme=t;
+// data-theme carries the RESOLVED theme, never the preference: 'auto' on a dark-OS device
+// writes 'dark'. That is what lets one CSS block serve both the explicit and the automatic
+// dark path. The user's preference stays in D.theme, which is what the settings UI reads.
+try{document.documentElement.dataset.theme=dk?'dark':'light';
 const meta=document.querySelector('meta[name=theme-color]');
 if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
