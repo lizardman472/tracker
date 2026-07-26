@@ -1663,6 +1663,25 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${ex.s}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${ex.s}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
+    // The 2-stall branch below PRESCRIBES (ex.s+1)×(mn-2) — reps deliberately under the range
+    // minimum. Scoring that against the base range made the intervention itself strike three,
+    // so a lifter who did exactly what the app told them was deloaded by the very next render
+    // ("...this session before any load cut" → −10% anyway). Recognise the attempt by its
+    // shape and judge it against the cluster prescription instead.
+    // NOTE: reads UNSLICED reps on purpose — the extra sets ARE the signal here, which is why
+    // workSets (which drops them) must not be used for this test.
+    const clusterFloor=Math.max(1,mn-2);
+    const isClusterAttempt=h=>{const v=effectiveReps(ex,h.reps);
+      return v.length>=ex.s+1&&v.every(r=>r>=clusterFloor)};
+    // Only a genuine response to the advice counts — the two sessions before this one must
+    // have been consecutive stalls at this load (i.e. the cluster card was actually shown).
+    // Without that guard any high-set low-rep session would be a free pass past the deload.
+    const priorStalls=(()=>{let n=0;for(let i=hist.length-2;i>=0;i--){const h=hist[i];
+      if(!wEq(loadOf(h),lastLoad))break;if(inRange(h))break;n++}return n})();
+    if(priorStalls>=2&&isClusterAttempt(last)){
+      const cv=effectiveReps(ex,last.reps);
+      return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+        detail:`Cluster hit (${cv.length}×${Math.min(...cv)}) — that was the prescribed intervention, not a third stall. Retry ${ex.s}×${mn}${ex.perSide?'/side':''} at ${lastLoad}kg before any load cut.`,regress}}
     if(stalls>=3){
       // True deload: back off ~10% (the prior one-rung step was <2% on a micro-plate
       // ladder, so it sent you straight back into the same wall). bb snaps to the

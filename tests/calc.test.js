@@ -197,6 +197,35 @@ d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Da
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
 
+// ── audit fix: the prescribed cluster session is judged against ITS OWN prescription ──
+// At 2 stalls the engine says "Try clusters: (s+1)×(mn-2) this session before any load cut" —
+// reps deliberately UNDER the range minimum. Scoring that against the base range made the
+// intervention itself strike three, so a lifter who did exactly what the app told them was
+// deloaded by the very next render.
+{
+  const fpC = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 mn:8 → cluster 5×6
+  const twoStalls = () => [40, 35].map((off, i) => ({ id: 'cl' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [7, 7, 6, 6], band: '' }] }));
+  const third = reps => ({ id: 'cl3', date: ymd(new Date(Date.now() - 30 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps, band: '' }] });
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = twoStalls();
+  T('two stalls still prescribe the cluster', /cluster/i.test(getSmartSugg(fpC).text), getSmartSugg(fpC).text);
+  // Hitting the prescription holds the load and re-runs the base scheme.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('a clean cluster holds the load instead of deloading', sg.type === 'stay' && sg.wt === 32, JSON.stringify(sg));
+  T('...and tells the lifter to retry the base scheme', /Cluster hit/.test(sg.detail) && /Retry 4×8/.test(sg.detail), sg.detail);
+  T('a clean cluster raises no stall signal for the deload gate', getPhaseInfo().stalledMajor === 0, JSON.stringify(getPhaseInfo().stalledMajor));
+  // Missing the cluster floor (mn-2 = 6) still deloads — the escalation ladder is intact.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([4, 4, 4, 4, 4])];
+  T('a missed cluster still deloads', getSmartSugg(fpC).type === 'dn', JSON.stringify(getSmartSugg(fpC)));
+  // Same reps but no extra set = not the prescription, so it is an ordinary third stall.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [...twoStalls(), third([6, 6, 6, 6])];
+  T('a plain below-min session at the base set count still deloads', getSmartSugg(fpC).type === 'dn', JSON.stringify(getSmartSugg(fpC)));
+  // Guard: without two prior stalls the cluster card was never shown, so the shape earns nothing.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' }); d.sessions = [third([6, 6, 6, 6, 6])];
+  sg = getSmartSugg(fpC);
+  T('an extra-set low-rep session without prior stalls is not a free pass', sg.type === 'stay' && /1\/3 stalls/.test(sg.detail), JSON.stringify(sg));
+}
+
 // ── audit fix: ACCESSORY sets past the prescription are not judged as working sets ──
 // The first ex.s counted sets are the working sets; a back-off/drop set logged after them
 // is extra volume. Capping the COUNT wasn't enough — the every() scan still saw the extra
