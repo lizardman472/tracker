@@ -530,6 +530,43 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   applyTheme();
 }
 
+// ── Browser chrome colour ──
+// The head carries a media-scoped theme-color pair so a dark-OS device gets dark chrome
+// before JS boots. applyTheme() must then REMOVE that pair and drive #tc itself —
+// otherwise an explicit light preference on a dark OS keeps losing to the dark media rule.
+{
+  const head = html.slice(0, html.indexOf('</head>'));
+  const metas = head.match(/<meta name="theme-color"[^>]*>/g) || [];
+  T('head declares a light + dark theme-color pair plus the JS-owned one', metas.length === 3, String(metas.length));
+  T('the pre-JS pair is media-scoped', metas.filter(m => /media=/.test(m)).length === 2);
+  T('the JS-owned theme-color is addressable by id', metas.some(m => /id="tc"/.test(m)));
+
+  const removed = [];
+  const realQSA = global.document.querySelectorAll, realGEI = global.document.getElementById;
+  let tc = null;
+  global.document.querySelectorAll = sel => /\[media\]/.test(sel)
+    ? [{ remove() { removed.push('light') } }, { remove() { removed.push('dark') } }] : [];
+  global.document.getElementById = id => id === 'tc'
+    ? { setAttribute(k, v) { if (k === 'content') tc = v } } : realGEI.call(global.document, id);
+
+  R.getD().theme = 'dark';
+  applyTheme();
+  T('applyTheme removes the pre-JS theme-color pair', removed.length === 2, JSON.stringify(removed));
+  T('applyTheme paints dark chrome for an explicit dark preference', tc === '#0e1220', String(tc));
+
+  const realMM = global.window.matchMedia;
+  global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
+  R.getD().theme = 'light';
+  applyTheme();
+  T('an explicit light preference paints light chrome even on a dark OS', tc === '#f4f6fb', String(tc));
+  global.window.matchMedia = realMM;
+
+  global.document.querySelectorAll = realQSA;
+  global.document.getElementById = realGEI;
+  R.getD().theme = 'auto';
+  applyTheme();
+}
+
 // ── The dark token block must exist exactly ONCE ──
 // It used to be duplicated verbatim into an @media(prefers-color-scheme:dark) rule, so a
 // token retuned in one copy and not the other silently diverged auto-dark from explicit

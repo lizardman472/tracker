@@ -6,7 +6,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Tracker">
-<meta name="theme-color" content="#f4f6fb">
+<!-- Browser chrome colour. The media-scoped pair is the PRE-JS paint: a dark-OS device
+     used to get light chrome from parse until applyTheme() ran at INIT. Browsers use the
+     first theme-color whose media matches, so the dark rule wins on a dark OS and the
+     unmediated #tc below is the fallback. Once applyTheme() runs it REMOVES the pair and
+     owns #tc outright -- otherwise an explicit light preference on a dark-OS device would
+     stay overridden by the dark media rule. -->
+<meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="tc" content="#f4f6fb">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Rack-Free Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
@@ -2054,7 +2062,10 @@ if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.for
 // writes 'dark'. That is what lets one CSS block serve both the explicit and the automatic
 // dark path. The user's preference stays in D.theme, which is what the settings UI reads.
 try{document.documentElement.dataset.theme=dk?'dark':'light';
-const meta=document.querySelector('meta[name=theme-color]');
+// Drop the pre-JS media pair and own #tc: with the pair still present, an explicit light
+// preference on a dark-OS device would keep losing to the dark media rule.
+document.querySelectorAll('meta[name=theme-color][media]').forEach(m=>m.remove());
+const meta=document.getElementById('tc');
 if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // --dayA/--dayB/--dayC tokens. Trio validated full-strength on white, all pairs
