@@ -239,7 +239,10 @@ padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0
 .add-set:active{border-color:var(--pr);color:var(--pr)}
 .add-set.rm{flex:0 0 46px;color:var(--rd)}
 /* Tappable Previous cell */
-button.set-prev{border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit}
+button.set-prev{border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit;position:relative}
+/* The visible text is 10px tall, far under any usable touch target. Grow the HIT AREA with
+   an overlay instead of padding, so the set row's height is unchanged. */
+button.set-prev::after{content:'';position:absolute;inset:-9px -6px}
 button.set-prev:active{color:var(--pr)}
 /* Delta pills (Muscle Trend, Monthly) */
 .delta-pill{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;vertical-align:2px}
@@ -2721,7 +2724,7 @@ const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
 ${pl==='—'?`<span class="set-prev">—</span>`
-:`<button type="button" class="set-prev" title="Use previous" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
+:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
@@ -2763,7 +2766,7 @@ for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoint
 h+=`</div>`}h+=`</div>`;
 
 // Notes
-h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
+h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." oninput="setL('${ex.id}','notes',this.value)" onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
 h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><button class="btn-ghost" style="font-size:10px" onclick="editCue('${ex.id}')">✏ ${cue?'Edit':'Add'} cue</button>
 <span class="dm" style="font-size:9px;max-width:55%;text-align:right">${esc(ex.rl)}</span></div>`;
 h+=`</div>`; // ex-expand

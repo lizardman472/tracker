@@ -592,3 +592,67 @@ pagination; dark-mode under-MEV heat fill; `saveBod` can't clear a mistyped meas
 two-tab merge drops cues/noProg; `checkResume` re-parses every render; manifest `theme_color`
 is light-only; duplicated dark-theme token block; home venue exceeds 3 MAV landmarks; glute
 credit inflated; no extensor-endurance slot (accepted since v16).
+
+---
+
+## 13 · Fourth pass — re-check + backlog clearance (26 Jul 2026)
+
+### The third pass's own work held up
+
+14 adversarial cases against HEAD, all correct: cluster run boundaries (first-ever session,
+load change mid-run, a clean session resetting the run, 6-set clusters), repless rows
+interleaved in a stall run, and the `minSets` floor against both legitimate cross-day cases.
+Worth recording: `band_er` has `s=2`, which would give it a floor of 1 — but it is a band lift
+and never enters the weighted branch where `minSets` lives, so the floor is sound for every
+lift it actually governs.
+
+### Fixed
+
+| Finding | Before → after |
+|---|---|
+| **Cardio counted as a full session in the fatigue score.** Each entry added a whole session to the frequency term, and easy cardio (`diff 2`) simultaneously dragged the effort term down. | 7 easy walks + zero lifting: **5.0 Ready → 1.2 Fresh**. Both documented calibration anchors unmoved. |
+| **The two-tab conflict merge dropped cues.** `mergeStores` had no `cues` branch at all, so a cue typed in one tab vanished when the other saved. `noProg` was lost the same way on an id collision, silently re-admitting an excluded session to the engine. | Cues union by key (local wins); `noProg` is sticky from either side. |
+| **The Balance "Priority" nudge fired on an empty account** — every gated muscle sits at 0, so the largest MEV won by default and a brand-new user was told to add sets to Back/Lats. | Guarded on having history, matching the empty state the card above it already used. |
+| **No heading structure** — two heading tags across nine screens. | `h1` app / `h2` screen / `h3` section, with sr-only titles where the design has no title text. Nothing moved visually. |
+| **Incomplete tab pattern** — `role="tab"` in a `role="tablist"`, no `tabpanel`, no `aria-controls`. | Chips get ids + `aria-controls`; a `tabpanel` names the *selected* chip back, so the association follows the switch. |
+| Session notes only reached memory on blur (`onchange`), unlike `SNOTES` which already synced on input. | `oninput` added; a kill mid-typing no longer loses the text. |
+| The "use previous" control is a real `<button>`, but its hit area was the 10px text. | Expanded via an overlay pseudo-element — target grows, set-row height unchanged — plus a real `aria-label` (`title` is unreliable on touch). |
+
+### Re-documented, not fixed — the previous entries were imprecise
+
+- **Under-MEV heat contrast is NOT dark-mode-specific.** Measured against the untrained cell:
+  **dark 1.29:1, light 1.15:1** — light is worse. Reaching the 3:1 non-text threshold needs
+  alpha ≈0.6 in dark and is unreachable in light without changing the amber itself. That is a
+  palette re-derivation against both themes, not a coefficient tweak, so it stays open with
+  numbers attached rather than being half-fixed and called done.
+- **The rest-day card does not block training.** It ships a "Day X anyway" button; what it
+  omits is the A/B/C *picker*, so the suggested day is the only one reachable in one tap. The
+  original entry overstated this. Low severity, and de-emphasising training on a rest day looks
+  deliberate.
+- **`saveBod` genuinely cannot clear a measurement** (`if(!isNaN(v))` skips empty inputs, so the
+  old value persists). Not a one-liner: blank normally means "not measuring this today", so
+  clearing needs an explicit affordance to express intent. Stays open.
+
+### What this pass says about testing, again
+
+Three of this pass's own tests were wrong before they were right, all in the same direction —
+**passing against something other than what they claimed to check**:
+
+- The heading test asked for view `'hist'`. `render()` dispatches via `fn[VIEW]||rHome`, so it
+  silently rendered **Home** and passed while asserting nothing about History.
+- The tab test hardcoded 5 tabs; `SEGS` has 6. It now derives the count from the rendered
+  markup.
+- One suite run was committed with a failing assertion because the shell pipeline ended in
+  `tail`, which masks the exit code. Test commands now check exit status explicitly.
+
+The pattern across four passes is consistent: the code under test is usually fine, and the
+thing that lies is the harness — an over-escaping stub, a suite that exits silently, a test
+pointed at the wrong screen. Distrust the scaffolding first.
+
+**868 passing** — calc 398 · hex 220 · render.smoke 236 · sw 38 — plus 15/15 mutations caught.
+SW cache `rft-v75`.
+
+Still open: History pagination; `checkResume` re-parses every render (6 calls); manifest
+`theme_color` is light-only; duplicated dark-theme token block; under-MEV heat contrast (above);
+`saveBod` clearing (above); rest-day day-picker (above); home venue exceeds 3 MAV landmarks;
+glute credit inflated; no extensor-endurance slot (accepted since v16).

@@ -713,4 +713,22 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.setSEG('overview');
 }
 
+// ── audit tail: notes survive without a blur; the "use previous" target is reachable ──
+{
+  R.getD().location = 'home';
+  R.beginW('A');
+  R.setCIDX(0);
+  R.render();
+  const m = R.getA();
+  // onchange fires on blur, so a note typed and then killed was lost. SNOTES already kept
+  // memory in sync via oninput; the per-exercise note now matches that pattern.
+  T('the per-exercise note updates on input, not only on blur', /class="ni"[^>]*oninput="setL\('hex_dl','notes'/.test(m), (m.match(/class="ni"[^>]*/) || [''])[0].slice(0, 150));
+  T('...and still persists on change', /class="ni"[^>]*onchange="setL\('hex_dl','notes',this\.value\);saveAW\(\)"/.test(m));
+  // The "use previous" control is a real button, but its visible text is 10px tall — the hit
+  // area is grown with an overlay rather than padding so the set row's height is unchanged.
+  T('the use-previous control carries an accessible name', /class="set-prev"[^>]*aria-label="Use previous set \d+/.test(m), (m.match(/class="set-prev"[^>]*/) || [''])[0].slice(0, 130));
+  T('its hit area is expanded beyond the 10px text', /button\.set-prev::after\{[^}]*inset:-9px -6px/.test(html));
+  T('...without adding height to the set row', !/button\.set-prev\{[^}]*padding:\s*\d*[1-9]/.test(html));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
