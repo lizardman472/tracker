@@ -3416,7 +3416,12 @@ if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;paddin
 
 // Priority nudge — the ONE canonical "what to fix" line (it used to be restated
 // three times: here-ish, in the balance card, and in the status cell).
+// Needs history to be meaningful: with nothing logged, EVERY gated muscle sits at 0 and the
+// largest MEV wins by default, so a brand-new account was told "Back/Lats is furthest below
+// MEV — add a set there" before it had seen a single session. Nothing to prioritise yet is
+// not the same as a deficit, and the trend card above already stays quiet on an empty account.
 {let worst=null,worstGap=0;
+if(D.sessions.length)
 for(const[key,label,mev] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
 if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set there first. Details in Balance.</span></div>`;}
 

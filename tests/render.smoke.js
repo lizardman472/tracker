@@ -625,4 +625,21 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('document title carries no stale version number', t && !/v\d+/i.test(t[1]), t && t[1]);
 }
 
+// ── audit fix: the Balance "Priority" nudge must not fire on an empty account ──
+// It has no history guard, so with zero sessions every MEV-gated muscle has gap == mev and
+// the largest MEV wins: a user who has logged nothing was told to add sets to Back/Lats. The
+// Overview screen two lines above it already handles its own empty state; this follows suit.
+{
+  const realD = R.getD();
+  R.setD({ ...structuredClone(R.SEED), sessions: [], cardioLog: [], bodyLog: [], discomfort: [], cues: {}, location: 'home' });
+  R.setSEG('overview');
+  tryRender('Progress renders on a completely empty account', () => R.go('stats'));
+  T('no Priority nudge with zero logged sessions', !/Priority:/.test(R.getA()), (R.getA().match(/Priority:[^<]{0,60}/) || [''])[0]);
+  // ...but the nudge must still appear once there is real history sitting below MEV.
+  R.setD(realD);
+  R.setSEG('overview');
+  R.go('stats');
+  T('the Priority nudge still fires when there IS history below MEV', /Priority:/.test(R.getA()), 'nudge missing on a populated account');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
