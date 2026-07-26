@@ -1550,6 +1550,21 @@ hist=hist.filter(h=>!h.noProg);
 // (edge case), keep it — a light anchor beats "first time".
 if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const dlEnd=ymd(de);
   const f=hist.filter(h=>h.date<D.lastDeload||h.date>dlEnd);if(f.length)hist=f}
+// Rows with a weight but NO reps carry no progression signal. savePast saves one as soon as a
+// weight or band is entered (`if(wt)hasData=true`), so "I trained this at 32kg" with the rep
+// boxes left blank produced a session the engine read as below-range — three of them forced a
+// full ~10% deload and raised the stalled-lift count feeding the deload banner. Dropped from
+// the ENGINE's view only; they still count for history, tonnage and the muscle split.
+{const withReps=hist.filter(h=>effectiveReps(ex,h.reps).length>0);
+ // All we have is weight-only rows: don't fall through to the first-session seed as though
+ // nothing were known — the load IS known, the reps aren't. Say exactly that.
+ if(!withReps.length&&hist.length){
+   const lw=hist[hist.length-1],w=Number(lw.wt)>0?Number(lw.wt):exMaxWt(lw);
+   if(w>0)return{text:`→ ${w}kg`,type:'stay',wt:w,traj:[],
+     detail:`Logged at ${w}kg but with no reps recorded — log your reps to start progressing this lift.`,regress:''};
+   if(lw.band)return{text:`→ ${lw.band}`,type:'stay',wt:null,band:lw.band,traj:[],
+     detail:`Logged with a band but no reps — log your reps to start progressing this lift.`,regress:''}}
+ hist=withReps}
 hist=hist.slice(-5);
 const last=hist.length?hist[hist.length-1]:null;
 if(!last){

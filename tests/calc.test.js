@@ -197,6 +197,31 @@ d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Da
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
 
+// ── audit fix: a row logged with a weight but NO reps is not a failed session ──
+// savePast commits a row as soon as a weight or band is entered (`if(wt)hasData=true`), so
+// "I trained this at 32kg" with the rep boxes blank produced a session the engine read as
+// below-range. Three of them forced a full ~10% deload and raised the stalled-lift count that
+// drives the deload banner — a phantom failure built entirely from rows containing no reps.
+{
+  const fpR = getProgram(1, 'home').A.find(e => e.id === 'floor_press');
+  const repless = n => { d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+    d.sessions = Array.from({ length: n }, (_, i) => ({ id: 'wo' + i, date: ymd(new Date(Date.now() - (30 - i * 4) * 864e5)), day: 'A', loc: 'home', retro: true, ex: [{ id: 'floor_press', wt: 32, reps: [0, 0, 0, 0], band: '', notes: '' }] }));
+    return getSmartSugg(fpR) };
+  T('three weight-only rows no longer force a deload', repless(3).type !== 'dn', JSON.stringify(repless(3)));
+  T('...and raise no stall signal for the deload banner', (repless(3), getPhaseInfo().stalledMajor === 0), String(getPhaseInfo().stalledMajor));
+  // The load IS known even though the reps aren't — don't fall back to the first-session seed
+  // as though nothing were on record. (This branch throws if it references discWarn, which is
+  // declared further down the function; that is exactly how the TDZ bug here was caught.)
+  T('a weight-only history holds at the recorded weight, not the seed', repless(3).wt === 32 && /no reps recorded/.test(repless(3).detail), JSON.stringify(repless(3)));
+  T('the weight-only branch does not throw', (() => { try { repless(1); return true } catch (e) { return false } })());
+  // A real session alongside repless rows must still drive progression normally.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [
+    { id: 'real', date: ymd(new Date(Date.now() - 10 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10], band: '' }] },
+    { id: 'wo', date: ymd(new Date(Date.now() - 4 * 864e5)), day: 'A', loc: 'home', retro: true, ex: [{ id: 'floor_press', wt: 32, reps: [0, 0, 0, 0], band: '' }] }];
+  T('a repless row does not mask a real session behind it', getSmartSugg(fpR).type === 'up', JSON.stringify(getSmartSugg(fpR)));
+}
+
 // ── audit fix: the prescribed cluster session is judged against ITS OWN prescription ──
 // At 2 stalls the engine says "Try clusters: (s+1)×(mn-2) this session before any load cut" —
 // reps deliberately UNDER the range minimum. Scoring that against the base range made the
