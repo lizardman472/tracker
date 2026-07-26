@@ -18,13 +18,13 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 global.navigator = {};
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, setD, getD } = global.__X;
+const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, setD, getD, getDropped, setADAY, SK } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -760,6 +760,57 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
   T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
+// ── audit fix: load() never discards sessions silently ──
+// The load path drops sessions validSession rejects. That used to be invisible — the raw
+// rescue copy was written only from the catch (which a parseable-but-malformed store never
+// reaches), so the loss vanished and the next save() made it permanent with nothing to
+// recover from. Import has always reported "N malformed sessions skipped"; load now matches.
+{
+  const store = {};
+  const realLS = global.localStorage;
+  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+  const good = { id: 'ok1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] };
+
+  // One good + one malformed (no ex array → validSession returns null).
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good, { id: 'bad1', date: '2026-06-03', day: 'B' }] });
+  const rawBefore = store[SK];
+  load();
+  T('load keeps the salvageable session', getD().sessions.length === 1 && getD().sessions[0].id === 'ok1', JSON.stringify(getD().sessions));
+  T('load counts what it dropped', getDropped() === 1, String(getDropped()));
+  T('load parks the raw store for recovery', store[SK + '-corrupt'] === rawBefore);
+
+  // Clean store: no loss, no rescue copy, no false alarm.
+  delete store[SK + '-corrupt'];
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good] });
+  load();
+  T('a clean store drops nothing', getDropped() === 0 && getD().sessions.length === 1);
+  T('a clean store writes no corrupt copy', store[SK + '-corrupt'] == null);
+
+  // sessions not an array at all → total loss, flagged, not a silently-empty log.
+  store[SK] = JSON.stringify({ ...freshState(), sessions: { nope: true } });
+  load();
+  T('a non-array sessions field is flagged as total loss', getDropped() === -1 && getD().sessions.length === 0, String(getDropped()));
+  T('total loss still parks a raw copy', store[SK + '-corrupt'] != null);
+
+  // ── saveAW reports whether the backup actually landed ──
+  // saveSumm's quota-failure path promised "still safe in the resume backup"; a full
+  // localStorage is exactly when that write fails too.
+  setD(structuredClone(SEED)); getD().location = 'home';
+  setADAY('A');
+  T('saveAW returns true on a successful write', saveAW() === true);
+  global.localStorage.setItem = () => { throw new Error('QuotaExceededError') };
+  T('saveAW returns false when the write throws', saveAW() === false);
+  global.localStorage.setItem = (k, v) => { store[k] = v };
+  setADAY(null);
+  T('saveAW returns false with no active workout', saveAW() === false);
+  // Lock in that the caller actually branches on it (source check, same style as the
+  // finishW/resumeW guards above) — a true-ish call whose result is ignored is the bug.
+  T('saveSumm branches its warning on the saveAW result', /const backed=saveAW\(\)/.test(String(saveSumm)) && /backed\s*\n?\s*\?/.test(String(saveSumm)), String(saveSumm).slice(0, 60));
+
+  global.localStorage = realLS;
+  setD(freshD());
 }
 
 // ── Progress rebuild A2: band-lift progression helpers ──

@@ -1075,7 +1075,11 @@ if(d.programVersion>=17)return d;
 d.programVersion=17;
 return d}
 
-function load(){try{let s=localStorage.getItem(SK);
+// How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
+// unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
+// or merged — it describes this boot, not the data. Read by the rHome rescue banner.
+let LOAD_DROPPED=0;
+function load(){LOAD_DROPPED=0;try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
 // entered) — import treats it like a fresh device and adopts backup metadata wholesale.
@@ -1085,7 +1089,21 @@ let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true;
 d.phaseStart=today()}
 // Guard the load path like import does — drop malformed sessions so a partially corrupted
 // (but still parseable) store can't crash render. Good data passes through unchanged.
-d.sessions=Array.isArray(d.sessions)?d.sessions.map(validSession).filter(Boolean):[];
+// Losses are COUNTED and the raw store is parked under SK+'-corrupt' first. This used to be
+// silent: the rescue copy was written only from the catch below (which a parseable-but-
+// malformed store never reaches), so dropped sessions vanished and the next save() — any
+// banner dismiss, tick or theme tap — made it permanent with nothing to recover from.
+// Import already reports "N malformed sessions skipped"; the load path now matches it.
+if(Array.isArray(d.sessions)){
+  const kept=d.sessions.map(validSession).filter(Boolean);
+  LOAD_DROPPED=d.sessions.length-kept.length;
+  d.sessions=kept;
+}else{
+  // Not even an array — treat as total loss rather than silently booting an empty log.
+  LOAD_DROPPED=d.sessions==null?0:-1;
+  d.sessions=[];
+}
+if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s)}catch(_){}
 if(!d.cues)d.cues={};if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
@@ -1135,9 +1153,13 @@ clearAW();clearTimer();save();go('home')}
 // Patch 11: saveAW stores loc, phase, exIds for resume validation.
 // Audit: session notes + warm-up checklist ride along too — they were silently
 // lost on an app kill while every set survived.
-function saveAW(){if(!ADAY)return;try{const exIds=dayExs(ADAY).map(e=>e.id);
+// Returns whether the backup actually reached storage. saveSumm's quota-failure path told the
+// user "your workout is still safe in the resume backup" unconditionally — but a full or
+// blocked localStorage is exactly when this write fails too, so the reassurance was at its
+// least true precisely when it mattered most. Callers must not claim safety without checking.
+function saveAW(){if(!ADAY)return false;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}))}catch(e){}}
+loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}));return true}catch(e){return false}}
 function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
@@ -2151,12 +2173,18 @@ ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="resumeW()">Resume</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="clearAW();render()">Discard</button></div></div>`}
 
-// Corrupt-store rescue: load() parked the unparseable raw store under SK+'-corrupt' and
-// fell back to demo data — but never told the user. Surface it with a way out.
+// Corrupt-store rescue: load() parked the raw store under SK+'-corrupt' and either fell back
+// to demo data (unparseable) or dropped the sessions it couldn't validate (parseable but
+// malformed) — but never told the user. Surface it with a way out. The copy outlives the
+// boot that made it, so the wording is keyed off THIS boot's LOAD_DROPPED: a stale copy from
+// an earlier rescue still offers the download without re-claiming a loss that isn't current.
 try{if(localStorage.getItem(SK+'-corrupt')){
+const partial=LOAD_DROPPED>0;
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
-<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ Stored data was corrupted</div>
-<div class="dm" style="margin-bottom:8px">Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.</div>
+<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${LOAD_DROPPED} session${LOAD_DROPPED>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
+<div class="dm" style="margin-bottom:8px">${partial
+?`${LOAD_DROPPED} stored session${LOAD_DROPPED>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
+:`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');render()}">Discard</button></div></div>`}}catch(e){}
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
@@ -2747,8 +2775,12 @@ D.nextDay=NEXT_DAY[S.day]||'A';
 if(!save()){
   // Roll back the in-memory pushes so state matches storage; re-stamp the resume
   // backup so it can't age out of the 2h window while the user frees space.
-  D.sessions.pop();D.discomfort.length=dN;saveAW();
-  alert('⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.');
+  D.sessions.pop();D.discomfort.length=dN;
+  // Only promise the backup if it was actually written — see saveAW.
+  const backed=saveAW();
+  alert(backed
+    ?'⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.'
+    :'⚠ Could not save — storage is full or blocked, and the resume backup could not be written either. Do NOT close this screen: free some space (or export a backup from Settings in another tab), then tap Save again. Your workout only exists on this screen right now.');
   return}
 clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')}
 

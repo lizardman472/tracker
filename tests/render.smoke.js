@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 const escHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -485,5 +485,30 @@ const setScr = R.getA();
 T('Settings has a screen title', /pg-title">Settings</.test(setScr));
 T('Settings shows the Appearance theme chips', /Appearance/.test(setScr) && /D.theme='dark'/.test(setScr) && /aria-pressed/.test(setScr));
 T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.test(setScr));
+
+// ── Corrupt-store rescue banner: partial-drop wording vs total-loss wording ──
+// load() now counts sessions it had to discard and parks the raw store; the banner must say
+// which happened. The old copy always claimed "what you see now is a fresh/demo state",
+// which is wrong (and alarming) when most of the history loaded fine.
+{
+  const store = {};
+  const realLS = global.localStorage;
+  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
+  const good = { id: 'ok1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] };
+  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
+  R.load();
+  tryRender('home renders after a partial-drop load', () => R.go('home'));
+  const partial = R.getA();
+  T('partial drop names the count, not a demo reset', /1 session couldn.{0,6}t be read/.test(partial) && !/fresh\/demo state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
+  T('partial-drop banner still offers the raw-copy download', /dlCorrupt\(\)/.test(partial));
+  // Unparseable store → the original total-loss wording.
+  store[R.SK] = '{not json';
+  R.load();
+  tryRender('home renders after an unparseable load', () => R.go('home'));
+  const total = R.getA();
+  T('total loss keeps the fresh/demo wording', /Stored data was corrupted/.test(total) && /fresh\/demo state/.test(total));
+  global.localStorage = realLS;
+  R.setD(D);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
