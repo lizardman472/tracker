@@ -943,6 +943,29 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.getD().cardioLog = [];
 }
 
+// ── Audit 6 / F4: deleting a session records a tombstone ──
+// delS is the only writer of D.deleted; without it mergeStores has nothing to filter on and
+// the two-tab union resurrects the row. Checked here (not calc.test.js) because delS renders.
+{
+  const saved = R.getD().sessions;
+  R.getD().sessions = [
+    { id: 'tomb1', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] },
+    { id: 'tomb2', date: '2026-06-12', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 30, reps: [7, 7, 7, 7], band: '' }] },
+  ];
+  R.getD().deleted = [];
+  R.go('history');
+  delS('tomb2');                     // first tap only arms the button
+  T('the first delete tap does not remove the session', R.getD().sessions.length === 2, R.getD().sessions.length);
+  T('the first delete tap writes no tombstone', R.getD().deleted.length === 0, JSON.stringify(R.getD().deleted));
+  delS('tomb2');                     // second tap confirms
+  T('the confirmed delete removes the session', R.getD().sessions.map(s => s.id).join() === 'tomb1', JSON.stringify(R.getD().sessions.map(s => s.id)));
+  T('the confirmed delete records a tombstone', R.getD().deleted.includes('tomb2'), JSON.stringify(R.getD().deleted));
+  T('the tombstone survives a two-tab merge with a store that still has the row',
+    !mergeStores(R.getD(), { sessions: [{ id: 'tomb2', date: '2026-06-12', day: 'B', ex: [] }] }).sessions.some(s => s.id === 'tomb2'));
+  R.getD().sessions = saved;
+  R.getD().deleted = [];
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and
 // reads the exit code; without this, hex.test.js and render.smoke.js exited 0 no matter how

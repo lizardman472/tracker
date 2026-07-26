@@ -1073,6 +1073,9 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
+// How many deleted-session tombstones D.deleted keeps (see mergeStores). ~20 bytes each; the
+// list only needs to outlive another tab's stale in-memory snapshot, so this is generous.
+const TOMB_MAX=300;
 let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
@@ -1180,6 +1183,9 @@ if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setIte
 if(!d.cues||typeof d.cues!=='object')d.cues={};
 else{const cz={};for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))cz[k]=v;d.cues=cz}
 if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
+// Deletion tombstones (see mergeStores). Same charset as a validated session id, so a
+// hand-edited store can't smuggle anything else in; absent on every pre-v79 store.
+d.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)).slice(-TOMB_MAX);
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
@@ -1228,7 +1234,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto'}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -4062,6 +4068,10 @@ window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)ret
 if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
+// Tombstone the id so the two-tab conflict merge can't union the row back in from a stale
+// tab's store. See mergeStores.
+if(!Array.isArray(D.deleted))D.deleted=[];
+if(/^[\w.-]{1,64}$/.test(String(id)))D.deleted=[...D.deleted.filter(x=>x!==String(id)),String(id)].slice(-TOMB_MAX);
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
 D.nextDay=NEXT_DAY[last.day]||'A'}else D.nextDay='A';save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
@@ -4272,8 +4282,18 @@ return{...s,id,day,ex}}
 // smuggle malformed sessions past the load-path validation.
 function mergeStores(mine,theirs){const W=structuredClone(mine);
 if(!theirs||typeof theirs!=='object')return W;
+// Deletion is the one thing a pure union cannot express. Deleting a session in this tab and
+// then saving anything at all in the other one — dismissing a banner, tapping a theme, logging
+// cardio — used to union the still-present row straight back in, and the deleted session
+// reappeared with no interaction that could have caused it. D.deleted is a tombstone list
+// (session ids only, capped); it is unioned from both stores and applied to both sides, so a
+// delete in either tab wins and then propagates on the next write.
+const tomb=new Set([...(Array.isArray(W.deleted)?W.deleted:[]),...(Array.isArray(theirs.deleted)?theirs.deleted:[])]
+  .filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)));
+W.sessions=W.sessions.filter(s=>!tomb.has(s.id));
 const sIds=new Map(W.sessions.map(s=>[s.id,s]));
 for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(!v)continue;
+  if(tomb.has(v.id))continue;
   const mine=sIds.get(v.id);
   // On an id collision the local row wins — EXCEPT for noProg, which marks a session the user
   // deliberately excluded from progression. Dropping it silently re-admitted that session to
@@ -4304,6 +4324,10 @@ if(!W.cues||typeof W.cues!=='object')W.cues={};
 if(theirs.cues&&typeof theirs.cues==='object'){
   for(const[k,v] of Object.entries(theirs.cues))
     if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k)&&!(k in W.cues))W.cues[k]=v}
+// Carry the union forward (newest last, capped) so the delete keeps propagating until every
+// tab has seen it. TOMB_MAX is a bound on unbounded growth, not a correctness knob: a
+// tombstone only has to outlive the other tab's stale in-memory snapshot.
+W.deleted=[...tomb].slice(-TOMB_MAX);
 return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
@@ -4336,6 +4360,11 @@ let added=0,replaced=0;
 for(const s of d.sessions){if(existingMap.has(s.id))replaced++;else added++;existingMap.set(s.id,s)}
 W.sessions=[...existingMap.values()];
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+// An import is an explicit, reported act — unlike the silent cross-tab union — so it is
+// allowed to bring back a session this device once deleted. Lift the tombstone for anything
+// the backup actually carries, or the next two-tab merge would immediately re-delete it.
+{const back=new Set(d.sessions.map(s=>s.id));
+ W.deleted=(Array.isArray(W.deleted)?W.deleted:[]).filter(x=>!back.has(x));}
 // Merge cardio, discomfort, body logs (additive) — re-sort body log so date-ordered
 // readers (current weight, change, trend chart, W:H ratio, relative strength) stay correct.
 const cIds=new Set(W.cardioLog.map(c=>c.id));

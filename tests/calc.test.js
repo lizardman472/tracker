@@ -846,6 +846,19 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // It used to be adopted unconditionally, which broke two ways on a device with history.
   T('merge-existing: lastDeload NOT adopted onto a non-fresh device', m2.W.lastDeload === null, String(m2.W.lastDeload));
   {
+    // ── Audit 6 / F4: an explicit import may LIFT a tombstone ──
+    // mergeStores treats D.deleted as authoritative, so a restored session would be re-deleted
+    // by the next cross-tab merge unless the import clears its tombstone. An import is an
+    // explicit, reported act — unlike the silent union — so restoring is the right outcome.
+    const back = JSON.parse(exported);
+    const withTomb = { ...freshState(), sessions: [mk('keep', '2026-05-02', 'A', 'home', [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', notes: '' }])], deleted: [back.sessions[0].id, 'unrelated'] };
+    const lifted = mergeImport(withTomb, back).W;
+    T('import: a restored session is not left tombstoned', !lifted.deleted.includes(back.sessions[0].id), JSON.stringify(lifted.deleted));
+    T('import: the restored session actually lands', lifted.sessions.some(s => s.id === back.sessions[0].id));
+    T('import: tombstones for sessions NOT in the backup are kept', lifted.deleted.includes('unrelated'), JSON.stringify(lifted.deleted));
+    T('import: the restored session survives a later two-tab merge', mergeStores(lifted, { ...freshState() }).sessions.some(s => s.id === back.sessions[0].id));
+  }
+  {
     // A local deload date must survive an import that carries a different one...
     const local = freshState();
     local.sessions = [mk('L1', '2026-05-01', 'A', 'home', [{ id: 'hex_dl', wt: 56, reps: [5, 5, 4], band: '', notes: '' }], { phase: 1 })];
@@ -1013,6 +1026,22 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('load survives a non-object cues field', typeof getD().cues === 'object' && !Array.isArray(getD().cues));
   // resetAll must repaint: freshState() sets theme 'auto' but the applied palette lingers.
   T('resetAll re-applies the theme', /applyTheme\(\)/.test(String(resetAll)), String(resetAll).slice(0, 120));
+
+  // ── Audit 6 / F4: the tombstone list is normalised on load ──
+  // Every store written before this release has no `deleted` field at all, and a hand-edited
+  // one could carry anything. mergeStores filters ids into an onclick-safe charset already,
+  // but the load path guards the same shape so nothing downstream has to re-check it.
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: undefined });
+  load();
+  T('a pre-v79 store without a deleted field loads to an empty list', Array.isArray(getD().deleted) && getD().deleted.length === 0, JSON.stringify(getD().deleted));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: ['s123', "x');alert(1);//", 42, null, 'ok-1.2'] });
+  load();
+  T('load keeps well-formed tombstones', getD().deleted.includes('s123') && getD().deleted.includes('ok-1.2'), JSON.stringify(getD().deleted));
+  T('load drops malformed tombstones', getD().deleted.length === 2, JSON.stringify(getD().deleted));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: 'nope' });
+  load();
+  T('load survives a non-array deleted field', Array.isArray(getD().deleted) && getD().deleted.length === 0);
+  T('freshState ships an empty tombstone list', Array.isArray(freshState().deleted) && freshState().deleted.length === 0);
 
   global.localStorage = realLS;
   setD(freshD());
@@ -1332,6 +1361,28 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
       { id: 'cd', date: '2026-06-05', type: 'Rowing', duration: 99, intensity: 'easy' }] };
     T('mergeStores: a duplicate cardio id inside the incoming list lands once',
       mergeStores({ ...freshState() }, cDup).cardioLog.length === 1, JSON.stringify(mergeStores({ ...freshState() }, cDup).cardioLog));
+
+    // ── Audit 6 / F4: a deleted session must stay deleted across the two-tab merge ──
+    // Deletion is the one thing a pure union cannot express, so deleting a session in one tab
+    // and then saving ANYTHING in the other (a banner dismiss, a theme tap, a cardio entry)
+    // unioned the still-present row straight back in.
+    const dSess = id => ({ ...mkSess(id, '2026-06-11', 60) });
+    const delMine = { ...freshState(), sessions: [dSess('k1')], deleted: ['k2'] };
+    const delTheirs = { ...freshState(), sessions: [dSess('k1'), dSess('k2')] };
+    const dm = mergeStores(delMine, delTheirs);
+    T('mergeStores: a session deleted here is not resurrected from their store', !dm.sessions.some(s => s.id === 'k2'), JSON.stringify(dm.sessions.map(s => s.id)));
+    T('mergeStores: undeleted sessions still merge normally', dm.sessions.some(s => s.id === 'k1'));
+    T('mergeStores: the tombstone is carried forward', dm.deleted.includes('k2'), JSON.stringify(dm.deleted));
+    // ...and the reverse direction: THEIR delete must reach OUR still-present row.
+    const dr = mergeStores({ ...freshState(), sessions: [dSess('k1'), dSess('k2')] }, { ...freshState(), deleted: ['k2'] });
+    T('mergeStores: a delete in the other tab removes our copy too', !dr.sessions.some(s => s.id === 'k2'), JSON.stringify(dr.sessions.map(s => s.id)));
+    // Hostile / malformed tombstones are dropped, not adopted (same sink as session ids).
+    const dh = mergeStores({ ...freshState(), sessions: [dSess('k1')] }, { ...freshState(), deleted: ["k1');alert(1);//", 42, null] });
+    T('mergeStores: a malformed tombstone is rejected', dh.sessions.some(s => s.id === 'k1') && dh.deleted.length === 0, JSON.stringify(dh.deleted));
+    // The tombstone list is bounded.
+    const many = Array.from({ length: 400 }, (_, i) => 'z' + i);
+    T('mergeStores: the tombstone list is capped', mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length === 300,
+      mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length);
   }
 
   // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
