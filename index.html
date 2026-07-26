@@ -1505,8 +1505,19 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   // Set-count context comes from the SESSION (reps array length), not today's ex.s —
   // the same id can be prescribed 4 sets on one day and 3 on another (db_lateral A/B),
   // and a clean 3/3 session must read as a hit even when today asks for 4.
-  const hitTarget=h=>{const v=effectiveReps(ex,h.reps);const nSets=Math.min(ex.s,(h.reps||[]).length||ex.s);return v.length>=nSets&&v.every(r=>r>=ex.tg)};
-  const inRange=h=>{const v=effectiveReps(ex,h.reps);return v.length>=1&&v.every(r=>r>=mn)};
+  const nS=h=>Math.min(ex.s,(h.reps||[]).length||ex.s);
+  // CONVENTION: the first nS counted sets are the WORKING sets; anything logged after them
+  // is accessory volume (a back-off set, a drop set, a bonus AMRAP) and must not be judged
+  // against the working prescription. Capping the COUNT alone wasn't enough — the every()
+  // scan still saw the extra sets, so 4×10 followed by a lighter 6 read as "below min", and
+  // three such sessions forced an ~11% deload on a lifter who hit target every time. That
+  // also fought the engine's own advice, which tells you to add a set when you plateau.
+  const workSets=h=>effectiveReps(ex,h.reps).slice(0,nS(h));
+  const hitTarget=h=>{const v=workSets(h);return v.length>=nS(h)&&v.every(r=>r>=ex.tg)};
+  const inRange=h=>{const v=workSets(h);return v.length>=1&&v.every(r=>r>=mn)};
+  // Total reps across the WORKING sets only — the basis for the user-visible "reps dropped"
+  // warning, which must not fire (or be silenced) because accessory sets came and went.
+  const workReps=h=>workSets(h).reduce((a,b)=>a+b,0);
   // CONSECUTIVE trailing stalls at the current weight — a failure 4 sessions ago followed
   // by two clean sessions is history, not a stall-in-progress, and must not trip a deload.
   const stalls=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(!wEq(h.wt,last.wt))break;if(inRange(h))break;n++}return n})();
@@ -1516,16 +1527,18 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   // deload) still requires a fresh confirm session rather than advancing immediately.
   const hitsAtW=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];if(wEq(h.wt,last.wt)&&hitTarget(h)&&sessClean(h))n++;else break}return n})();
   const lastHit=hitTarget(last)&&sessClean(last);const lastInRange=inRange(last);
+  // traj is deliberately NOT sliced — the trend glyph reports total work done, and an extra
+  // set genuinely is more work. Only the judging paths (hit/stall/regress) use workSets.
   const traj=hist.map((h,i)=>{const p=hist[i-1];if(!p)return{s:'●',c:'same'};if(h.wt>p.wt)return{s:'↑',c:'up'};if(h.wt<p.wt)return{s:'↓',c:'dn'};
     const ps=effectiveReps(ex,p.reps).reduce((a,b)=>a+b,0),cs=effectiveReps(ex,h.reps).reduce((a,b)=>a+b,0);
     return cs>ps?{s:'↗',c:'up'}:cs<ps?{s:'↘',c:'dn'}:{s:'→',c:'same'}});
   let regress='';
   if(atW.length>=2){const prev=atW[atW.length-2],curr=atW[atW.length-1];
-    const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,curr.reps).reduce((a,b)=>a+b,0);
+    const pT=workReps(prev),cT=workReps(curr);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT} at ${last.wt}kg`}
   if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
     if(prev.wt&&last.wt&&last.wt<prev.wt&&!wEq(last.wt,prev.wt)&&!inRange(last))regress=`Weight dropped ${prev.wt}→${last.wt}kg`;
-    else if(wEq(prev.wt,last.wt)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=effectiveReps(ex,last.reps).reduce((a,b)=>a+b,0);
+    else if(wEq(prev.wt,last.wt)){const pT=workReps(prev),cT=workReps(last);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
   if(discWarn)regress=discWarn;
   const dbInc=ex.tp==='db'?0.5:1;
@@ -1565,7 +1578,9 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&last.wt){
   if(lastHit){
     const isConfirmLift=CONFIRM_LIFTS.has(ex.id);
     // AMRAP: how many reps over target on the lowest working set drives the jump size.
-    const eRl=effectiveReps(ex,last.reps);
+    // Working sets only — an accessory back-off set used to drag minRep below target and
+    // silently suppress the big-overshoot re-anchor on an otherwise crushing session.
+    const eRl=workSets(last);
     const minRep=eRl.length?Math.min(...eRl):ex.tg;
     const over=minRep-ex.tg; // 0 = just hit target; higher = lots in reserve
     // NOTE: the big-overshoot check runs BEFORE the confirm brake — confirming a load you

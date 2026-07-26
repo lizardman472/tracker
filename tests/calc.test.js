@@ -197,6 +197,44 @@ d.sessions = [40, 35, 30].map((off, i) => ({ id: 'st' + i, date: ymd(new Date(Da
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg));
 
+// ── audit fix: ACCESSORY sets past the prescription are not judged as working sets ──
+// The first ex.s counted sets are the working sets; a back-off/drop set logged after them
+// is extra volume. Capping the COUNT wasn't enough — the every() scan still saw the extra
+// set, so 4×10 (target hit) + a lighter 6 read as "below min", and three such sessions
+// forced an ~11% deload on a lifter who hit target every time. The engine's own plateau
+// advice ("Add a set") and its "+ Add set" button both walked users straight into it.
+{
+  const fpDef = getProgram(1, 'home').A.find(e => e.id === 'floor_press'); // s:4 tg:10 rp '8-10'
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'bo_1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10, 6], band: '' }] }];
+  sg = getSmartSugg(fpDef);
+  T('4×10 + a lighter back-off set reads as a hit, not a stall', sg.type === 'up' && sg.wt > 32, JSON.stringify(sg));
+  // The CRITICAL repro: three target-hitting sessions with a back-off set each.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [40, 35, 30].map((off, i) => ({ id: 'bo' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 10, 10, 6], band: '' }] }));
+  sg = getSmartSugg(fpDef);
+  T('three back-off sessions do not force a deload', sg.type === 'up' && !sg.stalled, JSON.stringify(sg));
+  T('back-off sessions raise no stall signal for the deload gate', getPhaseInfo().stalledMajor === 0 && getPhaseInfo().stalledEx === 0,
+    JSON.stringify({ e: getPhaseInfo().stalledEx, m: getPhaseInfo().stalledMajor }));
+  // A short set INSIDE the working window is still a genuine miss (guard against over-slicing).
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'bo_in', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 6, 10, 10], band: '' }] }];
+  T('a short set inside the working window still blocks the increase', getSmartSugg(fpDef).type !== 'up', JSON.stringify(getSmartSugg(fpDef)));
+  // Cross-day, the OTHER direction from the existing 3-set→4-set test: a 4-set Day-A session
+  // whose first 3 sets met the prescription must satisfy the 3-set Day-B slot.
+  d = freshD({ location: 'partner', phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'xd2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'partner', ex: [{ id: 'db_lateral', wt: 5, reps: [15, 15, 15, 13], band: '' }] }];
+  T('4-set Day-A session satisfies the 3-set Day-B prescription', getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral')).type === 'up',
+    JSON.stringify(getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral'))));
+  T('the same session does NOT satisfy its own 4-set Day-A prescription', getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_lateral')).type !== 'up');
+  // The AMRAP overshoot re-anchor reads the working sets too — a back-off set used to drag
+  // minRep under target and silently suppress the proportional jump.
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'ov_bo', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20, 5], band: '' }] }];
+  sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
+  T('a back-off set does not suppress the big-overshoot jump', sg.type === 'up' && sg.wt >= 35, JSON.stringify(sg));
+}
+
 // ── audit fix: a successful (in-range) deload is not flagged as a "Weight dropped" regression ──
 d = freshD();
 d.sessions = [
