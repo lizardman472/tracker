@@ -1035,3 +1035,39 @@ missed when a worker installs before `updatefound` is attached; a cold first loa
 blocks on the font stylesheet, which F5's service-worker deadline cannot reach.
 
 Standing: no extensor-endurance slot (accepted since v16).
+## 17 · Program v18 — the triceps extension goes back on the ground (27 Jul 2026)
+
+**Not an audit finding — a lifter request.** v13 swapped Day B's Lying Barbell Triceps
+Extension (`bb_skullcr`) for an Overhead Triceps Extension (`oh_triceps_ext`) on the usual
+long-head-stretch argument. v18 reverts it. The reason is practical, not hypertrophic: on
+the floor the bottom depth is capped by the floor itself and the bar can be parked mid-set,
+neither of which the overhead version allows once the bar is behind the head.
+
+| | before (v13–v17) | after (v18) |
+|---|---|---|
+| Day B slot | Overhead Triceps Extension | Lying Barbell Triceps Extension (floor) |
+| active id | `oh_triceps_ext` | `bb_skullcr` |
+| retired stub | `bb_skullcr` | `oh_triceps_ext` |
+| `PHASES.adj` | `oh_triceps_ext` P1 10-12 / P2 12-15 / P3 8-10 | same numbers, on `bb_skullcr` |
+| `RELATED_EX` | `oh_triceps_ext` ← `bb_skullcr` × 0.9 | `bb_skullcr` ← `oh_triceps_ext` × 1.1 |
+
+Sets (3), rest (0:50), bar (straight, 11kg), tempo and `MG` credit (`triceps:1`) are all
+unchanged, so weekly triceps volume does not move and no MEV/MAV landmark shifts. Day counts
+stay home A=9 B=8 C=10.
+
+**The one rough edge, recorded rather than papered over.** `getRelatedSuggestion` fires only
+when an exercise has *no* history at all. A device that logged skullcrushers before v13 has
+`bb_skullcr` history — months stale — so it reads its own last pre-v13 session instead of the
+×1.1 carry-forward from the overhead slot. Rewriting logged sessions to fix that would be
+worse than the symptom, so the slot's coach note asks for one manual re-anchor instead. Fresh
+devices, and anyone whose extension history is entirely post-v13, get the correct carried load
+automatically.
+
+`migrateToV18` is a stamp — both ids live in `ALL_EX`, so every session logged on either one
+still resolves in history, charts, PRs and tonnage.
+
+**1010 passing** — calc 451 · hex 226 · render.smoke 286 · sw 47 — plus 17/17 SW mutations
+caught. New assertions: Day B carries `bb_skullcr` on a straight bar and no longer carries
+`oh_triceps_ext`, the overhead stub still resolves from `ALL_EX`, the ×1.1 carry-forward is
+wired, `bb_skullcr` periodizes and `oh_triceps_ext` no longer does, and `migrateToV18` stamps
+18 idempotently while touching nothing else. SW cache `rft-v82`.

@@ -83,9 +83,11 @@ T('Day B: hex_row replaces bb_row', B.some(e => e.id === 'hex_row') && !B.some(e
 T('hex_row carries bar:7', B.find(e => e.id === 'hex_row').bar === 7);
 // v21 rebalance: curl → Day A (pull day), triceps stays Day B (push day), hex_curl retired.
 T('curl swap lands on Day A as straight bar; hex_curl retired everywhere', A.some(e => e.id === 'bb_curl') && A.find(e => e.id === 'bb_curl').bar === undefined && !A.some(e => e.id === 'hex_curl') && !B.some(e => e.id === 'hex_curl'));
-// v13: lying extension → overhead extension (same slot, still straight bar).
-T('Day B keeps direct triceps (oh_triceps_ext, straight bar), curl moved off', B.some(e => e.id === 'oh_triceps_ext') && B.find(e => e.id === 'oh_triceps_ext').bar === undefined && !B.some(e => e.id === 'bb_curl') && !B.some(e => e.id === 'bb_skullcr'));
-T('bb_skullcr legacy stub resolves (swapped for oh_triceps_ext)', !!ALL_EX.find(e => e.id === 'bb_skullcr'));
+// v13 swapped the lying extension out for the overhead one; v18 swapped it back to the
+// floor. Same slot, same straight bar, both directions.
+T('Day B keeps direct triceps (bb_skullcr, straight bar), curl moved off', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined && !B.some(e => e.id === 'bb_curl') && !B.some(e => e.id === 'oh_triceps_ext'));
+T('oh_triceps_ext legacy stub resolves (v18 swap-back to bb_skullcr)', !!ALL_EX.find(e => e.id === 'oh_triceps_ext'));
+T('v18 lying extension carries load forward from the overhead slot', !!RELATED_EX.bb_skullcr && RELATED_EX.bb_skullcr.id === 'oh_triceps_ext' && RELATED_EX.bb_skullcr.mult === 1.1);
 
 // ── partner program is untouched ──
 const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);

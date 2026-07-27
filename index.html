@@ -552,10 +552,10 @@ h+='</div>';return h}
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
-  adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},oh_triceps_ext:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10/side',tg:10},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Loads re-anchor ~5-10% lighter.',
-  adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},lm_lateral_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},oh_triceps_ext:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
+  adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},lm_lateral_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12/side',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
   // lm_lateral_squat + bb_rear_row are DELIBERATELY absent from the P3 map (like band_er):
@@ -563,7 +563,7 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
   // coach note, and the landmine lateral squat stays a frontal-plane mobility/ROM slot — a
   // strength range gains nothing there. With no P3 entry they fall back to their BASE
   // hypertrophy ranges (bb_rear_row 12-15, lm_lateral_squat 8/side).
-  adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},lm_lateral:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},oh_triceps_ext:{rp:'8-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
+  adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},lm_lateral:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},bb_skullcr:{rp:'8-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8/side',tg:8},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
@@ -603,7 +603,7 @@ B:[
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'0:50',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:50,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'oh_triceps_ext',nm:'Overhead Triceps Extension (band or straight bar)',s:3,rp:'10-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; replaces the lying extension v13). Press the bar overhead, elbows tucked and pointing forward, lower behind the head, extend without flaring — long-head stretch at the bottom. Band variant (strap anchored low, press up) is fine for warm-ups or away days; log the bar sessions. Confirm → ↑ weight.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false},
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false},
 {id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'0:50',rir:'controlled',tp:'bw',rl:'Anti-lateral core finisher on the program\'s only no-core day. Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:50,tempo:'hold',perSide:true}],
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
@@ -702,8 +702,9 @@ C:[
 // numbers above) — reviewed home tune-up:
 //   • Day B: hex_squat_b rest 3:30→3:00; bb_skullcr (lying extension) swapped for
 //     oh_triceps_ext (Overhead Triceps Extension, band or straight bar — modeled tp:'bb',
-//     seeds at ~90% of the skullcrusher load, periodizes in its slot); dips note gains the
-//     band-progression rule (reduce assistance when all sets hit top of range).
+//     seeds at ~90% of the skullcrusher load, periodizes in its slot) ⚠ REVERTED by v18 —
+//     see below; dips note gains the band-progression rule (reduce assistance when all sets
+//     hit top of range).
 //   • Day C: lm_squat 3→4 sets (2nd quad exposure gets a buffer set); bird_dog 3→2 sets
 //     (core sat well over MEV — trim the finisher, keep the partner entry at 3);
 //     NEW deficit_pushup — OPTIONAL 2×12-15 finisher on the historical push-up day;
@@ -726,6 +727,15 @@ C:[
 // ladder (loads don't carry from the bar Cossack); the Cossack survives as a retired stub so
 // its history/charts resolve. Stays a quality/ROM slot — P1/P2 rep waves, absent from P3.
 // Day counts unchanged (A=9 B=8 C=10).
+// Program v18: Day B's Overhead Triceps Extension → Lying Barbell Triceps Extension, i.e.
+// the v13 swap reverted at the lifter's request — the movement goes back on the FLOOR. Same
+// slot, same 3 sets, same straight bar, same triceps:1 credit, so weekly volume is untouched.
+// Rationale is practical rather than hypertrophic: lying on the floor caps the bottom stretch
+// at a fixed depth and lets the bar be parked on the floor mid-set, which the overhead version
+// (bar behind the head, no bail-out) cannot do. bb_skullcr reclaims its PHASES.adj entries
+// (P1 10-12 / P2 12-15 / P3 8-10 — the numbers the overhead slot had been carrying) and now
+// seeds FORWARD from oh_triceps_ext at ~110%, the mirror of v13's 0.9. oh_triceps_ext becomes
+// the retired stub so the v13-v17 history/charts resolve. Day counts unchanged (A=9 B=8 C=10).
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
@@ -780,8 +790,9 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 {id:'face_pull',nm:'Face Pull',s:3,rp:'15-20',tg:20,rstS:50,tp:'band',rl:'Legacy — replaced by Bent-Over Barbell Rear-Delt Row',bandMode:'resist',perSide:false},
 {id:'lm_row',nm:'Landmine Rear-Delt Row',s:3,rp:'10-12/side',tg:12,rstS:50,tp:'bb',lm:true,rl:'Legacy — tried briefly on Day A, reverted to the bent-over barbell rear-delt row',perSide:true},
 {id:'kb_curl',nm:'KB Neutral-Grip Curl',s:3,rp:'8-12',tg:12,rstS:50,tp:'kb',rl:'Legacy — replaced by Hex Bar Curl',perSide:false},
-// v13 (programVersion 13) Day B swap: lying extension → overhead extension (kept so pre-swap history/charts resolve)
-{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension',s:3,rp:'8-12',tg:12,rstS:50,tp:'bb',rl:'Legacy — replaced by Overhead Triceps Extension (v13)',perSide:false},
+// v18 Day B swap-back: overhead extension → lying extension (the v13 swap reverted, so the
+// OVERHEAD id is now the legacy stub — kept so the v13-v17 history/charts resolve).
+{id:'oh_triceps_ext',nm:'Overhead Triceps Extension (band or straight bar)',s:3,rp:'10-12',tg:12,rstS:50,tp:'bb',rl:'Legacy — replaced by the Lying Barbell Triceps Extension (v18, back on the floor)',perSide:false},
 // Day B v20 swaps: hex curl → straight Barbell Curl, barbell row → Hex Bar Row (kept so pre-swap history/charts resolve)
 {id:'hex_curl',nm:'Hex Bar Curl',s:3,rp:'8-12',tg:12,rstS:50,tp:'bb',bar:7,rl:'Legacy — replaced by straight Barbell Curl (hex bar inconvenient)',perSide:false},
 {id:'bb_row',nm:'Barbell Row',s:4,rp:'8-10',tg:10,rstS:100,tp:'bb',rl:'Legacy — replaced by Hex Bar Row',perSide:false},
@@ -1070,10 +1081,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:17 keeps the migrateToV12..V17 chain a no-op on demo bootstraps (they
+// programVersion:18 keeps the migrateToV12..V18 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:17};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:18};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1148,6 +1159,18 @@ if(d.programVersion>=17)return d;
 d.programVersion=17;
 return d}
 
+// v18 migration: content-only Day-B swap-back (Overhead Triceps Extension → Lying Barbell
+// Triceps Extension, i.e. the v13 swap reverted at the lifter's request — the floor version
+// caps the stretch and lets the bar be set down mid-set). Stamp only: BOTH ids already exist
+// in ALL_EX, so every logged session on either one still resolves, and nothing about the
+// stored shape changes. Loads carry via RELATED_EX (oh_triceps_ext × 1.1) on devices with no
+// pre-v13 skullcrusher history; devices that have some read their own last session and the
+// slot's coach note asks for one manual re-anchor.
+function migrateToV18(d){
+if(d.programVersion>=18)return d;
+d.programVersion=18;
+return d}
+
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
@@ -1203,6 +1226,7 @@ d=migrateToV14(d);
 d=migrateToV15(d);
 d=migrateToV16(d);
 d=migrateToV17(d);
+d=migrateToV18(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1238,7 +1262,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:18,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1529,9 +1553,12 @@ const RELATED_EX={
   // Day B v20 swaps — carry the load from the slot each one replaces (logged under the old id).
   'hex_row':        {id:'bb_row',           mult:1.0,            note:'Continues from the barbell-row slot — your hex-row numbers were logged there. Same total weight carries; now tracked on the 7kg hex-bar ladder.'},
   'bb_curl':        {id:'hex_curl',         mult:1.0,            note:'Straight-bar curl continues from the hex-bar curl load (same total weight, now on the 11kg straight bar).'},
-  'bb_skullcr':     {id:null,               seedWt:15,           note:'NEW — lying barbell triceps extension. Feel-out at ~15kg total (2kg/side on the 11kg bar) for 8-12 reps, build up.'},
-  // v13 swap — overhead position is slightly weaker than lying, carry ~90% of the skullcrusher load
-  'oh_triceps_ext': {id:'bb_skullcr',       mult:0.9,  seedWt:13, note:'Continues from the lying-extension slot at ~90% — overhead is the weaker line. Feel-out set first, then build.'},
+  // v18 swap-back — the lying extension returns to Day B and now carries FORWARD from the
+  // overhead slot it was swapped for in v13 (mirror of the old 0.9: lying is the stronger
+  // line, so ~110%). NOTE this only fires for a device with no bb_skullcr history at all —
+  // anyone who logged skullcrushers pre-v13 gets their own (stale) last session instead, and
+  // the slot's coach note tells them to type the real number once.
+  'bb_skullcr':     {id:'oh_triceps_ext',   mult:1.1,  seedWt:15, note:'Continues from the overhead-extension slot at ~110% — lying on the floor is the stronger line. Feel-out set first, then build.'},
   // v13 addendum — two-hand landmine press starts at OHP load (26kg = 11kg bar + 15kg on the
   // pressing end for a fresh device); the pivot offloads part of the weight, so judge by RIR.
   'lm_press':       {id:'ohp',              mult:1.0,  seedWt:26, note:'Starts at your OHP load — the pivot offloads part of the weight, so judge by RIR, not the plate number. Expect to settle ~26-32kg.'},

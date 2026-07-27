@@ -5,7 +5,8 @@
 // v82 merges two independently-audited shells: v77 (accessible names, one notification
 // path, 504 on a failed asset) and v81 (F1–F5). Neither version was ever served with the
 // other's changes, so the merged shell needs its own cache key rather than either input's.
-const C = 'rft-v82';
+// v83: program v18 (Day B's triceps extension back on the floor) changed index.html.
+const C = 'rft-v83';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
