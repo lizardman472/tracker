@@ -1071,3 +1071,83 @@ caught. New assertions: Day B carries `bb_skullcr` on a straight bar and no long
 `oh_triceps_ext`, the overhead stub still resolves from `ALL_EX`, the ×1.1 carry-forward is
 wired, `bb_skullcr` periodizes and `oh_triceps_ext` no longer does, and `migrateToV18` stamps
 18 idempotently while touching nothing else. SW cache `rft-v82`.
+
+---
+
+## 18 · Program v19 — the core block moves off the lifting days (27 Jul 2026)
+
+**Also a lifter request, but it started as a misdiagnosis worth recording.** The reported
+symptom was "core is below MEV". The program was not short on core: a full A→B→C week is
+**10.5 effective sets against MEV 6**.
+
+| Day | Slot | Credit |
+|---|---|---|
+| A | Dead Bugs (Barbell) ×3 | 3.0 |
+| B | Side Plank ×3 | 3.0 |
+| C | Landmine Anti-Rotation ×3 | 3.0 |
+| C | Hex Carry ×3 (bilateral carries score 0.5) | 1.5 |
+
+The dashboard reads a rolling **7 days**, so it drops under 6 in exactly two situations: a
+week catching only two sessions (A+B lands on **6.0 — on the line**, and one dropped set puts
+it under), or the side plank being skipped. Both were happening. Core was a *finisher on every
+day*, which is precisely the slot that gets cut when a long session runs late.
+
+So the fix is placement, not volume. The four core slots leave A/B/C and become one
+off-rotation day `X`, run on a cardio or rest day, started from the Cardio screen.
+
+| | before | after |
+|---|---|---|
+| home days | A=9 B=8 C=10 | A=8 B=7 C=9 **+ X=4** |
+| partner days | A=7 B=9 C=7 | A=7 B=8 C=6 **+ X=3** |
+| home core | 10.5 (A/B/C) | **12.5** (A/B/C/X) |
+| partner core | 12.5 (A/B/C) | **12.5** (A/B/C/X) |
+| anti-extension | dead bugs | dead bugs **+ `bb_rollout`** |
+| extensor endurance | *(none — §15's accepted gap)* | **`bird_dog`**, reactivated |
+
+`side_plank` is replaced at home by **`bb_rollout`** at the lifter's request. It is `tp:'bw'`
+deliberately: a rollout progresses by *leverage* (knees → feet), and **bigger plates make it
+easier**, so a kg ladder would have been actively wrong. The plank survives at the partner
+venue, which has no barbell for a rollout.
+
+⚠ **Recorded, not hidden:** anti-lateral flexion at home is now covered only by the Day-C hex
+carry's single-side last set — the rollout doubles up on anti-extension with the dead bugs.
+The lifter declined a carry in that slot after being shown this trade-off. Accepted with eyes
+open, logged here so a later reader doesn't mistake it for drift.
+
+### Off-rotation is the part that could break silently
+
+Day `X` is a **real** session — real sets, real MG credit, real progression history — that sits
+outside the cycle. Logging one must never advance `nextDay`, or every core block would quietly
+consume a lifting day. Four sites derive `nextDay` from history (`saveSumm`, `delS`, retro-log,
+`mergeStores`); all four now route through `isRotDay`/`lastRotSession`. `getCycleInfo` filters
+off-rotation sessions out entirely — leaving them in made the timeline's rest-day gaps *lie*,
+reading a core block on a rest day as back-to-back training.
+
+**Three defects were found by writing the probes, not by review:**
+
+1. **`ALL_EX_RAW` only spread A/B/C.** The core block's exercises had no `ALL_EX` entry at all,
+   so suggestions, swaps, tonnage and history lookups fell through on every one of them. Caught
+   by an existing test (`db_dead_bug` tonnage) the moment the slot moved.
+2. **The dead-`PHASE_ADJ` guard swept only A/B/C** — so it reported `lm_pallof` as dead the
+   instant it moved to X. The guard existed *specifically* to catch ids drifting off the active
+   program, and it had the same blind spot as the thing it was watching. Same for the weekly-
+   volume sweeps and the MG-coverage check: five whole-program sweeps, all A/B/C-only.
+3. **The card's button called `startW`, which is not a global.** Every unit test passed; the
+   real browser threw `ReferenceError` on click. The exposed name is `beginW`. Nothing short of
+   loading the page could have found this — the test now asserts the handler names a function
+   that actually exists.
+
+Defect 2 is the one worth keeping: a guard that sweeps `['A','B','C']` cannot see a fourth day.
+The sweeps now use a single `PROG_DAYS` constant, and a **negative** assertion pins it — an
+A/B/C-only core sweep must read *under* MEV. If that test ever passes, a sweep has lost day X.
+
+**Live Chromium check:** core card renders on the Cardio screen with all four movements; the
+block starts, logs and saves; `nextDay` **A → A** across a saved core block while the session
+count goes 8 → 9; 7-day core reads **11 sets**; history badge reads "Core", not "Day X1";
+heatmap cell shows `✦`, and a Day-B session logged the same date correctly wins the cell back.
+Only failed request is the Google Fonts CDN (no network in the sandbox). Zero page errors.
+
+This closes the **"no extensor-endurance slot (accepted since v16)"** standing item that
+§16 was still carrying — `bird_dog` is active again, in both core blocks.
+
+SW cache `rft-v84` (rebased onto the parallel-pass merge, which had already claimed v82).

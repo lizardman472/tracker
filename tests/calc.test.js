@@ -122,12 +122,12 @@ sg = getSmartSugg(ALL_EX.find(e => e.id === 'kb_curl'));
 T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt === 9, JSON.stringify(sg));
 
 // ── dead bugs kb→bb conversion (v26): plate-loaded barbell like the other bar lifts ──
-const dbug = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
+const dbug = getProgram(1, 'home').X.find(e => e.id === 'dead_bugs_a'); // v19: moved Day A → core block
 T('dead_bugs_a is barbell on the 11kg straight-bar ladder', dbug.tp === 'bb' && dbug.bar === undefined && vwOf(dbug) === VW);
-d.sessions = [{ id: 'k2', date: '2026-06-08', day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
+d.sessions = [{ id: 'k2', date: '2026-06-08', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
 sg = getSmartSugg(dbug);
 T('legacy sub-bar KB load re-anchors to the empty bar', sg.type === 'new' && sg.wt === 11, JSON.stringify(sg));
-d.sessions.push({ id: 'k3', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [8, 8, 8], band: '' }] });
+d.sessions.push({ id: 'k3', date: '2026-06-10', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [8, 8, 8], band: '' }] });
 sg = getSmartSugg(dbug);
 T('dead bugs progress on the plate ladder once on the bar', sg.type === 'up' && sg.wt > 11 && VW.includes(sg.wt), JSON.stringify(sg));
 
@@ -348,7 +348,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 18 (no migrate re-fire)', freshState().programVersion === 18);
+T('freshState carries programVersion 19 (no migrate re-fire)', freshState().programVersion === 19);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -386,11 +386,12 @@ const PA = global.__X.PHASE_ADJ_IDS;
 // location. A "dead" entry (pointing at a swapped-out lift) silently never fires and
 // is how lm_lateral/lm_pallof lost their periodization in the landmine swap.
 const activeProgIds = new Set();
-for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) activeProgIds.add(ex.id);
+// Day X (the off-rotation core block) counts as active — lm_pallof lives there since v19.
+for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C', 'X']) for (const ex of getProgram(1, loc)[day]) activeProgIds.add(ex.id);
 T('no dead PHASE_ADJ entries (all map to an active lift)', [...PA].every(id => activeProgIds.has(id)), [...PA].filter(id => !activeProgIds.has(id)).join(','));
 // Landmine swap periodization restored on the current ids.
 T('lm_lateral periodizes (restored from lateral_raise)', PA.has('lm_lateral'));
-T('lm_pallof periodizes (restored from pallof_press)', PA.has('lm_pallof'));
+T('lm_pallof periodizes (restored from pallof_press, now on the core block)', PA.has('lm_pallof'));
 // Swapped-out ids are gone from the adj map.
 T('dead adj ids removed', !PA.has('deadlift') && !PA.has('lateral_raise') && !PA.has('pallof_press') && !PA.has('bb_row') && !PA.has('zercher_b'));
 // Loaded accessories now periodize like their partner counterparts.
@@ -473,7 +474,7 @@ T('relStrength ladderPct well-formed', rs.lifts.every(l =>
 
 // ── core muscle group now tracked ──
 d = freshD();
-d.sessions = [{ id: 'c1', date: today(), day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
+d.sessions = [{ id: 'c1', date: today(), day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
 T('core volume visible to balance dashboard', getWeeklyVolume(10).core === 3, JSON.stringify(getWeeklyVolume(10)));
 
 // ── e1RM blend: Epley low reps, Lombardi cap past the ≈7-rep crossover ──
@@ -1238,7 +1239,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 18', SEED.programVersion === 18);
+  T('SEED carries programVersion 19', SEED.programVersion === 19);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
@@ -1248,7 +1249,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   migrateToV16(sClone);
   migrateToV17(sClone);
   migrateToV18(sClone);
-  T('migrateToV12..18 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  migrateToV19(sClone);
+  T('migrateToV12..19 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
@@ -1558,6 +1560,10 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const m18 = migrateToV18({ programVersion: 17, sessions: [{ marker: 1 }] });
   T('migrateToV18 stamps 18, touches nothing else', m18.programVersion === 18 && m18.sessions[0].marker === 1);
   T('migrateToV18 idempotent', migrateToV18({ programVersion: 18, x: 7 }).x === 7);
+  // v19 (core block moves off the lifting days onto off-rotation day X) is content-only too.
+  const m19 = migrateToV19({ programVersion: 18, sessions: [{ marker: 1 }] });
+  T('migrateToV19 stamps 19, touches nothing else', m19.programVersion === 19 && m19.sessions[0].marker === 1);
+  T('migrateToV19 idempotent', migrateToV19({ programVersion: 19, x: 7 }).x === 7);
   // Theme preference: additive field, defaulted on load, garbage coerced to auto.
   load();
   T('load defaults theme to auto', getD().theme === 'auto', getD().theme);

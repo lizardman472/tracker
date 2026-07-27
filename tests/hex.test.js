@@ -28,6 +28,10 @@ global.window = {};
 eval(code);
 const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;
 
+// Every program day at both venues, X (the off-rotation core block) included. Any sweep that
+// means "the whole program" must use this — the v19 core block moved four slots onto day X,
+// and an A/B/C-only sweep would have reported core as under MEV and PHASE_ADJ entries as dead.
+const PROG_DAYS = ['A', 'B', 'C', 'X'];
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
 function freshD(over) { setD(structuredClone(SEED)); const d = getD(); d.discomfort = []; d.location = 'home'; d.phase = 1; Object.assign(d, over || {}); return d; }
@@ -90,7 +94,7 @@ T('oh_triceps_ext legacy stub resolves (v18 swap-back to bb_skullcr)', !!ALL_EX.
 T('v18 lying extension carries load forward from the overhead slot', !!RELATED_EX.bb_skullcr && RELATED_EX.bb_skullcr.id === 'oh_triceps_ext' && RELATED_EX.bb_skullcr.mult === 1.1);
 
 // ── partner program is untouched ──
-const pAll = ['A', 'B', 'C'].flatMap(d => getProgram(1, 'partner')[d]);
+const pAll = PROG_DAYS.flatMap(d => getProgram(1, 'partner')[d]);
 T('partner program has no hex lifts', !pAll.some(e => /^hex_/.test(e.id)));
 
 // ── seeding: new hex lifts start at their seed (no carry-over) ──
@@ -172,7 +176,7 @@ T('single-end perSide(11.25) = one lone 0.25 plate', JSON.stringify(perSide(11.2
 T('single-end perSide(11.25) impossible symmetric (null)', perSide(11.25, 11, false) === null);
 T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5, 11, true)));
 // Seeding: landmine lifts seed at the 11kg bar-only floor (a valid VWL weight).
-let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+let lsg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
 T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && lsg.wt === 11 && VWL.includes(11));
 const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
 T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
@@ -188,7 +192,7 @@ T('Day A pull-ups back at 4 sets (v14 trim reverted)', getProgram(1, 'home').A.f
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
-lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+lsg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
 T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
 // Volume: landmine lifts have MG maps and count on the bb tonnage path (perSide doubles).
 T('landmine lifts + bb_rear_row have MG maps (incl. retired lm_180 for history)', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row && !!MG.lm_180);
@@ -197,11 +201,11 @@ T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13
 // ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
 let cd = freshD();
 cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
-let cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+let cdSg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
 T('stall at bar-only floor → rebuild hold (not a fake deload)', cdSg.type === 'stay' && cdSg.wt === 11 && !/%/.test(cdSg.detail), JSON.stringify(cdSg));
 // Above the floor, the deload reports the ACTUAL percent cut, not a hardcoded ~10%.
 cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
-cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+cdSg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
 T('low-weight deload reports honest percent (12→11 ≈ 8%)', cdSg.type === 'dn' && cdSg.wt === 11 && /~8%/.test(cdSg.detail), JSON.stringify(cdSg));
 // A heavier lift still gets a real ~10% deload (regression guard).
 cd = freshD();
@@ -225,7 +229,7 @@ T('pb_pullup_a seeds cleanly with no dangling peer (no undefined)', irSg.type ==
 // ── PROGRAM VOLUME: home weekly effective sets meet MEV for the muscles we restored ──
 const homePr = getProgram(1, 'home');
 const wkVol = {};
-for (const day of ['A', 'B', 'C']) for (const ex of homePr[day]) { const m = MG[ex.id] || {}; for (const k in m) wkVol[k] = (wkVol[k] || 0) + ex.s * m[k]; }
+for (const day of PROG_DAYS) for (const ex of homePr[day]) { const m = MG[ex.id] || {}; for (const k in m) wkVol[k] = (wkVol[k] || 0) + ex.s * m[k]; }
 const mevOf = key => (MG_INFO.find(r => r[0] === key) || [])[2];
 T('chest weekly volume ≥ MEV', wkVol.chest >= mevOf('chest'), `${wkVol.chest} vs ${mevOf('chest')}`);
 T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevOf('reardelt'), `${wkVol.reardelt} vs ${mevOf('reardelt')}`);
@@ -253,12 +257,11 @@ T('no OTHER home muscle exceeds MAV',
 
 // The partner venue carries no accepted overage, so it takes the plain ceiling.
 const partVol = {};
-for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) partVol[k] = (partVol[k] || 0) + ex.s * m[k]; }
+for (const day of PROG_DAYS) for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) partVol[k] = (partVol[k] || 0) + ex.s * m[k]; }
 T('no partner muscle exceeds MAV',
   MG_INFO.every(([k, , , mav]) => mav == null || (partVol[k] || 0) <= mav),
   MG_INFO.filter(([k, , , mav]) => mav != null && (partVol[k] || 0) > mav).map(([k, , , mav]) => `${k} ${partVol[k]}>${mav}`).join(', '));
 T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (partVol[k] || 0) >= mev), JSON.stringify(partVol));
-T('home days A=9, B=8, C=10 (v16 trimmed calf raise + bird dog from Day C)', homePr.A.length === 9 && homePr.B.length === 8 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 
 const partPr = getProgram(1, 'partner');
 // ── v16 Day-C trim: calf raises + bird dog retired to legacy stubs at BOTH venues ──
@@ -271,11 +274,11 @@ T('calf raises keep their calves MG map', (MG.calf_raise || {}).calves === 1 && 
 T('calves is NOT a dashboard row (no active exercise can fill it)', !MG_INFO.some(x => x[0] === 'calves'));
 T('every MG_INFO key is reachable from an active exercise', (() => {
   const active = new Set();
-  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) active.add(ex.id);
+  for (const loc of ['home', 'partner']) for (const day of PROG_DAYS) for (const ex of getProgram(1, loc)[day]) active.add(ex.id);
   const credited = new Set();
   for (const id of active) for (const m of Object.keys(MG[id] || {})) credited.add(m);
   return MG_INFO.every(([k]) => credited.has(k));
-})(), MG_INFO.filter(([k]) => { const active = new Set(); for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) for (const m of Object.keys(MG[ex.id] || {})) active.add(m); return !active.has(k) }).map(([k]) => k).join());
+})(), MG_INFO.filter(([k]) => { const active = new Set(); for (const loc of ['home', 'partner']) for (const day of PROG_DAYS) for (const ex of getProgram(1, loc)[day]) for (const m of Object.keys(MG[ex.id] || {})) active.add(m); return !active.has(k) }).map(([k]) => k).join());
 T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).calves === 1);
 
 // ── audit fix: every loadable lift must have a first-session starting suggestion ──
@@ -287,7 +290,7 @@ T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).
 {
   const LOADABLE = ['bb', 'db', 'kb', 'mace', 'band', 'carry'];
   const unseeded = [];
-  for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
+  for (const loc of ['home', 'partner']) for (const day of PROG_DAYS)
     for (const ex of getProgram(1, loc)[day])
       if (LOADABLE.includes(ex.tp) && !RELATED_EX[ex.id]) unseeded.push(`${loc}/${ex.id}`);
   T('every loadable lift has a fresh-device starting suggestion', unseeded.length === 0, unseeded.join(', '));
@@ -318,7 +321,7 @@ T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && ches
 
 // ── PROGRAM VOLUME: partner weekly effective sets meet MEV (v23 partner audit) ──
 const pVol = {};
-for (const day of ['A', 'B', 'C']) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
+for (const day of PROG_DAYS) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
 T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (pVol[k] || 0) >= mev), JSON.stringify(pVol));
 T('partner rear delts ≥ MEV (2nd db_rear_fly exposure)', pVol.reardelt >= mevOf('reardelt'), `${pVol.reardelt} vs ${mevOf('reardelt')}`);
 T('partner biceps ≥ MEV (direct db_curl restored)', pVol.biceps >= mevOf('biceps'), `${pVol.biceps} vs ${mevOf('biceps')}`);
@@ -342,7 +345,7 @@ T('P3 landmine lateral squat holds 8/side (base), not a strength-loaded 6/side',
 T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row').rp === '12-15');
 
 // ── v27: lm_pallof pause moved to the press-out (anti-rotation hold at full extension) ──
-T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').C.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
+T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').X.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
 
 // ── Partner DB ladder (E1): buildDBW from the photographed spinlock inventory ──
 T('bare bell (bar+collars) is a rung', DBW_PAIR[0] === 2 && DBW_SINGLE[0] === 2);
@@ -376,13 +379,13 @@ T('dbPlateH empty at/below the bare bell', dbPlateH(2, true) === '' && dbPlateH(
   const dE = freshD({ location: 'partner' });
   dE.sessions = [];
   const pr2 = getProgram(1, 'partner');
-  for (const day of ['A', 'B', 'C']) for (const ex of pr2[day]) {
+  for (const day of PROG_DAYS) for (const ex of pr2[day]) {
     if (ex.tp === 'bw') continue; // bodyweight has no load to seed
     const sg = getSmartSugg(ex);
     T(`partner ${ex.id} seeds with zero history`, sg.wt != null || !!sg.band, `${ex.id}: ${JSON.stringify(sg)}`);
   }
   // All numeric partner seeds sit on the correct spinlock ladder.
-  for (const day of ['A', 'B', 'C']) for (const ex of pr2[day]) {
+  for (const day of PROG_DAYS) for (const ex of pr2[day]) {
     if (ex.tp !== 'db') continue;
     const sg = getSmartSugg(ex);
     const lad = ex.loadUnit === 'per_db' ? DBW_PAIR : DBW_SINGLE;
@@ -421,26 +424,42 @@ T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core
 // that one-sided bound let back drift DOWN silently, and said nothing about glutes or
 // triceps, which are also over.
 
-// ── v28: lower-back prevention slots — side plank (Day B) + bird dog (Day C), both venues ──
-// The hex/landmine era deliberately cut peak lumbar loading (hex DL/RDL, landmine squat
-// replaced the Zerchers), leaving anti-lateral work at one suitcase set/week (home) or zero
-// (partner) and extensor ENDURANCE with no slot at all. These pin the back-fill: bodyweight
-// finishers, shared ids across venues (identical movement → one progression history).
-T('home Day B has a side plank (bw, per-side, timed)', (() => { const e = homePr.B.find(x => x.id === 'side_plank'); return e && e.tp === 'bw' && e.perSide === true && e.tg === 40; })());
-T('bird dog is OUT of both Day C programs (v16 trim) but resolves as a stub', !homePr.C.some(x => x.id === 'bird_dog') && !partPr.C.some(x => x.id === 'bird_dog') && (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && /legacy/i.test(e.rl); })());
-T('partner mirrors the side-plank slot with the SAME id (shared bw history)', partPr.B.some(e => e.id === 'side_plank'));
-T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1);
+// ── v19 core block: the four core slots move off the lifting days onto off-rotation day X ──
+// Core kept reading under MEV not because the program prescribed too little (10.5 sets/cycle
+// against MEV 6) but because finishers on a long day get skipped, and a 7-day window catching
+// only two sessions lands on 6.0 exactly. The block consolidates them where nothing competes.
+T('home core block exists and is 4 moves', homePr.X.length === 4 && homePr.X.map(e => e.id).join() === 'bb_rollout,dead_bugs_a,lm_pallof,bird_dog');
+T('partner core block exists and is 3 moves', partPr.X.length === 3 && partPr.X.map(e => e.id).join() === 'db_dead_bug,side_plank,bird_dog');
+T('lifting days carry NO core slots any more (home)', ['A', 'B', 'C'].every(d => !homePr[d].some(e => e.id === 'dead_bugs_a' || e.id === 'side_plank' || e.id === 'lm_pallof')));
+T('lifting days carry NO core slots any more (partner)', ['A', 'B', 'C'].every(d => !partPr[d].some(e => e.id === 'side_plank' || e.id === 'db_dead_bug')));
+T('home days trim to A=8, B=7, C=9 (one core slot off each)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('partner days trim to A=7, B=8, C=6', partPr.A.length === 7 && partPr.B.length === 8 && partPr.C.length === 6);
+// The plank is gone from HOME entirely (v19, at the lifter's request) — bb_rollout takes the
+// anti-extension work dynamically. It survives at the partner venue, which has no barbell.
+T('side plank is out of the home program entirely', !['A', 'B', 'C', 'X'].some(d => homePr[d].some(e => e.id === 'side_plank')));
+T('side plank still active at the partner venue (no barbell there for a rollout)', partPr.X.some(e => e.id === 'side_plank'));
+T('bb_rollout is bodyweight, per-set, core:1 (leverage is the load, not plates)', (() => { const e = homePr.X.find(x => x.id === 'bb_rollout'); return e && e.tp === 'bw' && e.perSide === false && (MG.bb_rollout || {}).core === 1 && MG.bb_rollout.back === undefined; })());
+T('bb_rollout carries no tonnage (bodyweight)', calcExVol('bb_rollout', null, [12, 12, 12]) === 0);
+// bird_dog is reactivated from its v16 retired stub — the extensor-endurance axis AUDIT §15
+// logged as a knowingly accepted gap. One definition, not a stub plus a live copy.
+T('bird dog is active again (v16 stub reactivated), not a legacy stub', (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && !/legacy|retired/i.test(e.rl); })());
+T('bird dog is in BOTH core blocks', homePr.X.some(e => e.id === 'bird_dog') && partPr.X.some(e => e.id === 'bird_dog'));
+T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1 && ALL_EX.filter(e => e.id === 'bb_rollout').length === 1);
 T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
 const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
-T('home core over MEV, still under MAV after v28 (+6 sets)', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
-T('partner core over MEV, still under MAV after v28 (+6 sets)', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+T('home core over MEV, still under MAV with the block counted', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
+T('partner core over MEV, still under MAV with the block counted', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+// The failure this whole change exists to prevent: an A/B/C-only sweep must now read UNDER
+// MEV, because all the core lives on X. If this ever passes, a sweep somewhere lost day X.
+T('an A/B/C-only core sweep reads under MEV (proves X must be counted)', (() => { let c = 0; for (const d of ['A', 'B', 'C']) for (const ex of homePr[d]) c += ex.s * ((MG[ex.id] || {}).core || 0); return c < mevOf('core'); })());
 T('bw holds excluded from tonnage (unloaded)', calcExVol('side_plank', null, [40, 40, 40]) === 0 && calcExVol('bird_dog', null, [8, 8, 8]) === 0);
-T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => getProgram(p, 'home').B.find(e => e.id === 'side_plank').rp === '20-40s/side'));
+T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => getProgram(p, 'partner').X.find(e => e.id === 'side_plank').rp === '20-40s/side') && [1, 2, 3].every(p => getProgram(p, 'home').X.find(e => e.id === 'bb_rollout').rp === '8-12'));
 // bw progression drives off total reps/seconds vs s×tg — hitting 3×40s reads as progress,
 // a below-target session reads stay-and-push.
-T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
-T('bird dog history below target still reads stay/push via its stub', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(ALL_EX.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
-T('cross-venue history is genuinely shared (partner session feeds home suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp2', date: '2026-07-10', day: 'B', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.X.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.X.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
+T('pre-v16 bird dog history (logged on Day C) still feeds the reactivated slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(homePr.X.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+T('cross-venue history is genuinely shared (home block feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'bd3', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(partPr.X.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
 
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and

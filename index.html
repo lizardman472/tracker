@@ -38,8 +38,10 @@
 /* Day identity (A deep azure / B hot pink / C deep green) — validated categorical
    trio, light mode, all pairs (protan ΔE 9.5, normal 21.0, all in-band). The pink
    is deliberately LIGHTER than A/C (lightness survives colorblindness); heatmap
-   letters are white on A/C and dark ink on B. Mirror of JS DAY_COLORS/DAY_INK. */
---dayA:#0069b8;--dayAl:#ddedfa;--dayB:#ea62ab;--dayBl:#fce4f1;--dayC:#0b7a3f;--dayCl:#dcf3e5;
+   letters are white on A/C and dark ink on B. X (violet) is the off-rotation core
+   block — a 4th hue, deliberately outside the A/B/C trio because it is not part of the
+   cycle. Mirror of JS DAY_COLORS/DAY_INK. */
+--dayA:#0069b8;--dayAl:#ddedfa;--dayB:#ea62ab;--dayBl:#fce4f1;--dayC:#0b7a3f;--dayCl:#dcf3e5;--dayX:#6b46c8;--dayXl:#e9e3fb;
 /* plate chips carry white --ink labels — each plate hue clears 4.5:1 under white */
 --p10:#d61f5e;--p5:#1263d6;--p25:#0c8050;--p1:#64748b;--slate:#64748b;
 --sh:0 1px 3px rgba(20,28,50,.08);--shm:0 10px 32px rgba(20,28,50,.14);--sab:env(safe-area-inset-bottom,0px);
@@ -66,7 +68,7 @@
 --prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
 --gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
 --pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
---dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;
+--dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;--dayX:#a98cf0;--dayXl:#241a3d;
 --p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
 --sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
 --hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}
@@ -123,7 +125,7 @@ input[type=number]{-moz-appearance:textfield}
 /* Day identity: A azure / B hot pink / C neon green — dedicated --day* tokens
    (validated categorical trio, see :root); every colored day surface also carries
    its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
-.bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB)}.bg-c{background:var(--dayCl);color:var(--dayC)}
+.bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB)}.bg-c{background:var(--dayCl);color:var(--dayC)}.bg-x{background:var(--dayXl);color:var(--dayX)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
@@ -551,6 +553,13 @@ h+='</div>';return h}
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
 const NEXT_DAY={A:'B',B:'C',C:'A'};
+// Off-rotation session days. An off-rotation session is a REAL session — real exercises, real
+// sets, real MG credit, real progression history — that simply sits outside the A→B→C cycle,
+// so it must never advance nextDay. 'X' is the core block (v19): it rides a cardio or rest day,
+// and letting it rotate the cycle would silently skip a lifting day every time it was logged.
+// Every site that derives nextDay from history filters through these two helpers.
+const isRotDay=d=>Object.prototype.hasOwnProperty.call(NEXT_DAY,d);
+const lastRotSession=ss=>{for(let i=ss.length-1;i>=0;i--)if(isRotDay(ss[i].day))return ss[i];return null};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
   adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10/side',tg:10},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
@@ -594,8 +603,7 @@ const BASE_PR={A:[
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'0:50',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:50,tempo:'2-1-2-1',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false},
-{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false},
-{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:50,tempo:'3-0-3-1',perSide:true}],
+{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'2:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:150,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:10',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:130,tempo:'3-1-2-0',perSide:false},
@@ -603,8 +611,7 @@ B:[
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'0:50',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:50,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false},
-{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'0:50',rir:'controlled',tp:'bw',rl:'Anti-lateral core finisher on the program\'s only no-core day. Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:50,tempo:'hold',perSide:true}],
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false}],
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
 {id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'2:10',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:130,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
@@ -614,8 +621,12 @@ C:[
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:15',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:75,tempo:'3-1-2-0',perSide:false},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:15',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:75,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:40',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:40,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
+{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:50,tempo:'3-1-2-0',perSide:false,optional:true}],
+X:[
+{id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:50,tempo:'2-1-2-0',perSide:false},
+{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:50,tempo:'3-0-3-1',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:50,tempo:'2-0-1-2',perSide:true},
-{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:50,tempo:'3-1-2-0',perSide:false,optional:true}]};
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'0:40',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; the core block finally fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:40,tempo:'2-0-2-3',perSide:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
@@ -736,6 +747,29 @@ C:[
 // (P1 10-12 / P2 12-15 / P3 8-10 — the numbers the overhead slot had been carrying) and now
 // seeds FORWARD from oh_triceps_ext at ~110%, the mirror of v13's 0.9. oh_triceps_ext becomes
 // the retired stub so the v13-v17 history/charts resolve. Day counts unchanged (A=9 B=8 C=10).
+// Program v19: THE CORE BLOCK. The four core slots leave the lifting days and become one
+// off-rotation day 'X', to be run on a cardio or rest day. The diagnosis this fixes is not
+// "the program prescribes too little core" — a full A→B→C week was 10.5 effective sets against
+// MEV 6. It is that core sat as a FINISHER on every day, which is exactly the slot that gets
+// dropped when a long session runs late, and that the dashboard's rolling 7-day window lands on
+// 6.0 exactly (right on the line) in any week that catches only two sessions. Consolidating the
+// work somewhere nothing competes with it fixes both, and takes a slot off each lifting day.
+//   • home  X: bb_rollout (NEW) + dead_bugs_a (from A) + lm_pallof (from C) + bird_dog
+//   • part. X: db_dead_bug (from C) + side_plank (from B) + bird_dog
+//   • bb_rollout REPLACES side_plank at home — the lifter's call, planks were the slot that
+//     kept getting skipped. It is tp:'bw' deliberately: a rollout progresses by LEVERAGE
+//     (knees → feet), and bigger plates make it EASIER, so a kg ladder would be actively wrong.
+//   • bird_dog is reactivated from the v16 retired stub, filling the extensor-endurance axis
+//     AUDIT §15 recorded as a knowingly accepted gap. Its pre-v16 history still resolves.
+//   • ⚠ Anti-lateral flexion at HOME is now covered only by the Day-C hex carry's single-side
+//     last set — the rollout doubles up on anti-extension with the dead bugs. Accepted with
+//     eyes open (the lifter declined a carry in that slot), recorded so it is not mistaken
+//     for an oversight. The partner block keeps side_plank on that axis.
+// Day X is OFF-ROTATION: logging one must never advance nextDay, or every core block would
+// silently consume a lifting day. isRotDay/lastRotSession gate all four derivation sites.
+// Core volume: home 12.5, partner 12.5 effective sets (MEV 6, MAV 16) — both counted ACROSS
+// A/B/C/X, so any weekly-volume sweep that forgets X will read the program as under MEV.
+// Day counts: home A=8 B=7 C=9 + X=4, partner A=7 B=8 C=6 + X=3.
 const LOC_B_PR={A:[
 {id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
 {id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
@@ -757,16 +791,18 @@ B:[
 {id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'0:50',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
 {id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:50',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:50,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:15',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:75,tempo:'controlled',perSide:true},
-{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:50,tempo:'2-1-2-0',perSide:true},
-{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'0:50',rir:'controlled',tp:'bw',rl:'Anti-lateral core finisher — the partner carry is bilateral, so this is the venue\'s only dedicated lateral hold. Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field. Same slot as home (shared history).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:50,tempo:'hold',perSide:true}],
+{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:50,tempo:'2-1-2-0',perSide:true}],
 C:[
 {id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'1:40',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'1:40',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:100,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:15',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:75,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
 {id:'db_sl_rdl',nm:'DB Single-Leg RDL (weak side leads)',s:4,rp:'8/side',rst:'1:15',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:75,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
 {id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:15',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:75,tempo:'—',perSide:false},
+{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:50,tempo:'controlled',perSide:true}],
+X:[
 {id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:50,tempo:'3-0-3-1',perSide:true},
-{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:50,tempo:'controlled',perSide:true}]};
+{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'0:50',rir:'controlled',tp:'bw',rl:'Anti-lateral-flexion slot — the partner core block\'s only such axis (home covers it with the Day-C hex carry\'s single-side last set). Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:50,tempo:'hold',perSide:true},
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'0:40',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; the core block finally fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:40,tempo:'2-0-2-3',perSide:true}]};
 
 // getProgram — apply phase adjustment for the location's base program
 function getProgram(phase,loc){
@@ -776,7 +812,11 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
   const adj=p.adj[ex.id];
   return adj?{...ex,rp:adj.rp,tg:adj.tg}:{...ex}})}return pr}
 
-const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
+// EVERY program day at both venues, X (the off-rotation core block) included — an exercise
+// missing here has no ALL_EX entry, so getSmartSugg, swaps, tonnage and history lookups all
+// fall through on it. Add new day keys here the moment they exist in BASE_PR/LOC_B_PR.
+const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.X,
+...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,...LOC_B_PR.X,
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
 {id:'band_pushdown',nm:'Band Triceps Pushdown',s:3,rp:'10-12',tg:12,rstS:50,tp:'band',rl:'Legacy (Day D retired)',bandMode:'resist',perSide:false},
 // Legacy exercises — complete stub fields to prevent crashes in getSmartSugg/getRepMin
@@ -839,7 +879,7 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...LOC_B_PR.A,...LOC_B_
 // 'Legacy' in rl keeps them out of the swap-candidate pool.
 {id:'calf_raise',nm:'Single-Leg Calf Raise',s:3,rp:'15-20/side',tg:20,rstS:50,tp:'kb',rl:'Legacy — Day C trimmed (v16)',perSide:true},
 {id:'db_calf_raise',nm:'Single-Leg Calf Raise (DB)',s:3,rp:'15-20/side',tg:20,rstS:50,tp:'db',rl:'Legacy — Day C trimmed (v16)',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',tg:8,rstS:50,tp:'bw',rl:'Legacy — Day C trimmed (v16)',perSide:true}];
+];
 // Ids repeat across days and legacy stubs (lateral_raise on A+B; zercher_a/pullup_c
 // active + stub). Dedupe keeping the first (active) definition so PR scans and the
 // stats picker don't double-count or render duplicates.
@@ -892,6 +932,8 @@ const MG={
   // identical at both venues, so one id/entry each covers home AND partner. Bird dog's
   // erector load is deliberately sub-threshold (like db_sl_rdl) — core only, no back credit.
   side_plank:{core:1}, bird_dog:{core:1},
+  // v19 core block — barbell rollout is anti-extension, bodyweight (leverage IS the load)
+  bb_rollout:{core:1},
   pallof_press:{core:1}, lm_pallof:{core:1}, lm_180:{core:1}, suitcase_march:{core:1}, carry:{core:0.5},
   db_carry:{core:0.5}, cb_mills:{core:0.5,cuff:0.5}, cb_shield:{cuff:0.5},
   cb_arm_cast:{triceps:0.5,cuff:0.5},
@@ -1081,10 +1123,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:18 keeps the migrateToV12..V18 chain a no-op on demo bootstraps (they
+// programVersion:19 keeps the migrateToV12..V19 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:18};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:19};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1171,6 +1213,18 @@ if(d.programVersion>=18)return d;
 d.programVersion=18;
 return d}
 
+// v19 migration: the core block. Structural for the PROGRAM, not for stored data — the four
+// core slots move off the lifting days into a new off-rotation day 'X', and side_plank is
+// replaced at home by bb_rollout. Every id involved still exists (dead_bugs_a, lm_pallof,
+// db_dead_bug, side_plank just live on day X now; bird_dog is reactivated from its stub), so
+// all logged sessions keep resolving and no history is rewritten. Stamp only.
+// The one thing that IS new in the store's shape is sessions carrying day:'X' — they are
+// off-rotation, so nothing derives nextDay from them (see isRotDay/lastRotSession).
+function migrateToV19(d){
+if(d.programVersion>=19)return d;
+d.programVersion=19;
+return d}
+
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
@@ -1227,6 +1281,7 @@ d=migrateToV15(d);
 d=migrateToV16(d);
 d=migrateToV17(d);
 d=migrateToV18(d);
+d=migrateToV19(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1262,7 +1317,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:18,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:19,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -2092,13 +2147,13 @@ try{return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)
 function applyTheme(){const dk=isDarkTheme();
 if(dk){CH_GRID='#2a3450';CH_TXT='#9aa6c2';CH_DOT='#1a2032';CH_TARGET='#ff5f8d';CH_TITLE='#e9edf8';CH_PR='#f0a848';
 C_PR='#2fb3e8';C_BL='#5b9bf0';C_GR='#3ecf8e';
-DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',cardio:'#f0a848'};
-DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e'};
+DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',X:'#a98cf0',cardio:'#f0a848'};
+DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e',X:'#08101e'};
 FORM_C=['','var(--rd)','#e8703a','var(--am)','#7fb069','var(--gr)'];
 }else{CH_GRID='#dde3f0';CH_TXT='#5a6478';CH_DOT='#ffffff';CH_TARGET='#d61f5e';CH_TITLE='#111527';CH_PR='#b26102';
 C_PR='#007ba8';C_BL='#1263d6';C_GR='#0c8050';
-DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'};
-DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'};
+DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',X:'#6b46c8',cardio:'#b26102'};
+DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'};
 FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
 setHeatPal(dk);
 if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
@@ -2117,8 +2172,11 @@ if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // DAY_INK picks the letter ink per day (white on the deep A/C fills, dark ink on
 // the deliberately-lighter pink B). Cardio renders as an amber-tint DOT cell
 // (different mark), outside the letter set.
-let DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',cardio:'#b26102'}; // theme-switched
-let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff'}; // theme-switched
+let DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',X:'#6b46c8',cardio:'#b26102'}; // theme-switched
+let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'}; // theme-switched
+// One place that turns a session into its badge text. 'X' is the off-rotation core block —
+// it has no venue-numbered day name, so "Day X1" would be nonsense on every history row.
+const dayBadge=s=>s.day==='X'?'Core':`Day ${s.day}${s.loc==='partner'?'2':'1'}`;
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">Not enough data yet — log a session or two.</div>`;
@@ -2396,7 +2454,10 @@ function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t=
 // and how many rest days fell between recent sessions.
 function getCycleInfo(){
 const order=['A','B','C'];
-const ss=[...D.sessions].sort((a,b)=>a.date.localeCompare(b.date));
+// The cycle view answers "where am I in A→B→C" — off-rotation core blocks are not part of
+// that answer, and leaving them in made the timeline's rest-day gaps lie (a core block on a
+// rest day read as "b2b" training). Filtered out here, so every consumer below is clean.
+const ss=[...D.sessions].filter(s=>isRotDay(s.day)).sort((a,b)=>a.date.localeCompare(b.date));
 // recent timeline: last up to 5 sessions; gap = calendar days from the previous session
 const recent=ss.slice(-5).map((s,i,arr)=>{const prev=arr[i-1];
 const gap=prev?Math.round((new Date(s.date+'T00:00:00')-new Date(prev.date+'T00:00:00'))/864e5):null;
@@ -2598,7 +2659,7 @@ h+=`<button class="btn btn-wh" style="margin-top:6px;font-size:12px;padding:10px
 const rec=[...D.sessions].reverse().slice(0,3);
 if(rec.length){h+=`<div class="lb" style="margin-top:10px;margin-bottom:4px">Recent</div>`;
 for(const s of rec){h+=`<div class="cd" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:5px;font-size:11px">
-<span class="bg bg-${s.day.toLowerCase()}" style="font-size:9px;padding:1px 6px">Day ${s.day}</span>
+<span class="bg bg-${s.day.toLowerCase()}" style="font-size:9px;padding:1px 6px">${dayBadge(s)}</span>
 <span class="dm">${fmtD(s.date)}</span>
 ${s.difficulty?`<span style="font-size:9px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
 ${s.duration?`<span class="dm">${s.duration}m</span>`:''}
@@ -2699,7 +2760,7 @@ let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
 
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-<div><span class="bg bg-${ADAY.toLowerCase()}">Day ${ADAY}${isP?'2':'1'}</span></div>
+<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span></div>
 <button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div>`;
 
 // Live session strip (sticky): running duration + volume/sets banked from CHECKED
@@ -3042,7 +3103,8 @@ for(const[id,v] of Object.entries(LOG)){if(loggedIds.has(id)&&v.disc&&v.disc!=='
 // `phase` stamps the session with the training phase it belonged to — the re-anchor
 // gate reads it, which survives a same-day phase switch (date comparison alone can't).
 D.sessions.push({id:'s'+Date.now(),date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||''});
-D.nextDay=NEXT_DAY[S.day]||'A';
+// Off-rotation days (the core block) leave the A→B→C pointer exactly where it was.
+if(isRotDay(S.day))D.nextDay=NEXT_DAY[S.day];
 if(!save()){
   // Roll back the in-memory pushes so state matches storage; re-stamp the resume
   // backup so it can't age out of the 2h window while the user frees space.
@@ -3070,6 +3132,20 @@ h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
 <div style="flex:1"><label class="lb" for="c-dur">Duration (min)</label><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
 <div style="flex:1"><label class="lb" for="c-int">Intensity</label><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
 <button class="btn btn-pr" onclick="saveCardio()">Save</button></div>`;
+// ── Core block (v19) ──────────────────────────────────────────────────────────
+// The core work used to sit as a finisher on every lifting day, which is exactly where it got
+// skipped when a long session ran late — the reason weekly core kept reading under MEV despite
+// the program prescribing plenty. It now lives here as ONE off-rotation block to be run on a
+// cardio or rest day: the lifting days each gave up a slot, and the core work lands somewhere
+// nothing competes with it. Starting it does NOT advance the A→B→C pointer (see isRotDay).
+{const cx=(getCurPR().X)||[],cvol=cx.reduce((a,e)=>a+e.s*((MG[e.id]||{}).core||0),0);
+if(cx.length)h+=`<div class="cd" style="border:1px solid ${DAY_COLORS.X}">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
+<div style="font-size:13px;font-weight:700;color:${DAY_COLORS.X}">Core block</div>
+<div class="dm">${cx.length} moves · ${Math.round(cvol)} sets</div></div>
+<div class="dm" style="margin-bottom:8px">Off-rotation — run it on a cardio or rest day. It logs like any other workout and counts toward weekly core volume, but it does <b>not</b> advance your A→B→C cycle.</div>
+<div class="dm" style="margin-bottom:10px">${cx.map(e=>esc(e.nm)).join(' · ')}</div>
+<button class="btn btn-wh" style="width:100%" onclick="beginW('X')">Start core block</button></div>`}
 // Recent cardio, with a per-entry delete. Cardio had NO delete or edit anywhere in the app,
 // so a mistyped duration (300 for 30) was permanent: it skews the fatigue meter, the monthly
 // minutes total, the weekly cardio chart and the heat map forever. Import could not undo it
@@ -3817,7 +3893,9 @@ h+=`<div class="dm" style="margin-top:4px">Moderate flags auto-hold progression 
 const hm=(()=>{const d=[];const now=new Date(),st=new Date(now);st.setDate(st.getDate()-83); // -83..0 = includes TODAY (was -84..-1: today's session invisible until tomorrow)
 for(let i=0;i<84;i++){const x=new Date(st);x.setDate(x.getDate()+i);const ds=ymd(x);
 const s=D.sessions.filter(z=>z.date===ds),c=D.cardioLog.filter(z=>z.date===ds);
-let day=null;s.forEach(z=>{day=z.day});d.push({date:ds,day,isC:c.length>0&&!s.length,d:x.getDate()})}return d})();
+// A rotation day wins the cell over an off-rotation core block logged the same date —
+// otherwise a core block tacked onto a lifting day would hide the lifting day.
+let day=null;s.forEach(z=>{if(day===null||!isRotDay(day))day=z.day});d.push({date:ds,day,isC:c.length>0&&!s.length,d:x.getDate()})}return d})();
 h+=`<div class="cd"><div class="hm-grid" style="margin-bottom:6px">`;['M','T','W','T','F','S','S'].forEach(d=>h+=`<div style="font-size:9px;color:var(--mu);text-align:center;font-weight:700;letter-spacing:.5px">${d}</div>`);
 h+=`</div><div class="hm-grid">`;
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
@@ -3828,12 +3906,12 @@ for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
 const tds=today();
 for(const d of hm){let bg='var(--ib)',mark='',ink='';
 if(d.isC){bg='rgba(178,97,2,.16)';mark='·';ink='color:var(--am);font-weight:900;'}
-else if(d.day){bg=DAY_COLORS[d.day]||DAY_COLORS.A;mark=d.day;ink=`color:${DAY_INK[d.day]||'#ffffff'};font-weight:800;`}
+else if(d.day){bg=DAY_COLORS[d.day]||DAY_COLORS.A;mark=d.day==='X'?'✦':d.day;ink=`color:${DAY_INK[d.day]||'#ffffff'};font-weight:800;`}
 // Today gets an accent ring so "where am I in the grid" is instant.
 h+=`<div class="hm-cell" style="background:${bg};${ink}${d.date===tds?'box-shadow:inset 0 0 0 2px var(--pr);':''}">${mark}</div>`}
 // Legend: color rides the swatch only — the letters stay in default ink (a colored
 // 10px letter on white can't clear text contrast for every day hue).
-h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span><span style="color:${DAY_COLORS.A}">■</span> A</span><span><span style="color:${DAY_COLORS.B}">■</span> B</span><span><span style="color:${DAY_COLORS.C}">■</span> C</span><span><span style="color:var(--am)">■</span> cardio</span></div></div>`;
+h+=`</div><div class="dm" style="margin-top:8px;display:flex;gap:11px;flex-wrap:wrap;font-size:10px"><span><span style="color:${DAY_COLORS.A}">■</span> A</span><span><span style="color:${DAY_COLORS.B}">■</span> B</span><span><span style="color:${DAY_COLORS.C}">■</span> C</span><span><span style="color:${DAY_COLORS.X}">■</span> core</span><span><span style="color:var(--am)">■</span> cardio</span></div></div>`;
 
 // Weekly charts — complete weeks only. The in-progress week is reported as a
 // "so far" line instead of charted, so mid-week never reads as a volume crash.
@@ -4094,7 +4172,7 @@ if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here au
 for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">Day ${s.day}${s.loc==='partner'?'2':'1'}</span>
+<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
 ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
@@ -4128,8 +4206,8 @@ function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);
 // tab's store. See mergeStores.
 if(!Array.isArray(D.deleted))D.deleted=[];
 if(/^[\w.-]{1,64}$/.test(String(id)))D.deleted=[...D.deleted.filter(x=>x!==String(id)),String(id)].slice(-TOMB_MAX);
-if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
-D.nextDay=NEXT_DAY[last.day]||'A'}else D.nextDay='A';save();render()}
+{const last=lastRotSession(D.sessions);
+D.nextDay=last?NEXT_DAY[last.day]:'A'}save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 
 // ─── LOG PAST SESSION ───────────────────────
@@ -4137,9 +4215,12 @@ let LP={date:'',day:'A',loc:'home'};
 function setLPLoc(l){LP.loc=l;render()}
 function rLogPast(el){
 const pr=getProgram(D.phase,LP.loc);
-const days=['A','B','C'];
+// 'X' (the off-rotation core block) is retro-loggable like any other day — saveLP routes
+// nextDay through lastRotSession, so back-filling one can't shunt the A→B→C cycle.
+const days=['A','B','C','X'];
 const exs=pr[LP.day]||[];
 const suffix=LP.loc==='partner'?'2':'1';
+const dayLbl=d=>d==='X'?'Core':`Day ${d}${suffix}`;
 let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:12px">Log Past Session</h2>
 <div class="cd" style="margin-bottom:10px">
 <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -4148,11 +4229,11 @@ let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:12px">Log Past
 <div style="flex:1"><div class="dm" style="margin-bottom:3px">Location</div>
 ${locSwitchH(LP.loc,'setLPLoc')}</div></div>
 <div style="display:flex;gap:6px">`;
-for(const d of days)h+=`<button class="btn-sm ${LP.day===d?'btn-pr':'btn-wh'}" onclick="LP.day='${d}';render()">Day ${d}${suffix}</button>`;
+for(const d of days)h+=`<button class="btn-sm ${LP.day===d?'btn-pr':'btn-wh'}" onclick="LP.day='${d}';render()">${dayLbl(d)}</button>`;
 h+=`</div></div>`;
 
 // Exercise inputs
-h+=`<div class="lb" style="margin-bottom:6px">Exercises — Day ${LP.day}${suffix}</div>`;
+h+=`<div class="lb" style="margin-bottom:6px">Exercises — ${dayLbl(LP.day)}</div>`;
 for(const ex of exs){
 const inputId=`lp_${ex.id}`;
 h+=`<div class="cd" style="padding:10px 14px;margin-bottom:6px">
@@ -4200,9 +4281,9 @@ let tv=0;for(const e of logged){tv+=calcExVol(e.id,e.wt,e.reps)}
 D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:logged,volume:tv,duration:null,difficulty:null,warmup:null,retro:true});
 // Sort sessions by date
 D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
-// Update nextDay based on latest session — location aware
-const last=D.sessions[D.sessions.length-1];
-D.nextDay=NEXT_DAY[last.day]||'A';
+// Update nextDay based on the latest ROTATION session — location aware. A retro-logged core
+// block must not shunt the cycle forward.
+{const last=lastRotSession(D.sessions);if(last)D.nextDay=NEXT_DAY[last.day];}
 save();go('history')}
 // ─── PLATES ──────────────────────────────────
 function rPlates(el){
@@ -4452,8 +4533,7 @@ if(wasFresh){
   if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
 }
 // Update nextDay from latest session — location aware
-if(W.sessions.length){const last=W.sessions[W.sessions.length-1];
-W.nextDay=NEXT_DAY[last.day]||W.nextDay}
+{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}
 // On a fresh restore the backup's own nextDay wins over the re-derive — it captures a
 // manual rotation override, and same-date A+B sessions make last-by-date ambiguous.
 if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;

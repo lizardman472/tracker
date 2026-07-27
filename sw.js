@@ -6,7 +6,8 @@
 // path, 504 on a failed asset) and v81 (F1–F5). Neither version was ever served with the
 // other's changes, so the merged shell needs its own cache key rather than either input's.
 // v83: program v18 (Day B's triceps extension back on the floor) changed index.html.
-const C = 'rft-v83';
+// v84: program v19 (the off-rotation core block) changed index.html again.
+const C = 'rft-v84';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

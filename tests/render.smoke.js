@@ -12,7 +12,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},NEXT_DAY,isRotDay,lastRotSession,dayBadge,setLP:v=>{LP=v},getLP:()=>LP,setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 // Mirrors what a browser ACTUALLY does when you set textContent and read innerHTML back:
@@ -1106,6 +1106,53 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
     !mergeStores(R.getD(), { sessions: [{ id: 'tomb2', date: '2026-06-12', day: 'B', ex: [] }] }).sessions.some(s => s.id === 'tomb2'));
   R.getD().sessions = saved;
   R.getD().deleted = [];
+}
+
+
+// ── v19 core block: renders, starts, and stays OUT of the A→B→C rotation ─────────────
+// The whole point of an off-rotation day is that logging one does not consume a lifting
+// slot. Every path that derives nextDay from history is asserted here, because a miss in
+// any one of them silently skips a training day the next time the user opens the app.
+{
+  const D0 = R.getD();
+  D0.location = 'home';
+  T('isRotDay accepts A/B/C and rejects the core block', R.isRotDay('A') && R.isRotDay('B') && R.isRotDay('C') && !R.isRotDay('X'));
+  T('dayBadge names the core block instead of "Day X1"', R.dayBadge({ day: 'X', loc: 'home' }) === 'Core' && R.dayBadge({ day: 'B', loc: 'partner' }) === 'Day B2');
+
+  // The Cardio screen is the block's entry point.
+  tryRender('cardio (core block card)', () => R.go('cardio'));
+  const cardio = R.getA();
+  // beginW, not startW: the card's onclick fires through the inline-handler global scope, and
+  // startW is not a global — a live browser threw ReferenceError on the first version of this.
+  T('cardio screen offers the core block', /Core block/.test(cardio) && /beginW\('X'\)/.test(cardio));
+  T("the core card's handler names a function that actually exists", typeof R.beginW === 'function');
+  T('the core card names its movements', /Barbell Rollout/.test(cardio) && /Bird Dog/.test(cardio));
+  T('the core card says it is off-rotation', /does <b>not<\/b> advance/.test(cardio));
+
+  // Starting and rendering it.
+  tryRender('workout (core block)', () => R.beginW('X'));
+  const cw = R.getA();
+  T('the core block renders its four movements', R.dayExs('X').length === 4);
+  T('the core block header reads Core Block, not Day X1', /Core Block/.test(cw) && !/Day X/.test(cw));
+
+  // nextDay must survive a core block arriving by every route.
+  const savedS = R.getD().sessions, savedNext = R.getD().nextDay;
+  R.getD().sessions = [{ id: 'rot1', date: '2026-07-01', day: 'A', loc: 'home', ex: [] },
+                       { id: 'core1', date: '2026-07-02', day: 'X', loc: 'home', ex: [] }];
+  T('lastRotSession skips the core block and finds Day A', (R.lastRotSession(R.getD().sessions) || {}).id === 'rot1');
+  T('a core block after Day A leaves the cycle pointing at B', (() => { const l = R.lastRotSession(R.getD().sessions); return R.NEXT_DAY[l.day] === 'B'; })());
+  T('a store of ONLY core blocks derives no rotation session', R.lastRotSession([{ id: 'c', date: '2026-07-02', day: 'X', loc: 'home', ex: [] }]) === null);
+
+  // The cycle view must not count it either — a core block on a rest day was reading as
+  // back-to-back training and eating the rest-gap label.
+  R.getD().nextDay = 'B';
+  R.go('home');
+  // Scoped to the timeline NODES on purpose: the core block SHOULD still appear in the
+  // "Recent" list below (it is a real session) — it just must not sit in the A→B→C chain.
+  T('the cycle timeline ignores off-rotation blocks', !/cyc-node"><span class="bg bg-x/.test(R.getA()));
+  T('but the core block still shows in Recent (it is a real session)', /bg-x/.test(R.getA()));
+
+  R.getD().sessions = savedS; R.getD().nextDay = savedNext;
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
