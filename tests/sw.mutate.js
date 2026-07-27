@@ -36,8 +36,33 @@ const MUTATIONS = [
   ['loses the ./index.html fallback, so offline navigations resolve to nothing',
     s => s.replace("caches.match(req).then(r => r || caches.match('./index.html'))", 'caches.match(req)')],
 
-  ['leaves the deadline timer pending after the network wins',
-    s => s.replace('net.then(r => { clearTimeout(timer); done(r); })', 'net.then(r => { done(r); })')],
+  // Both branches race a timer now, so these anchors carry their own setTimeout line — a bare
+  // `net.then(r => { clearTimeout(timer)…` string patches whichever branch comes first in the
+  // file and silently stops testing the other one.
+  ['leaves the NAVIGATION deadline timer pending after the network wins',
+    s => s.replace('const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => { clearTimeout(timer); done(r); })',
+      'const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => { done(r); })')],
+
+  ['leaves the FONT deadline timer pending after the network wins',
+    s => s.replace("const timer = setTimeout(() => done(new Response('', { status: 504 })), FONT_TIMEOUT);\n          net.then(r => { clearTimeout(timer); done(r); })",
+      "const timer = setTimeout(() => done(new Response('', { status: 504 })), FONT_TIMEOUT);\n          net.then(r => { done(r); })")],
+
+  // The regression this branch exists to prevent: without a deadline a HANGING font host (a
+  // captive portal, not an offline one) never settles, and the render-blocking stylesheet keeps
+  // the app from booting at all. Reverts to the pre-audit-6 cache-first-then-network shape.
+  ['reverts the font branch to no deadline, so a hung font host blocks the boot',
+    s => s.replace(/const FONT_TIMEOUT[\s\S]*?\n    return;\n  \}/,
+      `e.respondWith(
+      caches.match(req).then(r => r || fetch(req).then(resp => {
+        if (resp && (resp.ok || resp.type === 'opaque')) {
+          const clone = resp.clone();
+          caches.open(C).then(c => c.put(req, clone)).catch(() => {});
+        }
+        return resp;
+      }).catch(() => new Response('', { status: 504 })))
+    );
+    return;
+  }`)],
 
   ['stops caching opaque font responses, breaking offline typography',
     s => s.replace("resp && (resp.ok || resp.type === 'opaque')", 'resp && resp.ok')],

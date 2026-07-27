@@ -580,6 +580,48 @@ T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
   d.cardioLog = [0, 2, 4].map(o => walk(o, 'easy', 45));
   const withEasy = getFatigue();
   T('hard cardio outweighs the same count of easy sessions', withHard.score > withEasy.score, JSON.stringify({ hard: withHard.score, easy: withEasy.score }));
+
+  // ── Audit 6 / F2: monotonicity, tested as a PROPERTY rather than at one point ──
+  // The single "adding activity never lowers the fatigue score" case above happened to be a
+  // state where the old load-weighted means held. They did not hold in general — any mean is
+  // non-monotone, because the added entry lands in the numerator AND the denominator. The
+  // worst measured case was a whole extra LIFTING session: one brutal session read 8.6
+  // Fatigued and adding an easy light one dropped it to 4.9 Ready.
+  {
+    const one = (rpe, vol) => ({ rpe, vol });
+    const mkState = (sess, card) => {
+      const s = freshD(); s.sessions = []; s.cardioLog = [];
+      sess.forEach((x, i) => s.sessions.push({ id: 'mf' + i, date: ymd(new Date(Date.now() - (i % 7) * 864e5)), day: 'A', loc: 'home', difficulty: x.rpe, ex: [{ id: 'deadlift', wt: x.vol / 15, reps: [5, 5, 5], band: '' }] }));
+      card.forEach((c, i) => s.cardioLog.push({ id: 'mc' + i, date: ymd(new Date(Date.now() - (i % 7) * 864e5)), type: 'Walking', duration: c.min, intensity: c.int }));
+      return getFatigue().score;
+    };
+    // The headline regression, pinned exactly.
+    const brutal = [one(5, 10000)];
+    T('one brutal session reads Fatigued', mkState(brutal, []) >= 8, mkState(brutal, []));
+    T('adding an easy LIFTING session cannot lower the meter', mkState([...brutal, one(1, 1000)], []) >= mkState(brutal, []),
+      JSON.stringify({ before: mkState(brutal, []), after: mkState([...brutal, one(1, 1000)], []) }));
+    // Deterministic sweep: every week shape × every added entry. 0 violations required.
+    const SESS = [[], [one(5, 8000)], [one(3, 3000), one(5, 9000)], [one(4, 5000), one(2, 1500), one(5, 7000)],
+      [one(3, 2500), one(3, 2500), one(3, 2500), one(4, 6000)]];
+    const CARD = [[], [{ min: 30, int: 'easy' }], [{ min: 45, int: 'hard' }, { min: 20, int: 'easy' }]];
+    const ADD_S = [one(1, 500), one(2, 1500), one(3, 3000), one(5, 12000)];
+    const ADD_C = [{ min: 10, int: 'easy' }, { min: 30, int: 'moderate' }, { min: 60, int: 'hard' }];
+    let drops = 0, checked = 0;
+    for (const s of SESS) for (const c of CARD) {
+      const base = mkState(s, c);
+      for (const a of ADD_S) { checked++; if (mkState([...s, a], c) < base) drops++; }
+      for (const a of ADD_C) { checked++; if (mkState(s, [...c, a]) < base) drops++; }
+    }
+    T('fatigue score is monotone: no addition of work ever lowers it', drops === 0, `${drops}/${checked} additions lowered the score`);
+    T('the monotonicity sweep actually ran', checked === 105, checked);
+
+    // Calibration must survive the reformulation — these are the three anchors the source
+    // comment names, and a uniform week is exactly where peak == mean.
+    T('anchor holds: 3×RPE3 ~2.9t reads Ready ≈5', (() => { const v = mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []); return v >= 4.5 && v <= 5.2 })(), mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []));
+    T('anchor holds: 5 hard sessions read Fatigued ≥8', mkState([one(5, 4000), one(4, 4000), one(5, 4000), one(4, 4000), one(5, 4000)], []) >= 8);
+    T('anchor holds: one light session reads Fresh ≈2', mkState([one(2, 2000)], []) <= 2.5, mkState([one(2, 2000)], []));
+    T('a week of easy walks alone still reads Fresh', mkState([], [1, 2, 3, 4, 5, 6, 7].map(() => ({ min: 30, int: 'easy' }))) <= 3);
+  }
 }
 
 // ── AUDIT FIX M2: phase re-anchor never inflates heavier than the proven load ──
@@ -814,6 +856,19 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // It used to be adopted unconditionally, which broke two ways on a device with history.
   T('merge-existing: lastDeload NOT adopted onto a non-fresh device', m2.W.lastDeload === null, String(m2.W.lastDeload));
   {
+    // ── Audit 6 / F4: an explicit import may LIFT a tombstone ──
+    // mergeStores treats D.deleted as authoritative, so a restored session would be re-deleted
+    // by the next cross-tab merge unless the import clears its tombstone. An import is an
+    // explicit, reported act — unlike the silent union — so restoring is the right outcome.
+    const back = JSON.parse(exported);
+    const withTomb = { ...freshState(), sessions: [mk('keep', '2026-05-02', 'A', 'home', [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', notes: '' }])], deleted: [back.sessions[0].id, 'unrelated'] };
+    const lifted = mergeImport(withTomb, back).W;
+    T('import: a restored session is not left tombstoned', !lifted.deleted.includes(back.sessions[0].id), JSON.stringify(lifted.deleted));
+    T('import: the restored session actually lands', lifted.sessions.some(s => s.id === back.sessions[0].id));
+    T('import: tombstones for sessions NOT in the backup are kept', lifted.deleted.includes('unrelated'), JSON.stringify(lifted.deleted));
+    T('import: the restored session survives a later two-tab merge', mergeStores(lifted, { ...freshState() }).sessions.some(s => s.id === back.sessions[0].id));
+  }
+  {
     // A local deload date must survive an import that carries a different one...
     const local = freshState();
     local.sessions = [mk('L1', '2026-05-01', 'A', 'home', [{ id: 'hex_dl', wt: 56, reps: [5, 5, 4], band: '', notes: '' }], { phase: 1 })];
@@ -981,6 +1036,22 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('load survives a non-object cues field', typeof getD().cues === 'object' && !Array.isArray(getD().cues));
   // resetAll must repaint: freshState() sets theme 'auto' but the applied palette lingers.
   T('resetAll re-applies the theme', /applyTheme\(\)/.test(String(resetAll)), String(resetAll).slice(0, 120));
+
+  // ── Audit 6 / F4: the tombstone list is normalised on load ──
+  // Every store written before this release has no `deleted` field at all, and a hand-edited
+  // one could carry anything. mergeStores filters ids into an onclick-safe charset already,
+  // but the load path guards the same shape so nothing downstream has to re-check it.
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: undefined });
+  load();
+  T('a pre-v79 store without a deleted field loads to an empty list', Array.isArray(getD().deleted) && getD().deleted.length === 0, JSON.stringify(getD().deleted));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: ['s123', "x');alert(1);//", 42, null, 'ok-1.2'] });
+  load();
+  T('load keeps well-formed tombstones', getD().deleted.includes('s123') && getD().deleted.includes('ok-1.2'), JSON.stringify(getD().deleted));
+  T('load drops malformed tombstones', getD().deleted.length === 2, JSON.stringify(getD().deleted));
+  store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: 'nope' });
+  load();
+  T('load survives a non-array deleted field', Array.isArray(getD().deleted) && getD().deleted.length === 0);
+  T('freshState ships an empty tombstone list', Array.isArray(freshState().deleted) && freshState().deleted.length === 0);
 
   global.localStorage = realLS;
   setD(freshD());
@@ -1281,6 +1352,47 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     const npTheirs = { ...freshState(), sessions: [sess('np1', { noProg: true })] };
     T('mergeStores: noProg set in the other tab survives an id collision', mergeStores(npMine, npTheirs).sessions[0].noProg === true, JSON.stringify(mergeStores(npMine, npTheirs).sessions[0]));
     T('mergeStores: noProg set locally is not cleared by the other tab', mergeStores(npTheirs, npMine).sessions[0].noProg === true);
+
+    // ── Audit 6 / F3: cardio ids now reach a delete-button onclick, so this branch needs
+    // the same charset guard mergeImport already applies. It used to adopt the other tab's
+    // rows verbatim — the third unguarded entrance to an inline-handler sink.
+    const cMine = { ...freshState(), cardioLog: [{ id: 'c1', date: '2026-06-01', type: 'Rowing', duration: 20, intensity: 'easy' }] };
+    const cEvil = { ...freshState(), cardioLog: [
+      { id: "x');alert(1);//", date: '2026-06-02', type: 'Rowing', duration: 20, intensity: 'easy' },
+      { id: 'c2', date: '2026-06-03', type: 'Walking', duration: 30, intensity: 'easy' }] };
+    const cm = mergeStores(cMine, cEvil);
+    T('mergeStores: cardio ids from the other tab are charset-guarded', cm.cardioLog.every(c => /^[\w.-]+$/.test(c.id)), JSON.stringify(cm.cardioLog.map(c => c.id)));
+    T('mergeStores: well-formed cardio still crosses', cm.cardioLog.some(c => c.id === 'c2'), JSON.stringify(cm.cardioLog.map(c => c.id)));
+    T('mergeStores: this tab keeps its own cardio', cm.cardioLog.some(c => c.id === 'c1'));
+    // Duplicate ids WITHIN the incoming list must not both land — the seen-set was only
+    // seeded from our own rows and never updated inside the loop.
+    const cDup = { ...freshState(), cardioLog: [
+      { id: 'cd', date: '2026-06-04', type: 'Rowing', duration: 10, intensity: 'easy' },
+      { id: 'cd', date: '2026-06-05', type: 'Rowing', duration: 99, intensity: 'easy' }] };
+    T('mergeStores: a duplicate cardio id inside the incoming list lands once',
+      mergeStores({ ...freshState() }, cDup).cardioLog.length === 1, JSON.stringify(mergeStores({ ...freshState() }, cDup).cardioLog));
+
+    // ── Audit 6 / F4: a deleted session must stay deleted across the two-tab merge ──
+    // Deletion is the one thing a pure union cannot express, so deleting a session in one tab
+    // and then saving ANYTHING in the other (a banner dismiss, a theme tap, a cardio entry)
+    // unioned the still-present row straight back in.
+    const dSess = id => ({ ...mkSess(id, '2026-06-11', 60) });
+    const delMine = { ...freshState(), sessions: [dSess('k1')], deleted: ['k2'] };
+    const delTheirs = { ...freshState(), sessions: [dSess('k1'), dSess('k2')] };
+    const dm = mergeStores(delMine, delTheirs);
+    T('mergeStores: a session deleted here is not resurrected from their store', !dm.sessions.some(s => s.id === 'k2'), JSON.stringify(dm.sessions.map(s => s.id)));
+    T('mergeStores: undeleted sessions still merge normally', dm.sessions.some(s => s.id === 'k1'));
+    T('mergeStores: the tombstone is carried forward', dm.deleted.includes('k2'), JSON.stringify(dm.deleted));
+    // ...and the reverse direction: THEIR delete must reach OUR still-present row.
+    const dr = mergeStores({ ...freshState(), sessions: [dSess('k1'), dSess('k2')] }, { ...freshState(), deleted: ['k2'] });
+    T('mergeStores: a delete in the other tab removes our copy too', !dr.sessions.some(s => s.id === 'k2'), JSON.stringify(dr.sessions.map(s => s.id)));
+    // Hostile / malformed tombstones are dropped, not adopted (same sink as session ids).
+    const dh = mergeStores({ ...freshState(), sessions: [dSess('k1')] }, { ...freshState(), deleted: ["k1');alert(1);//", 42, null] });
+    T('mergeStores: a malformed tombstone is rejected', dh.sessions.some(s => s.id === 'k1') && dh.deleted.length === 0, JSON.stringify(dh.deleted));
+    // The tombstone list is bounded.
+    const many = Array.from({ length: 400 }, (_, i) => 'z' + i);
+    T('mergeStores: the tombstone list is capped', mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length === 300,
+      mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length);
   }
 
   // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
@@ -1290,6 +1402,52 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('reset-state save succeeds', save() === true);
   const wiped = JSON.parse(store4['rft-v12']);
   T('a wipe with adopted gen does not resurrect the old sessions', wiped.sessions.length === 0 && wiped.gen === 8, JSON.stringify({ n: wiped.sessions.length, gen: wiped.gen }));
+  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+}
+
+// ── Audit 6 / F1: a quota-blocked save must NOT advance the write generation ──
+// It used to bump D.gen before the setItem, so a failed write left the tab's gen ABOVE the
+// sidecar. save()'s conflict guard (sg > D.gen) then read false and skipped the merge, and
+// the next successful save — right after the user frees space, which is exactly what the
+// quota alert instructs — silently destroyed the other tab's sessions.
+{
+  const store5 = {};
+  let allow = true;
+  global.localStorage = {
+    getItem: k => store5[k] ?? null,
+    setItem: (k, v) => { if (!allow && k === 'rft-v12') { const e = new Error('QuotaExceededError'); e.name = 'QuotaExceededError'; throw e; } store5[k] = v; },
+    removeItem: k => { delete store5[k]; }
+  };
+  const mkSess = (id, date, wt) => ({ id, date, day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '', notes: '' }] });
+
+  // Tab A boots, saves once cleanly → gen 1.
+  const dA = freshD();
+  dA.sessions = [mkSess('q1', '2026-06-01', 56)];
+  dA.gen = 0;
+  save();
+  T('quota: baseline save lands at gen 1', getD().gen === 1 && store5['rft-v12-gen'] === '1');
+
+  // Storage fills up. Two save attempts fail.
+  allow = false;
+  getD().sessions.push(mkSess('qA', '2026-06-02', 58));
+  T('quota: a blocked save reports failure', save() === false);
+  T('quota: a blocked save leaves gen where it was', getD().gen === 1, `gen=${getD().gen}`);
+  T('quota: a second blocked save still leaves gen where it was', (save(), getD().gen) === 1, `gen=${getD().gen}`);
+  T('quota: the stored blob is untouched by a blocked save', JSON.parse(store5['rft-v12']).sessions.map(s => s.id).join() === 'q1');
+
+  // Meanwhile the OTHER tab writes a session of its own at gen 2.
+  const other = JSON.parse(store5['rft-v12']);
+  other.sessions.push(mkSess('qB', '2026-06-03', 60));
+  other.gen = 2;
+  store5['rft-v12'] = JSON.stringify(other);
+  store5['rft-v12-gen'] = '2';
+
+  // The user frees space and taps Save again — the conflict merge must still fire.
+  allow = true;
+  T('quota: the recovery save succeeds', save() === true);
+  const after = JSON.parse(store5['rft-v12']).sessions.map(s => s.id);
+  T('quota: the other tab’s session survives the recovery save', after.includes('qB'), JSON.stringify(after));
+  T('quota: this tab’s own session is written too', after.includes('qA'), JSON.stringify(after));
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 

@@ -818,8 +818,12 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   // default, so its delete button never appeared and the sweep passed over it vacuously —
   // caught by mutating the fix away and watching nothing fail. Seed the states that gate a
   // control into existence BEFORE sweeping.
-  const realCues = R.getD().cues;
+  // Happened twice: the cue list, and then §15's cardio delete list, which lands on a screen
+  // this sweep already walked but is gated on `cardioLog` being non-empty — the sweep saw a
+  // Cardio screen with no Recent section and reported it clean.
+  const realCues = R.getD().cues, realCardio = R.getD().cardioLog;
   R.getD().cues = { hex_dl: 'brace hard, push the floor away' };
+  R.getD().cardioLog = [{ id: 'cs1', date: '2026-06-12', type: 'Rowing', duration: 20, intensity: 'easy' }];
 
   // A control is named if it says so itself (aria-label/aria-labelledby), if a <label for>
   // points at its id, or if a <label> wraps it (how the Import button's hidden file input
@@ -886,11 +890,14 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.setSEG('overview');
   R.go('settings');
   T('settings actually renders the cue delete button the sweep checks', /Delete cue for/.test(R.getA()));
+  R.go('cardio');
+  T('cardio actually renders the §15 delete buttons the sweep checks', /delCardio\(/.test(R.getA()));
   // The .lb captions are <label for>, which only works as a name if .lb stays block-level —
   // a label is inline by default and would collapse onto the control's line.
   T('the .lb caption utility is block-level so <label class="lb"> lays out as the <div> did',
     /\.lb\{[^}]*display:block/.test(html));
   R.getD().cues = realCues;
+  R.getD().cardioLog = realCardio;
 }
 
 // ── audit fix: the Progress tab pattern actually connects ──
@@ -1031,6 +1038,74 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 
   global.alert = realAlert;
   R.getD().bodyLog = [{ date: '2026-06-12', weight: 80 }];
+}
+
+// ── Audit 6 / F3: a mistyped cardio entry must be removable ──
+// Cardio had no delete or edit anywhere in the app. A 300-minute row typed for 30 permanently
+// skewed the fatigue meter, the monthly minutes total, the weekly cardio chart and the heat
+// map, and could not be undone: the cardio merge in both mergeImport and mergeStores is purely
+// additive, so re-importing a corrected backup does not remove it either. Only Reset All Data.
+{
+  const realConfirm = global.confirm;
+  const cl = [
+    { id: 'c1001', date: '2026-06-10', type: 'Rowing', duration: 30, intensity: 'easy' },
+    { id: 'c1002', date: '2026-06-12', type: 'Walking', duration: 300, intensity: 'moderate' }, // the typo
+    { id: 'c1003', date: '2026-06-14', type: 'Cycling', duration: 45, intensity: 'hard' },
+  ];
+  R.getD().cardioLog = structuredClone(cl);
+  tryRender('cardio screen with history', () => R.go('cardio'));
+  const cm = R.getA();
+  T('the cardio screen lists logged entries', /Recent · 3/.test(cm), (cm.match(/Recent · \d+/) || [''])[0]);
+  T('each cardio row carries a delete control', (cm.match(/aria-label="Delete cardio entry"/g) || []).length === 3,
+    String((cm.match(/aria-label="Delete cardio entry"/g) || []).length));
+  T('the delete control targets the entry by id', /delCardio\('c1002'\)/.test(cm));
+  T('the row shows the duration that needs correcting', /300 min/.test(cm));
+
+  // Deleting removes exactly that entry and leaves the rest.
+  global.confirm = () => true;
+  window.delCardio('c1002');
+  T('delCardio removes the targeted entry', R.getD().cardioLog.map(c => c.id).join() === 'c1001,c1003', JSON.stringify(R.getD().cardioLog.map(c => c.id)));
+
+  // ...and a declined confirm changes nothing.
+  global.confirm = () => false;
+  window.delCardio('c1001');
+  T('a declined confirm leaves the cardio log alone', R.getD().cardioLog.length === 2, R.getD().cardioLog.length);
+
+  // A row whose id could break out of the onclick attribute is not rendered with a control
+  // it cannot safely address. (Every writer already strips the charset; this is the sink.)
+  global.confirm = () => true;
+  R.getD().cardioLog = [{ id: "x');alert(1);//", date: '2026-06-10', type: 'Rowing', duration: 20, intensity: 'easy' },
+    { id: 'c_ok', date: '2026-06-11', type: 'Rowing', duration: 20, intensity: 'easy' }];
+  R.go('cardio');
+  const cm2 = R.getA();
+  T('a hostile cardio id never reaches the delete onclick', !/alert\(1\)/.test(cm2), (cm2.match(/delCardio\([^)]*\)/g) || []).join('|'));
+  T('well-formed cardio ids still get a control', /delCardio\('c_ok'\)/.test(cm2));
+
+  if (realConfirm === undefined) delete global.confirm; else global.confirm = realConfirm;
+  R.getD().cardioLog = [];
+}
+
+// ── Audit 6 / F4: deleting a session records a tombstone ──
+// delS is the only writer of D.deleted; without it mergeStores has nothing to filter on and
+// the two-tab union resurrects the row. Checked here (not calc.test.js) because delS renders.
+{
+  const saved = R.getD().sessions;
+  R.getD().sessions = [
+    { id: 'tomb1', date: '2026-06-10', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] },
+    { id: 'tomb2', date: '2026-06-12', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 30, reps: [7, 7, 7, 7], band: '' }] },
+  ];
+  R.getD().deleted = [];
+  R.go('history');
+  delS('tomb2');                     // first tap only arms the button
+  T('the first delete tap does not remove the session', R.getD().sessions.length === 2, R.getD().sessions.length);
+  T('the first delete tap writes no tombstone', R.getD().deleted.length === 0, JSON.stringify(R.getD().deleted));
+  delS('tomb2');                     // second tap confirms
+  T('the confirmed delete removes the session', R.getD().sessions.map(s => s.id).join() === 'tomb1', JSON.stringify(R.getD().sessions.map(s => s.id)));
+  T('the confirmed delete records a tombstone', R.getD().deleted.includes('tomb2'), JSON.stringify(R.getD().deleted));
+  T('the tombstone survives a two-tab merge with a store that still has the row',
+    !mergeStores(R.getD(), { sessions: [{ id: 'tomb2', date: '2026-06-12', day: 'B', ex: [] }] }).sessions.some(s => s.id === 'tomb2'));
+  R.getD().sessions = saved;
+  R.getD().deleted = [];
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

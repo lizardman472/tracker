@@ -1077,6 +1077,9 @@ nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
+// How many deleted-session tombstones D.deleted keeps (see mergeStores). ~20 bytes each; the
+// list only needs to outlive another tab's stale in-memory snapshot, so this is generous.
+const TOMB_MAX=300;
 let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
@@ -1184,6 +1187,9 @@ if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setIte
 if(!d.cues||typeof d.cues!=='object')d.cues={};
 else{const cz={};for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))cz[k]=v;d.cues=cz}
 if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
+// Deletion tombstones (see mergeStores). Same charset as a validated session id, so a
+// hand-edited store can't smuggle anything else in; absent on every pre-v79 store.
+d.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)).slice(-TOMB_MAX);
 if(!d.notify)d.notify={enabled:false,rest:true};
 if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
@@ -1219,13 +1225,20 @@ if(sg>(D.gen||0)){
   // lose this tab's just-logged work to protect a store that didn't parse anyway.
   try{const theirs=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,theirs)}catch(_){}
   D.gen=Math.max(D.gen||0,sg)}
-D.gen=(D.gen||0)+1;
-localStorage.setItem(SK,JSON.stringify(D));
+// The generation must only advance for a write that ACTUALLY LANDED. It used to be
+// bumped before the setItem, so a quota-blocked save still incremented it — leaving the
+// tab's in-memory gen ABOVE the sidecar. The conflict guard above then read
+// sg > D.gen as false and skipped the merge, so the next successful save (right after
+// the user frees space, which is exactly what the quota alert tells them to do)
+// clobbered whatever the other tab had written in the meantime. Roll back on failure.
+const prev=D.gen||0;
+D.gen=prev+1;
+try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){D.gen=prev;return false}
 try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto'}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:17,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -2170,18 +2183,26 @@ if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // red-lined permanently. Target anchors: 3 sessions @RPE3 & normal volume ≈ 5 (Ready);
 // 5-6 hard sessions @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh).
 // f is session-EQUIVALENTS (summed load), not a raw entry count — see `load` above.
-// ad is a load-WEIGHTED mean, for the same reason. A plain mean let four easy walks pull the
-// average effort from 3.0 toward 2.0, so logging extra activity made the meter read LESS
-// fatigued than the identical week without it — adding work must never lower the score.
-// All three terms are driven by f (session-EQUIVALENTS) rather than a raw entry count, so a
-// low-load entry can never shrink a term just by existing. Both of the other means used the
-// raw count and both broke monotonicity because of it: a plain effort mean let easy walks pull
-// the average down, and dividing volume by the entry count let four walks shrink the
-// per-session volume term. Logging more work must never make the meter read less fatigued.
+// MONOTONICITY (audit 6). The invariant this function has always claimed — "logging more work
+// must never make the meter read less fatigued" — was FALSE, and load-weighting the means did
+// not fix it, only shrink it. Any MEAN is non-monotone: the added entry lands in the numerator
+// AND the denominator, so a below-average one drags the term down. Measured on the old
+// formula: one brutal session (RPE 5, 10t) read 8.6 Fatigued, and logging a second, easy,
+// light session dropped it to 4.9 Ready — two bands lower for strictly more work. Cardio hit
+// the same wall (3.1 Ready → 2.9 Fresh after a 10-minute row); 182 of 1080 sampled
+// lifting+cardio states scored LOWER with the cardio logged, 724 of 6480 crossing a label.
+// Effort and per-session volume are now read as PEAKS rather than load-weighted means. A max
+// over non-negative per-entry terms can only grow, so the score is monotone by construction,
+// and on a UNIFORM week (every entry the same effort and volume — which is what all three
+// documented calibration anchors are) max == mean, so this reproduces the existing
+// calibration exactly: 3 sessions @RPE3 & normal volume ≈ 5 (Ready); 5-6 hard sessions
+// @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh). It differs only on MIXED weeks, and
+// only upward — reading "the hardest thing you did, plus how often you trained" instead of
+// letting an easy session average a hard one away.
 const f=scores.reduce((a,b)=>a+(b.load??1),0);
-const ad=f>0?scores.reduce((a,b)=>a+b.diff*(b.load??1),0)/f:0;
-const tv=scores.reduce((a,b)=>a+b.vol,0);
-const sc=Math.round(Math.min(10,Math.max(0,f*.8+Math.max(0,ad-2)*1.5+tv/(3000*Math.max(1,f))))*10)/10;
+const pk=scores.reduce((a,b)=>Math.max(a,Math.max(0,b.diff-2)),0);
+const pv=scores.reduce((a,b)=>Math.max(a,b.vol),0);
+const sc=Math.round(Math.min(10,Math.max(0,f*.8+pk*1.5+pv/3000))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
@@ -3021,7 +3042,33 @@ h+=`<button type="button" class="cardio-btn${t===CARDIO_T?' sel':''}" aria-press
 h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
 <div style="flex:1"><label class="lb" for="c-dur">Duration (min)</label><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
 <div style="flex:1"><label class="lb" for="c-int">Intensity</label><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
-<button class="btn btn-pr" onclick="saveCardio()">Save</button></div></div>`;el.innerHTML=h}
+<button class="btn btn-pr" onclick="saveCardio()">Save</button></div>`;
+// Recent cardio, with a per-entry delete. Cardio had NO delete or edit anywhere in the app,
+// so a mistyped duration (300 for 30) was permanent: it skews the fatigue meter, the monthly
+// minutes total, the weekly cardio chart and the heat map forever. Import could not undo it
+// either — the cardio merge is purely additive, it never removes — so the only escape was
+// Reset All Data, which wipes the training history too. Mirrors the Body screen's pattern.
+{const cl=D.cardioLog||[];
+if(cl.length){h+=`<div class="lb" style="margin-top:14px;margin-bottom:6px">Recent · ${cl.length}</div>`;
+const IC={Rowing:'🚣',Walking:'🚶',Cycling:'🚴',Stretching:'🧘',Other:'🏃'};
+const ICOL={easy:'var(--gr)',moderate:'var(--am)',hard:'var(--rd)'};
+for(const c of[...cl].reverse().slice(0,20)){
+// Cardio ids reach an inline onclick. Every WRITER already constrains the charset
+// (saveCardio mints 'c'+Date.now(), mergeImport and mergeStores strip anything else), but
+// the render site refuses to emit a row it cannot address rather than trusting that.
+const cid=String(c.id==null?'':c.id);
+if(!/^[\w.-]{1,64}$/.test(cid))continue;
+const lvl=['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy';
+h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+<span style="font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<b>${IC[c.type]||'🏃'} ${esc(String(c.type||'Other'))}</b>
+<span class="dm">${Number(c.duration)||0} min</span>
+<span style="color:${ICOL[lvl]};font-weight:700;font-size:10px;text-transform:uppercase">${lvl}</span></span>
+<span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span class="dm">${fmtD(c.date)}</span>
+<button onclick="delCardio('${cid}')" title="Delete" aria-label="Delete cardio entry" style="border:none;background:var(--ib);color:var(--rd);width:40px;height:40px;border-radius:8px;font-size:14px;cursor:pointer">✕</button></span></div></div>`}}}
+h+=`</div>`;el.innerHTML=h}
+window.delCardio=function(id){if(!confirm('Delete this cardio entry?'))return;
+D.cardioLog=(D.cardioLog||[]).filter(c=>String(c.id)!==String(id));save();render()}
 let CARDIO_T='Rowing';
 // Preserve typed duration/intensity across the selection re-render (inputs are id-bound).
 function setCardioT(t){const dur=document.getElementById('c-dur')?.value,int=document.getElementById('c-int')?.value;
@@ -4050,6 +4097,10 @@ window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)ret
 if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
+// Tombstone the id so the two-tab conflict merge can't union the row back in from a stale
+// tab's store. See mergeStores.
+if(!Array.isArray(D.deleted))D.deleted=[];
+if(/^[\w.-]{1,64}$/.test(String(id)))D.deleted=[...D.deleted.filter(x=>x!==String(id)),String(id)].slice(-TOMB_MAX);
 if(D.sessions.length){const last=D.sessions[D.sessions.length-1];
 D.nextDay=NEXT_DAY[last.day]||'A'}else D.nextDay='A';save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
@@ -4260,8 +4311,18 @@ return{...s,id,day,ex}}
 // smuggle malformed sessions past the load-path validation.
 function mergeStores(mine,theirs){const W=structuredClone(mine);
 if(!theirs||typeof theirs!=='object')return W;
+// Deletion is the one thing a pure union cannot express. Deleting a session in this tab and
+// then saving anything at all in the other one — dismissing a banner, tapping a theme, logging
+// cardio — used to union the still-present row straight back in, and the deleted session
+// reappeared with no interaction that could have caused it. D.deleted is a tombstone list
+// (session ids only, capped); it is unioned from both stores and applied to both sides, so a
+// delete in either tab wins and then propagates on the next write.
+const tomb=new Set([...(Array.isArray(W.deleted)?W.deleted:[]),...(Array.isArray(theirs.deleted)?theirs.deleted:[])]
+  .filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)));
+W.sessions=W.sessions.filter(s=>!tomb.has(s.id));
 const sIds=new Map(W.sessions.map(s=>[s.id,s]));
 for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(!v)continue;
+  if(tomb.has(v.id))continue;
   const mine=sIds.get(v.id);
   // On an id collision the local row wins — EXCEPT for noProg, which marks a session the user
   // deliberately excluded from progression. Dropping it silently re-admitted that session to
@@ -4270,7 +4331,14 @@ for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=valid
   sIds.set(v.id,v);W.sessions.push(v)}
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 const cIds=new Set(W.cardioLog.map(c=>c.id));
-for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){if(c&&typeof c==='object'&&c.id&&!cIds.has(c.id))W.cardioLog.push(c)}
+// Cardio ids reach a delete-button onclick (the same sink cue keys do), and this branch
+// adopted whatever the other tab's store held. Apply mergeImport's charset guard here too —
+// guard both entrances identically rather than trusting that one of them is safe.
+for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){
+  if(!c||typeof c!=='object')continue;
+  const cid=String(c.id==null?'':c.id).replace(/[^\w.-]/g,'');
+  if(!cid||cIds.has(cid))continue;
+  cIds.add(cid);W.cardioLog.push({...c,id:cid})}
 W.cardioLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const bKeys=new Set(W.bodyLog.map(x=>x.date));
 for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x==='object'&&x.date&&!bKeys.has(x.date))W.bodyLog.push(x)}
@@ -4285,6 +4353,10 @@ if(!W.cues||typeof W.cues!=='object')W.cues={};
 if(theirs.cues&&typeof theirs.cues==='object'){
   for(const[k,v] of Object.entries(theirs.cues))
     if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k)&&!(k in W.cues))W.cues[k]=v}
+// Carry the union forward (newest last, capped) so the delete keeps propagating until every
+// tab has seen it. TOMB_MAX is a bound on unbounded growth, not a correctness knob: a
+// tombstone only has to outlive the other tab's stale in-memory snapshot.
+W.deleted=[...tomb].slice(-TOMB_MAX);
 return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
@@ -4317,6 +4389,11 @@ let added=0,replaced=0;
 for(const s of d.sessions){if(existingMap.has(s.id))replaced++;else added++;existingMap.set(s.id,s)}
 W.sessions=[...existingMap.values()];
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+// An import is an explicit, reported act — unlike the silent cross-tab union — so it is
+// allowed to bring back a session this device once deleted. Lift the tombstone for anything
+// the backup actually carries, or the next two-tab merge would immediately re-delete it.
+{const back=new Set(d.sessions.map(s=>s.id));
+ W.deleted=(Array.isArray(W.deleted)?W.deleted:[]).filter(x=>!back.has(x));}
 // Merge cardio, discomfort, body logs (additive) — re-sort body log so date-ordered
 // readers (current weight, change, trend chart, W:H ratio, relative strength) stay correct.
 const cIds=new Set(W.cardioLog.map(c=>c.id));

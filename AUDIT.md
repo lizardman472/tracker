@@ -744,12 +744,158 @@ Still open, with nothing left that was mis-stated: the rest-day day-picker (low 
 "Day X anyway" already ships, only the A/B/C picker is missing); the light install splash
 (platform limitation, above); no extensor-endurance slot (accepted since v16).
 
-*(§15 verifies this section's numbers — all of them reproduce — closes the day-picker, and
-adds one contrast pair this section's sweep did not measure. Read §15 for the current list.)*
+---
+
+## 15 · Sixth pass — bottom-up, from the untrodden edges (26 Jul 2026)
+
+Five passes had concentrated on the progression engine, the data/load path, accessibility,
+the theme system and the service worker's navigation branch. This pass started from the
+places nobody had executed: `save()` under a full disk, the two-tab merge under a real
+deletion, cardio, the fatigue meter's own stated invariant, and the service worker's *font*
+branch. Everything below was reproduced by running the real function and printing before and
+after; nothing here is a code-reading argument.
+
+Five behavioural changes, one per commit, each with the reproduction in its message.
+
+### Fixed
+
+| # | Finding | Reproduction (before → after) |
+|---|---|---|
+| **F1** | **A quota-blocked save silently destroyed another tab's sessions.** `save()` bumped `D.gen` *before* the `setItem`, so a write that threw still advanced the generation. That left the tab's gen ABOVE the sidecar, and the conflict guard only merges when `sidecar > D.gen` — so the merge was skipped on the next write. The quota alert tells the user to free space and tap Save again, which is exactly the sequence that triggers it. | Two vm contexts sharing one `localStorage`, tab A on a tight quota: two failed saves (`gen 2, 3`), tab B logs and saves (`store: s1,sB`), A frees space and saves → **`store: s1,sA` — `sB` gone**. After: failed saves leave `gen 1`, the merge fires, **`store: s1,sA,sB`**. |
+| **F2** | **The fatigue meter fell when you logged more work.** `getFatigue`'s comment asserts twice that this can never happen, and load-weighting the two averaged terms was supposed to have secured it. It did not: *any* mean is non-monotone, because the added entry lands in numerator and denominator at once. | One brutal session (RPE 5, 10t) read **8.6 Fatigued**; adding one easy light session (RPE 1, 1t) dropped it to **4.9 Ready** — two bands down for strictly more work. Cardio hit the same wall: **3.1 Ready → 2.9 Fresh** after a 10-minute row. Swept: **182 of 1080** lifting+cardio states scored lower with the cardio logged; **724 of 25 380** crossed a label boundary downward. After: **0 of 20 000** randomised "add one entry" fuzz cases, and 0 of the 105 deterministic sweep cases now in `calc.test.js`. |
+| **F3** | **A mistyped cardio entry was permanent.** Cardio had no delete and no edit anywhere in the app. 300 minutes typed for 30 skews the fatigue meter, the Monthly minutes total, the Cardio Minutes/Week chart and the heat map forever — and the cardio merge in *both* `mergeImport` and `mergeStores` is purely additive, so re-importing a corrected backup does not remove it either. The only escape was Reset All Data. | Chromium, 20 seeded rows: before, the Log Cardio screen has no list and no delete control in the DOM. After, a `Recent · 20` list with one confirm-gated ✕ per row; **cardioLog 20 → 19 in memory and 19 in `localStorage`**, verified in light and dark, no console errors. |
+| **F4** | **A stale tab resurrected a session you deleted.** `mergeStores` unions the append-only logs, which is right for everything except deletion. Delete a session in one tab, then save *anything* in a second open tab — a banner dismiss, a theme tap, a cardio entry — and the still-present row was unioned back in. | Two vm contexts, real `delS` (two taps): A deletes `sA` → `store: s1,sB`; B saves a cue → **`store: s1,sA,sB`**. After: **`store: s1,sB`**. |
+| **F5** | **A hanging font host stopped the app booting.** The Google Fonts stylesheet sits in `<head>` above the inline app script, so it is render- *and* script-blocking. The SW's font branch was cache-first-then-network with a `.catch` — and `.catch` only fires on a *failed* fetch. On a captive portal or a dead-but-connected signal the request **hangs**, and the page stays blank. This is the exact hazard the navigation branch races a 3s timer against; the font branch had no deadline. Nor is it first-load-only: `activate()` evicts the previous release's cache, so the launch right after **every update** re-fetches the fonts. | Chromium, SW installed and controlling, font cache entries evicted the way `activate()` does, every `fonts.g*` request left hanging (never fulfilled, never aborted): before, the cached shell was served in **43 ms** and the app screen was **still blank after 20 s**. After, the app rendered at **2.6 s** in fallback typography. |
+
+Implementation notes worth carrying forward:
+
+- **F2's shape.** Effort and per-session volume are now *peaks* instead of load-weighted means.
+  A max over non-negative per-entry terms can only grow, so monotonicity holds by
+  construction. On a **uniform** week max == mean — and all three documented calibration
+  anchors are uniform weeks — so the calibration reproduces exactly: 3 sessions @RPE3 2.9t
+  = **4.9 Ready**, 5 hard sessions @RPE4+ = **9.8 Fatigued**, 1 light session @RPE2 =
+  **1.5 Fresh**, 7 easy walks with no lifting = **1.3 Fresh**. It differs only on *mixed*
+  weeks, and only upward: it now reads "the hardest thing you did, plus how often you
+  trained" instead of letting an easy session average a hard one away.
+- **F3 opened a third door to an old sink.** Cardio ids now reach an inline `onclick`, the
+  same sink cue keys and session ids feed. `mergeStores` adopted the other tab's cardio rows
+  verbatim — the one unguarded entrance — so it now applies `mergeImport`'s charset filter and
+  dedupes ids *within* the incoming list as well as against our own. The render site
+  independently refuses to emit a row whose id it cannot safely address.
+- **F4's tombstones.** `D.deleted` holds up to 300 deleted session ids (~20 bytes each);
+  `mergeStores` unions them from both stores and applies them to both sides, so a delete in
+  either tab wins and then propagates. An **import** is allowed to lift a tombstone: it is an
+  explicit, reported act, unlike the silent union, so restoring a backup genuinely restores.
+  Stores written before this release simply have no such field.
+- **F5 is cache-first still.** A cached font short-circuits with no network call and no timer
+  at all. Only a MISS is put on a 2.5 s deadline, and losing the race costs one load of
+  fallback typeface; the in-flight fetch is held open by an explicitly-claimed `waitUntil`,
+  so the font still lands in the cache for the next launch.
+
+### Checked and found clean
+
+Each of these was **executed**, not read. Every probe below was then deliberately broken to
+confirm it could fail — the ones that could not are called out.
+
+| Area | What was actually run | Result |
+|---|---|---|
+| **Plate math and the three loading ladders** | Independent brute-force re-derivation of every reachable total for VW / VWH / VWL, compared set-to-set against the shipped ladders; `perSide` re-solved for **every** rung and checked against the per-side pair caps and the bar weight; `nxUp`/`nxDn`/`snapW` round-tripped on every rung; `dbEnd` re-solved for every DB rung against the 4-plates-per-sleeve cap. | **Clean.** VW 149 rungs (11–85), VWH 149 (7–81), VWL 297 (11–85), DBW_PAIR 31 (2–18.5), DBW_SINGLE 37 (2–22). No missing rung, no extra rung, no cap violation. Claimed "exhaustively verified" twice before; it holds. |
+| **Date and timezone math** | `dayDiff`, `weekKey`, `weekKeys`, `daysAgoStr` across both 2026 NZ DST transitions and 400 consecutive days, under **six** timezones including two half-hour and two southern-hemisphere zones. All five suites re-run under three timezones. | **Clean.** No off-by-one, no non-Monday week key, no `weekKeys` gap, no `daysAgoStr` skip. Suites pass identically under Pacific/Auckland, America/St_Johns and UTC. |
+| **Chart rendering with degenerate data** | `svgBars` / `svgLine` / `spark` over empty, single-point, all-zero, all-equal, negative, 1e9-range and 60-point inputs, plus out-of-range marks and a target above the max; every emitted numeric SVG attribute and every `points` list parsed. | **Clean.** No `NaN`, no `Infinity`, no `undefined` in any attribute. *(The first version of this probe reported 130 false positives because its regex matched substrings of `viewBox` and `text-anchor`; it was then verified to fail on a real defect by removing `svgBars`' `,1` floor, which produces `height="NaN"`.)* |
+| **Deload / phase state machine with interleaved venue switches** | 60 sessions with 9 venue switches, 2 phase changes and a deload, re-reading the entire surface at every step: `getPhaseInfo`, `getDeload`, `getFatigue`, `getCycleInfo`, `consistency`, `statSnapshot`, every suggestion on every day at both venues, and a deep `NaN`/`Infinity`/`"undefined"` scan of every analytics return value. | **Clean.** No throw, no non-finite number anywhere, no `NaN`/`undefined` leaking into suggestion text. Probe verified to fail (612 issues) when `e1rm` is made to return `NaN`. |
+| **Rest timer, alarm and midnight** | Wall-clock resync after a simulated 90-second background gap; alarm-takeover build-once-per-transition; the ~60 s sound cap with the overlay persisting; dismiss leaving the overtime pill; restart and `clearTimer`; and a workout started at 23:50 finished after midnight. | **Clean.** The pill resyncs to `+1:30` from a single late tick, the overlay markup is byte-stable across ticks, and the session is dated by its **start** day. Probe verified to fail on both counts (tick-counting instead of wall-clock; `ymd(new Date())` instead of `ymd(new Date(SS))`). |
+| **Hostile-input rendering (XSS)** | A break-out payload placed in session notes, per-exercise notes, band, cardio type and every cue value, then **every** view rendered — Home, all six Progress segments, per-lift detail, Body, History (collapsed and expanded), Log Past, Plates, Settings, Cardio, Workout — and the output scanned for the raw payload. | **Clean.** `esc()` escapes quotes as well as `&<>`, so it is safe in attribute position too. |
+| **Hostile / partial import** | `mergeImport` against `null`, `{}`, non-array `sessions`, all-malformed sessions, `phase:9` / `phaseStart:'banana'` / `location:'moon'` / `nextDay:'Z'`, object-valued `band`, array-valued `notes`, string `wt`, all-null `wts`, id-less cardio, junk body-log keys, and a `__proto__` cue key. | **Clean.** Unsalvageable input throws (caught by `impD`, "nothing was changed"); salvageable input is coerced; no prototype pollution. |
+| **Schema migration from old backups** | A v11-era store planted under `rft-v11`, `rft-v9` and `rft-v5` in turn, plus the both-keys-present case. | **Clean.** Sessions preserved, venue derived from exercise ids, tonnage recomputed to the current formula (900 / 600 kg — correct for the `per_db` doubling), dead fields (`dayCFocus`, `confirmed`, `difficulty`) dropped, stale keys cleared, and the current key wins when both exist. |
+| **Service worker end-to-end** | Real Chromium: register, control the page, reload, inspect cache keys and contents, then go offline and reload. | **Clean.** One cache (`rft-v81`) holding exactly `/`, `/index.html`, `/manifest.webmanifest`; the offline navigation is served from cache with `responseEnd` at **43 ms** and 48 sessions intact. The 13-second offline reload this first appeared to show was entirely the font stylesheet — which is F5, not the navigation branch. |
+
+### Corrections to §1–§14
+
+- **§13 overstates the cardio-fatigue fix.** The entry reads as though load-weighting removed
+  the effect that "easy cardio dragged the effort term down". It reduced it; it did not remove
+  it, and the invariant the source comment states remained false in 17% of sampled
+  lifting+cardio states. It was also never only a *cardio* problem — an extra easy **lifting**
+  session broke it harder (8.6 → 4.9). Superseded by F2.
+- **§11–§14 treat `mergeStores` as complete.** It is described as unioning "the append-only
+  logs", which is accurate as far as it goes, but the store is not append-only: `delS` removes
+  rows, and until F4 nothing carried that across the merge. Two of the three unguarded-sink
+  audits (cues in §13, session ids earlier) also missed that cardio ids were adopted verbatim
+  from the other tab.
+- **The CI cache-bump check is a warning, not a failure.** `.github/workflows` emits
+  `::warning::` and the step exits 0. Every commit in this pass bumps it anyway
+  (`rft-v76 → rft-v81`), but a future pass should not assume CI will stop a missed bump.
+
+### Deliberately left
+
+- **Cardio duration accepts negative and absurd values.** `saveCardio` guards only
+  falsiness, so `-30` is stored as `-30` and skews every cardio total. F3 makes this
+  recoverable — you can now delete the row — which drops it from "unrecoverable" to
+  "annoying". A clamp belongs in the same place as the equivalent body-measurement guard;
+  not taken here to keep F3's commit to one behaviour.
+- **The Cardio Minutes/Week chart includes the in-progress week.** The tonnage and
+  sessions charts on the same screen deliberately exclude it ("complete weeks only") and
+  report it as a "this week so far" line instead. The cardio chart does not, so mid-week
+  reads as a crash. Cosmetic; the inconsistency is worth closing, but it changes a chart's
+  meaning and deserves its own pass.
+- **The Training Cycle timeline overflows its card** on a 390 px viewport: with five recent
+  sessions the "next" node — the most useful thing in the strip — sits off-screen behind an
+  `overflow-x:auto` with no scroll affordance. Confirmed by screenshot. Cosmetic.
+- **Import duplicates rows that are duplicated inside the backup itself.** The seen-sets for
+  `cardioLog`, `bodyLog` and `discomfort` in `mergeImport` are seeded from the current store
+  and never updated inside the loop, so a file containing the same id/date twice inserts both.
+  `mergeStores`' cardio branch was fixed as part of F3; the import side is harmless in
+  practice (the app never writes such a file) and was left alone.
+- **The Body screen's history list is capped at 20 with no "show more"**, so with a longer
+  log the older entries are neither visible nor deletable. History itself got pagination in
+  §14; Body did not.
+- **The update toast can be missed.** `updatefound` is attached after `register()` resolves,
+  so a worker that finished installing before that point never fires it. Harmless in
+  practice — `skipWaiting()` means the new version is live on the next launch regardless.
+- **First-ever load still blocks on the font stylesheet.** F5's deadline lives in the service
+  worker, which is not yet controlling the page on a cold first visit. Making the `<link>`
+  non-blocking would fix that too, at the cost of a fallback-font flash on *every* load; not
+  worth it for the one visit that is almost certainly online.
+
+### Method notes
+
+Two of this pass's five findings were only visible because a probe was pointed at something
+nobody had executed, and **two of the probes were wrong before the code was**:
+
+- The degenerate-chart probe reported 130 failures that were all its own regex matching
+  substrings of `viewBox` and `text-anchor`.
+- The service-worker font-deadline test hung the whole suite on first run, because the font
+  deadline is armed *after* the cache lookup resolves — so the fake clock had to let
+  microtasks drain before it could see the timer at all. The suite's own hang guard caught it.
+
+That is now **six** harness defects in six passes. The rule that keeps paying: after a probe
+passes, break the thing it claims to watch and confirm it fails. Applied throughout:
+**14** `index.html` mutations guarding the four in-app fixes (F1 ×1, F2 ×3, F3 ×4, F4 ×6),
+**3** new `sw.mutate.js` entries for F5, **4** more used to prove the read-only probes above
+could fail at all, and **4** baseline mutations run first to confirm every suite still
+propagates a failure to a non-zero exit. Each was asserted to have actually changed the file
+before its result was believed — one candidate turned out to be a semantic no-op and was
+discarded rather than recorded as an uncaught escape.
+
+One mutation-harness subtlety worth recording: adding the font deadline gave `sw.js` a
+**second** `net.then(r => { clearTimeout(timer); done(r); })`, and `String.replace` patches
+the first match — so the pre-existing "leaves the deadline timer pending" mutation silently
+moved off the navigation branch and onto the new one. It still "passed". Both are now anchored
+on their own `setTimeout` line, and both are tested independently.
+
+**1007 passing** — calc 449 · hex 225 · render.smoke 286 · sw 47 — plus 17/17 SW mutations
+caught. SW cache `rft-v81`.
+
+*(Total summed by a script reading the four runners, not by hand. Seventh time lucky.)*
 
 ---
 
-## 15 · Sixth pass — the form layer, the notification path, and a dead stub (26 Jul 2026)
+## 16 · Sixth pass, in parallel — the form layer, the notification path, and a dead stub (26 Jul 2026)
+
+*§15 and §16 are both sixth passes. They were audited concurrently from the same base
+(`a4f986e`) and neither saw the other's findings until the merge; the numbering is order of
+landing, not order of work. Their findings do not overlap and neither contradicts the other.
+This section also verifies §14 — every number in it reproduces — closes the rest-day picker
+§14 left open, and adds one contrast pair §14's sweep did not measure.*
 
 ### §14 is the first pass in this branch whose claims all hold
 
@@ -807,7 +953,10 @@ take**.
 
 That is the fifth harness defect in six passes, after an over-escaping stub, a suite that
 drained the event loop and exited 0, a test pointed at the wrong screen, and two suites with
-no `process.exit(1)`.
+no `process.exit(1)`. §15 independently found a sixth in the same pass — a `String.replace`
+mutation that silently moved onto a newly-added second match and kept "passing" — which two
+audits running blind to each other both landing on the scaffolding says more than either
+finding does alone.
 
 Two more from this pass, both caught only by mutation:
 
@@ -834,13 +983,55 @@ those. **A mutation that does not mutate, or that mutates something untested, is
 the suite is broken — it is evidence the auditor is.** Every mutation in this pass checks that
 the file changed and names the suite it expects to fail.
 
-**1000 passing** — calc 423 · hex 225 · render.smoke 312 · sw 40 — plus 16/16 mutations
-caught. SW cache `rft-v77`.
+**1059 passing after the merge with §15** — calc 458 · hex 225 · render.smoke 327 · sw 49 —
+plus 18/18 mutations caught. SW cache `rft-v82`.
+
+*(§16 alone was 1000 — calc 423 · hex 225 · render.smoke 312 · sw 40, 16/16 mutations, cache
+`rft-v77`; §15 alone was 1007 at `rft-v81`. The merged figure is not the sum of the two: both
+passes extended the same four suites, and §16's accessible-name sweep grew by one assertion
+during the merge, below. `rft-v82` because neither input shell was ever served with the
+other's changes.)*
 
 *(Read from the runner, and this time summed by the shell too:
 `for f in calc.test hex.test render.smoke sw.test; do node tests/$f.js | tail -1 | grep -o '^[0-9]*'; done | paste -sd+ | bc`.
 Six hand-summed totals in this branch have been wrong. The seventh was not attempted.)*
 
-Still open: the untrained-vs-silhouette heat contrast (above — measured, pinned, needs a
-palette pass); the light install splash (platform limitation — the manifest has no media
-mechanism); no extensor-endurance slot (accepted since v16).
+### What the merge itself found
+
+§15 and §16 merged with three conflicts — the SW cache version, the cardio form (§16 turned
+its two captions into `<label for>`; §15 restructured the same function's tail to add the
+Recent list), and the two `## 15` headings. All three were mechanical. **Neither pass's fixes
+collided and neither pass's claims contradict the other's.**
+
+The one real finding came from running §16's accessible-name sweep against §15's new markup:
+**it reported the Cardio screen clean while §15's per-entry delete buttons were not being
+rendered at all**, because the fixture's `cardioLog` is emptied earlier in the file and the
+Recent list is gated on it being non-empty. That is the third time in one pass that this sweep
+passed over a control that did not exist — the Progress exercise picker, the Settings cue
+delete, and now these. The sweep now seeds `cardioLog` too, and asserts the delete buttons are
+present before claiming they are named; removing §15's `aria-label="Delete cardio entry"` now
+fails the build, and did not before.
+
+The general lesson is the one this branch keeps relearning in new clothing: **a sweep reports
+on what the fixture rendered, not on what the app contains.** Every gate that hides a control
+is a hole in the sweep, and the only way to find those holes is to mutate the fix away and
+check that something fails.
+
+### Still open after both sixth passes
+
+Merged from §15's "Deliberately left" and §16's own list. Nothing either pass opened was
+closed by the other.
+
+From §16: the untrained-vs-silhouette heat contrast (measured, pinned in `calc.test.js`,
+needs a palette pass because `none` is the reference every passing band ratio is measured
+against); the light install splash (platform limitation — the manifest has no media
+mechanism).
+
+From §15: cardio duration accepts negative and absurd values; the Cardio Minutes/Week chart
+includes the in-progress week when its neighbours do not; the Training Cycle timeline
+overflows its card at 390 px; `mergeImport` duplicates rows already duplicated inside a
+backup; the Body history list is capped at 20 with no "show more"; the update toast can be
+missed when a worker installs before `updatefound` is attached; a cold first load still
+blocks on the font stylesheet, which F5's service-worker deadline cannot reach.
+
+Standing: no extensor-endurance slot (accepted since v16).
