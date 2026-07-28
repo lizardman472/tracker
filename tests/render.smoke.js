@@ -1109,48 +1109,62 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 }
 
 
-// ── v19 core block: renders, starts, and stays OUT of the A→B→C rotation ─────────────
-// The whole point of an off-rotation day is that logging one does not consume a lifting
-// slot. Every path that derives nextDay from history is asserted here, because a miss in
-// any one of them silently skips a training day the next time the user opens the app.
+// ── v20: the core block is gone from the UI, but pre-v20 day-'X' sessions still render ──
+// v19's off-rotation day is dissolved back into A/B/C. The entry point has to disappear, and
+// the machinery that keeps an ALREADY-LOGGED core block out of the A→B→C chain has to stay:
+// stores written between v19 and v20 hold day:'X' sessions, and a miss in any nextDay
+// derivation silently skips a training day the next time the user opens the app.
 {
   const D0 = R.getD();
   D0.location = 'home';
-  T('isRotDay accepts A/B/C and rejects the core block', R.isRotDay('A') && R.isRotDay('B') && R.isRotDay('C') && !R.isRotDay('X'));
-  T('dayBadge names the core block instead of "Day X1"', R.dayBadge({ day: 'X', loc: 'home' }) === 'Core' && R.dayBadge({ day: 'B', loc: 'partner' }) === 'Day B2');
+  T('isRotDay still accepts A/B/C and rejects a stored X', R.isRotDay('A') && R.isRotDay('B') && R.isRotDay('C') && !R.isRotDay('X'));
+  T('dayBadge still names a stored X "Core", not "Day X1"', R.dayBadge({ day: 'X', loc: 'home' }) === 'Core' && R.dayBadge({ day: 'B', loc: 'partner' }) === 'Day B2');
 
-  // The Cardio screen is the block's entry point.
-  tryRender('cardio (core block card)', () => R.go('cardio'));
+  // The Cardio screen was the block's entry point — it must not offer it any more.
+  tryRender('cardio (no core block card)', () => R.go('cardio'));
   const cardio = R.getA();
-  // beginW, not startW: the card's onclick fires through the inline-handler global scope, and
-  // startW is not a global — a live browser threw ReferenceError on the first version of this.
-  T('cardio screen offers the core block', /Core block/.test(cardio) && /beginW\('X'\)/.test(cardio));
-  T("the core card's handler names a function that actually exists", typeof R.beginW === 'function');
-  T('the core card names its movements', /Barbell Rollout/.test(cardio) && /Bird Dog/.test(cardio));
-  T('the core card says it is off-rotation', /does <b>not<\/b> advance/.test(cardio));
+  T('cardio screen no longer offers a core block', !/Core block/.test(cardio) && !/beginW\('X'\)/.test(cardio));
+  T('cardio screen still logs cardio', /saveCardio\(\)/.test(cardio));
 
-  // Starting and rendering it.
-  tryRender('workout (core block)', () => R.beginW('X'));
-  const cw = R.getA();
-  T('the core block renders its four movements', R.dayExs('X').length === 4);
-  T('the core block header reads Core Block, not Day X1', /Core Block/.test(cw) && !/Day X/.test(cw));
+  // The four movements are on the lifting days now, and each lands where its implement is.
+  tryRender('workout (home Day B)', () => R.beginW('B'));
+  const bw = R.getA();
+  T('Day B carries the rollout and the bird dog', /Barbell Rollout/.test(bw) && /Bird Dog/.test(bw));
+  T('Day B still reads as a rotation day, not a core block', /Day B1/.test(bw) && !/Core Block/.test(bw));
+  T('home day sizes match the re-absorbed program', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 10);
+  T('no day X left to render', R.dayExs('X').length === 0);
 
-  // nextDay must survive a core block arriving by every route.
+  // Every rest button on a rendered day is the one-minute timer. Only the CURRENT card
+  // renders its button, so step CIDX through the whole day — checking one card would pass
+  // no matter what the other eight said.
+  {
+    const labels = [], starts = [];
+    for (let i = 0; i < R.dayExs('B').length; i++) {
+      R.setCIDX(i); R.render();
+      labels.push(...(R.getA().match(/⏱ \d+:\d+/g) || []));
+      starts.push(...(R.getA().match(/startTimer\(\d+\)/g) || []));
+    }
+    R.setCIDX(0); R.render();
+    T('every rest button on the day reads 1:00', labels.length === R.dayExs('B').length && labels.every(l => l === '⏱ 1:00'), `${labels.length} buttons: ${[...new Set(labels)].join(' ')}`);
+    T('every rest timer on the day starts at 60s', starts.length > 0 && starts.every(s => s === 'startTimer(60)'), [...new Set(starts)].join(' '));
+  }
+
+  // nextDay must still survive a STORED core block arriving by every route.
   const savedS = R.getD().sessions, savedNext = R.getD().nextDay;
   R.getD().sessions = [{ id: 'rot1', date: '2026-07-01', day: 'A', loc: 'home', ex: [] },
                        { id: 'core1', date: '2026-07-02', day: 'X', loc: 'home', ex: [] }];
-  T('lastRotSession skips the core block and finds Day A', (R.lastRotSession(R.getD().sessions) || {}).id === 'rot1');
-  T('a core block after Day A leaves the cycle pointing at B', (() => { const l = R.lastRotSession(R.getD().sessions); return R.NEXT_DAY[l.day] === 'B'; })());
+  T('lastRotSession skips a stored core block and finds Day A', (R.lastRotSession(R.getD().sessions) || {}).id === 'rot1');
+  T('a stored core block after Day A leaves the cycle pointing at B', (() => { const l = R.lastRotSession(R.getD().sessions); return R.NEXT_DAY[l.day] === 'B'; })());
   T('a store of ONLY core blocks derives no rotation session', R.lastRotSession([{ id: 'c', date: '2026-07-02', day: 'X', loc: 'home', ex: [] }]) === null);
 
-  // The cycle view must not count it either — a core block on a rest day was reading as
-  // back-to-back training and eating the rest-gap label.
+  // The cycle view must not count one either — a core block on a rest day used to read as
+  // back-to-back training and eat the rest-gap label.
   R.getD().nextDay = 'B';
   R.go('home');
-  // Scoped to the timeline NODES on purpose: the core block SHOULD still appear in the
+  // Scoped to the timeline NODES on purpose: a stored core block SHOULD still appear in the
   // "Recent" list below (it is a real session) — it just must not sit in the A→B→C chain.
-  T('the cycle timeline ignores off-rotation blocks', !/cyc-node"><span class="bg bg-x/.test(R.getA()));
-  T('but the core block still shows in Recent (it is a real session)', /bg-x/.test(R.getA()));
+  T('the cycle timeline ignores stored off-rotation blocks', !/cyc-node"><span class="bg bg-x/.test(R.getA()));
+  T('but a stored core block still shows in Recent (it is a real session)', /bg-x/.test(R.getA()));
 
   R.getD().sessions = savedS; R.getD().nextDay = savedNext;
 }

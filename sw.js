@@ -7,7 +7,10 @@
 // other's changes, so the merged shell needs its own cache key rather than either input's.
 // v83: program v18 (Day B's triceps extension back on the floor) changed index.html.
 // v84: program v19 (the off-rotation core block) changed index.html again.
-const C = 'rft-v84';
+// v85: program v20 (core block dissolved back into A/B/C, days re-sorted by implement,
+// every rest cut to 1:00) changed index.html again. A stale v84 shell would keep serving
+// the old day order and the old rest times, so the key has to move with the program.
+const C = 'rft-v85';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

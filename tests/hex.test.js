@@ -28,10 +28,11 @@ global.window = {};
 eval(code);
 const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;
 
-// Every program day at both venues, X (the off-rotation core block) included. Any sweep that
-// means "the whole program" must use this — the v19 core block moved four slots onto day X,
-// and an A/B/C-only sweep would have reported core as under MEV and PHASE_ADJ entries as dead.
-const PROG_DAYS = ['A', 'B', 'C', 'X'];
+// Every program day at both venues. Any sweep that means "the whole program" must use this.
+// v19 added an off-rotation day 'X' that had to be included here; v20 dissolved it back into
+// A/B/C, so the whole program is the rotation again — but keep the sweeps going through this
+// constant, since that is what made the v19/v20 moves safe to make in one place.
+const PROG_DAYS = ['A', 'B', 'C'];
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
 function freshD(over) { setD(structuredClone(SEED)); const d = getD(); d.discomfort = []; d.location = 'home'; d.phase = 1; Object.assign(d, over || {}); return d; }
@@ -176,7 +177,7 @@ T('single-end perSide(11.25) = one lone 0.25 plate', JSON.stringify(perSide(11.2
 T('single-end perSide(11.25) impossible symmetric (null)', perSide(11.25, 11, false) === null);
 T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5, 11, true)));
 // Seeding: landmine lifts seed at the 11kg bar-only floor (a valid VWL weight).
-let lsg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
+let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && lsg.wt === 11 && VWL.includes(11));
 const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
 T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
@@ -187,12 +188,14 @@ T('lm_press seeds at 26kg on a fresh device (valid VWL weight)', lpg.type === 'n
 // v14: unilateral landmine B-stance squat seeds at a fixed 22kg (11 bar + 11 one end).
 const lbg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'lm_bstance_squat'));
 T('lm_bstance_squat seeds at 22kg (valid VWL weight)', lbg.type === 'new' && lbg.wt === 22 && VWL.includes(22), JSON.stringify(lbg));
-T('lm_bstance_squat sits between B-stance RDL and pull-ups on Day A', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids.indexOf('lm_bstance_squat') === ids.indexOf('b_stance_rdl') + 1 && ids.indexOf('pullup_a') === ids.indexOf('lm_bstance_squat') + 1; })());
+// v20 re-sort: the unilateral quad slot leads the Day-A landmine block, straight after the
+// hex deadlift — it no longer sits next to the B-stance RDL (that's straight-bar work now).
+T('lm_bstance_squat opens the Day-A landmine block, right after the hex deadlift', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids[0] === 'hex_dl' && ids[1] === 'lm_bstance_squat' && ids[2] === 'lm_lateral'; })());
 T('Day A pull-ups back at 4 sets (v14 trim reverted)', getProgram(1, 'home').A.find(e => e.id === 'pullup_a').s === 4);
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
-lsg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
+lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
 // Volume: landmine lifts have MG maps and count on the bb tonnage path (perSide doubles).
 T('landmine lifts + bb_rear_row have MG maps (incl. retired lm_180 for history)', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row && !!MG.lm_180);
@@ -201,11 +204,11 @@ T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13
 // ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
 let cd = freshD();
 cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
-let cdSg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
+let cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('stall at bar-only floor → rebuild hold (not a fake deload)', cdSg.type === 'stay' && cdSg.wt === 11 && !/%/.test(cdSg.detail), JSON.stringify(cdSg));
 // Above the floor, the deload reports the ACTUAL percent cut, not a hardcoded ~10%.
 cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
-cdSg = getSmartSugg(getProgram(1, 'home').X.find(e => e.id === 'lm_pallof'));
+cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('low-weight deload reports honest percent (12→11 ≈ 8%)', cdSg.type === 'dn' && cdSg.wt === 11 && /~8%/.test(cdSg.detail), JSON.stringify(cdSg));
 // A heavier lift still gets a real ~10% deload (regression guard).
 cd = freshD();
@@ -345,7 +348,7 @@ T('P3 landmine lateral squat holds 8/side (base), not a strength-loaded 6/side',
 T('bb_rear_row still periodizes in P1 (not a blanket removal)', getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row').rp === '12-15');
 
 // ── v27: lm_pallof pause moved to the press-out (anti-rotation hold at full extension) ──
-T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').X.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
+T('lm_pallof tempo pauses at the press-out, not the chest (2-0-1-2)', getProgram(1, 'home').C.find(e => e.id === 'lm_pallof').tempo === '2-0-1-2');
 
 // ── Partner DB ladder (E1): buildDBW from the photographed spinlock inventory ──
 T('bare bell (bar+collars) is a rung', DBW_PAIR[0] === 2 && DBW_SINGLE[0] === 2);
@@ -424,42 +427,79 @@ T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core
 // that one-sided bound let back drift DOWN silently, and said nothing about glutes or
 // triceps, which are also over.
 
-// ── v19 core block: the four core slots move off the lifting days onto off-rotation day X ──
-// Core kept reading under MEV not because the program prescribed too little (10.5 sets/cycle
-// against MEV 6) but because finishers on a long day get skipped, and a 7-day window catching
-// only two sessions lands on 6.0 exactly. The block consolidates them where nothing competes.
-T('home core block exists and is 4 moves', homePr.X.length === 4 && homePr.X.map(e => e.id).join() === 'bb_rollout,dead_bugs_a,lm_pallof,bird_dog');
-T('partner core block exists and is 3 moves', partPr.X.length === 3 && partPr.X.map(e => e.id).join() === 'db_dead_bug,side_plank,bird_dog');
-T('lifting days carry NO core slots any more (home)', ['A', 'B', 'C'].every(d => !homePr[d].some(e => e.id === 'dead_bugs_a' || e.id === 'side_plank' || e.id === 'lm_pallof')));
-T('lifting days carry NO core slots any more (partner)', ['A', 'B', 'C'].every(d => !partPr[d].some(e => e.id === 'side_plank' || e.id === 'db_dead_bug')));
-T('home days trim to A=8, B=7, C=9 (one core slot off each)', homePr.A.length === 8 && homePr.B.length === 7 && homePr.C.length === 9 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
-T('partner days trim to A=7, B=8, C=6', partPr.A.length === 7 && partPr.B.length === 8 && partPr.C.length === 6);
-// The plank is gone from HOME entirely (v19, at the lifter's request) — bb_rollout takes the
+// ── v20: the core block is dissolved back into A/B/C, and every day is sorted by implement ──
+// v19 consolidated the four core slots onto an off-rotation day 'X' so they'd stop being the
+// finisher that gets skipped. In practice a block needing its own session on a rest day just
+// never ran, so v20 puts the movements back on the lifting days — placed where the equipment
+// already is, which is also the point of the re-sort below.
+T('no day X in the home program any more', homePr.X === undefined);
+T('no day X in the partner program any more', partPr.X === undefined);
+T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'dead_bugs_a') && homePr.B.some(e => e.id === 'bb_rollout') && homePr.B.some(e => e.id === 'bird_dog') && homePr.C.some(e => e.id === 'lm_pallof'));
+T('partner core slots are back on the lifting days', partPr.A.some(e => e.id === 'bird_dog') && partPr.B.some(e => e.id === 'side_plank') && partPr.C.some(e => e.id === 'db_dead_bug'));
+T('home days grow to A=9, B=9, C=10 (core slots re-absorbed)', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('partner days grow to A=8, B=9, C=7', partPr.A.length === 8 && partPr.B.length === 9 && partPr.C.length === 7);
+// The plank is still gone from HOME (v19, at the lifter's request) — bb_rollout does the
 // anti-extension work dynamically. It survives at the partner venue, which has no barbell.
-T('side plank is out of the home program entirely', !['A', 'B', 'C', 'X'].some(d => homePr[d].some(e => e.id === 'side_plank')));
-T('side plank still active at the partner venue (no barbell there for a rollout)', partPr.X.some(e => e.id === 'side_plank'));
-T('bb_rollout is bodyweight, per-set, core:1 (leverage is the load, not plates)', (() => { const e = homePr.X.find(x => x.id === 'bb_rollout'); return e && e.tp === 'bw' && e.perSide === false && (MG.bb_rollout || {}).core === 1 && MG.bb_rollout.back === undefined; })());
+T('side plank is out of the home program entirely', !PROG_DAYS.some(d => homePr[d].some(e => e.id === 'side_plank')));
+T('side plank still active at the partner venue (no barbell there for a rollout)', partPr.B.some(e => e.id === 'side_plank'));
+T('bb_rollout is bodyweight, per-set, core:1 (leverage is the load, not plates)', (() => { const e = homePr.B.find(x => x.id === 'bb_rollout'); return e && e.tp === 'bw' && e.perSide === false && (MG.bb_rollout || {}).core === 1 && MG.bb_rollout.back === undefined; })());
 T('bb_rollout carries no tonnage (bodyweight)', calcExVol('bb_rollout', null, [12, 12, 12]) === 0);
-// bird_dog is reactivated from its v16 retired stub — the extensor-endurance axis AUDIT §15
+// bird_dog stays reactivated from its v16 retired stub — the extensor-endurance axis AUDIT §15
 // logged as a knowingly accepted gap. One definition, not a stub plus a live copy.
-T('bird dog is active again (v16 stub reactivated), not a legacy stub', (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && !/legacy|retired/i.test(e.rl); })());
-T('bird dog is in BOTH core blocks', homePr.X.some(e => e.id === 'bird_dog') && partPr.X.some(e => e.id === 'bird_dog'));
+T('bird dog is active (v16 stub reactivated), not a legacy stub', (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && !/legacy|retired/i.test(e.rl); })());
+T('bird dog is in BOTH venues (home B, partner A)', homePr.B.some(e => e.id === 'bird_dog') && partPr.A.some(e => e.id === 'bird_dog'));
 T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1 && ALL_EX.filter(e => e.id === 'bb_rollout').length === 1);
 T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
 const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
-T('home core over MEV, still under MAV with the block counted', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
-T('partner core over MEV, still under MAV with the block counted', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
-// The failure this whole change exists to prevent: an A/B/C-only sweep must now read UNDER
-// MEV, because all the core lives on X. If this ever passes, a sweep somewhere lost day X.
-T('an A/B/C-only core sweep reads under MEV (proves X must be counted)', (() => { let c = 0; for (const d of ['A', 'B', 'C']) for (const ex of homePr[d]) c += ex.s * ((MG[ex.id] || {}).core || 0); return c < mevOf('core'); })());
+T('home core over MEV, still under MAV', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
+T('partner core over MEV, still under MAV', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+// The v19 suite asserted the INVERSE of this: that an A/B/C-only core sweep read UNDER MEV,
+// because all the core lived on X. That is exactly what must not be true any more — the core
+// work is on the rotation days, so the rotation days alone have to clear MEV.
+T('an A/B/C-only core sweep clears MEV again (no fourth day to forget)', (() => { let c = 0; for (const d of PROG_DAYS) for (const ex of homePr[d]) c += ex.s * ((MG[ex.id] || {}).core || 0); return c >= mevOf('core'); })());
 T('bw holds excluded from tonnage (unloaded)', calcExVol('side_plank', null, [40, 40, 40]) === 0 && calcExVol('bird_dog', null, [8, 8, 8]) === 0);
-T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => getProgram(p, 'partner').X.find(e => e.id === 'side_plank').rp === '20-40s/side') && [1, 2, 3].every(p => getProgram(p, 'home').X.find(e => e.id === 'bb_rollout').rp === '8-12'));
+T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => getProgram(p, 'partner').B.find(e => e.id === 'side_plank').rp === '20-40s/side') && [1, 2, 3].every(p => getProgram(p, 'home').B.find(e => e.id === 'bb_rollout').rp === '8-12'));
 // bw progression drives off total reps/seconds vs s×tg — hitting 3×40s reads as progress,
-// a below-target session reads stay-and-push.
-T('side plank at 3×40s reads progress', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.X.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
-T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.X.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
-T('pre-v16 bird dog history (logged on Day C) still feeds the reactivated slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(homePr.X.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
-T('cross-venue history is genuinely shared (home block feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'bd3', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(partPr.X.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+// a below-target session reads stay-and-push. The fixtures below deliberately keep day:'X':
+// a store written between v19 and v20 has core sessions logged under that day, and they must
+// keep feeding the suggestion now that the slot lives on a lifting day.
+T('side plank at 3×40s reads progress (from a pre-v20 day-X session)', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
+T('pre-v16 bird dog history (logged on Day C) still feeds the slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'bd3', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(partPr.A.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+
+// ── v20: every prescribed rest is exactly one minute ──
+// Both fields, not just one: rst is what the slot line PRINTS and rstS is what the timer
+// button STARTS, and they are set independently in the program literal. A pass on rstS alone
+// would let the printed "2:30" survive next to a 60-second timer.
+for (const loc of ['home', 'partner']) {
+  const pr = getProgram(1, loc);
+  const bad = PROG_DAYS.flatMap(d => pr[d]).filter(e => e.rst !== '1:00' || e.rstS !== 60);
+  T(`every ${loc} rest is 1:00 / 60s`, bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+}
+
+// ── v20: days are ordered so same-implement work runs back-to-back ──
+// The whole point of the re-sort is not having to re-rig the bar mid-session, so assert the
+// IMPLEMENT SEQUENCE, not just the membership. Slots that need no plates at all (band-assisted
+// pull-ups/dips, bodyweight) are dropped first: they can sit anywhere for free, which is why
+// they are interleaved into the loaded blocks rather than piled at the end.
+const impl = e => e.bar === 7 ? 'hex' : e.lm ? 'lm' : e.tp === 'bb' ? 'bar' : e.tp === 'db' || e.tp === 'carry' ? 'db' : e.tp === 'club' ? 'club' : 'free';
+const loadedSeq = exs => exs.map(impl).filter(k => k !== 'free').join(',');
+T('home A: hex bar → landmine → straight bar, one setup each', loadedSeq(homePr.A) === 'hex,lm,lm,bar,bar,bar,bar,bar', loadedSeq(homePr.A));
+T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(homePr.B) === 'hex,hex,bar,bar,lm', loadedSeq(homePr.B));
+// Home C is the ONE documented exception: it returns to the hex bar for the farmer's carry
+// after the landmine block. Bought deliberately — the carry is a finisher, and running it
+// before a 4-set landmine squat would tax the trunk and grip that squat needs.
+T('home C: hex → landmine → hex, the carry finisher being the one re-rig', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex', loadedSeq(homePr.C));
+T('partner A: dumbbells then the clubbell', loadedSeq(partPr.A) === 'db,db,db,db,db,club', loadedSeq(partPr.A));
+T('partner B: dumbbells then the clubbell', loadedSeq(partPr.B) === 'db,db,db,db,db,db,club', loadedSeq(partPr.B));
+T('partner C: dumbbells then the clubbell', loadedSeq(partPr.C) === 'db,db,db,db,db,club', loadedSeq(partPr.C));
+// The supersets have to stay adjacent or the ⚡ cue in their coach note is a lie.
+T('home B lateral/rear-delt superset is still adjacent', (() => { const i = homePr.B.findIndex(e => e.id === 'lm_lateral'); return homePr.B[i + 1] && homePr.B[i + 1].id === 'rear_delt'; })());
+T('partner B lateral/rear-fly superset is still adjacent', (() => { const i = partPr.B.findIndex(e => e.id === 'db_lateral'); return partPr.B[i + 1] && partPr.B[i + 1].id === 'db_rear_fly'; })());
+// Heavy first still holds where it matters: each day opens on a loaded compound, never on an
+// accessory that happens to share an implement with it.
+T('every day opens on a loaded compound, not an accessory', ['A', 'B', 'C'].every(d => ['hex_dl', 'hex_squat_b', 'hex_rdl'].includes(homePr[d][0].id)) && ['db_rdl', 'db_bss', 'db_lunge'].every((id, i) => partPr[['A', 'B', 'C'][i]][0].id === id));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and

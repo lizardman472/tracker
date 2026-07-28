@@ -38,9 +38,11 @@
 /* Day identity (A deep azure / B hot pink / C deep green) — validated categorical
    trio, light mode, all pairs (protan ΔE 9.5, normal 21.0, all in-band). The pink
    is deliberately LIGHTER than A/C (lightness survives colorblindness); heatmap
-   letters are white on A/C and dark ink on B. X (violet) is the off-rotation core
-   block — a 4th hue, deliberately outside the A/B/C trio because it is not part of the
-   cycle. Mirror of JS DAY_COLORS/DAY_INK. */
+   letters are white on A/C and dark ink on B. X (violet) was the v19 off-rotation core
+   block — a 4th hue, deliberately outside the A/B/C trio because it was not part of the
+   cycle. v20 dissolved that day, but the hue STAYS: sessions logged against it are still in
+   users' stores and still render in history and the heat map. Mirror of JS
+   DAY_COLORS/DAY_INK. */
 --dayA:#0069b8;--dayAl:#ddedfa;--dayB:#ea62ab;--dayBl:#fce4f1;--dayC:#0b7a3f;--dayCl:#dcf3e5;--dayX:#6b46c8;--dayXl:#e9e3fb;
 /* plate chips carry white --ink labels — each plate hue clears 4.5:1 under white */
 --p10:#d61f5e;--p5:#1263d6;--p25:#0c8050;--p1:#64748b;--slate:#64748b;
@@ -555,9 +557,12 @@ h+='</div>';return h}
 const NEXT_DAY={A:'B',B:'C',C:'A'};
 // Off-rotation session days. An off-rotation session is a REAL session — real exercises, real
 // sets, real MG credit, real progression history — that simply sits outside the A→B→C cycle,
-// so it must never advance nextDay. 'X' is the core block (v19): it rides a cardio or rest day,
-// and letting it rotate the cycle would silently skip a lifting day every time it was logged.
-// Every site that derives nextDay from history filters through these two helpers.
+// so it must never advance nextDay. 'X' was the v19 core block; v20 dissolved it back into
+// A/B/C, so NOTHING PRESCRIBES 'X' ANY MORE — but stores written between v19 and v20 still
+// hold day:'X' sessions, and these two helpers are what stop one of them from retro-shunting
+// the pointer (a core block that rotated the cycle silently skips a lifting day). Keep them:
+// they are load-bearing for existing data, not dead code. Every site that derives nextDay
+// from history filters through them.
 const isRotDay=d=>Object.prototype.hasOwnProperty.call(NEXT_DAY,d);
 const lastRotSession=ss=>{for(let i=ss.length-1;i>=0;i--)if(isRotDay(ss[i].day))return ss[i];return null};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
@@ -596,37 +601,36 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
 const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
 
 const BASE_PR={A:[
-{id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'2:30',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',note:'Confirm lift — default +0.5kg by design. If your top set hits 9-10+, the load is too light: take a bigger manual jump (+2-3kg) and do hard 5s. Micro-jumps are for grinding near your limit, not when you have reps in reserve.',tg:5,rstS:150,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
-{id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'1:40',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:100,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
-{id:'lm_bstance_squat',nm:'Landmine B-Stance Squat (weak side leads)',s:3,rp:'8-10/leg',rst:'1:15',rir:'2',tp:'bb',lm:true,rl:'Unilateral quad slot (v14) — the imbalance work the bilateral squats can\'t do. Front-rack the bar end at the shoulder or hold it in the crook of the arm, B-stance kickstand (front foot 70%), sit straight down, drive up tall. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session. Front-rack the landmine or hold in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). If 10/leg with 2-3 in reserve on the weak side, add load next session.',tg:10,rstS:75,tempo:'3-1-2-0',perSide:true},
-{id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'2:10',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',note:'Plateaued on a band? Step down ONE rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Build a clean 4x10 before dropping, keep every rep strict, and add 4-5s negatives after your last set.',tg:8,rstS:130,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false},
-{id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'0:50',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:50,tempo:'2-1-2-1',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false},
-{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false}],
+{id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',note:'Confirm lift — default +0.5kg by design. If your top set hits 9-10+, the load is too light: take a bigger manual jump (+2-3kg) and do hard 5s. Micro-jumps are for grinding near your limit, not when you have reps in reserve.',tg:5,rstS:60,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
+{id:'lm_bstance_squat',nm:'Landmine B-Stance Squat (weak side leads)',s:3,rp:'8-10/leg',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Unilateral quad slot (v14) — the imbalance work the bilateral squats can\'t do. Front-rack the bar end at the shoulder or hold it in the crook of the arm, B-stance kickstand (front foot 70%), sit straight down, drive up tall. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session. Front-rack the landmine or hold in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). If 10/leg with 2-3 in reserve on the weak side, add load next session.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:true},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
+{id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
+{id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',note:'Plateaued on a band? Step down ONE rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Build a clean 4x10 before dropping, keep every rep strict, and add 4-5s negatives after your last set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
+{id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
+{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
 B:[
-{id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'2:30',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:150,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
-{id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'2:10',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:130,tempo:'3-1-2-0',perSide:false},
-{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'2:10',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',note:'Strict only — a clean 6 beats a bouncy 10 (loose reps are gated by design). Add a 1-2s pause at the bottom and build to 4x10 strict before reducing the band. Reduce band assistance when all sets hit the top of the rep range.',tg:8,rstS:130,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false},
-{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'0:50',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:50,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false}],
+{id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:60,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
+{id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
+{id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'1:00',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:60,tempo:'3-1-2-0',perSide:false},
+{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',note:'Strict only — a clean 6 beats a bouncy 10 (loose reps are gated by design). Add a 1-2s pause at the bottom and build to 4x10 strict before reducing the band. Reduce band assistance when all sets hit the top of the rep range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
+{id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:60,tempo:'2-1-2-0',perSide:false},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
+{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true}],
 C:[
-{id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
-{id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'2:10',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:130,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
-{id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:50,tempo:'3-1-2-0',perSide:true},
-{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:40',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:100,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:15',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:75,tempo:'3-1-1-0',perSide:false},
-{id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:15',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:75,tempo:'3-1-2-0',perSide:false},
-{id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:15',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:75,tempo:'controlled',perSide:false},
-{id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'0:40',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:40,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
-{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'0:50',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:50,tempo:'3-1-2-0',perSide:false,optional:true}],
-X:[
-{id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:50,tempo:'2-1-2-0',perSide:false},
-{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:50,tempo:'3-0-3-1',perSide:true},
-{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:50,tempo:'2-0-1-2',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'0:40',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; the core block finally fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:40,tempo:'2-0-2-3',perSide:true}]};
+{id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
+{id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'3-1-1-0',perSide:false},
+{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
+{id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:00',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false},
+{id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
+{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true},
+{id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:00',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:60,tempo:'controlled',perSide:false},
+{id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'1:00',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
+{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true}]};
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
@@ -770,39 +774,73 @@ X:[
 // Core volume: home 12.5, partner 12.5 effective sets (MEV 6, MAV 16) — both counted ACROSS
 // A/B/C/X, so any weekly-volume sweep that forgets X will read the program as under MEV.
 // Day counts: home A=8 B=7 C=9 + X=4, partner A=7 B=8 C=6 + X=3.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// Program v20: THE CORE BLOCK IS REVERSED OUT, and every day is re-sorted BY IMPLEMENT.
+// (1) v19 was right that core-as-a-finisher gets skipped, and wrong about the fix: a block
+//     that needs its OWN session on a rest day is a block that never gets run at all. The
+//     lifter reported exactly that. So the four movements go back onto the lifting days —
+//     but placed where the equipment already is, not tacked on as an afterthought:
+//       • home    A ← dead_bugs_a  (it lives on the empty straight bar, so it closes the
+//                                   bar block instead of asking for a fresh setup)
+//                 B ← bb_rollout (same straight bar, on the floor, straight after the lying
+//                                 extension) + bird_dog (bodyweight, zero setup, last)
+//                 C ← lm_pallof   (folds into the landmine block)
+//       • partner A ← bird_dog, B ← side_plank, C ← db_dead_bug — each back on the day it
+//                 came from in v19, all three at the end where they cost no DB change.
+//     Weekly core volume is UNCHANGED (home 12.5, partner 12.5 effective sets vs MEV 6) —
+//     the same slots, the same sets, just re-homed. It is now counted across A/B/C only,
+//     so a weekly sweep no longer has a fourth day to forget.
+// (2) Every day is ordered to minimise equipment changes: same-implement lifts run
+//     back-to-back, and within a block the load DESCENDS so plates only come off. The
+//     no-plate slots (band-assisted pull-ups/dips, bodyweight) are slotted inside a block
+//     wherever they cost nothing, since they don't touch the bar at all. Two deliberate
+//     compromises, both flagged so they don't read as sorting mistakes:
+//       • home A runs lm_lateral 3rd (it's the light end of the landmine block). That
+//         pre-fatigues side delts slightly before floor_press — accepted, because the
+//         alternative buried the day's only quad slot behind six upper-body exercises.
+//       • home C returns to the hex bar for hex_carry AFTER the landmine block. One extra
+//         bar swap, bought deliberately: the carry is a finisher, and running it before a
+//         4-set landmine squat would tax the trunk and grip that squat needs.
+// (3) EVERY prescribed rest is now 1:00 (rst '1:00' / rstS 60), lifter's call across the
+//     board. ⚠ Worth knowing rather than silently absorbing: the heavy pillars (hex_dl,
+//     hex_squat_b, ohp, pullup_a, dips) were on 2:10-2:30 because that is roughly what
+//     phosphocreatine resynthesis takes. At 1:00 expect the top-end sets to come down —
+//     that is the trade, not a bug, and the progression engine will simply re-anchor to
+//     whatever gets logged. If strength stalls on those five specifically, the rest is the
+//     first thing to put back.
+// Day counts: home A=9 B=9 C=10 (one optional), partner A=8 B=9 C=7. No day 'X'.
 const LOC_B_PR={A:[
-{id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:100,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
-{id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'pb_pullup_a',nm:'Pull-ups (Neutral, Parallel Bars)',s:4,rp:'4-8',rst:'2:10',rir:'1-2',tp:'band',rl:'True vertical pull — hang under the parallel bars, neutral grip. 4×8 → less band assistance. Full ROM, control through the bottom (no dead-hang). Replaces the inverted-row workaround now the bars allow a real pull-up. Mirrors home Day A.',tg:8,rstS:130,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_lateral',nm:'DB Lateral Raise',s:4,rp:'12-15',rst:'0:50',rir:'1-2',tp:'db',rl:'Primary delt slot — 4 sets (mirrors home Day A). Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:4,rp:'15-20',rst:'0:50',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:50,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
-{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:50',rir:'1-2',tp:'db',rl:'Pull-day finisher — direct elbow flexion to back up the rows (the partner program had none; mirrors home Barbell Curl). Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',tg:12,rstS:50,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
-{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:15',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:75,tempo:'controlled',perSide:true}],
+{id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
+{id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'pb_pullup_a',nm:'Pull-ups (Neutral, Parallel Bars)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'True vertical pull — hang under the parallel bars, neutral grip. 4×8 → less band assistance. Full ROM, control through the bottom (no dead-hang). Replaces the inverted-row workaround now the bars allow a real pull-up. Mirrors home Day A.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'db',rl:'Pull-day finisher — direct elbow flexion to back up the rows (the partner program had none; mirrors home Barbell Curl). Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_lateral',nm:'DB Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Primary delt slot — 4 sets (mirrors home Day A). Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:60,tempo:'controlled',perSide:true},
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true}],
 // NOTE — deliberate divergence from a true home mirror: db_lateral and db_ohp run 3 sets
 // here vs home's 4 (home laterals are 4 on Day B, home OHP is 4 on Day B). Side-delt and
 // vertical-press weekly volume already clear MEV at the partner's, and dropping a set keeps
 // this DB-dense day from over-running — the "mirrors home" cues describe the movement match,
 // not an exact set-for-set copy.
 B:[
-{id:'db_bss',nm:'DB Bulgarian Split Squat (weak side leads)',s:4,rp:'8/leg',rst:'1:40',rir:'1-2',tp:'db',rl:'Goblet hold (single DB). Confirm → ↑1-2kg.',tg:8,rstS:100,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true},
-{id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'2:10',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:130,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'pb_dips',nm:'Dips (Parallel Bars)',s:3,rp:'4-8',rst:'2:10',rir:'1-2',tp:'band',rl:'Band-assisted parallel-bar dips — 2nd weekly dip exposure (mirrors home Day B; the partner program had no dip slot despite the bars). Depth to upper-arm parallel, strict. 3×8 → less assistance.',note:'Dips are a pinned sticking point — frequency is the fix, so they now train at BOTH venues. Strict only: a clean 6 beats a bouncy 10 (loose reps are gated). Add a 1-2s bottom pause and build a strict 3×10 before dropping a band.',tg:8,rstS:130,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10/side',rst:'1:40',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:100,tempo:'3-1-2-0',perSide:true},
-{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'0:50',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:50,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:50',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:50,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
-{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:15',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:75,tempo:'controlled',perSide:true},
-{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:50,tempo:'2-1-2-0',perSide:true}],
+{id:'db_bss',nm:'DB Bulgarian Split Squat (weak side leads)',s:4,rp:'8/leg',rst:'1:00',rir:'1-2',tp:'db',rl:'Goblet hold (single DB). Confirm → ↑1-2kg.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true},
+{id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10/side',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:60,tempo:'3-1-2-0',perSide:true},
+{id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'1:00',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'pb_dips',nm:'Dips (Parallel Bars)',s:3,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'Band-assisted parallel-bar dips — 2nd weekly dip exposure (mirrors home Day B; the partner program had no dip slot despite the bars). Depth to upper-arm parallel, strict. 3×8 → less assistance.',note:'Dips are a pinned sticking point — frequency is the fix, so they now train at BOTH venues. Strict only: a clean 6 beats a bouncy 10 (loose reps are gated). Add a 1-2s bottom pause and build a strict 3×10 before dropping a band.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true},
+{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:60,tempo:'controlled',perSide:true},
+{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'1:00',rir:'controlled',tp:'bw',rl:'Anti-lateral-flexion slot — the partner program\'s only such axis (home covers it with the Day-C hex carry\'s single-side last set). Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:60,tempo:'hold',perSide:true}],
 C:[
-{id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'1:40',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:100,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'1:40',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:100,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:15',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:75,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_sl_rdl',nm:'DB Single-Leg RDL (weak side leads)',s:4,rp:'8/side',rst:'1:15',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:75,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:15',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:75,tempo:'—',perSide:false},
-{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:50',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:50,tempo:'controlled',perSide:true}],
-X:[
-{id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'0:50',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:50,tempo:'3-0-3-1',perSide:true},
-{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'0:50',rir:'controlled',tp:'bw',rl:'Anti-lateral-flexion slot — the partner core block\'s only such axis (home covers it with the Day-C hex carry\'s single-side last set). Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:50,tempo:'hold',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'0:40',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; the core block finally fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:40,tempo:'2-0-2-3',perSide:true}]};
+{id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:00',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:60,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
+{id:'db_sl_rdl',nm:'DB Single-Leg RDL (weak side leads)',s:4,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
+{id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'1:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true},
+{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:00',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:60,tempo:'—',perSide:false},
+{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
 
 // getProgram — apply phase adjustment for the location's base program
 function getProgram(phase,loc){
@@ -812,11 +850,13 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
   const adj=p.adj[ex.id];
   return adj?{...ex,rp:adj.rp,tg:adj.tg}:{...ex}})}return pr}
 
-// EVERY program day at both venues, X (the off-rotation core block) included — an exercise
-// missing here has no ALL_EX entry, so getSmartSugg, swaps, tonnage and history lookups all
-// fall through on it. Add new day keys here the moment they exist in BASE_PR/LOC_B_PR.
-const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,...BASE_PR.X,
-...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,...LOC_B_PR.X,
+// EVERY program day at both venues — an exercise missing here has no ALL_EX entry, so
+// getSmartSugg, swaps, tonnage and history lookups all fall through on it. Add new day keys
+// here the moment they exist in BASE_PR/LOC_B_PR. (Day 'X' is gone as of v20 — its four
+// movements are back inside A/B/C, so they still arrive through these spreads. Sessions
+// already logged against day 'X' keep resolving for exactly that reason.)
+const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
+...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
 {id:'band_pushdown',nm:'Band Triceps Pushdown',s:3,rp:'10-12',tg:12,rstS:50,tp:'band',rl:'Legacy (Day D retired)',bandMode:'resist',perSide:false},
 // Legacy exercises — complete stub fields to prevent crashes in getSmartSugg/getRepMin
@@ -1123,10 +1163,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:19 keeps the migrateToV12..V19 chain a no-op on demo bootstraps (they
+// programVersion:20 keeps the migrateToV12..V20 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:19};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:20};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1225,6 +1265,24 @@ if(d.programVersion>=19)return d;
 d.programVersion=19;
 return d}
 
+// v20 migration: the core block is DISSOLVED and every prescribed rest drops to 1:00.
+// Structural for the PROGRAM again, not for stored data:
+//   • Day 'X' no longer exists. Its four movements went back onto the lifting days —
+//     home: dead_bugs_a→A, bb_rollout + bird_dog→B, lm_pallof→C;
+//     partner: bird_dog→A, side_plank→B, db_dead_bug→C. Every id is still in ALL_EX (it
+//     just arrives via A/B/C now), so sessions already logged with day:'X' resolve exactly
+//     as before — their exercises, loads, charts and MG credit are untouched.
+//   • Those stored day:'X' sessions stay off-rotation forever: isRotDay/lastRotSession are
+//     KEPT (not cleaned up) precisely so an old core block can never retro-shunt the A→B→C
+//     pointer. dayBadge still renders them as "Core" in history.
+//   • Rests: every active slot is rst:'1:00'/rstS:60. Display string and timer seconds are
+//     the same two fields the timer already read, so nothing downstream changes shape.
+// Stamp only — no stored session is rewritten.
+function migrateToV20(d){
+if(d.programVersion>=20)return d;
+d.programVersion=20;
+return d}
+
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
@@ -1282,6 +1340,7 @@ d=migrateToV16(d);
 d=migrateToV17(d);
 d=migrateToV18(d);
 d=migrateToV19(d);
+d=migrateToV20(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1317,7 +1376,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:19,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:20,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -2174,8 +2233,9 @@ if(meta)meta.setAttribute('content',dk?'#0e1220':'#f4f6fb')}catch(e){}}
 // (different mark), outside the letter set.
 let DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',X:'#6b46c8',cardio:'#b26102'}; // theme-switched
 let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'}; // theme-switched
-// One place that turns a session into its badge text. 'X' is the off-rotation core block —
-// it has no venue-numbered day name, so "Day X1" would be nonsense on every history row.
+// One place that turns a session into its badge text. 'X' was the v19 off-rotation core
+// block — it has no venue-numbered day name, so "Day X1" would be nonsense on every history
+// row. Nothing writes 'X' since v20, but stored ones still flow through here.
 const dayBadge=s=>s.day==='X'?'Core':`Day ${s.day}${s.loc==='partner'?'2':'1'}`;
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
@@ -3132,20 +3192,10 @@ h+=`</div><div style="display:flex;gap:12px;margin-bottom:10px">
 <div style="flex:1"><label class="lb" for="c-dur">Duration (min)</label><input type="number" class="body-input" style="width:100%" id="c-dur" placeholder="—" inputmode="numeric"></div>
 <div style="flex:1"><label class="lb" for="c-int">Intensity</label><select class="bs" id="c-int"><option value="easy">Easy (zone 2)</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></div></div>
 <button class="btn btn-pr" onclick="saveCardio()">Save</button></div>`;
-// ── Core block (v19) ──────────────────────────────────────────────────────────
-// The core work used to sit as a finisher on every lifting day, which is exactly where it got
-// skipped when a long session ran late — the reason weekly core kept reading under MEV despite
-// the program prescribing plenty. It now lives here as ONE off-rotation block to be run on a
-// cardio or rest day: the lifting days each gave up a slot, and the core work lands somewhere
-// nothing competes with it. Starting it does NOT advance the A→B→C pointer (see isRotDay).
-{const cx=(getCurPR().X)||[],cvol=cx.reduce((a,e)=>a+e.s*((MG[e.id]||{}).core||0),0);
-if(cx.length)h+=`<div class="cd" style="border:1px solid ${DAY_COLORS.X}">
-<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
-<div style="font-size:13px;font-weight:700;color:${DAY_COLORS.X}">Core block</div>
-<div class="dm">${cx.length} moves · ${Math.round(cvol)} sets</div></div>
-<div class="dm" style="margin-bottom:8px">Off-rotation — run it on a cardio or rest day. It logs like any other workout and counts toward weekly core volume, but it does <b>not</b> advance your A→B→C cycle.</div>
-<div class="dm" style="margin-bottom:10px">${cx.map(e=>esc(e.nm)).join(' · ')}</div>
-<button class="btn btn-wh" style="width:100%" onclick="beginW('X')">Start core block</button></div>`}
+// The standalone core block that used to be offered here is GONE as of v20 — the lifter
+// never ran it (a separate session on a rest day is a session that doesn't happen), so the
+// four core movements are back inside A/B/C where they get done. Nothing replaces this card:
+// the cardio screen logs cardio, and core rides the lifting days again.
 // Recent cardio, with a per-entry delete. Cardio had NO delete or edit anywhere in the app,
 // so a mistyped duration (300 for 30) was permanent: it skews the fatigue meter, the monthly
 // minutes total, the weekly cardio chart and the heat map forever. Import could not undo it
@@ -4215,9 +4265,10 @@ let LP={date:'',day:'A',loc:'home'};
 function setLPLoc(l){LP.loc=l;render()}
 function rLogPast(el){
 const pr=getProgram(D.phase,LP.loc);
-// 'X' (the off-rotation core block) is retro-loggable like any other day — saveLP routes
-// nextDay through lastRotSession, so back-filling one can't shunt the A→B→C cycle.
-const days=['A','B','C','X'];
+// A/B/C only since v20 — the off-rotation core block is gone, so there is no fourth day to
+// retro-log. saveLP still routes nextDay through lastRotSession, which keeps ALREADY-LOGGED
+// day-'X' sessions from shunting the cycle.
+const days=['A','B','C'];
 const exs=pr[LP.day]||[];
 const suffix=LP.loc==='partner'?'2':'1';
 const dayLbl=d=>d==='X'?'Core':`Day ${d}${suffix}`;

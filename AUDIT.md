@@ -1151,3 +1151,102 @@ This closes the **"no extensor-endurance slot (accepted since v16)"** standing i
 §16 was still carrying — `bird_dog` is active again, in both core blocks.
 
 SW cache `rft-v84` (rebased onto the parallel-pass merge, which had already claimed v82).
+
+---
+
+## 19 · Program v20 — the core block comes back, and every day is sorted by implement (28 Jul 2026)
+
+**Three lifter requests in one pass**, and the first of them reverses §18.
+
+### 19.1 · The off-rotation core block did not survive contact with reality
+
+§18's diagnosis still looks right: core was a *finisher on every day*, and finishers get cut
+when a long session runs late. The fix was wrong in a way no amount of code review would have
+caught — it moved the work to a session that has to be *started on purpose, on a rest day*.
+A block that needs its own session on a rest day is a block that does not get run at all.
+Reported plainly: "this separate core day on rest isn't working for me."
+
+So the movements go back onto the lifting days, but placed by **implement** rather than
+appended as finishers — which is the same principle as 19.2, and the reason both landed
+together:
+
+| | v19 (day X) | v20 (back on the rotation) |
+|---|---|---|
+| home | `bb_rollout` `dead_bugs_a` `lm_pallof` `bird_dog` | A ← `dead_bugs_a` · B ← `bb_rollout` + `bird_dog` · C ← `lm_pallof` |
+| partner | `db_dead_bug` `side_plank` `bird_dog` | A ← `bird_dog` · B ← `side_plank` · C ← `db_dead_bug` |
+| home days | A=8 B=7 C=9 **+ X=4** | **A=9 B=9 C=10** |
+| partner days | A=7 B=8 C=6 **+ X=3** | **A=8 B=9 C=7** |
+| core volume | home 12.5 / partner 12.5 | **unchanged — 12.5 / 12.5** (MEV 6, MAV 16) |
+
+Same slots, same sets, re-homed. `dead_bugs_a` closes Day A's straight-bar block on the empty
+bar; `bb_rollout` follows the lying extension on the same bar; `lm_pallof` folds into Day C's
+landmine block. The three bodyweight slots cost no setup at all, so they sit last.
+
+### 19.2 · Every day re-sorted to minimise equipment changes
+
+Same-implement lifts now run back-to-back, and within a block the load **descends** so plates
+only come off. The no-plate slots (band-assisted pull-ups and dips, bodyweight) are slotted
+*inside* the loaded blocks wherever they cost nothing, rather than piled at the end.
+
+| day | implement order |
+|---|---|
+| home A | hex bar → landmine ×2 → straight bar ×5 |
+| home B | hex bar ×2 → straight bar ×2 → landmine |
+| home C | hex bar ×2 → landmine ×4 → hex bar (carry) |
+| partner A/B/C | dumbbells → clubbell |
+
+**Two compromises, both deliberate, both flagged in the source so they don't read as sorting
+mistakes.** Home A runs the landmine lateral raise 3rd (the light end of its block), which
+pre-fatigues side delts slightly before the floor press — accepted, because the alternative
+buried the day's only quad slot behind six upper-body exercises. Home C returns to the hex bar
+for the farmer's carry *after* the landmine block: one extra bar swap, bought because running a
+loaded carry before a 4-set landmine squat taxes the trunk and grip that squat needs.
+
+### 19.3 · Every prescribed rest is now 1:00
+
+Lifter's call, applied across the board — both `rst` (what the slot line prints) and `rstS`
+(what the timer button starts), which are set independently in the program literal and so are
+asserted independently.
+
+⚠ **Recorded, not silently absorbed:** the five heavy pillars (`hex_dl`, `hex_squat_b`, `ohp`,
+`pullup_a`, `dips`) were on 2:10–2:30 because that is roughly what phosphocreatine resynthesis
+takes. At 1:00 the top-end sets should be expected to come down. That is the trade, not a bug —
+the progression engine simply re-anchors to whatever gets logged. If strength stalls on those
+five specifically, the rest is the first thing to put back.
+
+### What §18's own tests got right, and what had to be inverted
+
+§18 closed with: *"a negative assertion pins it — an A/B/C-only core sweep must read under MEV.
+If that test ever passes, a sweep has lost day X."* That test has now been **inverted on
+purpose**: with the core back on the rotation days, an A/B/C-only sweep must read *over* MEV.
+The `PROG_DAYS` constant §18 introduced is what made this a one-line change across five whole-
+program sweeps — the guard survives the reversal it was written for.
+
+### Stored day-`X` sessions are the part that could break silently
+
+Nothing prescribes `'X'` any more, but stores written between v19 and v20 contain sessions
+logged against it. Everything that reads them is **kept, not cleaned up**:
+
+- `isRotDay`/`lastRotSession` stay, so an old core block can never retro-shunt the A→B→C
+  pointer through any of the four `nextDay` derivation sites.
+- `dayBadge` still renders `'X'` as "Core"; the heat map still marks it `✦` in violet; the
+  `--dayX` hue stays in both themes for exactly that reason.
+- `getCycleInfo` still filters them out of the rest-gap timeline.
+- Every one of the four movements is still in `ALL_EX` — they just arrive through A/B/C now —
+  so their loads, charts and MG credit resolve unchanged.
+
+The suggestion-history probes deliberately keep `day: 'X'` fixtures for that reason: a pre-v20
+core session must still feed the slot now that it lives on a lifting day.
+
+### Harness
+
+`migrateToV20` is stamp-only (no stored session is rewritten); `programVersion` 19 → 20 in both
+`SEED` and `freshState`. New assertions: implement-order sequences per day at both venues,
+superset adjacency, every day opening on a loaded compound, both rest fields at 1:00/60 across
+both venues, and the rest button/timer stepped across *every* card of a day — checking one card
+would have passed no matter what the other eight said.
+
+Suite: 464 + 247 + 344 + 49 passing, 18/18 SW mutations caught.
+
+SW cache `rft-v85` — a stale v84 shell would keep serving the old day order and the old rest
+times, so the key moves with the program.
