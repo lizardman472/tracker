@@ -1550,8 +1550,17 @@ const p=PHASES[D.phase]||PHASES[1];
 // Dedupe by id first — a lift on two days (e.g. lm_lateral on A+B) is ONE exercise
 // and must be counted once, or a single stall/progress reads as two and skews the
 // phase-change + deload signals.
-const pr=getCurPR();const seenEx=new Set();const uniqEx=[];
-for(const day of Object.values(pr))for(const ex of day){if(seenEx.has(ex.id))continue;seenEx.add(ex.id);uniqEx.push(ex)}
+// v21.1: assess BOTH venues, not just the one the location toggle happens to sit on.
+// getCurPR() is location-scoped, so the phase verdict used to be computed over ~7 partner
+// lifts when the toggle was left on "Partner's" and ~23 home lifts otherwise — a decision
+// about the whole training block was reading whichever venue was selected. It is worse than
+// it sounds after v21: most partner slots are new, so they read as 'up'/'new' and a
+// partner-scoped assessment can never show a stall. Muscle stimulus and progression both
+// accumulate across venues (getWeeklyVolume already works this way), so the phase signal
+// must too. Ids are shared where the movement is identical, hence the dedupe.
+const seenEx=new Set();const uniqEx=[];
+for(const loc of ['home','partner'])for(const day of Object.values(getProgram(D.phase,loc)))for(const ex of day){
+  if(seenEx.has(ex.id))continue;seenEx.add(ex.id);uniqEx.push(ex)}
 let stalledEx=0,stalledMajor=0,totalEx=0,progressingEx=0;
 for(const ex of uniqEx){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;

@@ -421,6 +421,27 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
     getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 60);
 }
 
+// ── v21.1: the phase verdict must not depend on the location toggle ──
+{
+  // Same store, same history — only D.location differs. Before the fix this changed both
+  // the lift pool (7 partner vs 23 home) and therefore the stall/progress counts, so a
+  // block-level decision silently depended on which venue button was last tapped.
+  const base = { ...structuredClone(SEED), sessions: [], phase: 1, phaseStart: '2026-06-01' };
+  setD({ ...base, location: 'home' });
+  const atHome = getPhaseInfo();
+  setD({ ...base, location: 'partner' });
+  const atPartner = getPhaseInfo();
+  T('phase assessment is identical at both venues (totalEx)', atHome.totalEx === atPartner.totalEx, `${atHome.totalEx} vs ${atPartner.totalEx}`);
+  T('phase assessment is identical at both venues (verdict)', atHome.recommend === atPartner.recommend, `${atHome.recommend} vs ${atPartner.recommend}`);
+  T('phase assessment is identical at both venues (stalls)', atHome.stalledEx === atPartner.stalledEx);
+  // It must pool BOTH programs, not just pick one — the union is strictly larger than either.
+  const homeOnly = new Set(); for (const day of ['A','B','C']) for (const ex of getProgram(1,'home')[day]) homeOnly.add(ex.id);
+  T('the pool spans both venues, not just the active one', atHome.totalEx > 0 && atHome.totalEx >= [...homeOnly].filter(id => {
+    const e = getProgram(1,'home').A.concat(getProgram(1,'home').B, getProgram(1,'home').C).find(x => x.id === id);
+    return e && !['bw','carry','club','mace'].includes(e.tp);
+  }).length, `${atHome.totalEx}`);
+}
+
 // ── v24: home periodization realigned with the program ──
 const PA = global.__X.PHASE_ADJ_IDS;
 // Regression guard: every phase-adjust id must belong to an ACTIVE program at some

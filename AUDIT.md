@@ -1416,3 +1416,76 @@ Suite: **473 + 267 + 344 + 49 passing, 18/18 SW mutations caught** (was 464 + 24
 
 SW cache `rft-v86` — a stale v85 shell would serve the old partner program and the old rest
 times, so the key moves with the program.
+
+---
+
+## 21 · v21.1 — the phase verdict was reading one venue (29 Jul 2026)
+
+Follow-up to §20, prompted by two questions: *"I thought since I'm still increasing why pause
+for hypertrophy"* and *"why isn't the hex DL going up, shouldn't the engine be sorting that
+out"*. Both were investigated by replaying the real export through the live engine rather than
+reasoning about it. One produced a fix; the other produced a correction to this document's own
+premise.
+
+### 21.1 · The phase gate was already evidence-based — the bug was its SCOPE
+
+An earlier draft of this pass asserted that "nothing in the app checks progression before
+prompting a phase change". **That was wrong.** `getPhaseInfo` has three verdicts, and the one
+this lifter is actually in — `timer_only` — renders as *"N weeks of Linear and lifts are still
+moving (X/Y progressing). Switch when ready — or ride the wave a little longer."* The app was
+already saying the right thing. No new gate was needed and none was built.
+
+The real defect was narrower and easy to miss: `getPhaseInfo` built its lift pool from
+`getCurPR()`, which is **location-scoped**. So a block-level decision about the whole training
+year was computed over whichever venue the toggle happened to sit on:
+
+| `D.location` | lifts assessed | stalling | progressing |
+|---|---|---|---|
+| `partner` (as exported) | 7 | 0 | 5 |
+| `home` | 23 | 1 | 15 |
+| **after the fix (both)** | **30** | **1** | **20** |
+
+Worse after §20: most partner slots are new, so they resolve as `new`/`up` and a
+partner-scoped assessment can essentially never register a stall — the venue holding 11% of
+the sessions could veto the stall signal from the venue holding 89%. The verdict happened to
+be `timer_only` either way here, which is exactly why this survived: it is invisible until the
+counts are close to a threshold, and then it flips a decision on a UI toggle.
+
+Fixed by pooling both programs and deduping by id (ids are shared where the movement is
+identical, e.g. `side_plank`). This mirrors `getWeeklyVolume`, which has always counted across
+venues on the same reasoning — progression, like stimulus, does not care which room it happened
+in. Guarded by four assertions that hold `D.location` as the only variable and require the
+verdict, `totalEx` and `stalledEx` to be identical at both venues.
+
+### 21.2 · hex_dl is not stalled — and the engine is behaving correctly
+
+Replaying every `hex_dl` session through `getSmartSugg` in order:
+
+```
+after 2026-06-20 (55kg   [6,6,6])    -> cf    → Confirm 55kg
+after 2026-06-29 (55kg   [6,6,10])   -> up    ↑ 55.5kg
+after 2026-07-05 (55.5kg [6,6,6])    -> stay  → 55.5kg (clean up)   [FORM GATE — rated Loose]
+after 2026-07-17 (55.5kg [6,6,7])    -> cf    → Confirm 55.5kg
+after 2026-07-24 (55.5kg [6,6,6,7])  -> up    ↑ 56kg
+CURRENT SUGGESTION: ↑ 56kg
+```
+
+Nothing is broken. The load moved 55 → 55.5 → (now) 56 over five sessions because three
+deliberate brakes stack on this lift: the **confirm brake** (`hex_dl` ∈ `CONFIRM_LIFTS`, so
+every increase costs an extra session at the same weight), the **form gate** on 5 Jul (a
+working set self-rated *Loose* holds the load — correct behaviour, and the lifter's own input),
+and the **+0.5kg plate step**. Net cadence: about +0.5kg per two Day-A sessions ≈ +1kg/month.
+
+The `over>=4` big-overshoot re-anchor never fires here because it keys off the LOWEST working
+set: 6 reps against a target of 5 is `over=1`. By Epley the implied gap at 55.5×6 is only
+~1.6kg, so the engine is not far wrong — it is slow, not mistaken.
+
+**Recorded as a separate, unfixed observation:** the `over>=4` threshold is absolute, which
+makes it wildly uneven across rep ranges — it demands 9 reps on a 5-rep target (80% over) but
+24 on a 20-rep target (20% over), i.e. it is strictest exactly where a rep is worth the most
+load. That is a genuine calibration inconsistency worth revisiting. It is explicitly **not**
+the cause of the `hex_dl` behaviour above and changing it would not have altered a single
+suggestion in that trace, so it was not bundled into this pass on a rationale that does not
+hold.
+
+Suite: **477 + 267 + 344 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v87`.
