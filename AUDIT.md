@@ -1489,3 +1489,13 @@ suggestion in that trace, so it was not bundled into this pass on a rationale th
 hold.
 
 Suite: **477 + 267 + 344 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v87`.
+
+**Addendum (same day) — `freshState` version drift.** §20 bumped `programVersion` 20 → 21 in
+`SEED` but not in `freshState()`, and the calc suite pinned the two with *separate* literal
+assertions, so the stale one passed and hid the drift. `freshState()` is written straight to
+`D` by `resetAll()` **without** going through the migration chain (that runs in `load()`), so a
+factory-reset device booted stamped v20 until its next reload. Benign in effect — `migrateToV21`
+is stamp-only — but it is precisely the shape of bug the §19 note ("bump both") existed to
+prevent. Both literals are now 21, and the second assertion is **relative**
+(`freshState().programVersion === SEED.programVersion`) so any future drift fails regardless of
+the numbers. SW cache `rft-v88`. Suite: 478 + 267 + 344 + 49, 18/18 mutations caught.

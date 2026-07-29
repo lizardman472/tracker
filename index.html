@@ -1463,7 +1463,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:20,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge

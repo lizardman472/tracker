@@ -354,7 +354,7 @@ T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', 
 T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
-T('freshState carries programVersion 20 (no migrate re-fire)', freshState().programVersion === 20);
+T('freshState carries programVersion 21 (no migrate re-fire)', freshState().programVersion === 21);
 T('freshState drops the dead v12 confirmed field', freshState().confirmed === undefined);
 
 // ── Phase re-anchor magnitude uses the Epley TRANSLATION curve, not the display blend ──
@@ -1304,6 +1304,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
   T('SEED carries programVersion 21', SEED.programVersion === 21);
+  // The two must agree. freshState() is written straight to D by resetAll() WITHOUT going
+  // through the migration chain (that runs in load()), so a drift leaves a factory-reset
+  // device stamped one version behind until its next reload. Two separate literals pinned by
+  // two separate assertions is exactly how v21 bumped one and missed the other — this
+  // relative check fails on any future drift regardless of what the numbers are.
+  T('freshState programVersion matches SEED', freshState().programVersion === SEED.programVersion,
+    `${freshState().programVersion} vs ${SEED.programVersion}`);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
