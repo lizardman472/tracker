@@ -2074,10 +2074,21 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     // BIG-OVERSHOOT re-anchor: a single plate/micro step moves ~0.5-1kg, which can never
     // catch up to a load you're beating by many reps (e.g. a 3×8 slot logged at 20/side
     // crawls +1kg/session for ~15 sessions). When the LOWEST working set clears target by
-    // ≥4 reps, jump proportionally — ≈2.5% per rep over, capped at +12%/session for joint
+    // enough, jump proportionally — ≈2.5% per rep over, capped at +12%/session for joint
     // safety — and snap to a valid load. Keyed off the lowest set (not one hot AMRAP set),
     // so it only fires when EVERY set is well over target. Re-fires until you land in range.
-    if(over>=4){
+    //
+    // The trigger is REP-RELATIVE, not a flat ≥4. A flat count is badly uneven across rep
+    // ranges because it ignores what a rep is worth in load: by Epley, 2 reps over a 5-rep
+    // target is ~5.7% underloaded, while 2 reps over a 20-rep target is ~1.7%. A flat 4
+    // therefore demanded 9 reps on a 5-rep slot (80% over target) but 24 on a 20-rep slot
+    // (20% over) — strictest exactly where each rep implies the most weight. Scaling by
+    // 40% of the target tracks the Epley curve closely (tg 5 → fires at +2, where the real
+    // gap is 5.7% and the prescribed jump is 5%). Clamped to [2,4] so this can only ever
+    // LOOSEN the trigger for low-rep lifts and never tightens it for anything: every target
+    // of 8 or more keeps the historic ≥4 behaviour unchanged.
+    const overTrig=Math.min(4,Math.max(2,Math.ceil(ex.tg*0.4)));
+    if(over>=overTrig){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
       const raw=lastLoad*(1+pct);
       const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
@@ -2799,8 +2810,13 @@ const nxtP=phi.phase>=3?1:phi.phase+1;
 if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledEx} lifts stalling · ${PHASES[nxtP].desc}</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
-else if(phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',phi.phase+'-'+phi.wk))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
-<button onclick="dismissBanner('phasetimer','${phi.phase+'-'+phi.wk}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
+// The dismissal key is the PHASE, not phase+week: keying it to the week regenerated a new
+// key every 7 days, so a lifter who has decided to ride a working phase out got the same
+// banner back weekly no matter how many times they dismissed it. Safe to silence for the
+// whole phase because this is only the SOFT verdict — once lifts actually stall the
+// 'due' branch above takes over, and that one is deliberately not dismissible.
+else if(phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.phase)))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
+<button onclick="dismissBanner('phasetimer','${phi.phase}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:3px;padding-right:20px">Phase timer complete</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks of ${phi.name} and lifts are still moving (${phi.progressingEx}/${phi.totalEx} progressing). Switch when ready — or ride the wave a little longer.</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;

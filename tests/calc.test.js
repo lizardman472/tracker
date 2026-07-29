@@ -421,6 +421,61 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
     getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 60);
 }
 
+// ── v21.2: the big-overshoot trigger is rep-RELATIVE, not a flat >=4 ──
+{
+  // A flat count ignores what a rep is worth in load. By Epley, 2 reps over a 5-rep target
+  // is ~5.7% underloaded; 2 reps over a 20-rep target is ~1.7%. The old flat 4 therefore
+  // demanded 9 reps on a 5-rep slot (80% over) but 24 on a 20-rep slot (20% over) —
+  // strictest exactly where each rep implies the most weight.
+  const trig = tg => Math.min(4, Math.max(2, Math.ceil(tg * 0.4)));
+  T('trigger loosens only for low-rep targets', trig(5) === 2 && trig(6) === 3 && trig(7) === 3);
+  T('trigger is unchanged (4) for every target of 8+', [8, 10, 12, 15, 20, 25].every(tg => trig(tg) === 4));
+  T('trigger never drops below 2 — one rep over is never a re-anchor', [1, 2, 3, 4, 5].every(tg => trig(tg) >= 2));
+
+  // End-to-end on a 5-rep confirm lift: 2 reps over now re-anchors instead of creeping +0.5.
+  const fp = getProgram(1, 'home').A.find(e => e.id === 'hex_dl'); // tg 5, CONFIRM lift
+  d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+  d.sessions = [{ id: 'ot1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 55.5, reps: [7, 7, 7], band: '' }] }];
+  const s2 = getSmartSugg(fp);
+  T('5-rep lift 2 reps over now re-anchors (was a +0.5 creep behind a confirm brake)',
+    s2.type === 'up' && s2.wt > 56, JSON.stringify(s2));
+  // The confirm cap still binds: a confirm lift may not jump more than 8% in one session.
+  T('confirm-lift jump stays capped at 8%', s2.wt <= 55.5 * 1.08 + 0.001, `${s2.wt}`);
+
+  // And 1 rep over must still NOT fire — that is the ordinary top-of-range step, and it is
+  // the exact shape of the real hex_dl history that prompted this change.
+  d.sessions = [{ id: 'ot2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 55.5, reps: [6, 6, 6], band: '' }] }];
+  const s1 = getSmartSugg(fp);
+  T('5-rep lift 1 rep over does NOT re-anchor (normal step or confirm)', s1.type !== 'up' || s1.wt <= 56.5, JSON.stringify(s1));
+
+  // A high-rep lift 3 over is below its threshold of 4 and must be unaffected by this change.
+  const rf = getProgram(1, 'home').A.find(e => e.id === 'bb_rear_row'); // tg 15, Day A
+  d.sessions = [{ id: 'ot3', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home',
+    ex: [{ id: 'bb_rear_row', wt: 20, reps: [18, 18, 18], band: '' }] }];
+  const s3 = getSmartSugg(rf);
+  T('15-rep lift 3 reps over still takes the ordinary step, not a re-anchor',
+    !/well over target/.test(s3.detail || ''), JSON.stringify(s3.detail));
+}
+
+// ── v21.2: the soft phase banner is dismissible for the PHASE, not the week ──
+{
+  // Keying dismissal to phase+week regenerated a new key every 7 days, so dismissing it
+  // bought a week. Safe to silence for the whole phase: this is only the 'timer_only'
+  // verdict, and the 'due' branch (timer AND stalls) is deliberately not dismissible.
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+  T('phase-timer banner reads its dismissal key from the phase alone',
+    /bannerDismissed\('phasetimer',String\(phi\.phase\)\)/.test(html));
+  T('phase-timer dismiss button writes the same phase-only key',
+    /dismissBanner\('phasetimer','\$\{phi\.phase\}'\)/.test(html));
+  T("the 'due' phase banner remains non-dismissible", (() => {
+    const i = html.indexOf("phi.recommend==='due'");
+    const seg = html.slice(i, i + 600);
+    return /Switch Phases/.test(seg) && !/dismissBanner\('phase/.test(seg);
+  })());
+}
+
 // ── v21.1: the phase verdict must not depend on the location toggle ──
 {
   // Same store, same history — only D.location differs. Before the fix this changed both

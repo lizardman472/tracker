@@ -1499,3 +1499,51 @@ is stamp-only — but it is precisely the shape of bug the §19 note ("bump both
 prevent. Both literals are now 21, and the second assertion is **relative**
 (`freshState().programVersion === SEED.programVersion`) so any future drift fails regardless of
 the numbers. SW cache `rft-v88`. Suite: 478 + 267 + 344 + 49, 18/18 mutations caught.
+
+---
+
+## 22 · v21.2 — the overshoot trigger goes rep-relative, and the phase banner stops nagging (29 Jul 2026)
+
+Both items were raised as findings in §21 and deliberately left unshipped there; the lifter
+then asked for whichever was recommended. Both are taken now, separately and on their own
+merits.
+
+### 22.1 · `over>=4` was strictest exactly where a rep is worth the most load
+
+The big-overshoot re-anchor fired on an absolute rep count, which ignores what a rep implies in
+weight. By Epley, 2 reps over a 5-rep target is ~5.7% underloaded; 2 reps over a 20-rep target
+is ~1.7%. A flat 4 therefore demanded 9 reps on a 5-rep slot (80% over target) but 24 on a
+20-rep slot (20% over) — backwards.
+
+The trigger is now `min(4, max(2, ceil(tg*0.4)))`:
+
+| rep target | 5 | 6 | 7 | 8 | 10 | 12 | 15 | 20 |
+|---|---|---|---|---|---|---|---|---|
+| fires at over ≥ | **2** | **3** | **3** | 4 | 4 | 4 | 4 | 4 |
+
+Clamped to [2,4] deliberately, so it can only ever **loosen** for low-rep lifts and never
+tightens anything: every target of 8+ keeps the historic behaviour bit-for-bit. The floor of 2
+matters as much as the ceiling — one rep over target is the ordinary top-of-range step, not a
+re-anchor, and that is precisely the shape of the real `hex_dl` history in §21.2 (6 reps against
+a target of 5, a ~2.9% gap). The 40% scaling tracks the Epley curve closely: at tg 5 it fires at
++2, where the true gap is 5.7% and the prescribed jump is 5%. The confirm-lift 8% cap still
+binds on top.
+
+**Verified not to be a silent retro-change:** every loadable lift at both venues was replayed
+against the supplied export under the committed pre-change `index.html` and the patched one, and
+the two suggestion sets are byte-identical. This changes what happens on future sessions where
+a low-rep lift is genuinely beaten by 2+; it moves nothing today.
+
+### 22.2 · The soft phase banner regenerated its own dismissal key
+
+`bannerDismissed('phasetimer', phi.phase+'-'+phi.wk)` keyed dismissal to phase **and week**, so
+a new key appeared every 7 days and the banner returned however many times it was dismissed —
+worst for exactly the lifter it targets, one who has read the "ride the wave a little longer"
+advice and decided to do so. Now keyed on the phase alone.
+
+Safe because this is only the `timer_only` verdict. Once lifts actually stall the `due` branch
+takes over, and that banner has no dismiss control at all — silencing the soft prompt cannot
+silence the real one. Guarded by three assertions, including one that the `due` branch stays
+non-dismissible.
+
+Suite: **488 + 267 + 344 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v89`.
