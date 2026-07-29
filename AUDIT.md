@@ -1250,3 +1250,169 @@ Suite: 464 + 247 + 344 + 49 passing, 18/18 SW mutations caught.
 
 SW cache `rft-v85` — a stale v84 shell would keep serving the old day order and the old rest
 times, so the key moves with the program.
+
+---
+
+## 20 · Program v21 — the partner split collapses into one repeatable session (29 Jul 2026)
+
+The lifter asked for a partner-venue audit — "is it good, is it efficient, is it appropriate,
+are the workouts set up well, are there enough reps, sets, weights" — and supplied a full
+export (62 sessions, 2026-02-26 → 2026-07-29). The honest summary: the partner program was
+well-designed on paper and mis-specified for how it is actually used. Three findings, in
+dependency order — the first causes the other two.
+
+### 20.1 · The premise was wrong, and it was what made the days too big
+
+§9/v23 and v27 designed the partner program so that a full A+B+C partner week independently
+clears MEV for every muscle. That is why the days had grown to 7-9 exercises.
+
+**That week has never happened.** Partner sessions are 7 of 62 logged (11%), spread over 21.9
+weeks with gaps of 3, 14, 22, 13, 21 and 35 days. Day A had been run **once**. At the observed
+cadence a full partner A→B→C cycle takes **9.4 weeks**.
+
+The requirement was never one the engine imposed, either: `getWeeklyVolume` counts effective
+sets across ALL locations by design ("muscle stimulus accumulates regardless of venue"), and
+home supplies 89% of sessions. A per-partner-cycle MEV number described a week that does not
+occur, and enforcing it was the sole reason for the exercise count.
+
+### 20.2 · Efficiency — Day B was a 141-minute session
+
+Counting per-side lifts as two bouts, calibrated against the 11 Jul session (32 bouts → 97 min
+actual, so ≈3.03 min/bout):
+
+| | exercises | sets | bouts | modelled |
+|---|---|---|---|---|
+| v20 Day A | 8 | 27 | 32 | ~94 min |
+| v20 Day B | 9 | 29 | **46** | **~141 min** |
+| v20 Day C | 7 | 23 | 33 | ~100 min |
+
+Logged partner durations climbed 63 → 72 → 83 → 97 min, and those were 15-25-set sessions.
+`db_lateral` and `db_rear_fly` appeared on BOTH Day A and Day B — 7 sets of each per cycle, at
+5kg, while home already runs `lm_lateral`, `bb_rear_row` and `face_pull`.
+
+### 20.3 · Weights — the venue is out of plates, and the engine cannot self-correct here
+
+Recomputed from `buildDBW`: the MATCHED pair (per_db lifts) tops out at **18.5kg/DB** over 31
+rungs; a SINGLE bell reaches **22kg** over 37.
+
+| lift | last logged | reps vs target | headroom |
+|---|---|---|---|
+| `db_rdl` | 16/DB | 12 vs 10 | **2.5kg** |
+| `db_floor_press` | 16/DB | 12 vs 10 | **2.5kg** |
+| `db_row_b` | 19 | 10-12 vs 10 | **3kg** |
+| `db_carry` | 20 | — | **2kg** (home hex carry: 32) |
+| `db_lunge` | 10/DB | **16 vs 10** | 8.5kg |
+| `db_curl` | 11/DB | **16-20 vs 12** | 7.5kg |
+
+Every primary loaded compound sits within one or two rungs of the rack ceiling. `db_rdl` at
+2×18.5 = 37kg total is the most the venue can ever ask of the hinge; the home hex RDL is 43kg.
+The venue is already a maintenance venue for hinge and horizontal press, whether or not the
+program says so — so the coach notes now say it and prescribe tempo/pause/leverage escalations
+instead of an ↑0.5kg ladder that cannot continue.
+
+The under-loaded lifts could not fix themselves either. The big-overshoot re-anchor moves
+≈2.5%/rep over target, capped +12%/session, and the comment at the `over>=4` branch claims "a
+light seed self-corrects in 2-3 sessions". True at home. At the partner's, `db_lunge` at 10kg
+logged for 16 reps against a target of 10 walks 10 → 11.0 → 12.5 → 14.0 → 15.5 → 17.0: five
+Day-C visits, which at one Day C per 7.3 weeks is **about nine months**.
+
+On 11 Jul — the only session run against anything close to the current Day A — **2 of 7 lifts
+landed in their prescribed rep range.** Four were over (too light); `db_rear_fly` was prescribed
+15-20 at RIR 2-3 and logged 10/10/12/12 at 5kg, i.e. too heavy for its own rep target. §9 had
+seeded that lift at 3kg for hypermobile shoulders.
+
+### 20.4 · What v21 does
+
+The lifter's own framing settled the design: *"I'm there irregularly and I just need to have a
+day that I can do that is close to home so I'm still working out and progressing to some
+degree."* A 3-way split cannot deliver that at 3 visits/month. So:
+
+- **A, B and C now share one full-body base** (`PARTNER_BASE`, 7 movements) and differ only by
+  a finisher. Every visit trains the same seven lifts, so the re-anchor gets its 2-3 exposures
+  inside a month instead of never. The A/B/C keys are kept — rotation, day badges, history and
+  `nextDay` all derive from them, and a partner visit should still consume the slot it lands on.
+- **Finishers rotate** so nothing goes stale: A = DB curl ⚡ rear-delt fly, B = dip negatives,
+  C = farmer's carry. Plus **one optional clubbell per day** (Mills / Shield Cast / Arm Cast) —
+  every partner session ever logged included clubbell work, so all three stay in rotation.
+- **v25 is REVERTED.** It had swapped the inverted rows and the Day-C volume row for
+  "neutral-grip pull-ups" on the premise that the bars were high enough to hang under. The
+  lifter reports they are not — the movement "is more like a reverse row" — so `pb_pullup_a`
+  and `pb_pullup_c` were describing an inverted row all along. `inv_rows_a` is reactivated
+  under an honest name and is the one partner slot with **no load ceiling** (progressed by
+  leverage: feet down → box → high → one leg → archer), which is why it gets 4 sets.
+- **`pb_dips` becomes eccentric-only.** v27 prescribed band-assisted dips, but there is nowhere
+  under the bars to anchor a band. 3×3-5 five-second negatives, progressed by lengthening the
+  eccentric.
+- **Partner rests differentiate again.** v20 flattened every rest everywhere to 1:00; at the
+  home barbell that was a knowing strength trade-off, but at 16kg dumbbells it was mostly dead
+  time. Compounds 0:45, isolation and the plank 0:30, lateral raise ⚡ side plank supersetted.
+  **Home rests are untouched.** `db_ohp` deliberately stays a 0:45 compound outside that
+  superset — it is one of the few partner lifts with real headroom, and a lift you can still
+  add weight to should not be run on a circuit rest.
+- **Nine day-specific lifts retire to stubs** (`db_row_b`, `db_lunge`, `db_floor_press_v`,
+  `db_sl_rdl`, `db_1arm_press`, `db_dead_bug`, `pb_pullup_a`, `pb_pullup_c`, plus `db_row_c`
+  which already was one). Each duplicated a pattern the shared base covers. Six have logged
+  history; the stubs keep it resolving in history, charts, PRs and the muscle split.
+- **Loads are re-seeded by coach note**, because `RELATED_EX` only fires on a lift with no
+  history — the suggestion reads history, so it cannot re-anchor itself downward or by several
+  rungs. Following the `bb_skullcr` precedent from §17/v18, the notes now say explicitly to
+  type the number in once: `db_curl` → 15kg/DB, `db_rear_fly` → **down** to 3.5kg/DB (the only
+  lift that moved down), `db_carry` → 22kg.
+
+Modelled session length, same calibration: **A ~90, B ~87, C ~87 min** mandatory (add ~18 for
+the optional clubbell). Day B falls by 38%; Day A barely moves, but now contains a squat, a
+hinge, a horizontal pull, a vertical press and core — patterns it previously lacked entirely.
+Recorded plainly: **Day A is still the longest day, and the optional clubbell is the release
+valve.** An earlier draft of this pass claimed ~77 min by sharing setup cost across supersetted
+slots and counting `db_ohp` as a circuit member; both were wrong and the numbers above use one
+consistent model.
+
+### 20.5 · Accepted gaps, recorded so they are not mistaken for oversights
+
+- **No vertical pull at the partner's.** The bars are too low. Home trains pull-ups twice weekly.
+- **Rear delts on one partner day only** (the Day-A finisher). Home trains them 3× weekly.
+- **No direct calf work at either venue** — this is unchanged, but v27's bullet (c) claimed to
+  have ADDED `db_calf_raise` to partner Day C when the v16 trim had already retired it and it
+  has been a legacy stub throughout. The claim was inert and misled three subsequent passes;
+  the comment is corrected in place.
+- **Quads sat at exactly 8.0 vs MEV 8** under v20, despite v27's stated "MEV-floor buffer" —
+  the buffer never reached quads. Moot under v21 (per-cycle MEV is no longer the contract),
+  but the v27 claim was wrong when written.
+
+### Corrections to §11-§19
+
+§19/v20's "every prescribed rest is now 1:00 across the board" is **no longer true at the
+partner venue** and its day counts for partner (A=8 B=9 C=7) are superseded (now A=10 B=9 C=9,
+one optional each). Both statements still hold verbatim for home, which v21 does not touch. The
+inline comment at the v20 day-count line carries this pointer so the next reader does not have
+to find this section first.
+
+### Harness
+
+`migrateToV21` is stamp-only; `programVersion` 20 → 21 in `SEED`. The five retired lifts'
+`PHASES.adj` entries are removed — the calc suite's "no dead PHASE_ADJ entries" guard would
+have caught them, which is precisely what it is for.
+
+Four existing test groups asserted the *old* contract and had to be inverted rather than
+deleted — each is annotated in place with why:
+
+- the partner per-cycle MEV/MAV sweep is now **per-visit**, because three days sharing one base
+  triple-counts every base lift for a cycle that takes 9.4 weeks and has never been completed;
+- two cross-day set-count tests keyed off the real `db_lateral` 4-vs-3 asymmetry, which no
+  longer exists anywhere at either venue. They now build the prescriptions explicitly, which
+  isolates the engine property under test from incidental program shape — the reason they broke
+  is that they were testing the program when they meant to test the engine;
+- the v20 rest sweep splits into a home check (1:00/60s) and a partner check (0:45 or 0:30,
+  **string and timer agreeing**, and the 0:30s being exactly the isolation/hold slots);
+- implement-order and superset-adjacency expectations move to the new layout.
+
+New assertions: every partner day opens with the same 7-movement base; base lifts appear on all
+three days (the property the whole collapse exists to buy); days differ only past the base;
+retired lifts keep ALL_EX stubs so history resolves; `pb_dips` is bodyweight with no `bandMode`;
+`inv_rows_a` is active and not a stub; every partner day is full-body (hams/quads/chest/back/core
+all non-zero in a single visit).
+
+Suite: **473 + 267 + 344 + 49 passing, 18/18 SW mutations caught** (was 464 + 247 + 344 + 49).
+
+SW cache `rft-v86` — a stale v85 shell would serve the old partner program and the old rest
+times, so the key moves with the program.

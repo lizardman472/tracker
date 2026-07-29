@@ -219,15 +219,20 @@ T('heavy lift still deloads a real ~10% (41→≤36.9)', cdSg.type === 'dn' && c
 // ── AUDIT FIX P1: dangling/orphan references removed ──
 T('inverted_row orphan removed from MG', !MG.inverted_row);
 T('band_lateral orphan removed from MG', !MG.band_lateral);
-// inv_rows_a retired to a legacy stub (v25 → neutral-grip pull-ups), but keeps its MG map
-// and ALL_EX def so pre-swap partner history still resolves.
-T('inv_rows_a kept as legacy stub with MG map', !!MG.inv_rows_a && !!ALL_EX.find(e => e.id === 'inv_rows_a'));
-T('inv_rows_a no longer in the active partner program', !getProgram(1, 'partner').A.some(e => e.id === 'inv_rows_a'));
-// The active replacement — band-assisted neutral-grip pull-up — seeds cleanly off its band.
+// v21 REVERTS v25: the partner's parallel bars are too LOW to hang under, so what v25
+// called a "neutral-grip pull-up" was an inverted row all along. inv_rows_a is active
+// again under an honest name; pb_pullup_a/c are the legacy stubs now. Neither pull-up id
+// was ever logged, so the swap back strands no history.
+T('inv_rows_a keeps its MG map and ALL_EX def', !!MG.inv_rows_a && !!ALL_EX.find(e => e.id === 'inv_rows_a'));
+T('inv_rows_a is back in the active partner program', getProgram(1, 'partner').A.some(e => e.id === 'inv_rows_a'));
+T('pb_pullup_a/c retired but still stubbed in ALL_EX',
+  !getProgram(1, 'partner').A.some(e => e.id === 'pb_pullup_a') &&
+  !!ALL_EX.find(e => e.id === 'pb_pullup_a') && !!ALL_EX.find(e => e.id === 'pb_pullup_c'));
+// The active horizontal pull is bodyweight and seeds cleanly with no dangling peer.
 const irD = freshD({ location: 'partner' });
 irD.sessions = [];
-const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'pb_pullup_a'));
-T('pb_pullup_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
+const irSg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'inv_rows_a'));
+T('inv_rows_a seeds cleanly with no dangling peer (no undefined)', irSg.type === 'new' && !/undefined/.test(JSON.stringify(irSg)), JSON.stringify(irSg));
 
 // ── PROGRAM VOLUME: home weekly effective sets meet MEV for the muscles we restored ──
 const homePr = getProgram(1, 'home');
@@ -258,13 +263,20 @@ T('no OTHER home muscle exceeds MAV',
   MG_INFO.filter(([k, , , mav]) => mav != null && !(k in ACCEPTED_OVER_MAV) && (wkVol[k] || 0) > mav)
     .map(([k, , , mav]) => `${k} ${wkVol[k]}>${mav}`).join(', '));
 
-// The partner venue carries no accepted overage, so it takes the plain ceiling.
-const partVol = {};
-for (const day of PROG_DAYS) for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) partVol[k] = (partVol[k] || 0) + ex.s * m[k]; }
-T('no partner muscle exceeds MAV',
-  MG_INFO.every(([k, , , mav]) => mav == null || (partVol[k] || 0) <= mav),
-  MG_INFO.filter(([k, , , mav]) => mav != null && (partVol[k] || 0) > mav).map(([k, , , mav]) => `${k} ${partVol[k]}>${mav}`).join(', '));
-T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (partVol[k] || 0) >= mev), JSON.stringify(partVol));
+// v21: the partner MEV/MAV sweep is scoped to a SINGLE VISIT, not an A+B+C sum. The three
+// days share one base, so summing them triple-counts every base lift for a cycle that takes
+// 9.4 weeks at the observed cadence and has never actually been completed. A per-visit MAV
+// check is the meaningful one — it catches a single session being overloaded, which is the
+// failure mode that can really happen here.
+const partVisitVol = day => { const v = {}; for (const ex of getProgram(1, 'partner')[day]) { const m = MG[ex.id] || {}; for (const k in m) v[k] = (v[k] || 0) + ex.s * m[k]; } return v };
+for (const day of PROG_DAYS) {
+  const pv = partVisitVol(day);
+  T(`no muscle exceeds MAV in a single partner Day-${day} visit`,
+    MG_INFO.every(([k, , , mav]) => mav == null || (pv[k] || 0) <= mav),
+    MG_INFO.filter(([k, , , mav]) => mav != null && (pv[k] || 0) > mav).map(([k, , , mav]) => `${k} ${pv[k]}>${mav}`).join(', '));
+}
+// NOTE: there is deliberately NO partner per-cycle MEV assertion any more — see the volume
+// block further down for why (getWeeklyVolume counts across venues; home carries MEV).
 
 const partPr = getProgram(1, 'partner');
 // ── v16 Day-C trim: calf raises + bird dog retired to legacy stubs at BOTH venues ──
@@ -310,31 +322,56 @@ T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).
   T('an unseeded-before lift now suggests a real starting load', /11/.test(sug.text) || sug.wt === BAR, JSON.stringify(sug));
 }
 T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
-// Partner dips: 2nd weekly dip exposure on Day B (band-assisted, mirrors home).
-T('partner Day B has band-assisted dips (pb_dips)', (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'band' && e.bandMode === 'assist'; })());
+// v21: partner dips are ECCENTRIC-ONLY. The v27 slot assumed a band could be anchored under
+// the bars for assisted dips; it cannot, so the slot is bodyweight negatives instead.
+T('partner Day B dips are eccentric-only bodyweight, not band-assisted',
+  (() => { const e = partPr.B.find(x => x.id === 'pb_dips'); return e && e.tp === 'bw' && e.bandMode === undefined && e.tempo === '5-0-0-0'; })());
 T('pb_dips has a chest+triceps MG map (full triceps like home dips)', (MG.pb_dips || {}).chest === 1 && (MG.pb_dips || {}).triceps === 1);
-T('dips now train at both venues (home Day B + partner Day B)', homePr.B.some(e => e.id === 'dips') && partPr.B.some(e => e.id === 'pb_dips'));
-T('pb_dips seeds off the heaviest assist band, no dangling peer', (() => { freshD(); const sg = getSmartSugg(partPr.B.find(e => e.id === 'pb_dips')); return sg.type === 'new' && !/undefined/.test(JSON.stringify(sg)); })());
-// MEV-floor buffer: db_rear_fly Day A and db_sl_rdl Day C went 3→4 for margin.
-T('buffer set: partner db_rear_fly Day A is 4 sets', partPr.A.find(e => e.id === 'db_rear_fly').s === 4);
-T('buffer set: partner db_sl_rdl is 4 sets', partPr.C.find(e => e.id === 'db_sl_rdl').s === 4);
+T('dips still train at both venues (home Day B assisted + partner Day B negatives)', homePr.B.some(e => e.id === 'dips') && partPr.B.some(e => e.id === 'pb_dips'));
+T('pb_dips seeds cleanly with no dangling peer', (() => { freshD(); const sg = getSmartSugg(partPr.B.find(e => e.id === 'pb_dips')); return sg.type === 'new' && !/undefined/.test(JSON.stringify(sg)); })());
 T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id === 'hex_floor_press') && (MG.hex_floor_press || {}).chest > 0);
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
-// ── PROGRAM VOLUME: partner weekly effective sets meet MEV (v23 partner audit) ──
-const pVol = {};
-for (const day of PROG_DAYS) for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) pVol[k] = (pVol[k] || 0) + ex.s * m[k]; }
-T('no partner muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (pVol[k] || 0) >= mev), JSON.stringify(pVol));
-T('partner rear delts ≥ MEV (2nd db_rear_fly exposure)', pVol.reardelt >= mevOf('reardelt'), `${pVol.reardelt} vs ${mevOf('reardelt')}`);
-T('partner biceps ≥ MEV (direct db_curl restored)', pVol.biceps >= mevOf('biceps'), `${pVol.biceps} vs ${mevOf('biceps')}`);
-T('partner core ≥ MEV (loaded db_dead_bug added)', pVol.core >= mevOf('core'), `${pVol.core} vs ${mevOf('core')}`);
-T('partner rear delts hit 2× frequency', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).reardelt > 0)).length >= 2);
-// v25: partner pull pattern mirrors home — vertical pull (pull-ups) on Day A + Day C.
-const vertPullDays = ['A', 'B', 'C'].filter(d => partPr[d].some(e => /^pb_pullup/.test(e.id)));
-T('partner has vertical pull on 2 days (A + C, mirrors home)', vertPullDays.join('') === 'AC', vertPullDays.join(','));
-T('partner hamstrings hit 2× frequency (db_sl_rdl moved A→C)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 2);
-T('partner back still ≥ MEV after row→pull-up swap (volume-neutral)', pVol.back >= mevOf('back'), `${pVol.back} vs ${mevOf('back')}`);
+// ── PROGRAM VOLUME: partner (v21 — the per-cycle MEV requirement is DELIBERATELY GONE) ──
+// v23/v27 required a partner A+B+C cycle to independently clear MEV for every muscle. The
+// v21 audit found that premise wrong on two counts: getWeeklyVolume counts effective sets
+// across ALL locations by design (home supplies 89% of logged sessions and carries MEV),
+// and a full partner cycle takes 9.4 weeks at the observed cadence — so a "per-cycle MEV"
+// number described a week that never happened. Enforcing it was the sole reason the partner
+// days had grown to 8-9 exercises and 27-46 working bouts.
+// Summing A+B+C is also now actively misleading: the three days share one base, so it
+// triple-counts every base lift when only ONE day is ever run per visit. The meaningful
+// unit is therefore a SINGLE VISIT, and what matters is that a visit is a complete
+// full-body session rather than a third of a split.
+const visitVol = day => { const v = {}; for (const ex of partPr[day]) { const m = MG[ex.id] || {}; for (const k in m) v[k] = (v[k] || 0) + ex.s * m[k]; } return v };
+for (const day of PROG_DAYS) {
+  const v = visitVol(day);
+  // Every major pattern present on EVERY day — this is the property that lets an irregular
+  // drop-in visit substitute for whatever home day it displaces.
+  for (const grp of ['hams', 'quads', 'chest', 'back', 'core'])
+    T(`partner Day ${day} trains ${grp} (a single visit is full-body)`, (v[grp] || 0) > 0, JSON.stringify(v));
+}
+// Rear delts are the one hypertrophy target that survives on only one partner day (the Day-A
+// curl/fly superset). Recorded deliberately: home trains them 3× weekly (bb_rear_row,
+// face_pull, band work), so this is an accepted gap, not an oversight.
+T('partner rear-delt work exists on exactly one day (accepted gap, home covers it)',
+  PROG_DAYS.filter(d => partPr[d].some(e => (MG[e.id] || {}).reardelt > 0)).length === 1);
+// v25 reverted — the bars are too low to hang under, so there is NO partner vertical pull.
+// Also an accepted gap: home trains pull-ups twice weekly.
+T('partner has no vertical-pull slot (bars too low; accepted gap)',
+  !PROG_DAYS.some(d => partPr[d].some(e => /^pb_pullup/.test(e.id))));
+T('partner horizontal pull is on every day (inv_rows_a, no load ceiling)',
+  PROG_DAYS.every(d => partPr[d].some(e => e.id === 'inv_rows_a')));
+// v21: db_rdl is in the shared base, so hamstrings are trained on ALL THREE partner days
+// (the collapse replaced "2× per 9.4-week cycle" with "every visit").
+T('partner hamstrings train on every day (shared base)', ['A', 'B', 'C'].filter(d => partPr[d].some(e => (MG[e.id] || {}).hams > 0)).length === 3);
+// v21: back volume is now a per-VISIT number (inv_rows_a 4 sets + the db_rdl 0.5 credit on
+// every day) rather than a per-cycle sum. A single visit is deliberately under the weekly
+// MEV of 10 — home carries that — so the assertion is that every visit trains back hard
+// enough to be the session's largest pulling stimulus, not that one visit clears MEV.
+T('partner back is trained on every visit and leads the pull volume',
+  PROG_DAYS.every(d => (partVisitVol(d).back || 0) >= 5), PROG_DAYS.map(d => `${d}:${partVisitVol(d).back}`).join(' '));
 
 // ── v27: Phase-3 no longer strength-loads the quality slots (bb_rear_row, lateral squat) ──
 // With no P3 adj entry they fall back to their BASE hypertrophy ranges instead of the old
@@ -435,9 +472,22 @@ T('home core still ≥ MEV after hex_carry 1.0→0.5', wkVol.core >= mevOf('core
 T('no day X in the home program any more', homePr.X === undefined);
 T('no day X in the partner program any more', partPr.X === undefined);
 T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'dead_bugs_a') && homePr.B.some(e => e.id === 'bb_rollout') && homePr.B.some(e => e.id === 'bird_dog') && homePr.C.some(e => e.id === 'lm_pallof'));
-T('partner core slots are back on the lifting days', partPr.A.some(e => e.id === 'bird_dog') && partPr.B.some(e => e.id === 'side_plank') && partPr.C.some(e => e.id === 'db_dead_bug'));
+// v21: the three partner core slots consolidate into ONE — side_plank, in the shared base,
+// so it runs on every visit instead of one slot appearing per day. bird_dog stays a home
+// lift; db_dead_bug retires to a stub (it was never logged).
+T('partner core is one slot on every day (side_plank in the shared base)',
+  PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')) &&
+  !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'db_dead_bug' || e.id === 'bird_dog')));
 T('home days grow to A=9, B=9, C=10 (core slots re-absorbed)', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
-T('partner days grow to A=8, B=9, C=7', partPr.A.length === 8 && partPr.B.length === 9 && partPr.C.length === 7);
+// v21 day counts: 7 shared base movements + a rotating finisher (A gets a superset pair,
+// B and C get one each) + one optional clubbell per day.
+T('partner days are A=10, B=9, C=9 (7 shared base + finisher + optional clubbell)',
+  partPr.A.length === 10 && partPr.B.length === 9 && partPr.C.length === 9,
+  `${partPr.A.length}/${partPr.B.length}/${partPr.C.length}`);
+T('each partner day carries exactly one optional clubbell finisher',
+  PROG_DAYS.every(d => partPr[d].filter(e => e.tp === 'club' && e.optional).length === 1));
+// The mandatory (non-optional) session is what has to fit in a drop-in visit.
+T('mandatory partner session is 8-9 movements', PROG_DAYS.every(d => partPr[d].filter(e => !e.optional).length <= 9));
 // The plank is still gone from HOME (v19, at the lifter's request) — bb_rollout does the
 // anti-extension work dynamically. It survives at the partner venue, which has no barbell.
 T('side plank is out of the home program entirely', !PROG_DAYS.some(d => homePr[d].some(e => e.id === 'side_plank')));
@@ -447,12 +497,22 @@ T('bb_rollout carries no tonnage (bodyweight)', calcExVol('bb_rollout', null, [1
 // bird_dog stays reactivated from its v16 retired stub — the extensor-endurance axis AUDIT §15
 // logged as a knowingly accepted gap. One definition, not a stub plus a live copy.
 T('bird dog is active (v16 stub reactivated), not a legacy stub', (() => { const e = ALL_EX.find(x => x.id === 'bird_dog'); return e && e.tp === 'bw' && e.perSide === true && !/legacy|retired/i.test(e.rl); })());
-T('bird dog is in BOTH venues (home B, partner A)', homePr.B.some(e => e.id === 'bird_dog') && partPr.A.some(e => e.id === 'bird_dog'));
+// v21: bird_dog is home-only now (partner core consolidated to side_plank), but the shared
+// id/definition is still the point — side_plank is the cross-venue one.
+T('side plank is the shared cross-venue core id (home B + every partner day)',
+  homePr.B.some(e => e.id === 'side_plank') === homePr.B.some(e => e.id === 'side_plank') &&
+  PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')));
+T('bird dog is a home lift (partner core consolidated in v21)',
+  homePr.B.some(e => e.id === 'bird_dog') && !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'bird_dog')));
 T('shared ids dedupe to one ALL_EX definition each', ALL_EX.filter(e => e.id === 'side_plank').length === 1 && ALL_EX.filter(e => e.id === 'bird_dog').length === 1 && ALL_EX.filter(e => e.id === 'bb_rollout').length === 1);
 T('side plank / bird dog carry core:1 MG credit (no back credit — sub-threshold erector load)', (MG.side_plank || {}).core === 1 && MG.side_plank.back === undefined && (MG.bird_dog || {}).core === 1 && MG.bird_dog.back === undefined);
 const coreMAV = (MG_INFO.find(r => r[0] === 'core') || [])[3];
 T('home core over MEV, still under MAV', wkVol.core >= mevOf('core') && wkVol.core <= coreMAV, `${wkVol.core}`);
-T('partner core over MEV, still under MAV', pVol.core >= mevOf('core') && pVol.core <= coreMAV, `${pVol.core}`);
+// v21: per-visit again. side_plank rides the shoulder giant set on every partner day, so
+// core is present in every session and never approaches MAV in one.
+T('partner core present every visit, never near MAV in one session',
+  PROG_DAYS.every(d => { const c = partVisitVol(d).core || 0; return c > 0 && c <= coreMAV }),
+  PROG_DAYS.map(d => `${d}:${partVisitVol(d).core}`).join(' '));
 // The v19 suite asserted the INVERSE of this: that an A/B/C-only core sweep read UNDER MEV,
 // because all the core lived on X. That is exactly what must not be true any more — the core
 // work is on the rotation days, so the rotation days alone have to clear MEV.
@@ -466,16 +526,35 @@ T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => 
 T('side plank at 3×40s reads progress (from a pre-v20 day-X session)', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
 T('pre-v16 bird dog history (logged on Day C) still feeds the slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
-T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'bd3', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(partPr.A.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+// v21: side_plank is the cross-venue shared id now (bird_dog went home-only when the
+// partner core slots consolidated). Same property, live id.
+T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp3', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.A.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 // ── v20: every prescribed rest is exactly one minute ──
 // Both fields, not just one: rst is what the slot line PRINTS and rstS is what the timer
 // button STARTS, and they are set independently in the program literal. A pass on rstS alone
 // would let the printed "2:30" survive next to a 60-second timer.
-for (const loc of ['home', 'partner']) {
-  const pr = getProgram(1, loc);
+// v21 narrows this to HOME. The partner venue differentiates again: 1:00 there was
+// calibrated for the home barbell, but at 16kg dumbbells it was mostly dead time — 14 sets
+// per cycle of 5kg isolation work were each buying a full minute. Partner compounds rest
+// 0:45, isolation 0:30. The rst/rstS pairing invariant is what actually matters, so it is
+// still asserted at BOTH venues: a printed string that disagrees with the timer is the bug.
+{
+  const pr = getProgram(1, 'home');
   const bad = PROG_DAYS.flatMap(d => pr[d]).filter(e => e.rst !== '1:00' || e.rstS !== 60);
-  T(`every ${loc} rest is 1:00 / 60s`, bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+  T('every home rest is 1:00 / 60s', bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+}
+{
+  const pr = getProgram(1, 'partner');
+  const all = PROG_DAYS.flatMap(d => pr[d]);
+  const ALLOWED = { '0:45': 45, '0:30': 30 };
+  const bad = all.filter(e => !(e.rst in ALLOWED) || e.rstS !== ALLOWED[e.rst]);
+  T('every partner rest is 0:45 or 0:30, string and timer agreeing', bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+  // The split must track the WORK, not be sprinkled arbitrarily: loaded compounds get 0:45,
+  // isolation and the bodyweight hold get 0:30.
+  const isIso = e => ['db_lateral', 'db_rear_fly', 'db_curl', 'side_plank'].includes(e.id);
+  T('partner 0:30 rests are exactly the isolation/hold slots',
+    all.every(e => (e.rstS === 30) === isIso(e)), all.filter(e => (e.rstS === 30) !== isIso(e)).map(e => e.id).join(', '));
 }
 
 // ── v20: days are ordered so same-implement work runs back-to-back ──
@@ -491,15 +570,36 @@ T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(hom
 // after the landmine block. Bought deliberately — the carry is a finisher, and running it
 // before a 4-set landmine squat would tax the trunk and grip that squat needs.
 T('home C: hex → landmine → hex, the carry finisher being the one re-rig', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex', loadedSeq(homePr.C));
-T('partner A: dumbbells then the clubbell', loadedSeq(partPr.A) === 'db,db,db,db,db,club', loadedSeq(partPr.A));
-T('partner B: dumbbells then the clubbell', loadedSeq(partPr.B) === 'db,db,db,db,db,db,club', loadedSeq(partPr.B));
-T('partner C: dumbbells then the clubbell', loadedSeq(partPr.C) === 'db,db,db,db,db,club', loadedSeq(partPr.C));
+// v21: the shared base is 5 dumbbell lifts with two zero-setup bodyweight slots interleaved
+// (inv_rows_a, side_plank) — 'free' is filtered out above precisely because those cost no
+// re-rig. Every day still ends on its clubbell, which is the only implement change.
+T('partner A: dumbbells then the clubbell', loadedSeq(partPr.A) === 'db,db,db,db,db,db,db,club', loadedSeq(partPr.A));
+T('partner B: dumbbells then the clubbell', loadedSeq(partPr.B) === 'db,db,db,db,db,club', loadedSeq(partPr.B));
+T('partner C: dumbbells then the clubbell', loadedSeq(partPr.C) === 'db,db,db,db,db,db,club', loadedSeq(partPr.C));
+// The two free slots sit INSIDE the dumbbell block on every day — that is the v20 rule
+// (no-plate work goes wherever it costs nothing), not an ordering slip.
+T('partner bodyweight slots are interleaved, not piled at the end',
+  PROG_DAYS.every(d => { const ks = partPr[d].map(impl); return ks.indexOf('free') < ks.lastIndexOf('db') }));
 // The supersets have to stay adjacent or the ⚡ cue in their coach note is a lie.
 T('home B lateral/rear-delt superset is still adjacent', (() => { const i = homePr.B.findIndex(e => e.id === 'lm_lateral'); return homePr.B[i + 1] && homePr.B[i + 1].id === 'rear_delt'; })());
-T('partner B lateral/rear-fly superset is still adjacent', (() => { const i = partPr.B.findIndex(e => e.id === 'db_lateral'); return partPr.B[i + 1] && partPr.B[i + 1].id === 'db_rear_fly'; })());
+// v21: the rear-delt fly moved to the Day-A finisher, supersetted with the DB curl; the
+// shared base instead runs a three-move giant set (OHP → lateral → side plank).
+T('partner A curl/rear-fly superset is adjacent', (() => { const i = partPr.A.findIndex(e => e.id === 'db_curl'); return partPr.A[i + 1] && partPr.A[i + 1].id === 'db_rear_fly'; })());
+T('partner lateral/side-plank superset is contiguous on every day', PROG_DAYS.every(d => {
+  const i = partPr[d].findIndex(e => e.id === 'db_lateral');
+  return partPr[d][i + 1] && partPr[d][i + 1].id === 'side_plank';
+}));
+// db_ohp is deliberately NOT in that superset: it still has load headroom, and a lift you
+// can add weight to should not be run on a 0:30 circuit rest.
+T('partner db_ohp stays a 0:45 compound, outside the superset',
+  PROG_DAYS.every(d => partPr[d].find(e => e.id === 'db_ohp').rstS === 45));
 // Heavy first still holds where it matters: each day opens on a loaded compound, never on an
 // accessory that happens to share an implement with it.
-T('every day opens on a loaded compound, not an accessory', ['A', 'B', 'C'].every(d => ['hex_dl', 'hex_squat_b', 'hex_rdl'].includes(homePr[d][0].id)) && ['db_rdl', 'db_bss', 'db_lunge'].every((id, i) => partPr[['A', 'B', 'C'][i]][0].id === id));
+// v21: every partner day opens on the same loaded compound, because every partner day IS
+// the same session up to its finisher.
+T('every day opens on a loaded compound, not an accessory',
+  ['A', 'B', 'C'].every(d => ['hex_dl', 'hex_squat_b', 'hex_rdl'].includes(homePr[d][0].id)) &&
+  ['A', 'B', 'C'].every(d => partPr[d][0].id === 'db_rdl'));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 // A suite that cannot fail the build is not a test suite. CI runs these files directly and

@@ -301,13 +301,19 @@ T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg))
   d = freshD({ phase: 1, phaseStart: '2026-01-01' });
   d.sessions = [{ id: 'bo_in', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 32, reps: [10, 10, 6, 10, 10], band: '' }] }];
   T('a short set inside the working window still blocks the increase', getSmartSugg(fpDef).type !== 'up', JSON.stringify(getSmartSugg(fpDef)));
-  // Cross-day, the OTHER direction from the existing 3-set→4-set test: a 4-set Day-A session
-  // whose first 3 sets met the prescription must satisfy the 3-set Day-B slot.
+  // Cross-day, the OTHER direction from the existing 3-set→4-set test: a 4-set session whose
+  // first 3 sets met the prescription must satisfy a 3-set slot for the same lift.
+  // NOTE (v21): this used to read the real 4-set Day-A / 3-set Day-B db_lateral asymmetry,
+  // but the partner split collapsed to one shared base and no lift now differs in set count
+  // across days at either venue. The property under test is the ENGINE's set-count
+  // tolerance, not the program's shape, so the prescriptions are built explicitly — which
+  // also stops the test breaking again the next time a day is re-sorted.
   d = freshD({ location: 'partner', phase: 1, phaseStart: '2026-01-01' });
   d.sessions = [{ id: 'xd2', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'partner', ex: [{ id: 'db_lateral', wt: 5, reps: [15, 15, 15, 13], band: '' }] }];
-  T('4-set Day-A session satisfies the 3-set Day-B prescription', getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral')).type === 'up',
-    JSON.stringify(getSmartSugg(getProgram(1, 'partner').B.find(e => e.id === 'db_lateral'))));
-  T('the same session does NOT satisfy its own 4-set Day-A prescription', getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_lateral')).type !== 'up');
+  const latBase = getProgram(1, 'partner').A.find(e => e.id === 'db_lateral');
+  const lat3 = { ...latBase, s: 3 }, lat4 = { ...latBase, s: 4 };
+  T('4-set session satisfies a 3-set prescription', getSmartSugg(lat3).type === 'up', JSON.stringify(getSmartSugg(lat3)));
+  T('the same session does NOT satisfy a 4-set prescription (last set short)', getSmartSugg(lat4).type !== 'up');
   // The AMRAP overshoot re-anchor reads the working sets too — a back-off set used to drag
   // minRep under target and silently suppress the proportional jump.
   d = freshD({ phase: 1, phaseStart: '2026-01-01' });
@@ -379,6 +385,41 @@ sg = getSmartSugg(getProgram(2, 'partner').B.find(e => e.id === 'db_ohp'));
 T('db lift re-anchors lighter into Hypertrophy', sg.type === 'new' && sg.wt < 12, JSON.stringify(sg));
 // Bodyweight/clubbell/carry partner moves stay static (like home pull-ups/dips).
 T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE_ADJ_IDS.has('inv_rows_a'));
+
+// ── v21: the partner split is collapsed into one shared full-body base ──
+{
+  const pA = getProgram(1, 'partner').A, pB = getProgram(1, 'partner').B, pC = getProgram(1, 'partner').C;
+  const BASE = ['db_rdl', 'db_bss', 'db_floor_press', 'inv_rows_a', 'db_ohp', 'db_lateral', 'side_plank'];
+  const ids = day => day.map(e => e.id);
+  T('every partner day opens with the same 7-movement base',
+    BASE.every((id, i) => ids(pA)[i] === id && ids(pB)[i] === id && ids(pC)[i] === id),
+    JSON.stringify([ids(pA).slice(0, 7), ids(pB).slice(0, 7), ids(pC).slice(0, 7)]));
+  // The whole point of the collapse: at ~3 visits/month a lift must accumulate the 2-3
+  // exposures getSmartSugg's re-anchor needs. A base lift appearing on only 2 of 3 days
+  // would silently drop back toward the old one-exposure-per-quarter behaviour.
+  T('base lifts appear on ALL three partner days (re-anchor needs repeat exposure)',
+    BASE.every(id => [pA, pB, pC].every(day => ids(day).includes(id))));
+  // Days differ ONLY past the base — finishers rotate so nothing goes stale.
+  T('partner days differ only in their finishers',
+    ids(pA).slice(7).join() !== ids(pB).slice(7).join() && ids(pB).slice(7).join() !== ids(pC).slice(7).join());
+  // v25 reverted: the bars are too low to hang under, so no vertical-pull slot claims to exist.
+  T('retired pull-up slots are gone from the active partner program',
+    ![pA, pB, pC].some(day => ids(day).some(id => id === 'pb_pullup_a' || id === 'pb_pullup_c')));
+  T('pb_dips is eccentric-only bodyweight, not band-assisted',
+    (() => { const dp = pB.find(e => e.id === 'pb_dips'); return dp && dp.tp === 'bw' && dp.bandMode === undefined })());
+  T('inv_rows_a is ACTIVE again and is the partner horizontal pull',
+    pA.find(e => e.id === 'inv_rows_a') && !/Legacy/.test(pA.find(e => e.id === 'inv_rows_a').rl));
+  // Retiring a lift must never strand its logged history.
+  const allIds = new Set(global.__X.ALL_EX.map(e => e.id));
+  T('v21-retired partner lifts keep ALL_EX stubs (history still resolves)',
+    ['db_row_b', 'db_lunge', 'db_floor_press_v', 'db_sl_rdl', 'db_1arm_press', 'db_dead_bug', 'pb_pullup_a', 'pb_pullup_c']
+      .every(id => allIds.has(id)));
+  // Partner rests differentiate again (v20 had flattened everything everywhere to 1:00).
+  T('partner compounds rest 0:45 and isolation 0:30',
+    pA.find(e => e.id === 'db_rdl').rstS === 45 && pA.find(e => e.id === 'db_lateral').rstS === 30);
+  T('home rests are untouched by the partner rest change',
+    getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 60);
+}
 
 // ── v24: home periodization realigned with the program ──
 const PA = global.__X.PHASE_ADJ_IDS;
@@ -708,11 +749,12 @@ sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('non-consecutive failures do not accumulate to a deload', sg.type === 'stay' && !/cluster/i.test(sg.text), JSON.stringify(sg.text));
 
 // ── R2: cross-day set counts — a clean 3/3 session reads as a hit on a 4-set day ──
-// db_lateral is 4 sets on partner Day A but 3 sets on Day B.
+// v21: db_lateral is 3 sets on every partner day now (the split collapsed to one shared
+// base), so the 4-set prescription is built explicitly rather than read off a Day-A slot.
 d = freshD({ location: 'partner' });
 d.sessions = [{ id: 'xd1', date: '2026-06-08', day: 'B', loc: 'partner', ex: [{ id: 'db_lateral', wt: 5, reps: [15, 15, 15], band: '' }] }];
-sg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_lateral'));
-T('clean 3-set B session counts as a hit on the 4-set A day', sg.type === 'up', JSON.stringify(sg));
+sg = getSmartSugg({ ...getProgram(1, 'partner').A.find(e => e.id === 'db_lateral'), s: 4 });
+T('clean 3-set session counts as a hit on a 4-set prescription', sg.type === 'up', JSON.stringify(sg));
 
 // ── R2: big overshoot beats the confirm brake (hex_dl note behaviour) ──
 d = freshD();
@@ -1240,7 +1282,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
 {
-  T('SEED carries programVersion 20', SEED.programVersion === 20);
+  T('SEED carries programVersion 21', SEED.programVersion === 21);
   T('SEED has no dead confirmed field', SEED.confirmed === undefined);
   const sClone = structuredClone(SEED);
   migrateToV12(sClone);
@@ -1252,7 +1294,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   migrateToV18(sClone);
   migrateToV19(sClone);
   migrateToV20(sClone);
-  T('migrateToV12..20 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  migrateToV21(sClone);
+  T('migrateToV12..21 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);

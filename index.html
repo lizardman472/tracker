@@ -567,10 +567,10 @@ const isRotDay=d=>Object.prototype.hasOwnProperty.call(NEXT_DAY,d);
 const lastRotSession=ss=>{for(let i=ss.length-1;i>=0;i--)if(isRotDay(ss[i].day))return ss[i];return null};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
   adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
-  db_rdl:{rp:'8-10',tg:10},db_sl_rdl:{rp:'8/side',tg:8},db_floor_press:{rp:'8-10',tg:10},db_floor_press_v:{rp:'10-12',tg:12},db_ohp:{rp:'8-10',tg:10},db_row_b:{rp:'8-10/side',tg:10},db_bss:{rp:'8/leg',tg:8},db_lunge:{rp:'10/leg',tg:10},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_1arm_press:{rp:'10/side',tg:10},db_curl:{rp:'8-12',tg:12}}},
+  db_rdl:{rp:'8-10',tg:10},db_floor_press:{rp:'8-10',tg:10},db_ohp:{rp:'8-10',tg:10},db_bss:{rp:'8/leg',tg:8},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_curl:{rp:'8-12',tg:12}}},
 2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Loads re-anchor ~5-10% lighter.',
   adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},lm_lateral_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
-  db_rdl:{rp:'10-12',tg:12},db_sl_rdl:{rp:'10/side',tg:10},db_floor_press:{rp:'10-12',tg:12},db_floor_press_v:{rp:'12-15',tg:15},db_ohp:{rp:'10-12',tg:12},db_row_b:{rp:'10-12/side',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lunge:{rp:'12-15/leg',tg:15},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_1arm_press:{rp:'12/side',tg:12},db_curl:{rp:'12-15',tg:15}}},
+  db_rdl:{rp:'10-12',tg:12},db_floor_press:{rp:'10-12',tg:12},db_ohp:{rp:'10-12',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
   // lm_lateral_squat + bb_rear_row are DELIBERATELY absent from the P3 map (like band_er):
   // they're quality/ROM slots. Loading a rear-delt row to a heavy 10-12 contradicts its own
@@ -578,7 +578,7 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
   // strength range gains nothing there. With no P3 entry they fall back to their BASE
   // hypertrophy ranges (bb_rear_row 12-15, lm_lateral_squat 8/side).
   adj:{hex_dl:{rp:'3-5',tg:5},b_stance_rdl:{rp:'6/side',tg:6},hex_squat_b:{rp:'4-5',tg:5},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-6',tg:6},floor_press:{rp:'6-8',tg:8},hex_row:{rp:'6-8',tg:8},hex_rdl:{rp:'6-8',tg:8},hex_floor_press:{rp:'6-8',tg:8},lm_lateral:{rp:'10-12',tg:12},bb_curl:{rp:'6-10',tg:10},bb_skullcr:{rp:'8-10',tg:10},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
-  db_rdl:{rp:'6-8',tg:8},db_sl_rdl:{rp:'6/side',tg:6},db_floor_press:{rp:'6-8',tg:8},db_floor_press_v:{rp:'8-10',tg:10},db_ohp:{rp:'6-8',tg:8},db_row_b:{rp:'6-8/side',tg:8},db_bss:{rp:'6/leg',tg:6},db_lunge:{rp:'8/leg',tg:8},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_1arm_press:{rp:'8/side',tg:8},db_curl:{rp:'6-10',tg:10}}}};
+  db_rdl:{rp:'6-8',tg:8},db_floor_press:{rp:'6-8',tg:8},db_ohp:{rp:'6-8',tg:8},db_bss:{rp:'6/leg',tg:6},db_lateral:{rp:'10-12',tg:12},db_rear_fly:{rp:'12-15',tg:15},db_curl:{rp:'6-10',tg:10}}}};
 
 // Exercise ids whose rep target shifts across phases — used to re-anchor working
 // load on a phase transition. (v23 partner audit: the main partner DB lifts now
@@ -698,6 +698,10 @@ C:[
 // (b) NEW pb_dips on Day B — dips are a pinned sticking point but the partner program had no
 // dip slot despite the bars, so they now train 2×/wk (home + partner); (c) NEW db_calf_raise
 // on Day C — first direct calf work at the partner's, mirroring home (tracked, not MEV-gated).
+//     ⚠ (c) NEVER SHIPPED / was already superseded: the v16 Day-C trim had retired both calf
+//     slots, and db_calf_raise has been a legacy stub throughout. The program has no direct
+//     calf work at either venue, by decision. Corrected here in v21 — the claim above misled
+//     three subsequent audit passes.
 // v28 lower-back prevention pass: the hex/landmine era deliberately cut peak lumbar loading
 // (hex DL, hex RDL "easier on the lower back", landmine squat replacing both Zerchers) — right
 // call for injury exposure, but it left prevention thin on two axes: anti-lateral-flexion had
@@ -809,38 +813,84 @@ C:[
 //     whatever gets logged. If strength stalls on those five specifically, the rest is the
 //     first thing to put back.
 // Day counts: home A=9 B=9 C=10 (one optional), partner A=8 B=9 C=7. No day 'X'.
-const LOC_B_PR={A:[
-{id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
-{id:'db_floor_press',nm:'DB Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Neutral grip. 4 sets — primary chest exposure (mirrors home floor press).',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'pb_pullup_a',nm:'Pull-ups (Neutral, Parallel Bars)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'True vertical pull — hang under the parallel bars, neutral grip. 4×8 → less band assistance. Full ROM, control through the bottom (no dead-hang). Replaces the inverted-row workaround now the bars allow a real pull-up. Mirrors home Day A.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'db',rl:'Pull-day finisher — direct elbow flexion to back up the rows (the partner program had none; mirrors home Barbell Curl). Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
-{id:'db_lateral',nm:'DB Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'Primary delt slot — 4 sets (mirrors home Day A). Lead with elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'Hinge at hips, chest down, raise DBs wide with elbows soft. Squeeze rear delts — mirrors home rear-delt work. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
-{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation.',tg:8,rstS:60,tempo:'controlled',perSide:true},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true}],
-// NOTE — deliberate divergence from a true home mirror: db_lateral and db_ohp run 3 sets
-// here vs home's 4 (home laterals are 4 on Day B, home OHP is 4 on Day B). Side-delt and
-// vertical-press weekly volume already clear MEV at the partner's, and dropping a set keeps
-// this DB-dense day from over-running — the "mirrors home" cues describe the movement match,
-// not an exact set-for-set copy.
-B:[
-{id:'db_bss',nm:'DB Bulgarian Split Squat (weak side leads)',s:4,rp:'8/leg',rst:'1:00',rir:'1-2',tp:'db',rl:'Goblet hold (single DB). Confirm → ↑1-2kg.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true},
-{id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10/side',rst:'1:00',rir:'2',tp:'db',rl:'Confirm → ↑0.5-1kg',tg:10,rstS:60,tempo:'3-1-2-0',perSide:true},
-{id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'1:00',rir:'1-2',tp:'db',rl:'Confirm → ↑0.5kg/DB. Soft lockout.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'pb_dips',nm:'Dips (Parallel Bars)',s:3,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'Band-assisted parallel-bar dips — 2nd weekly dip exposure (mirrors home Day B; the partner program had no dip slot despite the bars). Depth to upper-arm parallel, strict. 3×8 → less assistance.',note:'Dips are a pinned sticking point — frequency is the fix, so they now train at BOTH venues. Strict only: a clean 6 beats a bouncy 10 (loose reps are gated). Add a 1-2s bottom pause and build a strict 3×10 before dropping a band.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'db',rl:'Anti-rotation via offset load — replaces Pallof. Press one DB while bracing hard against the trunk twisting. Slow, controlled. Confirm → ↑0.5kg/DB.',tg:10,rstS:60,tempo:'2-1-2-0',perSide:true},
-{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'1:00',rir:'1-2',tp:'db',rl:'2nd weekly delt exposure (mirrors home Day B). Lead with elbow, stop at shoulder height. Confirm → ↑0.5kg/DB.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'1:00',rir:'2-3',tp:'db',rl:'⚡ Superset with DB Lateral. 2nd weekly rear-delt exposure (rear delts were 1×/wk and under MEV). Hinge at hips, chest down, raise DBs wide, squeeze rear delts. Confirm → ↑0.5kg/DB.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
-{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning.',tg:10,rstS:60,tempo:'controlled',perSide:true},
-{id:'side_plank',nm:'Side Plank',s:3,rp:'20-40s/side',rst:'1:00',rir:'controlled',tp:'bw',rl:'Anti-lateral-flexion slot — the partner program\'s only such axis (home covers it with the Day-C hex carry\'s single-side last set). Elbow under shoulder, feet stacked, straight line ear→ankle — squeeze the glutes, don\'t let the hip sag. Log SECONDS per set in the rep field (like the carries log steps).',note:'Endurance over intensity — stop each hold while it\'s still clean, never shaking to failure. At a smooth 3×40s/side, raise the top leg or rest a plate on the hip instead of holding longer.',tg:40,rstS:60,tempo:'hold',perSide:true}],
-C:[
-{id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',rst:'1:00',rir:'2',tp:'db',rl:'Load→deficit. 4 sets — 2nd weekly quad exposure (mirrors home quad volume).',tg:10,rstS:60,tempo:'3-0-2-0',perSide:true,loadUnit:'per_db'},
-{id:'db_sl_rdl',nm:'DB Single-Leg RDL (weak side leads)',s:4,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'2nd weekly hinge — moved here from Day A so hamstrings hit 2×/week (matching home). 4 sets so hamstrings hold above MEV even at a 2-3 session/week cadence. Start lighter than the B-stance equivalent.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true,loadUnit:'per_db'},
-{id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep neutral-grip vertical pull under the bars. 3×10 → less band assistance. 2nd weekly pull-up exposure (mirrors home Day C).',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',rst:'1:00',rir:'2',tp:'db',rl:'Lighter + higher reps than A2',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'db',rl:'Dedicated anti-extension core (the partner program had no full-credit core move). Hold a single light DB at arm\'s length over the chest; lower the opposite arm/leg slowly, ribs pinned down. Control first. Confirm → ↑0.5kg.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true},
-{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'1:00',rir:'—',tp:'carry',rl:'↑ load. Exceeds home suitcase carry. Log metres per set in the rep field.',tg:40,rstS:60,tempo:'—',perSide:false},
-{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'club',rl:'8kg. Elbow tucked, muzzle to sky. Tricep long head stimulus.',tg:10,rstS:60,tempo:'controlled',perSide:true}]};
+// ⚠ SUPERSEDED for the PARTNER venue by v21 (see the LOC_B_PR header below): the partner
+// split collapsed into one shared full-body base, so partner counts are now A=10 B=9 C=9
+// with one optional clubbell each, and partner rests are 0:45/0:30 rather than 1:00. Home
+// is untouched by v21 — every statement above still holds there.
+const PARTNER_BASE=[
+{id:'db_rdl',nm:'DB Romanian DL',s:3,rp:'8-10',rst:'0:45',rir:'2',tp:'db',rl:'Hinge — hips back, bar path close, flat back. ⚠ AT THE RACK CEILING (18.5kg/DB matched). Progress by TEMPO, not load: hold the 3s lower, then add a 1s pause at mid-shin.',note:'This lift has run out of plates — the partner\'s matched pair tops out at 18.5kg/DB, which is below your home hex RDL. It is a maintenance + quality slot now, not a progression slot. Escalate in this order: 3-1-2-0 → 4-1-2-0 → paused at mid-shin → single-leg. Your hinge STRENGTH is built at home.',tg:10,rstS:45,tempo:'3-1-2-0',isoWU:'Light DB RDL hold 2×10s',perSide:false,loadUnit:'per_db'},
+{id:'db_bss',nm:'DB Bulgarian Split Squat (weak side leads)',s:3,rp:'8/leg',rst:'0:45',rir:'1-2',tp:'db',rl:'Goblet hold (single DB), rear foot on a bench/box. Weak side leads and sets the rep count. Confirm → ↑1-2kg.',note:'The partner venue\'s main squat pattern, and one of the few lifts here with real load headroom (22kg single-bell ceiling vs your 10.5kg working load). Push it — this is where partner sessions can actually add weight.',tg:8,rstS:45,tempo:'3-1-2-0',isoWU:'Goblet squat hold 2×10s',perSide:true},
+{id:'db_floor_press',nm:'DB Floor Press',s:3,rp:'8-10',rst:'0:45',rir:'2',tp:'db',rl:'Neutral grip, elbows ~45°, triceps touch the floor each rep. ⚠ NEAR THE RACK CEILING (18.5kg/DB matched) — progress by pause length once there.',note:'Roughly one step from the top of the matched rack. When ↑ stops moving, escalate: 1s floor pause → 2s → 3s → then a slow 4s lower. Chest STRENGTH is built at home on the barbell floor press.',tg:10,rstS:45,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'inv_rows_a',nm:'Inverted Rows (Parallel Bars)',s:4,rp:'8-12',rst:'0:45',rir:'1-2',tp:'bw',rl:'Lie under the bars, neutral grip, body in one straight line — pull the chest to the bars, squeeze, control down. This is the partner venue\'s horizontal pull and its ONLY lift with unlimited progression.',note:'Reinstated in v21. The v25 program called this a "neutral-grip pull-up" on the assumption the bars were high enough to hang from — they are not, so it was always an inverted row and is now named honestly. Progress by LEVERAGE, never load: feet on the floor → feet on a box → feet high → one leg → archer. That ladder outlasts every dumbbell here, which is why it is 4 sets and everything else is 3.',tg:12,rstS:45,tempo:'2-1-2-1',perSide:false},
+{id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'0:45',rir:'1-2',tp:'db',rl:'Ribs down, soft lockout, full overhead position. Confirm → ↑0.5kg/DB.',note:'One of the few partner lifts with real headroom (10kg working vs an 18.5kg ceiling), so it is kept as a PROPER compound on a 0:45 rest rather than folded into the superset behind it — a lift you can still add weight to should not be run as a circuit.',tg:10,rstS:45,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
+{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'0:30',rir:'1-2',tp:'db',rl:'⚡ Superset with the Side Plank. Lead with the elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',note:'Strict and light by design — hypermobile shoulders. 0:30 rest: a 5kg lateral raise never needed a full minute, and that dead time was a third of the old partner Day B.',tg:15,rstS:30,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'side_plank',nm:'Side Plank',s:2,rp:'20-40s/side',rst:'0:30',rir:'controlled',tp:'bw',rl:'⚡ Superset with the Lateral Raise. Anti-lateral-flexion — the partner program\'s only such axis. Elbow under shoulder, feet stacked, straight line ear→ankle, glutes squeezed. Log SECONDS per set in the rep field.',note:'Supersetted with the lateral raise on purpose: it needs no equipment and no setup, so it rides that lift\'s rest for free — which is exactly why it stopped being the slot that gets skipped when a session runs late.',tg:40,rstS:30,tempo:'hold',perSide:true}];
+
+// Location B (partner's: DBs + bands + clubbells + LOW parallel bars).
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// Program v21 — THE PARTNER SPLIT IS COLLAPSED INTO ONE REPEATABLE SESSION.
+// The lifter trains here irregularly (7 of 62 logged sessions over 21.9 weeks; gaps of
+// 3-35 days) and wants "a day I can do that's close to home, so I'm still progressing".
+// A 3-way A/B/C split cannot deliver that, for a reason that is arithmetic rather than
+// preference:
+//   • Day A had been run ONCE in five months. At the observed cadence a full partner
+//     A→B→C cycle takes 9.4 weeks, so any day-specific lift got ~1 exposure per quarter.
+//   • getSmartSugg's big-overshoot re-anchor needs 2-3 EXPOSURES of a lift to converge
+//     (≈2.5%/rep over target, capped +12%/session). At 1 exposure per 9.4 weeks it never
+//     converges: db_lunge logged 3×16 against a target of 10 would have taken five Day-C
+//     visits — about nine months — to reach a load already within reach today.
+// So A, B and C now share ONE full-body base (PARTNER_BASE) and differ only by a finisher.
+// Every visit trains the same seven movements, so at ~3 visits/month the engine re-anchors
+// inside a month instead of never. The A/B/C keys are KEPT: the rotation, day badges,
+// history and nextDay derivation all key off them, and a partner visit should still consume
+// the rotation slot it lands on.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// WHAT THE VENUE CAN AND CANNOT DO (measured, not assumed) — buildDBW enumerates the real
+// spinlock inventory: MATCHED pair (per_db lifts) tops out at 18.5kg/DB, SINGLE bell at
+// 22kg. Against the last logged loads that leaves db_rdl 2.5kg, db_floor_press 2.5kg and
+// db_carry 2kg of headroom. The partner venue is therefore a MAINTENANCE venue for the
+// hinge and the horizontal press — no program change can alter that, so the coach notes now
+// say it outright and prescribe tempo/pause/leverage escalations instead of pretending a
+// ↑0.5kg ladder continues forever. The lifts with genuine headroom (db_bss, db_ohp,
+// db_curl, db_lateral) are the ones to drive, and inv_rows_a — bodyweight, progressed by
+// leverage — is the only slot here with no ceiling at all.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// v25 IS REVERTED. It swapped the inverted rows + Day-C volume row for "neutral-grip
+// pull-ups" on the premise that the bars were high enough to hang under. The lifter reports
+// they are not — the movement "is more like a reverse row" — so pb_pullup_a/pb_pullup_c
+// were describing an inverted row all along and are retired to stubs (neither was ever
+// logged, so no history is affected). inv_rows_a is reactivated under an honest name.
+// ⚠ ACCEPTED GAP, recorded so it is not mistaken for an oversight: the partner venue now
+// has NO true vertical pull. Home covers it twice weekly (pullup_a + pullup_c).
+// pb_dips likewise assumed a band could be anchored under the bars for assisted dips; it
+// cannot, so that slot becomes ECCENTRIC-ONLY (negatives), which is what the lifter can
+// actually do well there. Same id — it had no history either.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// RESTS ARE DIFFERENTIATED AGAIN, partner venue only. v20 set every rest everywhere to
+// 1:00. On the home barbell that was a real strength trade-off the lifter chose knowingly.
+// Here it was simply waste: 14 sets/cycle of 5kg isolation work were each buying a full
+// minute of rest. Compounds now rest 0:45 (loads are light enough that phosphocreatine
+// recovery is not the binding constraint at 16kg/DB), isolation 0:30, and the three
+// shoulder/core movements run as one giant set. Home rests are untouched.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// MEV is NOT enforced per partner cycle any more, and that is the point. getWeeklyVolume
+// counts effective sets across ALL locations by design, and home supplies 89% of sessions,
+// so the v23/v27 requirement that a partner week independently clear MEV for every muscle
+// was a constraint the engine never imposed — it was the sole reason the days had grown to
+// 8-9 exercises and 27-46 working bouts. Dropping it is what buys the time back.
+// Modelled session length (calibrated on the 11 Jul session: 32 bouts → 97 min actual):
+//   v20  A 94 min / B 141 min / C 100 min     v21  A ~77 / B ~78 / C ~78
+const LOC_B_PR={
+A:[...PARTNER_BASE,
+{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'Re-seeded in v21. You logged 3×16-20 at 11kg against a target of 12 — several steps too light, and at one Day-A visit per quarter the engine would have taken years to catch up. Type 15kg/DB in once — the suggestion reads your history, so it cannot re-anchor itself; after that one entry the engine progresses from there. The rack allows 18.5.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:30',rir:'2-3',tp:'db',rl:'⚡ Superset with the DB Curl. Hinge at the hips, chest down, raise the DBs wide with soft elbows, squeeze. Confirm → ↑0.5kg/DB.',note:'Re-seeded DOWN in v21 — the one direction nothing else moved. Prescribed 15-20 reps, you logged 10-12 at 5kg, so the load was too heavy for its own rep target. Type 3.5kg/DB in once (the suggestion reads history, so it will not drop itself) and earn 20 strict reps before adding anything back.',tg:20,rstS:30,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation. Skip freely on tight days.',note:'Fixed 8kg — the only clubbell you have, so this progresses by reps and control, never load. Kept because every partner session you have ever logged included clubbell work; one rotates onto each day (A Mills / B Shield Cast / C Arm Cast).',tg:8,rstS:45,tempo:'controlled',perSide:true,optional:true}],
+B:[...PARTNER_BASE,
+{id:'pb_dips',nm:'Dip Negatives (Parallel Bars)',s:3,rp:'3-5',rst:'0:45',rir:'—',tp:'bw',rl:'ECCENTRIC ONLY. Jump or step to the top, then lower under control for 5 seconds to upper-arm parallel. Step out and reset — do NOT press back up. 3×5 clean 5s negatives → lengthen to 6s.',note:'v21: this replaces the band-assisted dip the program used to prescribe here, which assumed a band could be anchored under the bars. It cannot, and unassisted full dips at this venue would be poor-quality reps. Negatives are the honest version — eccentric-only work still drives the chest/triceps hard and is the standard on-ramp to a strict dip. Progression ladder: 5s → 6s → 7s → add a 2s pause at the bottom → then start pressing out of the bottom. Your pressing STRENGTH is built at home.',tg:5,rstS:45,tempo:'5-0-0-0',perSide:false},
+{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}],
+C:[...PARTNER_BASE,
+{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'0:45',rir:'—',tp:'carry',rl:'Tall posture, shoulders packed, brace. Log METRES per set in the rep field. ⚠ NEAR THE RACK CEILING (22kg/bell) — progress by DISTANCE once there.',note:'Re-seeded to 22kg (top of the single-bell rack) in v21 — you were carrying 20kg while your home hex carry is 32kg, so this was never the limiting stimulus. Type 22kg in once to take it there. Once at 22kg the only lever left is distance: 40m → 50m → 60m, then time under load.',tg:40,rstS:45,tempo:'—',perSide:false},
+{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Elbow tucked, muzzle to sky. Triceps long-head stimulus. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}]};
 
 // getProgram — apply phase adjustment for the location's base program
 function getProgram(phase,loc){
@@ -903,9 +953,25 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
 {id:'dead_bugs_b',nm:'Dead Bugs (B2)',s:3,rp:'8/side',tg:8,rstS:50,tp:'bw',rl:'Legacy (removed v12)',perSide:true},
 {id:'band_prehab',nm:'Face Pulls + Ext Rotations',s:2,rp:'15 each',tg:15,rstS:40,tp:'band',rl:'Legacy (removed v12)',bandMode:'resist',perSide:false},
 {id:'db_row_a',nm:'DB Single-Arm Row (A2)',s:3,rp:'8-10',tg:10,rstS:75,tp:'db',rl:'Legacy (consolidated to B2/C2 v12)',perSide:false},
-// v25 partner vertical-pull swap: inverted rows + Day-C volume row → neutral-grip pull-ups
-{id:'inv_rows_a',nm:'Inverted Rows (Vertical Bias)',s:4,rp:'8-12',tg:12,rstS:100,tp:'bw',rl:'Legacy — replaced by neutral-grip pull-ups once the parallel bars allowed a true vertical pull',perSide:false},
+// v25 partner vertical-pull swap: inverted rows + Day-C volume row → neutral-grip pull-ups.
+// REVERTED by v21 — the bars are too low to hang under, so inv_rows_a is ACTIVE again (its
+// live definition is in PARTNER_BASE and wins the ALL_EX dedupe; no stub is needed here).
 {id:'db_row_c',nm:'DB Single-Arm Row (Vol)',s:3,rp:'10-12',tg:12,rstS:75,tp:'db',rl:'Legacy — Day C volume row replaced by volume pull-ups',perSide:false},
+// v21 partner-split collapse: A/B/C now share one full-body base, so the day-specific
+// duplicates retire. Each was redundant with a base slot covering the same pattern
+// (db_floor_press_v→db_floor_press, db_lunge→db_bss, db_row_b→inv_rows_a,
+// db_sl_rdl→db_rdl, db_1arm_press→db_floor_press, db_dead_bug→side_plank). Stubs keep
+// their logged history, charts and MG credit resolving.
+{id:'db_row_b',nm:'DB Single-Arm Row',s:4,rp:'8-10/side',tg:10,rstS:60,tp:'db',rl:'Legacy — retired v21 (inverted rows are the partner horizontal pull; they have no load ceiling)',perSide:true},
+{id:'db_lunge',nm:'DB Walking Lunges',s:4,rp:'10/leg',tg:10,rstS:60,tp:'db',rl:'Legacy — retired v21 (db_bss is the partner squat pattern)',perSide:true,loadUnit:'per_db'},
+{id:'db_floor_press_v',nm:'DB Floor Press (Volume)',s:3,rp:'10-12',tg:12,rstS:60,tp:'db',rl:'Legacy — retired v21 (duplicate of the base floor press)',perSide:false,loadUnit:'per_db'},
+{id:'db_sl_rdl',nm:'DB Single-Leg RDL',s:4,rp:'8/side',tg:8,rstS:60,tp:'db',rl:'Legacy — retired v21 (duplicate hinge; db_rdl escalates to single-leg at its ceiling)',perSide:true,loadUnit:'per_db'},
+{id:'db_1arm_press',nm:'Single-Arm DB Floor Press',s:3,rp:'10/side',tg:10,rstS:60,tp:'db',rl:'Legacy — retired v21 (never logged; duplicate horizontal press)',perSide:true},
+{id:'db_dead_bug',nm:'Dead Bugs (Loaded)',s:3,rp:'8/side',tg:8,rstS:60,tp:'db',rl:'Legacy — retired v21 (never logged; side_plank is the partner core slot)',perSide:true},
+// v21: the bars are too LOW to hang under — these described an inverted row all along.
+// Neither was ever logged, so retiring them strands no history.
+{id:'pb_pullup_a',nm:'Pull-ups (Neutral, Parallel Bars)',s:4,rp:'4-8',tg:8,rstS:60,tp:'band',rl:'Legacy — retired v21 (the bars are too low for a true vertical pull; see inv_rows_a)',bandMode:'assist',perSide:false},
+{id:'pb_pullup_c',nm:'Pull-ups (Neutral, Volume)',s:3,rp:'6-10',tg:10,rstS:60,tp:'band',rl:'Legacy — retired v21 (the bars are too low for a true vertical pull; see inv_rows_a)',bandMode:'assist',perSide:false},
 // Pre-v9 legacy stubs
 {id:'split_squat',nm:'Split Squat',s:3,rp:'10',tg:10,rstS:50,tp:'bw',rl:'Legacy',perSide:false},
 {id:'kb_press',nm:'KB Press',s:3,rp:'10',tg:10,rstS:50,tp:'kb',rl:'Legacy',perSide:false},
@@ -1163,10 +1229,10 @@ const SEED={sessions:[
 {id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
 {id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
 {id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:20 keeps the migrateToV12..V20 chain a no-op on demo bootstraps (they
+// programVersion:21 keeps the migrateToV12..V21 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:20};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:21};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1283,6 +1349,26 @@ if(d.programVersion>=20)return d;
 d.programVersion=20;
 return d}
 
+// v21 migration: the PARTNER split collapses into one shared full-body session and the
+// partner rests differentiate again. Structural for the PROGRAM only — no stored session is
+// rewritten, and nothing about home changes.
+//   • LOC_B_PR.A/B/C now all spread PARTNER_BASE and differ only by a finisher, so every
+//     partner visit trains the same seven movements. Stored partner sessions keep their
+//     day letter and resolve exactly as before.
+//   • Nine day-specific partner lifts retire to stubs (db_row_b, db_lunge, db_floor_press_v,
+//     db_sl_rdl, db_1arm_press, db_dead_bug, pb_pullup_a, pb_pullup_c, and db_row_c which
+//     was already one). Six of them have logged history; the stubs keep it resolving in
+//     history, charts, PRs and the muscle split.
+//   • inv_rows_a is reactivated (v25 reverted) and pb_dips becomes eccentric-only bodyweight,
+//     so its stored bandMode no longer applies — neither was ever logged, so nothing moves.
+//   • The five retired lifts' PHASES.adj entries are removed. A dead adj entry never fires
+//     and only misleads; the calc suite guards this ('no dead PHASE_ADJ entries').
+// Stamp only.
+function migrateToV21(d){
+if(d.programVersion>=21)return d;
+d.programVersion=21;
+return d}
+
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
@@ -1341,6 +1427,7 @@ d=migrateToV17(d);
 d=migrateToV18(d);
 d=migrateToV19(d);
 d=migrateToV20(d);
+d=migrateToV21(d);
 // Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
 d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
 D=d;
@@ -1705,13 +1792,13 @@ const RELATED_EX={
   'cb_mills':       {id:'cb_shield',        mult:1.0,  seedWt:8,  note:'same clubbell weight class'},
   'cb_shield':      {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
   'cb_arm_cast':    {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
-  'db_curl':        {id:null,               seedWt:8,            note:'NEW — DB biceps curl (partner program had no direct arm work). Feel-out ~8kg/DB for 8-12, build up.'},
-  'db_dead_bug':    {id:null,               seedWt:5,            note:'NEW — loaded dead bug. Start light (~5kg) and prioritise control over load.'},
+  'db_curl':        {id:null,               seedWt:15,           note:'v21 re-seed. You logged 3×16-20 at 11kg against a target of 12 — several rungs too light. 15kg/DB is the evidence-based start (rack allows 18.5).'},
+  'db_dead_bug':    {id:null,               seedWt:5,            note:'Retired v21 — kept so logged history still seeds if the lift is ever swapped back in.'},
   // seedBand must be the EXACT BANDS entry — a bare 'Blue' resolved in BAND_IDX but
   // never matched the band <select> options, so the dropdown rendered unselected.
-  'pb_pullup_a':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — neutral-grip pull-up under the parallel bars. Start with the heaviest assist band (Blue), reduce assistance as you get stronger.'},
-  'pb_pullup_c':    {id:null,               seedBand:'Blue (heaviest)', note:'NEW — volume neutral-grip pull-up. Start with the heaviest assist band (Blue), reduce assistance over time.'},
-  'pb_dips':        {id:null,               seedBand:'Blue (heaviest)', note:'NEW — band-assisted parallel-bar dips. Start with the heaviest assist band (Blue), reduce assistance as you get stronger. Mirrors home dips.'},
+  // v21: pb_pullup_a/c are retired (the bars are too low to hang under) and pb_dips became
+  // eccentric-only bodyweight, so none of the three carries a band seed any more.
+  'pb_dips':        {id:null,               seedWt:null,         note:'Bodyweight negatives — no load to seed. Lower for 5s under control; progress the eccentric, not the weight.'},
   // Calves — single-leg, one implement held; feel out a light load and build reps then weight.
   'calf_raise':     {id:null,               seedWt:8,            note:'NEW — single-leg calf raise holding a KB. Feel-out ~8kg, full ROM + a top pause, then progress reps → load.'},
   'db_calf_raise':  {id:null,               seedWt:8,            note:'NEW — single-leg calf raise holding a DB. Feel-out ~8kg/side, full ROM + a top pause, then progress reps → load.'}
