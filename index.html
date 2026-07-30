@@ -1310,6 +1310,87 @@ const TOMB_MAX=300;
 let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
 const AW_KEY='rft-active';
 
+// ═══════════════ OPTIONAL PASSPHRASE LOCK ═══════════════
+// The threat model, stated plainly so this is never mistaken for more than it is.
+// Everything the app knows lives in localStorage on THIS DEVICE — there is no account, no
+// server and no network call anywhere in this file, so nobody on the internet can read or
+// change the log. The one real exposure is physical: a stranger holding the phone (or
+// opening devtools on it) reads and edits everything. This closes exactly that hole — the
+// store is AES-GCM encrypted at rest under a key derived from a passphrase that is NEVER
+// persisted, so a reload lands on the gate and localStorage shows ciphertext until it is given.
+// What it deliberately does NOT claim:
+//   • While unlocked, the plaintext is in memory and in the DOM. Devtools on an already
+//     unlocked session still sees everything — this protects data AT REST, not a live screen.
+//   • The app's own source is public, and that is fine: the secret is the key, not the code.
+//   • Exports stay PLAINTEXT on purpose (see expD). A backup you cannot open is not a backup,
+//     and it is the only way back from a forgotten passphrase.
+// There is no recovery, by design — a lock with a back door is not a lock — which is why
+// turning it on forces an acknowledged export first.
+const KDF_ITER=310000; // PBKDF2-SHA256 rounds: ~0.5-1s on a phone, deliberately slow to grind
+// Bytes the envelope costs on top of the plaintext: base64 inflates by 4/3, GCM appends a
+// 16-byte tag, and the JSON wrapper + salt + iv carry a fixed couple hundred. save()'s quota
+// probe must reserve the ENCRYPTED size — reserving the plaintext size would let a store that
+// only just fits pass the probe and then fail the real write, which is the one outcome the
+// probe exists to prevent.
+const encSize=n=>Math.ceil((n+16)*4/3)+256;
+// CK is the session key and PTS/AWPT the decrypted plaintexts — all three are memory-only and
+// all three die on reload. LOCK_ON mirrors "the blob on disk is an envelope" so render paths
+// never have to re-parse the store to find out.
+// ENC_SEQ and AW_SEQ are PER-KEY write sequences, not one shared counter: the store and the
+// resume blob are encrypted concurrently during a workout, and a single counter would let a
+// saveAW() cancel the pending store write that was racing it — losing the store's newest
+// state to a blob that has nothing to do with it.
+let CK=null,PTS=null,AWPT=null,LOCK_SALT=null,LOCK_ON=false,LOCK_FAIL=false,LOCK_SETUP=false,ENC_SEQ=0,AW_SEQ=0,RECONCILING=false;
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+// Base64 ⇄ bytes, built one char at a time rather than String.fromCharCode(...u): the spread
+// form blows the argument limit (and the stack) on a store of any real size.
+function b64e(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+function b64d(s){const t=atob(s);const u=new Uint8Array(t.length);for(let i=0;i<t.length;i++)u[i]=t.charCodeAt(i);return u}
+// Is this stored string one of our envelopes? Returns it parsed, or null. This is what lets a
+// cold start decide whether the gate is needed without knowing anything else.
+function encPeek(s){if(!s)return null;try{const o=JSON.parse(s);
+return(o&&typeof o==='object'&&o.__enc===1&&typeof o.ct==='string'&&typeof o.iv==='string'&&typeof o.salt==='string')?o:null}catch(e){return null}}
+function encReady(){try{return!!(typeof crypto!=='undefined'&&crypto.subtle&&window.isSecureContext)}catch(e){return false}}
+async function deriveKey(pass,salt,iter){
+const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+// A FRESH iv per write is not optional with GCM: reusing one under the same key leaks the xor
+// of the two plaintexts, and this rewrites the entire store on every set logged.
+async function encWrap(str){const iv=crypto.getRandomValues(new Uint8Array(12));
+const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},CK,new TextEncoder().encode(str));
+return JSON.stringify({__enc:1,v:1,kdf:'PBKDF2-SHA256',iter:KDF_ITER,salt:LOCK_SALT,iv:b64e(iv),ct:b64e(ct)})}
+// Decrypt with the key already held (two-tab reconcile, resume blob) — no passphrase needed.
+async function encRead(env){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},CK,b64d(env.ct));
+return new TextDecoder().decode(pt)}
+// Open an envelope with a CANDIDATE passphrase. A wrong one fails GCM's auth tag and throws —
+// that is the verification, which is why no password hash is stored anywhere: one would only
+// hand whoever took the phone something to grind offline at their leisure.
+async function encOpen(env,pass){const k=await deriveKey(pass,b64d(env.salt),Number(env.iter)||KDF_ITER);
+const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},k,b64d(env.ct));
+return{key:k,salt:env.salt,text:new TextDecoder().decode(pt)}}
+// The async tail of a locked write failed (encrypt threw, or the quota vanished between the
+// probe and the write). save() already returned true by then, so the only honest move left is
+// to stop implying the data is saved — the banner stays up until a later write lands.
+function encFail(){LOCK_FAIL=true;try{render()}catch(e){}}
+// One synchronous quota probe, on a scratch key. save() has to answer "did this land" before
+// the encrypt can possibly resolve (two callers roll back real logged work on false), so it
+// reserves the ciphertext's byte count on a key that is NOT the store. A later failure then
+// leaves the last good ciphertext intact instead of a half-written store.
+function encRoom(n){try{localStorage.setItem(SK+'-probe','x'.repeat(encSize(n)));localStorage.removeItem(SK+'-probe');return true}
+catch(e){try{localStorage.removeItem(SK+'-probe')}catch(_){}return false}}
+// Locked-mode counterpart of save()'s two-tab merge. WebCrypto cannot decrypt synchronously,
+// so the conflicting blob is captured BEFORE we overwrite it and merged off the critical path.
+// RECONCILING guards re-entry: the follow-up save() sees no conflict (we just wrote the newest
+// generation), so this cannot loop — the flag makes that a guarantee rather than a coincidence.
+function encReconcile(raw){if(RECONCILING)return;const env=encPeek(raw);if(!env)return;RECONCILING=true;
+encRead(env).then(txt=>{let m=null;try{m=JSON.parse(txt)}catch(e){m=null}
+if(m)try{D=mergeStores(D,m)}catch(e){m=null}
+RECONCILING=false;if(m){save();try{render()}catch(e){}}}).catch(()=>{RECONCILING=false})}
+// The resume blob is read from three synchronous call sites during render. When locked it is
+// ciphertext on disk, so the copy decrypted at unlock (and kept current by saveAW) is the read
+// path — reading a resume blob is never the thing that should need the key.
+function awRead(){if(CK)return AWPT;return lsGet(AW_KEY)}
+
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
 function migrateData(d){
 const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp','db_row_a','db_row_b','db_row_c',
@@ -1441,8 +1522,11 @@ return d}
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
 let LOAD_DROPPED=0;
-function load(){LOAD_DROPPED=0;try{let s=localStorage.getItem(SK);
-if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
+// When the lock is on, the plaintext handed to us by the unlock gate IS the store — the blob
+// under SK is an envelope. The legacy-key sweep is skipped in that case for the same reason:
+// rft-v5..v11 predate the lock by years, so anything found there would be someone else's data.
+function load(){LOAD_DROPPED=0;try{let s=CK?PTS:localStorage.getItem(SK);
+if(!s&&!CK){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
 // `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
 // entered) — import treats it like a fresh device and adopts backup metadata wholesale.
 let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true;
@@ -1513,10 +1597,15 @@ localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=structuredClone(SEED);D.see
 // clobbered whole by last-writer-wins. Happy path costs one tiny getItem, no parse.
 function save(){try{
 const sg=Number(localStorage.getItem(SK+'-gen'))||0;
+// Locked stores cannot be merged here — the other tab's blob is ciphertext and WebCrypto has
+// no synchronous decrypt — so the conflicting blob is captured now and handed to encReconcile
+// in the async tail. Capturing it BEFORE the write is what makes that possible at all.
+let theirs=null;
 if(sg>(D.gen||0)){
   // On any conflict-merge failure we still write OUR state: refusing would certainly
   // lose this tab's just-logged work to protect a store that didn't parse anyway.
-  try{const theirs=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,theirs)}catch(_){}
+  if(CK)theirs=lsGet(SK);
+  else try{const t=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,t)}catch(_){}
   D.gen=Math.max(D.gen||0,sg)}
 // The generation must only advance for a write that ACTUALLY LANDED. It used to be
 // bumped before the setItem, so a quota-blocked save still incremented it — leaving the
@@ -1526,8 +1615,24 @@ if(sg>(D.gen||0)){
 // clobbered whatever the other tab had written in the meantime. Roll back on failure.
 const prev=D.gen||0;
 D.gen=prev+1;
-try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){D.gen=prev;return false}
+const json=JSON.stringify(D);
+if(!CK){try{localStorage.setItem(SK,json)}catch(e){D.gen=prev;return false}
 try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
+return true}
+// ── Locked path ──
+// The probe is what preserves save()'s synchronous "did this land" contract across an
+// asynchronous cipher. The sidecar generation is deliberately NOT bumped here: it advances in
+// the tail, once the ciphertext is actually on disk, so another tab can never read a newer
+// generation than the blob beside it.
+if(!encRoom(json.length)){D.gen=prev;return false}
+PTS=json;LOCK_FAIL=false;
+const seq=++ENC_SEQ,g=D.gen;
+encWrap(json).then(env=>{
+  // A newer save() overtook this one while it was encrypting — its ciphertext is the truth,
+  // and writing this stale one on top would silently roll the store back.
+  if(seq!==ENC_SEQ)return;
+  try{localStorage.setItem(SK,env);localStorage.setItem(SK+'-gen',String(g))}catch(e){encFail();return}
+  if(theirs)encReconcile(theirs)}).catch(encFail);
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
@@ -1548,9 +1653,18 @@ clearAW();clearTimer();applyTheme();save();go('home')}
 // blocked localStorage is exactly when this write fails too, so the reassurance was at its
 // least true precisely when it mattered most. Callers must not claim safety without checking.
 function saveAW(){if(!ADAY)return false;try{const exIds=dayExs(ADAY).map(e=>e.id);
-localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}));return true}catch(e){return false}}
-function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
+const json=JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
+loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS});
+if(!CK){localStorage.setItem(AW_KEY,json);return true}
+// Same probe-then-encrypt shape as save(), and for the same reason: saveSumm decides what to
+// TELL the user about an unsaved workout from this boolean, so it must not read true on a
+// store that cannot be written. The in-progress session is the least recoverable data here.
+if(!encRoom(json.length))return false;
+AWPT=json;
+const seq=++AW_SEQ;
+encWrap(json).then(env=>{if(seq!==AW_SEQ)return;try{localStorage.setItem(AW_KEY,env)}catch(e){encFail()}}).catch(encFail);
+return true}catch(e){return false}}
+function clearAW(){AWPT=null;try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
 // program-drift check) used to destroy real logged sets after any interruption longer
@@ -1568,10 +1682,10 @@ function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values
 // run: saveAW then overwrote the blob with no prompt. Log Day A at home, switch venue, tap
 // Start, and 45 minutes of logging was gone silently. This reports the blob's EXISTENCE and
 // why it is hidden, so the guard works when the workout is least recoverable.
-function pendingAW(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+function pendingAW(){try{const s=awRead();if(!s)return null;const d=JSON.parse(s);
 if(!awHasReps(d))return null; // nothing logged yet — starting fresh costs the user nothing
 return{day:d.day,hasReps:true,why:d.loc&&d.loc!==D.location?'venue':d.phase&&d.phase!==D.phase?'phase':null,loc:d.loc,phase:d.phase}}catch(e){return null}}
-function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+function checkResume(){try{const s=awRead();if(!s)return null;const d=JSON.parse(s);
 const hasReps=awHasReps(d);
 if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
@@ -1587,6 +1701,90 @@ return d}catch(e){return null}}
 // &quot; / &#39; as " / ' wherever they land.
 function esc(s){const d=document.createElement('div');d.textContent=s||'';
 return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+
+// ── Lock control ─────────────────────────────────────────────────────────────
+// Turning the lock ON encrypts the store and then removes every PLAINTEXT copy the app has
+// ever parked: the store itself, the corruption rescue copy under SK+'-corrupt', and the
+// in-progress workout blob. Missing any one of those would defeat the whole exercise — an
+// encrypted store sitting next to a plaintext rescue copy of the same sessions protects
+// nothing at all. The writes happen before CK is trusted, so a quota failure leaves the
+// plaintext store exactly as it was rather than stranding a half-encrypted device.
+async function lockEnable(p1,p2){
+if(!encReady()){alert('This browser cannot encrypt the store.');return}
+if((p1||'').length<8){alert('Use at least 8 characters.');return}
+if(p1!==p2){alert('The two passphrases do not match.');return}
+const salt=crypto.getRandomValues(new Uint8Array(16));
+const savedK=CK,savedS=LOCK_SALT;
+try{
+CK=await deriveKey(p1,salt,KDF_ITER);LOCK_SALT=b64e(salt);
+const json=JSON.stringify(D);
+const env=await encWrap(json);
+const aw=lsGet(AW_KEY);const awEnv=(aw&&!encPeek(aw))?await encWrap(aw):null;
+localStorage.setItem(SK,env);PTS=json;
+if(awEnv){AWPT=aw;localStorage.setItem(AW_KEY,awEnv)}
+try{localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n')}catch(e){}
+LOCK_ON=true;LOCK_SETUP=false;render();
+alert('🔒 Lock on.\n\nThe app will ask for this passphrase every time it loads. It is not stored anywhere and cannot be recovered — if you forget it, the exported backup is the only way back.')}
+catch(e){CK=savedK;LOCK_SALT=savedS;alert('Could not turn on the lock — nothing was changed.')}}
+// Removing the lock demands the CURRENT passphrase, not merely an unlocked session. An
+// unlocked phone in someone else's hands is precisely the situation the lock exists for, and
+// a one-tap "remove lock" would hand them the plaintext they were locked out of.
+async function lockDisable(p){
+const env=encPeek(lsGet(SK));if(!env){alert('The store is not locked.');return}
+try{await encOpen(env,p||'')}catch(e){alert('Wrong passphrase — the lock is still on.');return}
+try{const json=JSON.stringify(D);
+localStorage.setItem(SK,json);
+if(AWPT!=null)localStorage.setItem(AW_KEY,AWPT);
+CK=null;LOCK_SALT=null;PTS=null;AWPT=null;LOCK_ON=false;render();
+alert('Lock removed. The log is stored unencrypted on this device again.')}
+catch(e){alert('Could not write the unencrypted store (storage full?). The lock is still on.')}}
+function lockSetupGo(){const a=document.getElementById('lk-ack');
+if(!a||!a.checked){alert('Tick the acknowledgement first — there is no passphrase recovery, so that backup is the only safety net you get.');return}
+lockEnable((document.getElementById('lk-p1')||{}).value||'',(document.getElementById('lk-p2')||{}).value||'')}
+// Drop the key and every plaintext and go back to the gate. Nothing is written: the ciphertext
+// on disk is already the last save. D goes with the key because the in-memory program state is
+// the plaintext too — leaving it behind would keep the whole log one render() away.
+function lockNow(){if(!CK)return;
+if(ADAY&&!confirm('A workout is in progress. Locking hands it to the resume backup — you will be offered it again after unlocking. Lock now?'))return;
+if(ADAY)saveAW();
+CK=null;PTS=null;AWPT=null;D=undefined;
+ADAY=null;LOG={};SS=null;SNOTES='';SWAP={};window._S=null;
+clearTimer();releaseWake();VIEW='lock';applyTheme();render()}
+function lockBusy(on){const b=document.getElementById('lk-btn');if(b){b.disabled=on;b.textContent=on?'Unlocking…':'Unlock'}}
+// The gate. Deriving the key is deliberately slow, so the button reports it rather than
+// looking hung — a passphrase screen that appears to do nothing for a second gets retapped.
+async function lockUnlock(){const inp=document.getElementById('lk-pass');const p=inp?inp.value:'';
+if(!p)return;
+const env=encPeek(lsGet(SK));if(!env){location.reload();return}
+lockBusy(true);
+try{const r=await encOpen(env,p);
+CK=r.key;LOCK_SALT=r.salt;PTS=r.text;
+// The resume blob is decrypted once, here, so checkResume/pendingAW stay synchronous.
+const aw=lsGet(AW_KEY),ae=encPeek(aw);
+if(ae){try{AWPT=await encRead(ae)}catch(e){AWPT=null}}else AWPT=aw||null;
+LOCK_ON=true;load();applyTheme();VIEW='home';render();acquireWake()}
+catch(e){lockBusy(false);
+const m=document.getElementById('lk-err');if(m)m.textContent='Wrong passphrase.';
+if(inp){inp.value='';try{inp.focus()}catch(_){}}}}
+// The only exit that does not need the passphrase — and it cannot decrypt anything, it can
+// only delete. Worded so it can never be mistaken for a recovery option.
+function lockWipe(){
+if(!confirm('This ERASES the locked training log from this device.\n\nIt cannot be undone, and it cannot be recovered without the passphrase. Continue?'))return;
+if(!confirm('Last check: every session, cue, body measurement and cardio entry on this device is about to be deleted. Erase?'))return;
+try{for(const k of[SK,SK+'-gen',SK+'-corrupt',SK+'-corrupt-n',AW_KEY])localStorage.removeItem(k)}catch(e){}
+location.reload()}
+function rLock(el){
+el.innerHTML=`<div class="sec"><div class="cd" style="text-align:center;padding:26px 18px">
+<div style="font-size:30px;margin-bottom:8px">🔒</div>
+<h2 class="pg-title" style="margin-bottom:4px">Locked</h2>
+<div class="dm" style="margin-bottom:14px">Enter your passphrase to open the training log.</div>
+<input id="lk-pass" type="password" autocomplete="current-password" placeholder="Passphrase" style="width:100%;padding:14px;font-size:15px;border-radius:var(--rad-sm);border:1px solid var(--cb);background:var(--bg);color:var(--tx);margin-bottom:6px" onkeydown="if(event.key==='Enter')lockUnlock()">
+<div id="lk-err" style="font-size:11px;color:var(--rd);min-height:15px;margin-bottom:6px"></div>
+<button class="btn btn-pr" id="lk-btn" onclick="lockUnlock()">Unlock</button>
+<div class="dm" style="margin-top:14px">There is no recovery. If the passphrase is gone the data on this device is gone with it — restore from an exported backup instead.</div>
+<button class="btn-ghost" style="font-size:11px;font-weight:500;color:var(--mu);text-transform:none;letter-spacing:0;margin-top:8px" onclick="lockWipe()">Erase this device's log and start over</button>
+</div></div>`;
+try{const i=document.getElementById('lk-pass');if(i)i.focus()}catch(e){}}
 // Shared empty-state card — one voice + one visual for every screen's no-data state.
 function emptyH(icon,title,hint){return`<div class="cd" style="text-align:center;padding:22px 16px"><div style="font-size:22px;margin-bottom:6px">${icon}</div><div style="font-size:12px;font-weight:700;margin-bottom:3px">${title}</div>${hint?`<div class="dm">${hint}</div>`:''}</div>`}
 // Local calendar date (YYYY-MM-DD). NOTE: never use toISOString() to derive a
@@ -2678,12 +2876,17 @@ if(show){const tEl=ov.querySelector('.alarm-time');if(tEl)tEl.textContent=`Overt
 // ═══════════════ RENDER ═══════════════
 let CIV=null,LAST_VIEW=null;
 function render(){const n=document.getElementById('nav');
-if(['workout','summary','cardio','logpast'].includes(VIEW))n.innerHTML='';
+if(['workout','summary','cardio','logpast','lock'].includes(VIEW))n.innerHTML='';
 else{const ts=[['home','Today'],['history','History'],['stats','Progress'],['body','Body'],['settings','Settings']];
 n.innerHTML=ts.map(([v,l])=>`<button class="${VIEW===v?'a':''}" onclick="go('${v}')">${l}</button>`).join('')}
 const a=document.getElementById('app');if(CIV){clearInterval(CIV);CIV=null}
-const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast};
+const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body:rBody,cardio:rCardio,settings:rSet,plates:rPlates,logpast:rLogPast,lock:rLock};
 (fn[VIEW]||rHome)(a);
+// A locked write failed AFTER save() had already returned true, so nothing else in the app
+// knows the last action never reached disk. Say so, on every screen, until a write lands.
+if(LOCK_FAIL&&VIEW!=='lock')a.innerHTML=`<div class="sec"><div class="cd" style="border:1px solid var(--rd)">
+<div style="font-size:12px;color:var(--rd);font-weight:700;margin-bottom:4px">⚠ Not saved to this device</div>
+<div class="dm">The encrypted write failed — storage is probably full or blocked. Free some space and log or tap anything to retry, and export a backup before you close the app.</div></div></div>`+a.innerHTML;
 // The entrance animation is a VIEW-CHANGE cue. render() re-runs on every tap (steppers,
 // ticks, form ratings) and replaying the whole-screen fade each time reads as flicker —
 // suppress it when the view hasn't changed.
@@ -4663,7 +4866,31 @@ h+=`</div></div>
 <button class="btn btn-wh" style="margin-bottom:6px" onclick="expD()">↓ Export</button>
 <label class="btn btn-wh" style="text-align:center;cursor:pointer;display:block;margin-bottom:6px">↑ Import
 <input type="file" accept=".json" style="display:none" onchange="impD(event)"></label>
-<div class="lb" style="margin-top:10px;margin-bottom:6px">Cues</div>`;
+<div class="dm">Exports are plain JSON, lock or no lock — a backup you cannot open is not a backup. Keep them somewhere you trust.</div>
+<div class="lb" style="margin-top:10px;margin-bottom:6px">Lock</div>`;
+{const inpS='width:100%;padding:12px;font-size:14px;border-radius:var(--rad-sm);border:1px solid var(--cb);background:var(--bg);color:var(--tx);margin-bottom:6px';
+if(!encReady())h+=`<div class="cd"><div class="dm">This browser can't encrypt the store — WebCrypto needs a secure context (https, or localhost).</div></div>`;
+else if(LOCK_ON)h+=`<div class="cd">
+<div style="font-size:12px;font-weight:600;margin-bottom:4px">🔒 On — this device's log is encrypted at rest</div>
+<div class="dm" style="margin-bottom:8px">Asked for once per app load. It protects the stored data, not a session you have already unlocked.</div>
+<button class="btn btn-wh btn-md" style="margin-bottom:10px" onclick="lockNow()">Lock now</button>
+<input id="lk-off" type="password" autocomplete="current-password" placeholder="Passphrase" style="${inpS}">
+<button class="btn btn-rd btn-md" onclick="lockDisable((document.getElementById('lk-off')||{}).value||'')">Remove lock</button></div>`;
+else if(LOCK_SETUP)h+=`<div class="cd">
+<div style="font-size:12px;margin-bottom:8px">Encrypts everything this app stores on this device. You'll enter this passphrase each time the app loads.</div>
+<input id="lk-p1" type="password" autocomplete="new-password" placeholder="Passphrase (8+ characters)" style="${inpS}">
+<input id="lk-p2" type="password" autocomplete="new-password" placeholder="Repeat passphrase" style="${inpS}">
+<button class="btn btn-wh btn-md" style="margin:4px 0 8px" onclick="expD()">↓ Export a backup first</button>
+<label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--mu);margin-bottom:10px">
+<input type="checkbox" id="lk-ack" style="margin-top:2px;flex-shrink:0">
+<span>I've exported a backup. I understand a forgotten passphrase can't be recovered and this device's log would be lost.</span></label>
+<button class="btn btn-pr btn-md" style="margin-bottom:6px" onclick="lockSetupGo()">🔒 Turn on lock</button>
+<button class="btn-ghost" style="font-size:11px;color:var(--mu)" onclick="LOCK_SETUP=false;render()">Cancel</button></div>`;
+else h+=`<div class="cd">
+<div style="font-size:12px;margin-bottom:6px">Off — the log is readable by anything with access to this device.</div>
+<div class="dm" style="margin-bottom:8px">Nothing here ever leaves the phone: there's no account and no server, so no one can reach it over the internet. A passphrase closes the other door — someone picking up the phone, or opening devtools on it.</div>
+<button class="btn btn-wh btn-md" onclick="LOCK_SETUP=true;render()">🔒 Set a passphrase</button></div>`;}
+h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Cues</div>`;
 const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.find(e=>e.id===k);
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
 <div><span style="font-size:12px;font-weight:600">${esc(ex?.nm||k)}</span> · <span style="color:var(--pr);font-size:11px">${esc(D.cues[k])}</span></div>
@@ -4855,7 +5082,12 @@ alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${s
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
-load();applyTheme();render();acquireWake();
+// Boot forks on ONE question: is the blob on disk an envelope? If it is, nothing can be
+// loaded or rendered until the passphrase arrives, so the gate takes over and lockUnlock()
+// finishes the boot. An unencrypted store takes exactly the synchronous path it always did —
+// the lock costs an existing install one JSON.parse of a string it was about to parse anyway.
+if(encPeek(lsGet(SK))){LOCK_ON=true;VIEW='lock';applyTheme();render()}
+else{load();applyTheme();render();acquireWake()}
 // Screen Wake Lock is auto-released when the tab hides/locks — re-acquire it when the user
 // returns to a still-active workout so the rest alarm keeps firing on time.
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SS!=null)acquireWake()});

@@ -13,7 +13,10 @@
 // v90: v21.3 — the partner cards get the bar lifts' hero/plate/warm-up treatment, and three
 // unbuildable prescriptions are corrected (22kg/bell carry, 3.5kg/DB fly, +2kg clubbell). A
 // stale shell would keep prescribing loads the rack cannot build, so the key moves with it.
-const C = 'rft-v90';
+// v91: the optional passphrase lock. A stale v90 shell would serve an app with no gate on a
+// device whose store is now an envelope — it would read the ciphertext as a corrupt store and
+// offer to discard it. The key has to move with a change to the persistence format.
+const C = 'rft-v91';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

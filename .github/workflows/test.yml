@@ -2,6 +2,12 @@ name: tests
 on:
   push:
   pull_request:
+# The test job only reads the tree — it never pushes, comments or publishes. Pinning the
+# token to read-only means a compromised action (or a malicious dependency pulled in by
+# one) cannot write to this repo, and a fork PR runs with the same floor. Without this
+# the workflow inherits the repository default, which may be read/write.
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,6 +27,8 @@ jobs:
         run: node tests/hex.test.js
       - name: Render smoke tests
         run: node tests/render.smoke.js
+      - name: Passphrase-lock tests
+        run: node tests/lock.test.js
       - name: Service-worker tests
         run: node tests/sw.test.js
       - name: Service-worker mutation check

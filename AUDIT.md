@@ -1663,3 +1663,99 @@ program must name a real rung on that lift's own ladder, and every partner DB su
 land on a buildable rung. The rendered result was checked in Chromium at 390px in both themes.
 
 Suite: **512 + 277 + 367 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v90`.
+
+## 24 · The optional passphrase lock (30 Jul 2026)
+
+Prompted by a question rather than a bug report: *"Is there a way to make this protected from
+random people stealing/making edits/whatever etc"*.
+
+### 24.1 · What was already true, and what actually wasn't
+
+The question has three readings, and only one of them described a real hole.
+
+- **Remote theft or edits of the log — already impossible, and not by accident.** There is no
+  account, no server and no `fetch` anywhere in `index.html`. The store is `localStorage` on one
+  device. There is nothing on the internet to break into, so no amount of hardening in this repo
+  moves that needle.
+- **Unauthorised edits to the app itself — already closed.** `lizardman472/tracker` has exactly
+  one collaborator. A stranger can fork it or open a PR; nobody but the owner can merge or push.
+  What was *not* pinned was the CI token: the workflow inherited the repository default
+  permission, so it now declares `permissions: contents: read` explicitly. A test job that only
+  reads the tree should not be able to write to the repo, on a fork PR least of all.
+- **Reading the source — open, and unfixable by design.** The repo is public and Pages serves the
+  app, but even a private repo would ship `index.html` to every browser that loads the page.
+  Obfuscation would only cost readability, which this file is built around. A `LICENSE` stating
+  all-rights-reserved was added instead: it is a legal statement, not a technical control, and it
+  is recorded here as such so nobody later mistakes it for one.
+
+The real exposure was **physical**. Anyone holding the phone — or opening devtools on it — reads
+and edits every session, cue and body measurement. That is what the lock closes, and *only* that.
+
+### 24.2 · The design, and the one constraint that shaped it
+
+The store is AES-GCM encrypted at rest under a PBKDF2-SHA256 key (310k rounds, per-store random
+salt) derived from a passphrase that is never persisted. A wrong passphrase fails GCM's auth tag,
+so **no password hash is stored** — one would only hand whoever took the phone something to grind
+offline. A fresh iv per write is mandatory here, not hygiene: the whole store is rewritten on
+every set logged, and a reused iv under one key leaks the xor of the two plaintexts.
+
+The constraint that drove everything else: **WebCrypto has no synchronous API, and `save()`'s
+contract is a synchronous "did this land"**. Two callers roll back real logged work on `false`
+(`saveSumm` re-stamps the resume backup and tells the user their workout is still safe). Making
+`save()` async would have quietly broken exactly the guarantee §13 and §16 were written to
+protect. So the locked path keeps the boolean honest by **probing the quota synchronously on a
+scratch key** — reserving the *ciphertext's* byte count, since reserving the plaintext's would let
+a store that only just fits pass the probe and fail the real write — and then swapping in the
+ciphertext when the encrypt resolves. The probe never touches `SK`, so a failed encrypt leaves the
+last good ciphertext in place rather than a half-written store.
+
+Three consequences that had to be handled rather than assumed away:
+
+1. **The generation sidecar must not run ahead of the blob beside it.** In the locked path
+   `SK+'-gen'` is written in the async tail, not synchronously, or a second tab would read a newer
+   generation than the ciphertext sitting next to it and treat this tab's state as already merged.
+2. **The two-tab conflict merge cannot run synchronously** — the other tab's blob is ciphertext.
+   It is captured *before* the overwrite and merged in `encReconcile` off the critical path, with
+   a re-entry flag making the no-loop property explicit rather than incidental.
+3. **The store and the resume blob need independent write sequences.** Both are encrypted
+   concurrently during a workout. A single shared counter let a `saveAW()` cancel the in-flight
+   store write that was racing it — caught by mutation-testing, not by reading.
+
+### 24.3 · What it deliberately does not claim
+
+Recorded so it is never oversold, in the file and in the UI both:
+
+- **It protects data at rest, not a live session.** While unlocked, the plaintext is in memory and
+  in the DOM; devtools on an already-unlocked phone still sees everything.
+- **Exports stay plaintext.** A backup you cannot open is not a backup, and it is the only way
+  back from a forgotten passphrase. The Backup section says so on screen.
+- **There is no recovery.** A lock with a back door is not a lock. Enabling it therefore requires
+  an acknowledged export first, and the gate's only keyless exit *erases* — worded so it can never
+  be read as a recovery option.
+- **The app's source is public and that is fine.** The secret is the key, not the code.
+
+Turning the lock on also removes every plaintext copy the app had ever parked — the store, the
+`SK+'-corrupt'` rescue copy, and the in-progress workout blob. Missing any one would have defeated
+the exercise: an encrypted store beside a plaintext rescue copy of the same sessions protects
+nothing. Removing the lock demands the *current* passphrase, not merely an unlocked session — an
+unlocked phone in someone else's hands is precisely the situation the lock exists for.
+
+### 24.4 · Verification
+
+New suite `tests/lock.test.js` (65 assertions) runs against a **real in-memory `localStorage`**
+rather than the no-op stub the render harness uses — with a no-op stub every "no plaintext is left
+behind" assertion would have passed vacuously. Five guards were individually reverted and the
+suite confirmed to fail on exactly that revert: shared write sequence (1 fail), rescue copy left
+in the clear (2), sidecar bumped early (1), quota probe always claiming room (3), remove-lock
+skipping the passphrase check (3).
+
+Unit tests cannot reload a page, which is the step that proves the key is really memory-only, so
+the cycle was additionally driven end-to-end in Chromium at 390px: seed → enable via the real
+Settings UI → **reload** → gate appears with `D` undefined and the log unreadable on disk → wrong
+passphrase rejected → right passphrase restores the full log → locked save → reload → survives.
+14/14, no uncaught page errors. Both themes checked on all three Lock cards and the gate.
+
+The unlocked path is unchanged and is asserted to be: an existing install pays one `JSON.parse` of
+a string it was about to parse anyway, and takes exactly the synchronous boot it always had.
+
+Suite: **512 + 277 + 367 + 65 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v91`.
