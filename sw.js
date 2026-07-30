@@ -10,7 +10,10 @@
 // v85: program v20 (core block dissolved back into A/B/C, days re-sorted by implement,
 // every rest cut to 1:00) changed index.html again. A stale v84 shell would keep serving
 // the old day order and the old rest times, so the key has to move with the program.
-const C = 'rft-v89';
+// v90: v21.3 — the partner cards get the bar lifts' hero/plate/warm-up treatment, and three
+// unbuildable prescriptions are corrected (22kg/bell carry, 3.5kg/DB fly, +2kg clubbell). A
+// stale shell would keep prescribing loads the rack cannot build, so the key moves with it.
+const C = 'rft-v90';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

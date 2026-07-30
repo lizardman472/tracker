@@ -155,18 +155,52 @@ input[type=number]{-moz-appearance:textfield}
    greyed-out stepper genuinely stops responding instead of only looking inert. */
 .stp-b:active:not(:disabled){background:var(--pr);color:var(--ink);transform:scale(.92)}
 .stp-b.dis,.stp-b:disabled{color:var(--dm);cursor:default}
-.stp-b.stp-sm{width:44px;height:44px;font-size:20px;border-radius:12px}
 /* Dominant weight readout for the active barbell card */
 .stp-big{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px}
 .stp-hero{font-family:var(--disp);font-size:66px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:.88;letter-spacing:-2.5px;position:relative}
 .stp-hero sub{font-family:var(--body);font-size:15px;font-weight:600;color:var(--mu);vertical-align:baseline;margin-left:4px;text-shadow:none;letter-spacing:0}
 .stp-row{display:flex;align-items:center;gap:18px}
 .stp-big .stp-b{width:56px;height:56px;font-size:28px;border-radius:50%}
+/* EDITABLE hero — the dumbbell/club sibling of .stp-hero. The bar lifts' readout is
+   static because the plate ladder is the only way to load a barbell, but partner lifts
+   must stay free-typeable (several coach notes literally say "type X in once"), so here
+   the hero number IS the input. Same 66px as .stp-hero — parity is the whole point, and the
+   widest value these ever hold (18.5 plus a "kg/hand" unit) still fits inside the card at the
+   narrowest phone width. The input WIDTH is computed per-render from the value: an `auto`
+   width collapses an empty number input to nothing and a fixed one either clips "18.5" or
+   leaves a hole beside "8". tabular-nums makes 1ch exactly one digit advance. */
+.stp-hero-wrap{display:flex;align-items:baseline;justify-content:center;gap:3px;max-width:100%}
+.stp-hero-in{font-family:var(--disp);font-size:66px;font-weight:900;color:var(--pr);font-variant-numeric:tabular-nums;line-height:.88;height:.88em;letter-spacing:-2.5px;background:0;border:none;outline:none;padding:0;text-align:center}
+/* height must be pinned to the line box (.88em == the line-height) or the unit label drifts
+   below the number: Chromium gives a bare number input ~19px of intrinsic extra height, and
+   the flex row aligns on the INPUT's baseline, not the glyph's. */
+.stp-hero-in::placeholder{color:var(--ibr)}
+.stp-hero-in:focus{color:var(--prg)}
+.stp-hero-u{font-family:var(--body);font-size:15px;font-weight:600;color:var(--mu);white-space:nowrap}
+/* Fixed-implement hero (the 8kg clubbell): a readout, not a ladder — there is no second
+   club to step to, so the card shows the load and says why it cannot move. */
+.stp-fixed{font-size:9px;font-weight:700;color:var(--mu);background:var(--ib);border:1px solid var(--ibr);border-radius:20px;padding:3px 10px;letter-spacing:.4px;text-transform:uppercase}
 .pls{display:flex;align-items:center;gap:3px;padding:3px 0;justify-content:center}
 .pl{height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--ink)}
 .pl-10{background:var(--p10);width:24px}.pl-5{background:var(--p5);width:20px}.pl-2{background:var(--p25);width:17px}.pl-1{background:var(--p1);width:17px;font-size:7px;letter-spacing:-.3px}
-/* Spinlock DB plates: chrome like the real ones — label carries the value */
-.pl-db{height:20px;background:linear-gradient(180deg,#d7dce2,#9aa3ad);color:#1a2027;font-size:7px;font-weight:800;letter-spacing:-.3px;border:1px solid #7e8894}
+/* ── Spinlock DB plates ──────────────────────────────────────────────────────────────
+   Chrome like the real ones, and deliberately NOT the barbell colour code: a coloured DB
+   chip would be read against the barbell key (blue=5kg), which cannot be made true here
+   because the DB denominations are 2.5/2/1.25/1/0.5 and four of the five collapse into
+   the barbell's single "under 2.5" slate bucket.
+   So denomination is encoded the way the real plates encode it — by DIAMETER (height),
+   with thickness (width) and the printed label following it. That keeps one ordered,
+   colourblind-safe scale (lightness/size, not hue), keeps the two diagrams visually
+   distinct families (bar chips: uniform height, coloured · DB chips: graded height,
+   chrome), and makes 2 vs 1.25 vs 1 vs 0.5 tellable apart at a glance, which the old
+   single 20px height could not do. */
+.pls-db{display:flex;align-items:center;justify-content:center;gap:2px;padding:4px 0}
+.pl-db{background:linear-gradient(180deg,#e2e6ec,#98a1ac 55%,#c4cbd4);color:#161c24;font-size:8px;font-weight:800;letter-spacing:-.3px;border:1px solid #78828e;border-radius:3px;flex:none}
+.pl-db-25{height:32px;width:20px}.pl-db-2{height:28px;width:19px}.pl-db-125{height:24px;width:18px}
+.pl-db-1{height:20px;width:16px;font-size:7px}.pl-db-05{height:16px;width:15px;font-size:7px}
+/* The handle between the two plate stacks — what turns two chip runs into a dumbbell. */
+.db-shaft{width:22px;height:8px;border-radius:2px;flex:none;background:linear-gradient(180deg,#cfd5dd,#8d97a3);border:1px solid #78828e;border-left:0;border-right:0}
+.db-collar{width:4px;height:14px;border-radius:1px;flex:none;background:linear-gradient(180deg,#c9d0d9,#8b95a1);border:1px solid #78828e}
 
 /* Buttons */
 .btn{padding:16px 20px;font-family:var(--disp);font-size:14px;font-weight:800;border:none;border-radius:var(--rad-sm);cursor:pointer;width:100%;display:block;transition:.15s;letter-spacing:1px;text-transform:uppercase}
@@ -305,6 +339,11 @@ button.set-prev:active{color:var(--pr)}
 .form-prow{display:flex;align-items:center;justify-content:space-between}
 .form-ps-lbl{font-size:10px;font-weight:700;color:var(--mu)}
 .form-chip{display:inline-block;font-family:var(--disp);font-size:8px;font-weight:800;letter-spacing:.4px;border:1px solid;border-radius:4px;padding:1px 4px;margin-left:5px;vertical-align:middle}
+/* Superset pairing (partner venue only — the collapsed v21 session runs two supersets).
+   The pairing was previously stated only inside the 9px grey `rl` blob at the very bottom
+   of the card, i.e. below the fold on the exercise it governs. It is prescription, not
+   trivia, so it gets a chip on the same line as sets/rest/RIR. */
+.ss-chip{display:inline-block;font-family:var(--disp);font-size:9px;font-weight:800;letter-spacing:.4px;color:var(--pu);background:var(--pul);border-radius:5px;padding:2px 7px;margin-top:4px}
 /* Exercise swap */
 .swap-btn{font-size:10px;font-weight:800;color:var(--pr);border:1px solid var(--cb);border-radius:7px;padding:3px 8px;letter-spacing:.3px}
 .swap-btn.on{background:var(--prl);border-color:var(--pr)}
@@ -524,6 +563,13 @@ return[...set].sort((a,b)=>a-b)}
 const DBW_PAIR=buildDBW(true);    // two matched bells (per_db lifts)
 const DBW_SINGLE=buildDBW(false); // one bell gets the whole pool
 function dbwOf(ex){return ex&&ex.loadUnit==='per_db'?DBW_PAIR:DBW_SINGLE}
+// "Loads on the partner spinlock rack" — true for every tp:'db' lift, and for the DB
+// farmer's carry, which is tp:'carry' (carries are scored on distance, not reps, and are
+// excluded from tonnage) but is physically a pair of spinlock bells and must obey the same
+// ladder and ceiling. Without this the carry fell through to a bare kg box and, worse, its
+// stepper and seed rounded on the BARBELL ladder — proposing per-bell loads the rack cannot
+// build. Keyed off an explicit flag rather than the id so a second DB carry inherits it.
+function isDbLoaded(ex){return !!ex&&(ex.tp==='db'||ex.dbLoad===true)}
 function snapDB(t,ex){const vw=dbwOf(ex);let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
 // EXACT per-end breakdown for a bell weight (perSide/fmtPl analog). Greedy fails on
 // these denominations — 2.75/end is 1.25+1+0.5, but greedy grabs the 2.5 and dead-ends —
@@ -543,14 +589,36 @@ const walk=(i,rem,n,acc)=>{
 walk(0,target,0,[]);
 return best?best.combo:null}
 function fmtDbEnd(t,matched){if(t==null||t<=DB_BAR)return'Bar only';const p=dbEnd(t,matched);return p?p.map(x=>`${x.c}×${x.w%1?x.w:x.w|0}kg`).join(' + '):'—'}
-// Chip diagram for one bell end — the barbell plateH sibling. Chrome-styled (the real
-// plates are chrome spinlocks) so the barbell color code (blue=5kg etc.) can't lie here;
-// the label carries the value, width scales with the denomination.
+// Chip diagram for a loaded bell — the barbell plateH sibling. Chrome-styled (the real
+// plates are chrome spinlocks) so the barbell colour code (blue=5kg etc.) can't lie here;
+// denomination is encoded by DIAMETER, the way the real plates encode it (see the .pl-db
+// CSS block for why hue can't carry it), and the printed label backs that up.
+// Draws the WHOLE bell — both ends around the handle — rather than one bare end. A single
+// run of chips read as a stack of washers and needed a caption to say what it was; the
+// mirrored pair reads as a dumbbell on sight, and it is also the honest picture, since
+// every plate here is loaded in pairs. Outer→inner ordering per end (small plates
+// outboard) matches how a spinlock is actually loaded: biggest against the handle.
+const DB_PL_CLASS=w=>w>=2.5?'pl-db-25':w>=2?'pl-db-2':w>=1.25?'pl-db-125':w>=1?'pl-db-1':'pl-db-05';
 function dbPlateH(t,matched){if(!t||t<=DB_BAR)return'';const ps=dbEnd(t,matched);if(!ps||!ps.length)return'';
-let h='<div class="pls">';for(const p of ps)for(let i=0;i<p.c;i++){
-const wd=p.w>=2.5?22:p.w>=2?20:p.w>=1.25?17:p.w>=1?15:13;
-h+=`<div class="pl pl-db" style="width:${wd}px">${p.w%1?p.w:p.w|0}</div>`}
-h+='</div>';return h}
+// dbEnd returns denominations heaviest-first; one end therefore reads inner→outer.
+const chip=p=>`<div class="pl pl-db ${DB_PL_CLASS(p.w)}">${p.w%1?p.w:p.w|0}</div>`;
+const inner=[];for(const p of ps)for(let i=0;i<p.c;i++)inner.push(chip(p));
+const left=[...inner].reverse().join(''),right=inner.join('');
+return`<div class="pls-db">${left}<div class="db-collar"></div><div class="db-shaft"></div><div class="db-collar"></div>${right}</div>`}
+// Warm-up ladder for a dumbbell lift — the warmupSets sibling, walking the spinlock ladder
+// (matched pair or single bell) instead of the plate ladder. Parity gap that had no reason
+// to exist: the partner base opens on two loaded compounds (RDL, split squat) and offered
+// no ramp, while every bar lift at home did.
+// Gated at DB_BAR+4 (6kg/bell): below that the ladder's own rungs are the warm-up, and the
+// accessories that live down there (3kg laterals, rear-delt flies) are themselves the
+// shoulder prep — offering "bar only 2kg × 8" before a 3kg lateral raise is noise.
+function dbWarmup(t,ex){const w=Number(t)||0;if(w<DB_BAR+4)return[];
+const matched=ex&&ex.loadUnit==='per_db';
+const s=[{wt:DB_BAR,reps:8,l:'Bar only'}];
+const w50=snapDB(DB_BAR+(w-DB_BAR)*.5,ex),w80=snapDB(DB_BAR+(w-DB_BAR)*.8,ex);
+if(w50>DB_BAR&&w50<w)s.push({wt:w50,reps:5,l:fmtDbEnd(w50,matched)});
+if(w80>w50&&w80<w)s.push({wt:w80,reps:3,l:fmtDbEnd(w80,matched)});
+return s}
 
 // ═══════════════ PROGRAM — Phase-aware rep ranges ═══════════════
 // A→B→C→A rotation (same at both locations). Used to compute the next training day.
@@ -823,8 +891,8 @@ const PARTNER_BASE=[
 {id:'db_floor_press',nm:'DB Floor Press',s:3,rp:'8-10',rst:'0:45',rir:'2',tp:'db',rl:'Neutral grip, elbows ~45°, triceps touch the floor each rep. ⚠ NEAR THE RACK CEILING (18.5kg/DB matched) — progress by pause length once there.',note:'Roughly one step from the top of the matched rack. When ↑ stops moving, escalate: 1s floor pause → 2s → 3s → then a slow 4s lower. Chest STRENGTH is built at home on the barbell floor press.',tg:10,rstS:45,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
 {id:'inv_rows_a',nm:'Inverted Rows (Parallel Bars)',s:4,rp:'8-12',rst:'0:45',rir:'1-2',tp:'bw',rl:'Lie under the bars, neutral grip, body in one straight line — pull the chest to the bars, squeeze, control down. This is the partner venue\'s horizontal pull and its ONLY lift with unlimited progression.',note:'Reinstated in v21. The v25 program called this a "neutral-grip pull-up" on the assumption the bars were high enough to hang from — they are not, so it was always an inverted row and is now named honestly. Progress by LEVERAGE, never load: feet on the floor → feet on a box → feet high → one leg → archer. That ladder outlasts every dumbbell here, which is why it is 4 sets and everything else is 3.',tg:12,rstS:45,tempo:'2-1-2-1',perSide:false},
 {id:'db_ohp',nm:'DB OHP (Standing)',s:3,rp:'8-10',rst:'0:45',rir:'1-2',tp:'db',rl:'Ribs down, soft lockout, full overhead position. Confirm → ↑0.5kg/DB.',note:'One of the few partner lifts with real headroom (10kg working vs an 18.5kg ceiling), so it is kept as a PROPER compound on a 0:45 rest rather than folded into the superset behind it — a lift you can still add weight to should not be run as a circuit.',tg:10,rstS:45,tempo:'3-1-2-0',perSide:false,loadUnit:'per_db'},
-{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'0:30',rir:'1-2',tp:'db',rl:'⚡ Superset with the Side Plank. Lead with the elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',note:'Strict and light by design — hypermobile shoulders. 0:30 rest: a 5kg lateral raise never needed a full minute, and that dead time was a third of the old partner Day B.',tg:15,rstS:30,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
-{id:'side_plank',nm:'Side Plank',s:2,rp:'20-40s/side',rst:'0:30',rir:'controlled',tp:'bw',rl:'⚡ Superset with the Lateral Raise. Anti-lateral-flexion — the partner program\'s only such axis. Elbow under shoulder, feet stacked, straight line ear→ankle, glutes squeezed. Log SECONDS per set in the rep field.',note:'Supersetted with the lateral raise on purpose: it needs no equipment and no setup, so it rides that lift\'s rest for free — which is exactly why it stopped being the slot that gets skipped when a session runs late.',tg:40,rstS:30,tempo:'hold',perSide:true}];
+{id:'db_lateral',nm:'DB Lateral Raise',s:3,rp:'12-15',rst:'0:30',rir:'1-2',tp:'db',ss:'Side Plank',rl:'⚡ Superset with the Side Plank. Lead with the elbow, stop at shoulder height, controlled lower. Confirm → ↑0.5kg/DB.',note:'Strict and light by design — hypermobile shoulders. 0:30 rest: a 5kg lateral raise never needed a full minute, and that dead time was a third of the old partner Day B.',tg:15,rstS:30,tempo:'2-0-1-1',perSide:false,loadUnit:'per_db'},
+{id:'side_plank',nm:'Side Plank',s:2,rp:'20-40s/side',rst:'0:30',rir:'controlled',tp:'bw',ss:'DB Lateral Raise',rl:'⚡ Superset with the Lateral Raise. Anti-lateral-flexion — the partner program\'s only such axis. Elbow under shoulder, feet stacked, straight line ear→ankle, glutes squeezed. Log SECONDS per set in the rep field.',note:'Supersetted with the lateral raise on purpose: it needs no equipment and no setup, so it rides that lift\'s rest for free — which is exactly why it stopped being the slot that gets skipped when a session runs late.',tg:40,rstS:30,tempo:'hold',perSide:true}];
 
 // Location B (partner's: DBs + bands + clubbells + LOW parallel bars).
 // ─────────────────────────────────────────────────────────────────────────────────────────
@@ -882,15 +950,15 @@ const PARTNER_BASE=[
 //   v20  A 94 min / B 141 min / C 100 min     v21  A ~77 / B ~78 / C ~78
 const LOC_B_PR={
 A:[...PARTNER_BASE,
-{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'Re-seeded in v21. You logged 3×16-20 at 11kg against a target of 12 — several steps too light, and at one Day-A visit per quarter the engine would have taken years to catch up. Type 15kg/DB in once — the suggestion reads your history, so it cannot re-anchor itself; after that one entry the engine progresses from there. The rack allows 18.5.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:30',rir:'2-3',tp:'db',rl:'⚡ Superset with the DB Curl. Hinge at the hips, chest down, raise the DBs wide with soft elbows, squeeze. Confirm → ↑0.5kg/DB.',note:'Re-seeded DOWN in v21 — the one direction nothing else moved. Prescribed 15-20 reps, you logged 10-12 at 5kg, so the load was too heavy for its own rep target. Type 3.5kg/DB in once (the suggestion reads history, so it will not drop itself) and earn 20 strict reps before adding anything back.',tg:20,rstS:30,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
-{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation. Skip freely on tight days.',note:'Fixed 8kg — the only clubbell you have, so this progresses by reps and control, never load. Kept because every partner session you have ever logged included clubbell work; one rotates onto each day (A Mills / B Shield Cast / C Arm Cast).',tg:8,rstS:45,tempo:'controlled',perSide:true,optional:true}],
+{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',ss:'Rear-Delt Fly',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'Re-seeded in v21. You logged 3×16-20 at 11kg against a target of 12 — several steps too light, and at one Day-A visit per quarter the engine would have taken years to catch up. Type 15kg/DB in once — the suggestion reads your history, so it cannot re-anchor itself; after that one entry the engine progresses from there. The rack allows 18.5.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:30',rir:'2-3',tp:'db',ss:'DB Biceps Curl',rl:'⚡ Superset with the DB Curl. Hinge at the hips, chest down, raise the DBs wide with soft elbows, squeeze. Confirm → ↑0.5kg/DB.',note:'Re-seeded DOWN in v21 — the one direction nothing else moved. Prescribed 15-20 reps, you logged 10-12 at 5kg, so the load was too heavy for its own rep target. Type 3kg/DB in once (the suggestion reads history, so it will not drop itself) and earn 20 strict reps before adding anything back. ⚠ v21 said 3.5kg/DB here, which the rack cannot build: 3.5/bell needs 0.75kg per end and the smallest plate is 0.5 — 3kg is the rung below, and it is what the seed already uses.',tg:20,rstS:30,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'0:45',rir:'2',tp:'club',fixedKg:8,rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation. Skip freely on tight days.',note:'Fixed 8kg — the only clubbell you have, so this progresses by reps and control, never load. Kept because every partner session you have ever logged included clubbell work; one rotates onto each day (A Mills / B Shield Cast / C Arm Cast).',tg:8,rstS:45,tempo:'controlled',perSide:true,optional:true}],
 B:[...PARTNER_BASE,
 {id:'pb_dips',nm:'Dip Negatives (Parallel Bars)',s:3,rp:'3-5',rst:'0:45',rir:'—',tp:'bw',rl:'ECCENTRIC ONLY. Jump or step to the top, then lower under control for 5 seconds to upper-arm parallel. Step out and reset — do NOT press back up. 3×5 clean 5s negatives → lengthen to 6s.',note:'v21: this replaces the band-assisted dip the program used to prescribe here, which assumed a band could be anchored under the bars. It cannot, and unassisted full dips at this venue would be poor-quality reps. Negatives are the honest version — eccentric-only work still drives the chest/triceps hard and is the standard on-ramp to a strict dip. Progression ladder: 5s → 6s → 7s → add a 2s pause at the bottom → then start pressing out of the bottom. Your pressing STRENGTH is built at home.',tg:5,rstS:45,tempo:'5-0-0-0',perSide:false},
-{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}],
+{id:'cb_shield',nm:'Clubbell Shield Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',fixedKg:8,rl:'Optional finisher. 8kg. Lateral arc, shoulder conditioning. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}],
 C:[...PARTNER_BASE,
-{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'0:45',rir:'—',tp:'carry',rl:'Tall posture, shoulders packed, brace. Log METRES per set in the rep field. ⚠ NEAR THE RACK CEILING (22kg/bell) — progress by DISTANCE once there.',note:'Re-seeded to 22kg (top of the single-bell rack) in v21 — you were carrying 20kg while your home hex carry is 32kg, so this was never the limiting stimulus. Type 22kg in once to take it there. Once at 22kg the only lever left is distance: 40m → 50m → 60m, then time under load.',tg:40,rstS:45,tempo:'—',perSide:false},
-{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',rl:'Optional finisher. 8kg. Elbow tucked, muzzle to sky. Triceps long-head stimulus. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}]};
+{id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'0:45',rir:'—',tp:'carry',dbLoad:true,loadUnit:'per_db',rl:'Tall posture, shoulders packed, brace. One bell per hand — log kg PER HAND and METRES per set. ⚠ AT THE MATCHED-PAIR CEILING (18.5kg/bell) — progress by DISTANCE once there.',note:'v21 re-seeded this to "22kg, top of the single-bell rack" — corrected in v21.3, because 22kg is the ceiling when ONE bell gets the whole plate pool (that is db_bss, the goblet split squat). A farmer\'s carry needs TWO matched bells, and 22kg/bell would want sixteen 2.5kg plates against the eight you own. The real matched ceiling is 18.5kg/bell, and the card now steps that ladder. At 18.5 the only lever left is distance: 40m → 50m → 60m, then time under load. Your home hex carry (32kg) is the heavier stimulus either way.',tg:40,rstS:45,tempo:'—',perSide:false},
+{id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',fixedKg:8,rl:'Optional finisher. 8kg. Elbow tucked, muzzle to sky. Triceps long-head stimulus. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}]};
 
 // getProgram — apply phase adjustment for the location's base program
 function getProgram(phase,loc){
@@ -1798,7 +1866,7 @@ const RELATED_EX={
   'db_1arm_press':  {id:'floor_press',      mult:0.25, seedWt:8,  note:'≈25% of your barbell floor press as one DB — the anti-rotation demand caps it. Estimate.'},
   'db_sl_rdl':      {id:'db_lunge',         mult:1.0,  seedWt:10, note:'similar unilateral DB load'},
   'db_carry':       {id:'hex_carry',        mult:0.35, seedWt:12, note:'≈35% of your hex-carry total per hand. Distance first, then load.'},
-  'cb_mills':       {id:'cb_shield',        mult:1.0,  seedWt:8,  note:'same clubbell weight class'},
+  'cb_mills':       {id:'cb_shield',        mult:1.0,  seedWt:8,  note:'the same fixed 8kg clubbell as the other casts — reps and control are the progression'},
   'cb_shield':      {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
   'cb_arm_cast':    {id:null,               seedWt:8,  note:'fixed 8kg clubbell — progress reps/control, not load'},
   'db_curl':        {id:null,               seedWt:15,           note:'v21 re-seed. You logged 3×16-20 at 11kg against a target of 12 — several rungs too light. 15kg/DB is the evidence-based start (rack allows 18.5).'},
@@ -1842,7 +1910,10 @@ function getRelatedSuggestion(ex){
   // (matched-pair or single-bell); everything else rounds to 0.5kg as before.
   if(relLast.wt){
     let kg=relLast.wt*(rel.mult||1.0)+(rel.addKg||0);
-    kg=ex.tp==='db'?snapDB(kg,ex):Math.round(kg*2)/2;
+    // isDbLoaded, not tp==='db': the DB carry is tp:'carry' but loads on the same spinlock
+    // rack, and a plain 0.5kg rounding there proposes per-bell loads the rack cannot build
+    // (17.5/bell matched, say, which needs plates that don't exist in pairs).
+    kg=isDbLoaded(ex)?snapDB(kg,ex):Math.round(kg*2)/2;
     return{wt:kg,band:'',note:`${rel.note} (last ${relLast.wt}kg)`,relName:(ALL_EX.find(e=>e.id===rel.id)||{}).nm||rel.id};
   }
   return null;
@@ -2161,15 +2232,26 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
   return{text:`→ ${lastLoad}kg`,type:'stay',wt:lastLoad,traj,detail:tip+topNote,regress}}
 
 // ─── CLUB exercises (perSide-aware) ───
+// fixedKg lifts have exactly ONE implement, so load is not a lever: the three clubbell
+// finishers all run on the same 8kg club and every one of their coach notes says so
+// ("progresses by reps and control, never load"). This branch used to contradict all three,
+// offering "8kg — smooth? → try 10kg" on a club that does not exist, and falling back to a
+// 6kg default that matches nothing in the inventory. Progression here is reps, range and
+// control; the fallback is the implement's real weight.
 if(ex.tp==='club'){
   const traj=hist.map((h,i)=>{if(!i)return{s:'●',c:'same'};const pw=hist[i-1].wt||0,cw=h.wt||0;
     return cw>pw?{s:'↑',c:'up'}:cw<pw?{s:'↓',c:'dn'}:{s:'→',c:'same'}});
   const reps=effectiveReps(ex,last.reps);
   const totalReps=reps.reduce((a,b)=>a+b,0);
   const allHit=reps.length>=ex.s&&reps.slice(0,ex.s).every(r=>r>=ex.tg);
-  if(allHit&&modDisc>=2){return{text:`${last.wt||6}kg (hold)`,type:'stay',wt:last.wt,traj,detail:'Holding due to discomfort trend',regress:discWarn}}
-  if(allHit){return{text:`${last.wt||6}kg — smooth? → try ${(last.wt||6)+2}kg`,type:'up',wt:last.wt,traj,detail:`Hit target${ex.perSide?' /side':''}. Progress if shoulder feels smooth.`,regress:discWarn}}
-  return{text:`${last.wt||6}kg club`,type:'stay',wt:last.wt,traj,detail:`Focus on smooth form. ${totalReps} eff. reps${ex.perSide?' /side':''}.`,regress:discWarn}}
+  const kg=Number(last.wt)>0?Number(last.wt):(ex.fixedKg||0);
+  const fixed=!!ex.fixedKg&&(!(Number(last.wt)>0)||wEq(Number(last.wt),ex.fixedKg));
+  if(allHit&&modDisc>=2){return{text:`${kg}kg (hold)`,type:'stay',wt:kg,traj,detail:'Holding due to discomfort trend',regress:discWarn}}
+  if(allHit){
+    if(fixed)return{text:`Hit target — add reps`,type:'up',wt:kg,traj,
+      detail:`Hit ${ex.s}×${ex.tg}${ex.perSide?'/side':''} on the ${kg}kg club — the only club you have, so progress reps, range and control (slower casts, a longer set), not load.`,regress:discWarn};
+    return{text:`${kg}kg — smooth? → try ${kg+2}kg`,type:'up',wt:kg,traj,detail:`Hit target${ex.perSide?' /side':''}. Progress if the shoulder feels smooth.`,regress:discWarn}}
+  return{text:`${kg}kg club`,type:'stay',wt:kg,traj,detail:`Focus on smooth form. ${totalReps} eff. reps${ex.perSide?' /side':''}.`,regress:discWarn}}
 
 // ─── BAND exercises (bandMode-aware: assist vs resist) ───
 if(ex.tp==='band'){
@@ -2926,6 +3008,48 @@ for(const ex of dayExs(ADAY))ensureLog(ex);
 CIDX=Math.min(CIDX,Math.max(0,dayExs(ADAY).length-1));
 VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
+// What the rep box actually holds for this slot — it is not always reps. The hex carry logs
+// STEPS ('30-40 steps'), the DB carry logs METRES ('40m'), the side plank logs SECONDS
+// ('20-40s/side'). The header hardcoded "Steps" for every carry and "Reps" for everything
+// else, so the DB carry's column asked for steps while its own cue asked for metres, and the
+// plank's column contradicted its cue as well. Read off the prescription, where the unit is
+// already declared, so a new slot can't disagree with its own header.
+function repUnit(ex){const rp=String((ex&&ex.rp)||'');
+if(/\d\s*m\b/.test(rp))return'Metres';
+if(/step/i.test(rp))return'Steps';
+if(/\d\s*s(?![a-z])/i.test(rp))return'Secs';
+return'Reps'}
+
+// ─── Load-input fragments shared by the non-barbell cards ───────────────────────────
+// Editable hero weight readout — the visual twin of the bar lifts' static .stp-hero, used
+// by every partner-venue load input (dumbbells, the DB carry, the clubbell).
+// The width is computed from the value: .stp-hero-in sets font-variant-numeric:tabular-nums,
+// so 1ch is exactly one digit advance and a '.' takes about half of one (see the CSS note).
+// Minimum 2ch so the "—" placeholder has somewhere to sit.
+function heroWtH(id,val,unit,aria,extra){
+const s=val==null||val===''?'':String(val);
+const digits=(s.match(/\d/g)||[]).length,dots=(s.match(/[.,]/g)||[]).length;
+// Empty gets 2ch so the "—" placeholder is centred; otherwise the box is exactly as wide as
+// the value, or a single-digit load ("8kg") sits a whole digit clear of its own unit label.
+const w=s===''?2:Math.max(1,digits)+dots*0.5;
+return`<div class="stp-hero-wrap"><input type="number" step="0.5" class="stp-hero-in" style="width:calc(${w}ch + 10px)" value="${esc(s)}" placeholder="—" aria-label="${esc(aria)}" inputmode="decimal" oninput="setL('${id}','wt',this.value);saveAW();${extra||''}"><span class="stp-hero-u">${esc(unit)}</span></div>`}
+// Dumbbell diagram + per-end readout. One source for the initial render and for the live
+// refresh below, so the two can't drift.
+function dbPlH(ex,w){const n=Number(w)||0;if(n<=0)return'';
+const cap=t=>`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${t}</div>`;
+if(n<=DB_BAR)return cap(`Bare bell · ${DB_BAR}kg, no plates`);
+const matched=ex.loadUnit==='per_db';
+const bells=matched?(ex.tp==='carry'?'2 bells · one per hand':'2 matched bells'):'1 bell';
+return dbPlateH(n,matched)+cap(`${bells} · spinlock ${esc(fmtDbEnd(n,matched))} per end`)}
+// Refresh the diagram and the ± enabled-states while the hero field is being TYPED, without
+// a full render() — render() rebuilds the card's innerHTML and would steal focus from the
+// input mid-keystroke, which is why the old DB card simply left the chips stale.
+function updDbCard(id){const ex=ALL_EX.find(e=>e.id===id);if(!ex||!LOG[id])return;
+const box=document.getElementById('dbpl-'+id);if(box)box.innerHTML=dbPlH(ex,LOG[id].wt);
+const vw=dbwOf(ex),c=Number(LOG[id].wt)||0;
+for(const[el,ok] of [[document.getElementById('dbdn-'+id),nxDn(c,vw)<c],[document.getElementById('dbup-'+id),nxUp(c,vw)>c]]){
+  if(!el)continue;el.disabled=!ok;el.classList.toggle('dis',!ok)}}
+
 function rWork(el){
 const exs=dayExs(ADAY);const isP=D.location==='partner';
 let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
@@ -2995,7 +3119,8 @@ h+=`<div class="ex-row cur" id="ex-cur">
 <span style="display:flex;align-items:center;gap:8px">
 <button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>
 <span class="dm">${idx+1}/${exs.length}</span></span></div>
-<div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>`;
+<div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
+${ex.ss?`<div class="ss-chip">⚡ Superset · ${esc(ex.ss)}</div>`:''}`;
 if(SWAP_OPEN===ex._slot){
 const tps=['all',...Array.from(new Set(swapCandidates(ex._slot,ex.id,'all').map(c=>c.tp)))];
 const cands=swapCandidates(ex._slot,ex.id,SWAP_FILTER);
@@ -3037,15 +3162,30 @@ h+=plateH(cur,bar,ex.lm)+`<div style="text-align:center;font-size:9px;color:var(
 if(log.wu){const wu=warmupSets(cur,bar,vw,ex.lm);if(wu.length){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
 for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}kg × ${s.reps}</span><span class="dm">${s.l}</span></div>`;h+=`</div>`}}
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`;
-} else if(ex.tp==='db'){
-// Spinlock DBs load like a tiny barbell — ± walks the real ladder (matched pair for
-// per_db lifts, whole pool for single-bell), free typing stays for improvisation.
-const dvw=dbwOf(ex),dcur=Number(log.wt)||0;
-h+=`<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px">
-<button type="button" class="stp-b stp-sm${dcur>dvw[0]?'':' dis'}"${dcur>dvw[0]?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
-<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight per dumbbell, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">${ex.loadUnit==='per_db'?'kg/DB':'kg'}</span>
-<button type="button" class="stp-b stp-sm${dcur<dvw[dvw.length-1]?'':' dis'}"${dcur<dvw[dvw.length-1]?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div>`;
-if(dcur>0)h+=dbPlateH(dcur,ex.loadUnit==='per_db')+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">Spinlock per end: ${esc(fmtDbEnd(dcur,ex.loadUnit==='per_db'))}${ex.loadUnit==='per_db'?' · two matched bells':''}</div>`;
+} else if(isDbLoaded(ex)){
+// Spinlock DBs load like a tiny barbell, so they now get the SAME treatment the bar lifts
+// get: a dominant hero readout, big round ± walking the real ladder (matched pair for
+// per_db lifts, the whole pool for single-bell), a plate diagram and a warm-up ramp.
+// Before this the ENTIRE partner session ran on a 76px number box with two 44px steppers
+// while every home lift got the hero — which made the venue with the SHORT ladders and the
+// hard ceilings, i.e. the one where knowing the exact rung matters most, read as the
+// afterthought. The hero is editable here and static on the bar lifts, deliberately: see
+// the .stp-hero-in comment (partner coach notes tell you to type a load in).
+const dvw=dbwOf(ex),dcur=Number(log.wt)||0,perHand=ex.tp==='carry';
+const canDn=nxDn(dcur,dvw)<dcur,canUp=nxUp(dcur,dvw)>dcur; // nxUp/nxDn, not index math — off-ladder typed values must still step
+const unit=ex.loadUnit==='per_db'?(perHand?'kg/hand':'kg/DB'):'kg';
+h+=`<div class="stp-big">
+${heroWtH(ex.id,log.wt,unit,perHand?'Weight per hand, kilograms':'Weight per dumbbell, kilograms',`updDbCard('${ex.id}');`)}
+<div class="stp-row">
+<button type="button" id="dbdn-${ex.id}" class="stp-b${canDn?'':' dis'}"${canDn?'':' disabled'} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
+<button type="button" id="dbup-${ex.id}" class="stp-b${canUp?'':' dis'}"${canUp?'':' disabled'} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
+h+=`<div id="dbpl-${ex.id}">${dbPlH(ex,dcur)}</div>`;
+// Warm-up ramp — the parity gap that had no reason to exist (see dbWarmup for the
+// 6kg/bell gate that keeps it off the 3kg accessories).
+{const wu=dbWarmup(dcur,ex);if(wu.length){
+if(log.wu){h+=`<div class="warmup"><div style="font-weight:600;margin-bottom:2px">Warm-up</div>`;
+for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}${esc(unit)} × ${s.reps}</span><span class="dm">${esc(s.l)}</span></div>`;h+=`</div>`}
+h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`}}
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" aria-label="Band for ${esc(ex.nm)}" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
 ${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
@@ -3059,13 +3199,14 @@ h+=`<div class="stp-big">
 <button type="button" class="stp-b${cur<=vw[0]?' dis':''}"${cur<=vw[0]?' disabled':''} aria-label="Step weight down" onclick="stepWt('${ex.id}',-1)">−</button>
 <button type="button" class="stp-b${cur>=vw[vw.length-1]?' dis':''}"${cur>=vw[vw.length-1]?' disabled':''} aria-label="Step weight up" onclick="stepWt('${ex.id}',1)">+</button></div></div>`;
 h+=plateH(cur,bar)+`<div style="text-align:center;font-size:9px;color:var(--dm);margin-bottom:4px">${bar===HEXBAR?'Hex bar 7kg · ':''}${esc(fmtPl(cur,bar))}</div>`;
-} else if(ex.tp==='carry'){
-// Dumbbell/suitcase carries have no bar to load — free weight entry like other DB/KB moves.
-h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Total weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg</span></div>`;
-} else if(ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb'){
-h+=`<div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:6px">
-<input type="number" step="0.5" class="body-input" style="width:76px" value="${log.wt||''}" placeholder="—" aria-label="Weight, kilograms" oninput="setL('${ex.id}','wt',this.value);saveAW()" inputmode="decimal"><span class="dm">kg</span></div>`}
+} else if(ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace'||ex.tp==='kb'){
+// Single fixed implements (the 8kg clubbell) and any carry with no loadable bar: one hero
+// readout, no ± ladder — there is nothing to step to. Same hero as the DB lifts above, so
+// the clubbell finisher stops looking like a different app from the lift before it.
+// fixedKg lifts say so instead of implying a ladder that does not exist.
+h+=`<div class="stp-big">
+${heroWtH(ex.id,log.wt,'kg','Weight, kilograms','')}
+${ex.fixedKg?`<span class="stp-fixed">Fixed ${ex.fixedKg}kg · progress reps &amp; control</span>`:''}</div>`}
 
 // Sets — Hevy-style rows: SET | PREVIOUS | KG | REPS | ✓. The kg cell is a per-set
 // OVERRIDE on the working weight above (empty = inherit); ticked rows tint green.
@@ -3076,7 +3217,7 @@ while(log.wts.length<nSets)log.wts.push('');
 while(log.setDone.length<nSets)log.setDone.push(false);
 const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp);
 h+=`<div class="set-tbl">
-<div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${ex.tp==='carry'?'Steps':'Reps'}</span><span></span></div>`;
+<div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${repUnit(ex)}</span><span></span></div>`;
 for(let i=0;i<nSets;i++){const v=log.reps[i]??'',dn=log.setDone[i];
 const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
@@ -3148,8 +3289,8 @@ setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scroll
 function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id);
 // db lifts walk the spinlock ladder; bar lifts the plate ladder. An empty db input
 // steps up to the bare bell (2kg) first; off-ladder typed values snap on step.
-const vw=ex&&ex.tp==='db'?dbwOf(ex):vwOf(ex);
-const c=Number(LOG[id].wt)||(ex&&ex.tp==='db'?0:barOf(ex));
+const vw=isDbLoaded(ex)?dbwOf(ex):vwOf(ex);
+const c=Number(LOG[id].wt)||(isDbLoaded(ex)?0:barOf(ex));
 LOG[id].wt=dir>0?nxUp(c,vw):nxDn(c,vw);LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 function setL(id,f,v){LOG[id][f]=v;LOG[id].touched=true}
 // Timer may fire from rep entry: the old `filled===i+1` gate never passed once an exercise
@@ -4346,7 +4487,7 @@ h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-s
 // Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
 if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);
-else if(def&&def.tp==='db'&&e.wt&&e.wt>DB_BAR)h+=dbPlateH(e.wt,def.loadUnit==='per_db');
+else if(isDbLoaded(def)&&e.wt&&e.wt>DB_BAR)h+=dbPlateH(e.wt,def.loadUnit==='per_db');
 h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 {const ms=muscleSplitH(s.ex);if(ms)h+=`<div style="padding:8px 0 2px;border-top:1px solid var(--cb)">${ms}</div>`}

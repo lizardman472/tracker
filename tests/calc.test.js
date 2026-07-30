@@ -18,7 +18,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -419,6 +419,134 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
     pA.find(e => e.id === 'db_rdl').rstS === 45 && pA.find(e => e.id === 'db_lateral').rstS === 30);
   T('home rests are untouched by the partner rest change',
     getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 60);
+}
+
+// ── v21.3: the DB farmer's carry loads on the MATCHED spinlock ladder ──
+// v21 prescribed "22kg/bell, top of the single-bell rack" for a TWO-bell carry. 22kg is only
+// reachable when ONE bell gets the whole pool (that is db_bss): it needs 4×2.5kg per end, so
+// two matched bells would want sixteen 2.5kg plates against the eight owned. The buildable
+// matched ceiling is 18.5kg/bell — these pin that the app can no longer propose otherwise.
+{
+  const carry = global.__X.ALL_EX.find(e => e.id === 'db_carry');
+  T('db_carry declares itself spinlock-loaded and per-hand', isDbLoaded(carry) && carry.loadUnit === 'per_db');
+  T('db_carry resolves to the matched ladder (ceiling 18.5), not the single-bell one',
+    dbwOf(carry) === global.__X.DBW_PAIR && dbwOf(carry)[dbwOf(carry).length - 1] === 18.5);
+  T('22kg/bell is genuinely unbuildable as a matched pair', dbEnd(22, true) === null && dbEnd(22, false) !== null);
+  // The cue is the line shown as prescription, so it must name the real ceiling and nothing
+  // else. The note may still MENTION 22 — it explains why the old number was wrong — but it
+  // must not tell you to go there ("type 22kg in", "top of the rack").
+  T('the carry cue names the real 18.5kg/bell ceiling and no 22',
+    /18\.5kg\/bell/.test(carry.rl) && !/22/.test(carry.rl), carry.rl);
+  T('the carry note no longer instructs a 22kg load',
+    !/[Tt]ype 22kg/.test(carry.note || '') && /18\.5kg\/bell/.test(carry.note || ''), carry.note);
+  // Its seed used to round to 0.5kg on the barbell path, which can propose rungs the matched
+  // pair cannot build (17.5/bell, say). It must now snap onto DBW_PAIR for ANY home carry load.
+  const hex = global.__X.ALL_EX.find(e => e.id === 'hex_carry');
+  T('db_carry seed snaps to a real matched rung for every plausible hex-carry load',
+    [20, 32, 40, 46, 50, 53, 60, 70, 81].every(w => {
+      const d = freshD({ location: 'partner' });
+      d.sessions = [{ id: 'h', date: '2026-07-01', day: 'C', loc: 'home', phase: 1,
+        ex: [{ id: 'hex_carry', wt: w, reps: [40, 40, 40], band: '' }] }];
+      const r = getRelatedSuggestion(carry);
+      return r && global.__X.DBW_PAIR.includes(r.wt);
+    }));
+  T('hex_carry is untouched — it still loads on the 7kg bar, not the DB ladder', !isDbLoaded(hex) && hex.bar === 7);
+}
+
+// ── v21.3: the fixed 8kg clubbell stops being offered a heavier club ──
+// All three clubbell finishers run on the same 8kg club and each one's coach note says
+// progression is reps and control, "never load". The engine used to answer a clean session
+// with "8kg — smooth? → try 10kg" and fall back to a 6kg default matching nothing owned.
+{
+  const cb = ['cb_mills', 'cb_shield', 'cb_arm_cast'].map(id => global.__X.ALL_EX.find(e => e.id === id));
+  T('every clubbell declares its fixed load', cb.every(e => e.fixedKg === 8));
+  const armCast = cb[2];
+  let d = freshD({ location: 'partner' });
+  d.sessions = [{ id: 'c1', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
+    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [10, 10, 10], band: '' }] }];
+  let sgc = getSmartSugg(armCast);
+  T('clean clubbell session still reads as progress', sgc.type === 'up');
+  T('clubbell progress is reps/control, never a heavier club',
+    sgc.wt === 8 && !/10kg/.test(sgc.text + sgc.detail) && /reps/.test(sgc.text + sgc.detail), JSON.stringify(sgc));
+  // Below target: hold, and quote the club's real weight.
+  d.sessions = [{ id: 'c2', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
+    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [7, 6, 6], band: '' }] }];
+  sgc = getSmartSugg(armCast);
+  T('under-target clubbell holds at the real 8kg, not a phantom 6kg', sgc.wt === 8 && /8kg/.test(sgc.text), JSON.stringify(sgc));
+  // No history at all — the seed, not a 6kg default nobody owns.
+  d = freshD({ location: 'partner' }); d.sessions = [];
+  sgc = getSmartSugg(cb[0]);
+  T('first clubbell session seeds 8kg', sgc.wt === 8 && !/6kg/.test(sgc.text + sgc.detail), JSON.stringify(sgc));
+  // A non-fixed club (none today, but the branch must stay usable) keeps the +2kg ladder.
+  T('the +2kg club ladder survives for a hypothetical non-fixed club', (() => {
+    const fake = { ...armCast, fixedKg: undefined, id: 'cb_arm_cast' };
+    d.sessions = [{ id: 'c3', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
+      ex: [{ id: 'cb_arm_cast', wt: 8, reps: [10, 10, 10], band: '' }] }];
+    return /10kg/.test(getSmartSugg(fake).text);
+  })());
+}
+
+// ── v21.3: no coach note may prescribe a load the equipment cannot build ──
+// The class of bug this guards: v21 told you to "Type 3.5kg/DB in once" on the rear-delt fly,
+// but 3.5/bell needs 0.75kg per end and the smallest plate owned is 0.5 — so the instruction
+// was impossible to follow, and the ladder would silently snap you elsewhere. A "Type Xkg"
+// note is a literal prescription, so X must be a real rung on that lift's own ladder.
+{
+  const bad = [];
+  for (const e of global.__X.ALL_EX) {
+    const txt = (e.rl || '') + ' ' + (e.note || '');
+    for (const m of txt.matchAll(/[Tt]ype\s+(\d+(?:\.\d+)?)\s*kg/g)) {
+      const n = parseFloat(m[1]);
+      const ladder = isDbLoaded(e) ? dbwOf(e) : e.tp === 'bb' ? vwOf(e) : null;
+      if (ladder && !ladder.includes(n)) bad.push(`${e.id}: "${m[0]}" is not a rung`);
+      if (e.fixedKg != null && n !== e.fixedKg) bad.push(`${e.id}: "${m[0]}" != fixed ${e.fixedKg}kg`);
+    }
+  }
+  T('every "Type Xkg" instruction names a load the rack can actually build', bad.length === 0, bad.join(' · '));
+  // And the corrected figure specifically.
+  const fly = global.__X.ALL_EX.find(e => e.id === 'db_rear_fly');
+  T('rear-delt fly prescribes 3kg/DB (a real rung), not the unbuildable 3.5',
+    /Type 3kg\/DB/.test(fly.note) && global.__X.DBW_PAIR.includes(3) && !global.__X.DBW_PAIR.includes(3.5));
+  T('3.5kg/bell really is unbuildable either way', dbEnd(3.5, true) === null && dbEnd(3.5, false) === null);
+  // Its seed already used 3 — note and seed must agree, or the note fights the engine.
+  T('rear-delt fly note and seed agree on 3kg', (() => {
+    const d = freshD({ location: 'partner' }); d.sessions = [];
+    const sg = getSmartSugg(getProgram(1, 'partner').A.find(e => e.id === 'db_rear_fly'));
+    return sg.wt === 3;
+  })());
+}
+
+// ── Every partner starting load must be a buildable rung ──
+// Blanket version of the above: whatever a partner lift seeds to (computed from a home peer
+// or from its static fallback), the number the card shows has to exist on its ladder.
+{
+  const bad = [];
+  for (const day of ['A', 'B', 'C']) for (const e of getProgram(1, 'partner')[day]) {
+    if (!isDbLoaded(e)) continue;
+    const d = freshD({ location: 'partner' });   // SEED history present → exercises the computed path
+    const sg = getSmartSugg(e);
+    if (sg.wt != null && !dbwOf(e).includes(sg.wt)) bad.push(`${e.id}→${sg.wt}`);
+  }
+  T('every partner DB suggestion lands on a real spinlock rung', bad.length === 0, bad.join(','));
+}
+
+// ── v21.3: the rep column names the unit the slot actually logs ──
+// It hardcoded "Steps" for every carry and "Reps" for everything else, so the DB carry's
+// header asked for steps while its own cue asked for metres, and the side plank's header
+// contradicted "log SECONDS" too. Driven off the prescription string now.
+{
+  T('metre carries say Metres', repUnit({ rp: '40m' }) === 'Metres');
+  T('step carries say Steps', repUnit({ rp: '30-40 steps' }) === 'Steps');
+  T('timed holds say Secs', repUnit({ rp: '20-40s/side' }) === 'Secs');
+  T('ordinary rep ranges stay Reps',
+    ['5', '8-10', '8/side', '8/leg', '12-15', '4-8', '15-20', '10/side', '3-5'].every(rp => repUnit({ rp }) === 'Reps'));
+  T('repUnit is total on every ACTIVE slot at both venues', (() => {
+    const want = { hex_carry: 'Steps', db_carry: 'Metres', side_plank: 'Secs' };
+    for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
+      for (const e of getProgram(1, loc)[day]) if (repUnit(e) !== (want[e.id] || 'Reps')) return e.id + '=' + repUnit(e);
+    return true;
+  })() === true);
+  T('repUnit degrades safely on a missing prescription', repUnit({}) === 'Reps' && repUnit(null) === 'Reps');
 }
 
 // ── v21.2: the big-overshoot trigger is rep-RELATIVE, not a flat >=4 ──

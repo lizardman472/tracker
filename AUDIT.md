@@ -1547,3 +1547,119 @@ silence the real one. Guarded by three assertions, including one that the `due` 
 non-dismissible.
 
 Suite: **488 + 267 + 344 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v89`.
+
+---
+
+## 23 · v21.3 — the partner cards get the treatment the home cards already had (30 Jul 2026)
+
+Prompted by a plain observation: *"the cards for the workouts are not setup as aesthetically as
+the home workout, regarding the plates and colors etc, also lets double check the math on those."*
+
+Both halves turned out to be true, and they turned out to be the same problem seen from two
+sides — the partner venue had been treated as the secondary one, so neither its presentation nor
+its arithmetic got the scrutiny the home program got.
+
+### 23.1 · The presentation gap, measured
+
+Every active slot at both venues, classified by which load control it rendered:
+
+| card treatment | home | partner |
+|---|---|---|
+| hero readout (66px) + big round ± + plate diagram + warm-up | **22 of 28** | **0 of 28** |
+| 76px number box + two 44px steppers + one bare chip run | 0 | 19 |
+| naked 76px number box, nothing else | 0 | 4 |
+| no load UI (bodyweight / band) | 6 | 5 |
+
+Not a matter of taste: **zero** partner slots got the hero, and the venue that lost it is the one
+with the *short* ladders and the *hard* ceilings — where knowing the exact rung matters most. The
+DB card also showed a single run of chrome chips for **one end of one bell**, which needed a
+caption to explain what it was.
+
+**Fixed — the partner cards now render the same way the bar lifts do:**
+
+- **Hero readout at the same 66px.** Editable here rather than static, deliberately: three
+  partner coach notes literally instruct *"type Xkg/DB in once"*, so free entry had to survive
+  the restyle. The input width is computed per-render from the value (`tabular-nums` makes `1ch`
+  exactly one digit); a fixed width clips `18.5` and `auto` collapses an empty box to nothing.
+  Its `height` is pinned to `.88em` — Chromium gives a bare number input ~19px of intrinsic
+  extra height, and the flex row aligns on the *input's* baseline, which floated the unit label
+  below the number.
+- **The whole dumbbell, not one end.** Both plate stacks mirrored around a handle, small plates
+  outboard, which is both how a spinlock is actually loaded and what makes the diagram legible
+  without a caption.
+- **Denomination encoded by diameter.** The chips stay chrome rather than borrowing the barbell
+  colour key, for the reason the original comment gave — and that reason is quantitative: the DB
+  denominations are 2.5/2/1.25/1/0.5 and **four of the five** collapse into the barbell's single
+  "under 2.5" slate bucket, so hue *cannot* be made true here. Diameter can, it is how the real
+  plates encode it, and it is one ordered colourblind-safe scale. Verified by rendering every
+  rung of the matched ladder: all 30 read distinctly and each matches its own breakdown text.
+- **Warm-up ramp (`dbWarmup`)**, walking the spinlock ladder. Gated at 6kg/bell so the 3kg
+  accessories — which *are* the shoulder prep — get no pointless "bar only 2kg × 8".
+- **The clubbell and the DB carry stop being naked number boxes.** The carry gets the full DB
+  treatment; the fixed 8kg club gets the hero plus an explicit *"Fixed 8kg · progress reps &
+  control"* chip instead of implying a ladder it cannot climb.
+- **Superset pairings surface as a chip** on the prescription line. The partner base runs two
+  supersets and the pairing was stated only inside the 9px grey cue blob at the *bottom* of the
+  card — i.e. below the fold on the very exercise it governs. It is prescription, not trivia.
+- **Live diagram refresh while typing** (`updDbCard`), because `render()` rebuilds the card and
+  would steal focus mid-keystroke — which is why the old card simply left its chips stale.
+
+### 23.2 · The math: three prescriptions the equipment cannot build
+
+The spinlock solver itself is **correct** — re-verified by enumeration: every rung of both
+ladders resolves to an exact breakdown, respects the 4-plate sleeve cap and the owned-pair
+counts, and the ladders and the solver agree in both directions across 2–25kg with no gaps and
+no phantoms. The ceilings it reports (18.5 matched / 22 single-bell) are right.
+
+What was wrong was the program text and one engine branch talking about loads the solver would
+have rejected:
+
+1. **`db_carry` prescribed "22kg/bell", which is unbuildable.** 22kg is the ceiling when **one**
+   bell gets the whole plate pool — that is `db_bss`, the goblet split squat. A farmer's carry
+   needs **two matched bells**, and 22kg/bell wants 4×2.5kg per end × 2 ends × 2 bells =
+   **sixteen** 2.5kg plates against the **eight** owned. `dbEnd(22, matched)` returns `null`.
+   The buildable matched ceiling is **18.5kg/bell**.
+   Worse, the card had no ladder at all: `tp:'carry'` fell through to a bare kg box, and both its
+   stepper and its seed rounded on the **barbell** path. It now carries `dbLoad:true` +
+   `loadUnit:'per_db'`, steps `DBW_PAIR`, snaps its seed onto real rungs, and its cue names 18.5.
+2. **`db_rear_fly` instructed "Type 3.5kg/DB in once" — also unbuildable.** 3.5/bell needs
+   **0.75kg per end** and the smallest plate owned is 0.5kg; `dbEnd(3.5, …)` is `null` on *both*
+   ladders. The adjacent rungs are 3 and 4, and the lift's own `SEED` already used **3** — so the
+   note had been fighting the engine. Corrected to 3kg/DB.
+3. **The clubbell branch offered a club that does not exist.** A clean session answered
+   `"8kg — smooth? → try 10kg"`, and its no-history fallback was `6kg` — matching nothing in the
+   inventory — while all three clubbell notes say progression is reps and control, *"never load"*.
+   The three casts now declare `fixedKg:8`; a clean session reads as progress via reps/range/
+   control, and the fallback is the implement's real weight. The `+2kg` ladder is kept for a
+   hypothetical non-fixed club rather than deleted.
+
+Also corrected: **the rep column named the wrong unit.** It hardcoded `Steps` for every carry and
+`Reps` for everything else, so the DB carry's header asked for steps while its own cue asked for
+metres, and the side plank's header contradicted its "log SECONDS" cue. `repUnit()` now reads the
+unit off the prescription string, where it is already declared — verified against all 28 active
+slots at both venues, with `hex_carry → Steps`, `db_carry → Metres`, `side_plank → Secs` and every
+other slot `Reps`.
+
+### 23.3 · Reviewed and deliberately left alone
+
+- **Per-cycle MEV at the partner venue.** A full A+B+C partner cycle sits under MEV for rear
+  delts and over MAV for glutes in isolation. This is the documented v21 design, not a defect:
+  `getWeeklyVolume` counts across **both** venues over a rolling window, because muscle stimulus
+  does not care which building you were in. Recorded here so the numbers are not re-"fixed".
+- **Chrome chips staying bright in dark mode.** Checked in both themes; the barbell chips are
+  equally saturated, so the two diagrams remain consistent with each other.
+- **`programVersion` not bumped.** No stored-data shape, day membership, set count or rep range
+  changes — this is engine correctness plus presentation, the same shape as v21.1 and v21.2,
+  which also left the migration chain alone.
+
+### 23.4 · Verification
+
+Every new guard was **mutation-tested** — each of the five fixes was individually reverted in a
+scratch copy and the suite confirmed to fail on exactly that revert (`3.5kg` restored → 2 fails;
+carry back on the single-bell ladder → 3; `+2kg` club restored → 1; carry seed unsnapped → 1;
+`Metres` removed → 2). Two of the new assertions are deliberately *general* rather than
+example-based, so this class of error cannot return: every `"Type Xkg"` instruction in the whole
+program must name a real rung on that lift's own ladder, and every partner DB suggestion must
+land on a buildable rung. The rendered result was checked in Chromium at 390px in both themes.
+
+Suite: **512 + 277 + 367 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v90`.

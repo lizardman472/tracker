@@ -13,7 +13,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,DB_BAR,DB_PL_CLASS,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ (navigator is a getter-only
@@ -26,7 +26,7 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, RELATED_EX, setD, getD } = global.__X;
+const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, DB_BAR, DB_PL_CLASS, RELATED_EX, setD, getD } = global.__X;
 
 // Every program day at both venues. Any sweep that means "the whole program" must use this.
 // v19 added an off-rotation day 'X' that had to be included here; v20 dissolved it back into
@@ -410,8 +410,39 @@ T('EVERY matched rung above the bar has a real breakdown', DBW_PAIR.every(w => w
 T('EVERY single-bell rung above the bar has a real breakdown', DBW_SINGLE.every(w => w <= 2 || fmtDbEnd(w, false) !== '—'), DBW_SINGLE.filter(w => w > 2 && fmtDbEnd(w, false) === '—').join(','));
 T('solver prefers fewest plates (7kg = one 2.5, not 2+0.5 or 1.25+1+…)', fmtDbEnd(7, true) === '1×2.5kg');
 T('solver respects the sleeve cap', (() => { const c = dbEnd(18.5, true); return c && c.reduce((a, p) => a + p.c, 0) <= 4; })());
-T('dbPlateH renders one chrome chip per plate', (dbPlateH(16.5, true).match(/pl pl-db/g) || []).length === 4);
+// dbPlateH draws the WHOLE bell (both ends mirrored around the handle), so a 4-plate-per-end
+// load is 8 chips, not 4 — the mirroring is the thing that makes it read as a dumbbell.
+T('dbPlateH renders both ends — one chrome chip per plate per end', (dbPlateH(16.5, true).match(/pl pl-db/g) || []).length === 8, (dbPlateH(16.5, true).match(/pl pl-db/g) || []).length);
+T('dbPlateH draws a handle between the two stacks', (dbPlateH(16.5, true).match(/db-shaft/g) || []).length === 1 && (dbPlateH(16.5, true).match(/db-collar/g) || []).length === 2);
 T('dbPlateH empty at/below the bare bell', dbPlateH(2, true) === '' && dbPlateH(null, true) === '');
+// Denomination is encoded by DIAMETER (a height class per plate weight), not by the barbell
+// hue code — four of the five DB denominations collapse into the barbell's slate bucket, so
+// colour cannot carry them. Every denomination must get a DISTINCT class or the encoding lies.
+{
+  const cls = [2.5, 2, 1.25, 1, 0.5].map(DB_PL_CLASS);
+  T('every DB denomination maps to a distinct diameter class', new Set(cls).size === 5, cls.join(','));
+  // 16.5/DB per end = 2.5+2.5+1.25+1 → the three distinct diameters must all appear.
+  const h = dbPlateH(16.5, true);
+  T('diameter classes render on the chips', /pl-db-25/.test(h) && /pl-db-125/.test(h) && /pl-db-1["\s]/.test(h), h);
+  // No DB chip may carry a BARBELL plate class — that is exactly the misread being avoided.
+  T('DB chips never borrow the barbell colour classes', !/pl-(10|5|2|1)"/.test(h), h);
+}
+// dbWarmup: the DB sibling of warmupSets, walking the spinlock ladder. Gated at 6kg/bell so
+// the 3kg accessories (laterals, rear-delt flies) get no pointless "bar only" ramp.
+{
+  const per = { loadUnit: 'per_db' };
+  T('dbWarmup silent below 6kg/bell', dbWarmup(3, per).length === 0 && dbWarmup(5.5, per).length === 0, JSON.stringify(dbWarmup(5.5, per)));
+  const w = dbWarmup(16.5, per);
+  T('dbWarmup ramps bar-only → ~50% → ~80%', w.length === 3 && w[0].wt === DB_BAR && w[0].l === 'Bar only', JSON.stringify(w));
+  T('dbWarmup rungs are all real matched rungs below the work weight',
+    w.every(s => DBW_PAIR.includes(s.wt) && s.wt < 16.5), JSON.stringify(w.map(s => s.wt)));
+  T('dbWarmup rungs ascend', w.every((s, i) => i === 0 || s.wt > w[i - 1].wt), JSON.stringify(w.map(s => s.wt)));
+  T('dbWarmup reps taper 8/5/3', w.map(s => s.reps).join(',') === '8,5,3', w.map(s => s.reps).join(','));
+  // Single-bell lifts snap on the single-bell ladder, not the matched one.
+  const s1 = dbWarmup(22, {});
+  T('dbWarmup uses the single-bell ladder for single-bell lifts',
+    s1.every(s => DBW_SINGLE.includes(s.wt)), JSON.stringify(s1.map(s => s.wt)));
+}
 
 // ── Partner starting weights (E2): every partner lift computes a start ──
 {

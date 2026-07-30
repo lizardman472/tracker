@@ -486,14 +486,67 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   // SEED's last home OHP is 23kg → db_ohp computes 23×0.32 = 7.36 → snapped to 7.5/DB.
   T('db_ohp seeds from home barbell OHP history (7.5/DB)', R.getLOG()['db_ohp'] && Number(R.getLOG()['db_ohp'].wt) === 7.5, JSON.stringify(R.getLOG()['db_ohp'] && R.getLOG()['db_ohp'].wt));
   T('db lift renders ladder stepper buttons', /stepWt\('db_ohp',-1\)/.test(pw) && /stepWt\('db_ohp',1\)/.test(pw));
-  T('per-end spinlock readout renders', /Spinlock per end:/.test(pw) && /two matched bells/.test(pw));
+  T('per-end spinlock readout renders', /2 matched bells · spinlock .* per end/.test(pw), pw.match(/spinlock[^<]*/) || 'no readout');
+  // ── DB cards get the SAME dominant hero the bar lifts get (the v21.3 parity fix). The
+  // hero is an INPUT here, not a static readout: partner coach notes tell you to type a
+  // load in ("type 15kg/DB in once"), so free entry has to survive the restyle.
+  T('db lift renders the hero weight readout', /class="stp-hero-in"/.test(pw), pw.slice(0, 0));
+  T('db hero is editable and writes through to LOG', /oninput="setL\('db_ohp','wt',this\.value\)/.test(pw));
+  T('db hero labels the per-DB unit', /class="stp-hero-u">kg\/DB</.test(pw));
+  T('db lift uses the big round steppers, not the 44px pair', /class="stp-big"/.test(pw) && !/stp-b stp-sm/.test(pw));
+  T('db lift no longer uses the 76px body-input box', !/class="body-input"/.test(pw));
   // Stepper walks the matched ladder: 7.5 → 8.
   R.stepWt('db_ohp', 1);
   T('stepWt walks db up the spinlock ladder (7.5 → 8)', R.getLOG()['db_ohp'].wt === 8, R.getLOG()['db_ohp'].wt);
-  // DB plate chips render (8/DB = 3/end = 2.5+0.5 → two chrome chips).
+  // 8/DB = 3/end = 2.5+0.5 → two chips per end, mirrored around the handle = four.
   R.render();
-  T('db lift renders chrome plate chips', (R.getA().match(/pl pl-db/g) || []).length === 2, (R.getA().match(/pl pl-db/g) || []).length);
-  T('per-end readout resolves (no dash)', !/Spinlock per end: —/.test(R.getA()));
+  T('db lift renders chrome plate chips on both ends', (R.getA().match(/pl pl-db/g) || []).length === 4, (R.getA().match(/pl pl-db/g) || []).length);
+  T('db lift draws the dumbbell handle', /db-shaft/.test(R.getA()));
+  T('per-end readout resolves (no dash)', !/spinlock — per end/.test(R.getA()));
+  // Warm-up ramp: 8kg/DB clears the 6kg gate, so the toggle must be offered here (the bar
+  // lifts always had one; the partner compounds had none).
+  T('db lift offers a warm-up toggle', /Show warm-up/.test(R.getA()));
+  R.getLOG()['db_ohp'].wu = true; R.render();
+  T('db warm-up ramp lists per-DB rungs', /Warm-up/.test(R.getA()) && /Bar only/.test(R.getA()) && /kg\/DB × 8/.test(R.getA()));
+  R.getLOG()['db_ohp'].wu = false;
+  // Light accessory: 3kg/DB is below the gate, so no warm-up affordance at all.
+  const flyIdx = R.dayExs('B').findIndex(e => e.id === 'db_lateral');
+  if (flyIdx >= 0) { R.setCIDX(flyIdx); R.getLOG()['db_lateral'].wt = 3; R.render();
+    T('light db accessory offers no warm-up ramp', !/Show warm-up/.test(R.getA()));
+    T('supersetted lift shows its pairing as a chip, not buried in the cue', /class="ss-chip">⚡ Superset · Side Plank</.test(R.getA()));
+    R.setCIDX(dbIdx); }
+  R.getD().location = 'home';
+}
+
+// ── Partner DB carry + clubbell cards (v21.3): the carry loads on the spinlock ladder,
+// the fixed clubbell shows a readout instead of a ladder it cannot climb ──
+{
+  R.getD().location = 'partner';
+  tryRender('workout (partner Day C)', () => R.beginW('C'));
+  const cIds = R.dayExs('C').map(e => e.id);
+  R.setCIDX(cIds.indexOf('db_carry'));
+  R.getLOG()['db_carry'].wt = 12;
+  tryRender('partner Day C db_carry current', () => R.render());
+  const cw = R.getA();
+  T('db_carry gets the hero readout', /class="stp-hero-in"/.test(cw));
+  T('db_carry labels the load per HAND (two bells), not as a total', /class="stp-hero-u">kg\/hand</.test(cw) && !/aria-label="Total weight/.test(cw));
+  T('db_carry renders the dumbbell diagram', /pl pl-db/.test(cw) && /db-shaft/.test(cw));
+  T('db_carry says two bells, one per hand', /2 bells · one per hand/.test(cw));
+  T('db_carry rep column asks for METRES (its prescription is 40m), not steps', /<span>Metres<\/span>/.test(cw) && !/<span>Steps<\/span>/.test(cw));
+  // The whole point of the fix: the carry steps the MATCHED ladder (ceiling 18.5), never the
+  // barbell ladder, and can never be walked to the single-bell 22kg.
+  R.stepWt('db_carry', 1);
+  T('db_carry steps the matched spinlock ladder (12 → 12.5)', R.getLOG()['db_carry'].wt === 12.5, R.getLOG()['db_carry'].wt);
+  for (let i = 0; i < 40; i++) R.stepWt('db_carry', 1);
+  T('db_carry tops out at the matched-pair ceiling 18.5, never 22', R.getLOG()['db_carry'].wt === 18.5, R.getLOG()['db_carry'].wt);
+  R.getLOG()['db_carry'].wt = 12;
+  // Clubbell: one 8kg implement, so a readout and an explicit "fixed" note — no ± ladder.
+  R.setCIDX(cIds.indexOf('cb_arm_cast'));
+  tryRender('partner Day C clubbell current', () => R.render());
+  const clw = R.getA();
+  T('clubbell gets the hero readout too', /class="stp-hero-in"/.test(clw));
+  T('clubbell states the load is fixed', /class="stp-fixed">Fixed 8kg/.test(clw));
+  T('clubbell offers no weight stepper', !/stepWt\('cb_arm_cast'/.test(clw));
   R.getD().location = 'home';
 }
 
@@ -504,7 +557,8 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   R.go('history');
   R.setEXP('dbv');
   tryRender('History (db session expanded, plate chips)', () => R.render());
-  T('history db row shows chrome plate chips', (R.getA().match(/pl pl-db/g) || []).length === 4);
+  // 16.5/DB = 4 plates per end, mirrored around the handle = 8 chips.
+  T('history db row shows chrome plate chips on both ends', (R.getA().match(/pl pl-db/g) || []).length === 8, (R.getA().match(/pl pl-db/g) || []).length);
   R.setEXP(null);
   R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbv');
   tryRender('All Valid Weights incl. DB ladders', () => R.go('plates'));
