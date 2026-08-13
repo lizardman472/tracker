@@ -1179,6 +1179,32 @@ function getWeeklyVolume(days){
   return tot;
 }
 
+// ── Express MEV guard ─────────────────────────────────────────────────────────────────
+// Express trades accessory VOLUME for time, and that trade is only safe while the week as a
+// whole still clears MEV — which is exactly what getWeeklyVolume measures, across sessions
+// and venues. So the guard is not "you used express N times", it is "the volume actually
+// landed short, and express is why".
+//
+// Both halves are required before it speaks. Under-MEV alone is not an express problem (a
+// missed week, a holiday and a deload all do it, and the Balance dashboard already shows
+// it); express usage alone is not a problem either, which is the entire point of the
+// feature. Only the conjunction is a signal the lifter can act on.
+//
+// Rolling 7 days, and it names the muscles rather than scolding — the actionable fact is
+// WHICH tail got cut too often, because that tells you which accessory to put back first.
+function expressMEVRisk(days){
+  const win=days||7;
+  const cut=new Date();cut.setDate(cut.getDate()-win);const cutS=ymd(cut);
+  const recent=D.sessions.filter(s=>s.date>=cutS);
+  const xp=recent.filter(s=>s.express).length;
+  if(xp<2)return null;
+  const vol=getWeeklyVolume(win);
+  const short=MG_INFO.filter(([k,,mev])=>mev!=null&&(vol[k]||0)<mev)
+    .map(([k,nm,mev])=>({k,nm,have:Math.round((vol[k]||0)*10)/10,mev}));
+  if(!short.length)return null;
+  return{xp,total:recent.length,short};
+}
+
 // ── Per-session muscle split (Hevy-style): MG contributions × completed sets,
 // rolled up to display groups and normalized to % of the session's stimulus. ──
 const SPLIT_GROUPS={chest:'Chest',back:'Back',fdelt:'Shoulders',sidedelt:'Shoulders',reardelt:'Shoulders',
@@ -1329,7 +1355,7 @@ const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7
 // How many deleted-session tombstones D.deleted keeps (see mergeStores). ~20 bytes each; the
 // list only needs to outlive another tab's stale in-memory snapshot, so this is generous.
 const TOMB_MAX=300;
-let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null;
+let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null,EXPRESS=false;
 const AW_KEY='rft-active';
 
 // Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
@@ -1571,7 +1597,7 @@ clearAW();clearTimer();applyTheme();save();go('home')}
 // least true precisely when it mattered most. Callers must not claim safety without checking.
 function saveAW(){if(!ADAY)return false;try{const exIds=dayExs(ADAY).map(e=>e.id);
 localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS}));return true}catch(e){return false}}
+loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}));return true}catch(e){return false}}
 function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
@@ -2831,6 +2857,18 @@ h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
 :`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
+// Express MEV guard — express trades accessory volume for time, and this is where the week
+// says the trade went too far. Speaks only when BOTH halves hold (2+ express sessions AND a
+// muscle actually under MEV), and names the muscles, because which tail got cut is the part
+// that tells you what to put back. Dismissible per muscle-set so it does not nag once read.
+{const xr=expressMEVRisk(7);
+if(xr){const sig=xr.short.map(m=>m.k).join(',');
+if(!bannerDismissed('xpmev',sig)){
+h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
+<button onclick="dismissBanner('xpmev','${sig}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
+<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚡ ${xr.xp} of your last ${xr.total} sessions were Express</div>
+<div class="dm">Express keeps the compounds and drops the accessory tail — fine now and then, because MEV is a weekly landmark, not a per-session one. This week it landed short: ${xr.short.map(m=>`<b>${esc(m.nm)}</b> ${m.have}/${m.mev}`).join(' · ')}. Run a full day next, or put those slots back.</div></div>`}}}
+
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
@@ -2904,10 +2942,17 @@ if(restDay){
   </div>
   </div>`;
 }else{
+  // EXPRESS — on-demand short version of a home day. Rendered as a secondary action under
+  // Start so it is one tap on a tired evening, but never the default. Hidden at the partner
+  // venue (already one collapsed full-body session on short rests) and whenever the cut
+  // would drop nothing, which would make the button a lie.
+  const xpD=expressAvailable()?expressDiff(nd):null;
+  const xpBtn=xpD&&xpD.drop.length?`<button class="btn btn-pr btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}',true)">⚡ Express — ${xpD.keep.length} lift${xpD.keep.length===1?'':'s'}, compounds only</button>
+  <div class="dm" style="margin-top:6px;text-align:center">Keeps every loaded compound at full sets. Drops ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`:'';
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
   <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
-  <button onclick="beginW('${nd}')">Start Workout</button></div>`;
+  <button onclick="beginW('${nd}')">Start Workout</button>${xpBtn}</div>`;
 }
 
 // Training cycle — rotation position + rest-day gaps
@@ -3017,12 +3062,63 @@ setTs:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],
 // The day's exercise list with any in-session swaps applied. Each returned object
 // carries _slot (the original program id it occupies) so the swap controls can
 // re-swap or revert that slot regardless of what currently fills it.
-function dayExs(day,sw){sw=sw||SWAP;return (getCurPR()[day]||[]).map(ex=>{
+// ── EXPRESS DAY ───────────────────────────────────────────────────────────────────────
+// An on-demand short version of a HOME day, for a tired/late/short evening. The design
+// question is what to cut, and the 13 Aug export answered it: the accessory tail is where
+// the time is, not the compounds. On Day C, lm_pallof + hex_carry + band_er +
+// lm_lateral_squat cost 43 of 80 prescribed minutes — 54% of the day in core, cuff and
+// unilateral finishers — while hex_rdl and hex_floor_press cost 6 minutes each.
+//
+// So express keeps every loaded compound at FULL sets and load (strength progression is
+// untouched, and the confirm lifts keep their brake) and drops the isolation/core/cuff
+// finishers. A lift survives when it carries a PRIMARY muscle at full weight: chest, back,
+// quads, hams or glutes at 1.0, or fdelt 1.0 for the overhead presses. That keeps hex_dl,
+// the squat and hinge patterns, the presses and the vertical/horizontal pulls, and drops
+// lm_lateral (sidedelt 1), bb_curl (biceps 1), bb_rear_row (reardelt 1, back only 0.5),
+// dead_bugs_a, bb_rollout, lm_pallof, hex_carry and band_er.
+//
+// Pure muscle-coverage set-cover was tried first and rejected: on Day A it keeps bb_curl
+// and drops lm_bstance_squat, because hex_dl nominally "covers" quads at weight 0.5 so the
+// algorithm believes quads are handled. Coverage-at-any-weight is the wrong objective for a
+// program whose point is loaded progression.
+//
+// Measured effect (prescribed work+rest from each lift's own tempo/rstS):
+//   Day A 76 → 43 min (9 → 5 ex) · Day B 69 → 29 (9 → 4) · Day C 80 → 37 (10 → 6)
+//
+// This is a VOLUME trade, not a free lunch: coverage and load survive, accessory volume
+// does not. It is safe occasionally because MEV is a WEEKLY landmark and getWeeklyVolume
+// counts across sessions and venues — lean on it and expressMEVRisk() below says so.
+// `xp` on an exercise def overrides the rule outright (true = always keep, false = always
+// drop) for cases the muscle map cannot express.
+const XP_PRIMARY=['chest','back','quads','hams','glutes','fdelt'];
+function isExpressKeep(ex){
+  if(typeof ex.xp==='boolean')return ex.xp;
+  const m=MG[ex.id];if(!m)return false;
+  return XP_PRIMARY.some(k=>(m[k]||0)>=1);
+}
+// Express is HOME-only by request. The partner venue is already one collapsed full-body
+// session on 0:45/0:30 rests (v21) — cutting it further would leave a session that trains
+// almost nothing, and its lifts are mostly at the rack ceiling anyway.
+function expressAvailable(){return D.location!=='partner'}
+function dayExs(day,sw,xp){sw=sw||SWAP;
+if(xp===undefined)xp=EXPRESS;
+const rows=(getCurPR()[day]||[]);
+// Filter on the RESOLVED movement, so a swapped-in isolation lift is dropped by express
+// just as its slot's original would have been — otherwise a swap could smuggle the tail
+// back into a session that asked not to have one.
+return rows.map(ex=>{
 const id=sw[ex.id],alt=id&&ALL_EX.find(e=>e.id===id);
 // Swapped-in movements get the CURRENT phase's rep prescription too — the raw ALL_EX
 // def carries base (phase-1) rp/tg, which silently un-periodized any swap.
 const adj=alt&&(PHASES[D.phase]||PHASES[1]).adj[id];
-return alt?{...alt,...(adj?{rp:adj.rp,tg:adj.tg}:{}),_slot:ex.id,_swapped:true}:{...ex,_slot:ex.id}})}
+return alt?{...alt,...(adj?{rp:adj.rp,tg:adj.tg}:{}),_slot:ex.id,_swapped:true}:{...ex,_slot:ex.id}})
+  .filter(e=>!xp||isExpressKeep(e))}
+// What an express run of `day` would drop, for the confirmation UI. Reads the same path as
+// dayExs so the preview can never disagree with what actually starts.
+function expressDiff(day){
+  const full=dayExs(day,SWAP,false),cut=dayExs(day,SWAP,true);
+  const keep=new Set(cut.map(e=>e.id));
+  return{keep:cut,drop:full.filter(e=>!keep.has(e.id))}}
 
 // Candidate replacements for a slot: library movements sharing a primary muscle,
 // not already in today's session, not legacy stubs, optionally filtered by gear.
@@ -3054,7 +3150,7 @@ if(oldId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
 delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
 SWAP_OPEN=null;saveAW();render()}
 
-function beginW(day){
+function beginW(day,xp){
 // A pending resumable session dies the moment a new one starts (saveAW overwrites the
 // blob) — one accidental tap on Start used to silently destroy 45 minutes of logging.
 // Guards on pendingAW, NOT checkResume: a blob hidden by a venue/phase switch is still
@@ -3066,13 +3162,16 @@ if(pend&&typeof confirm==='function'){
   const where=pend.why==='venue'?` from a different venue (${pend.loc})`:pend.why==='phase'?` from phase ${pend.phase}`:'';
   if(!confirm(`You have an unfinished workout${where} waiting to resume — starting a new one discards it. Continue?`))return}
 ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
+// Set before dayExs — it reads EXPRESS when no explicit flag is passed. Express is
+// home-only, so a venue switch mid-flight can never leave a partner day filtered.
+EXPRESS=!!xp&&expressAvailable();
 const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
 function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
 SNOTES=typeof r.notes==='string'?r.notes:'';
-WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];
+WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];EXPRESS=!!r.xp;
 // Normalize resumed LOG rows: a blob written by an older build may lack fields newer
 // code dereferences (discJoints, setDone, form) — crash-proof them.
 for(const[id,row] of Object.entries(LOG)){if(!row||typeof row!=='object'){delete LOG[id];continue}
@@ -3468,7 +3567,7 @@ let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.
 const discCount=Object.values(LOG).filter(v=>v.disc&&v.disc!=='none').length;
 // Session date comes from when the workout STARTED — a post-midnight save used to
 // stamp the wrong day and skew nextDay/streaks/heatmap.
-window._S={exs:logged,prs,tv,ts,tr,dur:SS?Math.round((Date.now()-SS)/6e4):0,day:ADAY,date:ymd(new Date(SS||Date.now())),warmup:WU_CHECKS.filter(Boolean).length,discCount,notes:SNOTES};
+window._S={exs:logged,prs,tv,ts,tr,dur:SS?Math.round((Date.now()-SS)/6e4):0,day:ADAY,date:ymd(new Date(SS||Date.now())),warmup:WU_CHECKS.filter(Boolean).length,discCount,notes:SNOTES,express:EXPRESS};
 // CRITICAL: the active-workout backup is NOT cleared here. It used to be — so an app
 // kill/reload on the summary screen (before Save) lost the entire workout. The backup
 // now survives until saveSumm() has definitely persisted the session.
@@ -3512,7 +3611,7 @@ for(const[id,v] of Object.entries(LOG)){if(loggedIds.has(id)&&v.disc&&v.disc!=='
   for(const j of v.discJoints)D.discomfort.push({date:S.date,exId:id,level:v.disc,joint:j})}}
 // `phase` stamps the session with the training phase it belonged to — the re-anchor
 // gate reads it, which survives a same-day phase switch (date comparison alone can't).
-D.sessions.push({id:'s'+Date.now(),date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||''});
+D.sessions.push({id:'s'+Date.now(),date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||'',...(S.express?{express:true}:{})});
 // Off-rotation days (the core block) leave the A→B→C pointer exactly where it was.
 if(isRotDay(S.day))D.nextDay=NEXT_DAY[S.day];
 if(!save()){
@@ -3525,7 +3624,7 @@ if(!save()){
     ?'⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.'
     :'⚠ Could not save — storage is full or blocked, and the resume backup could not be written either. Do NOT close this screen: free some space (or export a backup from Settings in another tab), then tap Save again. Your workout only exists on this screen right now.');
   return}
-clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')}
+clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;EXPRESS=false;clearTimer();releaseWake();go('home')}
 
 
 // ─── CARDIO ──────────────────────────────────

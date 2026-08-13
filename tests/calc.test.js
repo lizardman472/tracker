@@ -18,7 +18,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -238,6 +238,54 @@ T('once reps stop rising the cut proceeds (guard terminates)', sg.type === 'dn',
 d.sessions = flyRun([[6, 6, 6], [8, 8, 8], [10, 10, 10]]);
 sg = getSmartSugg(rearFly());
 T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringify(sg));
+
+// ── EXPRESS DAY: keep every loaded compound, drop the accessory tail ──
+// The trade is coverage-and-load kept, accessory volume spent. These pin the trade so a
+// future program edit cannot quietly turn express into "half a workout".
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.location = 'home';
+for (const day of ['A', 'B', 'C']) {
+  const full = dayExs(day, {}, false), xp = dayExs(day, {}, true);
+  T(`express Day ${day} is strictly shorter than the full day`, xp.length < full.length, `${full.length} -> ${xp.length}`);
+  const keep = new Set(xp.map(e => e.id));
+  // Every loaded compound survives — nothing carrying a primary muscle at full weight is cut.
+  const lostCompound = full.filter(e => !keep.has(e.id))
+    .filter(e => ['chest', 'back', 'quads', 'hams', 'glutes', 'fdelt'].some(k => (global.__X.MG[e.id] || {})[k] >= 1));
+  T(`express Day ${day} drops no primary compound`, lostCompound.length === 0, lostCompound.map(e => e.id).join(','));
+  // Sets and reps are untouched — express cuts exercises, never the prescription on what stays.
+  const changed = xp.filter(e => { const f = full.find(x => x.id === e.id); return f && (f.s !== e.s || f.tg !== e.tg); });
+  T(`express Day ${day} does not water down what it keeps`, changed.length === 0, changed.map(e => e.id).join(','));
+}
+// A swapped-in isolation lift must still be dropped — otherwise a swap smuggles the tail back.
+{
+  const slot = dayExs('A', {}, false).find(e => e.id === 'floor_press');
+  T('express reads the RESOLVED movement, so a swap cannot smuggle the tail back in',
+    slot && !dayExs('A', { floor_press: 'bb_curl' }, true).some(e => e.id === 'bb_curl'));
+}
+// Partner venue is already one collapsed short session — express must not apply there.
+d.location = 'partner';
+T('express is unavailable at the partner venue', expressAvailable() === false);
+d.location = 'home';
+T('express is available at home', expressAvailable() === true);
+
+// ── Express MEV guard: BOTH halves required ──
+// Under-MEV alone is not an express problem (a missed week or a deload does it), and heavy
+// express use with the volume still landing is exactly what the feature is for. Only the
+// conjunction is actionable.
+const xpSess = (n, express) => Array.from({ length: n }, (_, i) => ({
+  id: 'xm' + i + (express ? 'e' : 'f'), date: ymd(new Date(Date.now() - (i + 1) * 864e5)),
+  day: 'A', loc: 'home', express, ex: [{ id: 'hex_dl', wt: 56, reps: [6, 6, 6], band: '' }] }));
+d = freshD(); d.location = 'home';
+d.sessions = xpSess(3, false);
+T('under MEV but no express sessions → silent', expressMEVRisk(7) === null);
+d.sessions = xpSess(1, true);
+T('a single express session → silent (that is the feature working)', expressMEVRisk(7) === null);
+d.sessions = xpSess(3, true);
+{
+  const r = expressMEVRisk(7);
+  T('2+ express sessions AND a muscle under MEV → warns', r !== null && r.xp === 3, JSON.stringify(r && { xp: r.xp, n: r.short.length }));
+  T('the warning names which muscles fell short', r && r.short.length > 0 && r.short.every(m => m.have < m.mev && m.nm));
+}
 
 // ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
 // Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only

@@ -1878,3 +1878,79 @@ db_rear_fly   dn ↓ 4.5kg/DB    →   stay → 5kg/DB      (§24.3 climbing gua
 ```
 
 Suite: **526 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v92`.
+
+---
+
+## 25 · Express day — an on-demand short version of a home session (13 Aug 2026)
+
+Requested plainly: *"a way to on demand initiate an express day for when I'm tired / had a long
+day / don't have time, just for home workouts, where the focus is still hitting all the target
+muscles at the right volume weight etc but overall shorter."*
+
+### 25.1 · What to cut was answered by the export, not by preference
+
+§24.2's timing pass had already located where a home day's prescribed minutes actually sit, and
+it is not in the compounds. On Day C, `lm_pallof` + `hex_carry` + `band_er` + `lm_lateral_squat`
+cost **43 of 80 prescribed minutes — 54% of the day** in core, cuff and unilateral finishers,
+while `hex_rdl` and `hex_floor_press` cost 6 minutes each. Per-side and high-rep accessory work
+dominates the clock; the loaded compounds are cheap.
+
+So express keeps every loaded compound at **full sets and full load** — strength progression is
+untouched and the confirm lifts keep their brake — and drops the isolation/core/cuff tail. A lift
+survives when it carries a PRIMARY muscle at full weight in `MG`: chest, back, quads, hams or
+glutes at 1.0, or `fdelt` 1.0 for the overhead presses.
+
+| day | full | express | cut |
+|---|---|---|---|
+| A | 9 ex · 76 min | **5 ex · 43 min** | lm_lateral, bb_rear_row, bb_curl, dead_bugs_a |
+| B | 9 ex · 69 min | **4 ex · 29 min** | bb_skullcr, bb_rollout, lm_lateral, rear_delt, bird_dog |
+| C | 10 ex · 80 min | **6 ex · 37 min** | lm_lateral_squat, lm_pallof, hex_carry, band_er |
+
+**A pure muscle-coverage set-cover was tried first and rejected.** Run greedily over the day's
+muscles it produces a 6-exercise Day A — but it keeps `bb_curl` and **drops
+`lm_bstance_squat`**, because `hex_dl` nominally "covers" quads at weight 0.5 so the algorithm
+believes quads are handled. Coverage-at-any-weight is the wrong objective for a program whose
+point is loaded progression, and it is worth recording that the obvious algorithm loses the main
+squat pattern.
+
+### 25.2 · The trade is honest, and the guard is the conjunction
+
+Express spends accessory VOLUME to buy time. Coverage and load survive; volume does not. That is
+safe *occasionally* precisely because MEV is a **weekly** landmark and `getWeeklyVolume` counts
+across sessions and venues — a single express day is absorbed by the rest of the week.
+
+`expressMEVRisk` therefore does not warn on express usage, and does not warn on under-MEV. Either
+alone is a false positive: a missed week, a holiday or a deload all put a muscle under MEV
+without express being involved, and heavy express use with the volume still landing is the
+feature working as intended. **Only the conjunction** — 2+ express sessions in the rolling 7 days
+AND a muscle actually short — produces a banner, and it names the muscles with their numbers,
+because which tail got cut too often is the part that tells you what to put back.
+
+### 25.3 · Wiring
+
+`EXPRESS` is module state, not a field on `D`: it describes the session being run, not the store.
+It is persisted in the active-workout blob (`xp`) so a reload mid-session resumes express rather
+than silently restoring the full day, and stamped on the finished session as `express:true` so
+history and the guard can see it. `dayExs(day,sw,xp)` filters on the **resolved** movement, so a
+swapped-in isolation lift is dropped exactly as its slot's original would have been — otherwise a
+swap could smuggle the tail back into a session that asked not to have one. `expressDiff` reads
+that same path, so the button's preview can never disagree with what actually starts.
+
+Express is **home-only**, by request and on the merits: the partner venue is already one
+collapsed full-body session on 0:45/0:30 rests since v21, most of its lifts are at the rack
+ceiling, and cutting it further would leave a session training almost nothing.
+
+### 25.4 · Recorded
+
+- **A shorter prescription will not produce a proportionally shorter session.** §24.2 measured 58
+  min/session unaccounted with `corr(prescribed, unaccounted) = −0.60` — every measure of session
+  size is *negatively* correlated with time lost. Express cuts real prescribed minutes and is
+  worth having, but the two-hour floor is a separate problem and the `ex[].ts` set clock is what
+  will resolve it. Do not read the table above as predicted wall-clock.
+- **`programVersion` not bumped.** No day membership, set count or rep range changes — express is
+  a runtime filter over the existing program, and `express:true` is additive and optional.
+- **`xp` on an exercise def** overrides the rule outright (`true` = always keep, `false` = always
+  drop) for cases the muscle map cannot express. Unused today; the hook exists so tuning does not
+  require touching `isExpressKeep`.
+
+Suite: **542 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v93`.
