@@ -144,6 +144,101 @@ d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id:
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
 
+// ── PERSISTENT overshoot: a small overshoot that never stops is its own signal ──
+// The single-session trigger asks how FAR over one session went; this asks how LONG the lift
+// has been over. hex_dl (target 5, a CONFIRM lift) logged at 6 reps every session is +1 over —
+// below overTrig(5)=2 — so on the old engine it alternated ↑0.5kg / Confirm forever. That is
+// the real 13 Aug export shape: 55 → 56kg over 51 days, the slowest lift in the program.
+const hexA = () => getProgram(1, 'home').A.find(e => e.id === 'hex_dl');
+const overRun = (n, reps) => Array.from({ length: n }, (_, i) => ({
+  id: 'ps' + i, date: `2026-06-0${i + 1}`, day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: 56, reps, band: '' }] }));
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+
+// The discriminator is the PERSISTENT path firing, not type — two sessions at one load
+// already satisfy the confirm brake, so an ordinary +0.5 plate step there is correct.
+const isPersist = s => /sessions running over/.test(s.detail || '');
+
+d.sessions = overRun(2, [6, 6, 6]);
+sg = getSmartSugg(hexA());
+T('2 sessions over target is NOT yet persistent (single plate step only)', !isPersist(sg) && sg.wt === 56.5, JSON.stringify(sg));
+
+d.sessions = overRun(3, [6, 6, 6]);
+sg = getSmartSugg(hexA());
+T('3 sessions over target escalates to a proportional jump', isPersist(sg) && sg.type === 'up' && sg.wt > 56.5, JSON.stringify(sg));
+// Persistence opens the gate; it must not inflate the jump. +1 rep over = 2.5%, and the
+// confirm-lift cap is 8% — so the step stays proportional to the reps, never beyond them.
+T('persistent jump stays proportional to the overshoot (≤ +2.5%)', sg.wt <= 56 * 1.025 + 0.5, JSON.stringify(sg));
+
+// SAFETY INVARIANT: persistence changes the SIZE of the step, never the confirm brake.
+// The single-session re-anchor runs ahead of that brake on purpose, but only because a load
+// beaten by 4+ reps every set is plainly too light. At +1 rep that argument does not hold,
+// and CONFIRM_LIFTS are the heavy spinal movements. Without this gate a forward replay had
+// hex_dl escalating on EVERY session, 56 → 68kg in eight.
+d.sessions = [...overRun(3, [6, 6, 6]),
+  { id: 'psNew', date: '2026-06-06', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 58, reps: [6, 6, 6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('a confirm lift on a fresh load still confirms, however long the run', sg.type === 'cf' && sg.wt === 58, JSON.stringify(sg));
+// …and once the load IS confirmed, persistence pays out the bigger step.
+d.sessions.push({ id: 'psNew2', date: '2026-06-07', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 58, reps: [6, 6, 6], band: '' }] });
+sg = getSmartSugg(hexA());
+T('after the confirm session, persistence gives the proportional step', isPersist(sg) && sg.wt > 58.5, JSON.stringify(sg));
+
+// A session merely AT target breaks the run — otherwise "over" would accumulate across
+// sessions that gave no evidence of being over.
+d.sessions = [...overRun(2, [6, 6, 6]),
+  { id: 'psAt', date: '2026-06-04', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [5, 5, 5], band: '' }] },
+  { id: 'psB', date: '2026-06-05', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [6, 6, 6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('an at-target session resets the persistence run', !isPersist(sg) && sg.wt === 56.5, JSON.stringify(sg));
+
+// A short session cannot extend the run — hitTarget requires the prescription be covered,
+// so 1 good set out of 3 must not count toward three "sessions over target".
+d.sessions = [...overRun(2, [6, 6, 6]),
+  { id: 'psShort', date: '2026-06-04', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('a short session does not extend the persistence run', !isPersist(sg), JSON.stringify(sg));
+
+// Landing IN range must stay quiet — this is the guard that keeps the change targeted.
+// ohp target is 7; three sessions at exactly 7 is compliance, not evidence of a light load.
+d.sessions = Array.from({ length: 3 }, (_, i) => ({
+  id: 'psO' + i, date: `2026-06-0${i + 1}`, day: 'B', loc: 'home',
+  ex: [{ id: 'ohp', wt: 27.5, reps: [7, 7, 7, 7], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('3 sessions AT target does not trigger persistence', !/sessions running over/.test(sg.detail || ''), JSON.stringify(sg));
+
+// ── stall branch: a lift CLIMBING toward its rep floor is not stalled ──
+// `stalls` counts consecutive below-minimum sessions with no regard for trajectory, so a lift
+// reading 10, 10, 14 against a 3×15 floor scored identically to 10, 10, 10 and earned the same
+// ~10% cut — one session before it would have landed. That is the live db_rear_fly case in the
+// 13 Aug export.
+const rearFly = () => getProgram(1, 'partner').A.find(e => e.id === 'db_rear_fly');
+const flyRun = rr => rr.map((r, i) => ({
+  id: 'cl' + i, date: `2026-07-0${i + 1}`, day: 'A', loc: 'partner',
+  ex: [{ id: 'db_rear_fly', wt: 5, reps: r, band: '' }] }));
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.location = 'partner';
+
+d.sessions = flyRun([[10, 10, 10], [10, 10, 10], [14, 14, 14]]);
+sg = getSmartSugg(rearFly());
+T('climbing reps near the floor hold the load instead of cutting',
+  sg.type === 'stay' && sg.wt === 5 && /climbing 10→14/.test(sg.detail), JSON.stringify(sg));
+
+d.sessions = flyRun([[10, 10, 10], [10, 10, 10], [10, 10, 10]]);
+sg = getSmartSugg(rearFly());
+T('a flat run at the same load still cuts', sg.type === 'dn', JSON.stringify(sg));
+
+// TERMINATION: the guard compares the last TWO sessions, not first-to-last. Were it
+// first-to-last, 10, 14, 14 would still read "10 → 14" and hold the load indefinitely.
+d.sessions = flyRun([[10, 10, 10], [14, 14, 14], [14, 14, 14]]);
+sg = getSmartSugg(rearFly());
+T('once reps stop rising the cut proceeds (guard terminates)', sg.type === 'dn', JSON.stringify(sg));
+
+// Climbing but far from the floor is a wrong load, not a near miss — still cut.
+d.sessions = flyRun([[6, 6, 6], [8, 8, 8], [10, 10, 10]]);
+sg = getSmartSugg(rearFly());
+T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringify(sg));
+
 // ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
 // Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
 // call it "optional". With 2+ COMPOUND lifts stalling it should now be RECOMMENDED.
@@ -503,10 +598,25 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
     }
   }
   T('every "Type Xkg" instruction names a load the rack can actually build', bad.length === 0, bad.join(' · '));
-  // And the corrected figure specifically.
+  // And the corrected figure specifically. This used to pin the literal string "Type 3kg/DB".
+  // That instruction has since been retired as SPENT (the reps rebuilt at 5kg on their own),
+  // so pinning the phrase would force a stale instruction to stay on the card forever. What
+  // must hold is the durable property: the note may EXPLAIN that 3.5 is unbuildable, but it
+  // must never PRESCRIBE it — and 3 must remain a real rung while 3.5 is not.
   const fly = global.__X.ALL_EX.find(e => e.id === 'db_rear_fly');
-  T('rear-delt fly prescribes 3kg/DB (a real rung), not the unbuildable 3.5',
-    /Type 3kg\/DB/.test(fly.note) && global.__X.DBW_PAIR.includes(3) && !global.__X.DBW_PAIR.includes(3.5));
+  T('rear-delt fly never prescribes the unbuildable 3.5kg/DB',
+    !/[Tt]ype\s+3\.5\s*kg/.test(fly.note) && global.__X.DBW_PAIR.includes(3) && !global.__X.DBW_PAIR.includes(3.5));
+
+  // ── expired hand-entry instructions must be retired, not left to mislead ──
+  // Both of these told the lifter to type a load in once, because at the pre-v21 partner
+  // cadence the engine could never re-anchor. v21 collapsed the split, the exposures arrived,
+  // and the engine overtook both — db_curl now proposes 15kg/DB unaided and db_rear_fly is
+  // rebuilding reps at 5kg. A note that still says "type X in" now fights the card beside it.
+  const curl = global.__X.ALL_EX.find(e => e.id === 'db_curl');
+  T('db_curl hand-entry instruction is retired and marked spent',
+    !/Type 15kg\/DB in once/.test(curl.note) && /SPENT/.test(curl.note), curl.note.slice(0, 90));
+  T('db_rear_fly hand-entry instruction is retired and marked spent',
+    !/Type 3kg\/DB in once/.test(fly.note) && /SPENT/.test(fly.note), fly.note.slice(0, 90));
   T('3.5kg/bell really is unbuildable either way', dbEnd(3.5, true) === null && dbEnd(3.5, false) === null);
   // Its seed already used 3 — note and seed must agree, or the note fights the engine.
   T('rear-delt fly note and seed agree on 3kg', (() => {

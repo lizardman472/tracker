@@ -1663,3 +1663,218 @@ program must name a real rung on that lift's own ladder, and every partner DB su
 land on a buildable rung. The rendered result was checked in Chromium at 390px in both themes.
 
 Suite: **512 + 277 + 367 + 49 passing, 18/18 SW mutations caught.** SW cache `rft-v90`.
+
+---
+
+## 24 · Progression calibration + the session clock the app never had (13 Aug 2026)
+
+Prompted by a question rather than a bug report: *"I feel like im progressing slowly, or am i
+being too hard on myself"*. Answered by replaying a fresh export (`2026-02-26 → 2026-08-12`) through the live engine. Most
+of the answer was "too hard on yourself"; two things in the app were genuinely wrong, and both
+are fixed here.
+
+**The store carries 68 rows and 66 distinct sessions.** Two pairs are duplicates: 17 Mar Day B
+(`s7` / `s1773740828259`) is byte-identical, and 19 Mar Day C (`s8` / `s1773903323258`) differs
+in one cosmetic field — `pullup_c.band` reads `Green` on one and `Green (heaviest)` on the other.
+A first pass at this section deduped only on exact equality and reported 67; the near-duplicate
+is recorded here because a cosmetic diff is exactly what an exact-match dedup misses, and because
+`getHist` would have counted that session twice had it fallen inside the 5-session window.
+
+**The baseline, for the record.** 66 sessions over 24.0 weeks = 2.75/week, unchanged in the last
+fortnight (6 sessions / 14 days). Median session volume by month: 1,686 → 1,859 → 2,595 → 3,400
+→ 5,436 → 7,180 kg. `ohp` 16kg×7,6,5 → 27.5kg×7,7,7,7. `floor_press` 26kg×3×8 → 38kg×15,12,12,12.
+`pullup_a` off three rungs of band assistance (Blue → Purple) while adding reps. Of 28 loaded
+lifts with two or more points in the last four weeks, **21 up, 6 flat, 1 down** — and five of the
+six flat are partner dumbbells at the 18.5kg matched-pair ceiling or deliberately capped light.
+v21 also worked as designed: two partner visits in nine days, against 7 in the preceding 22 weeks.
+
+Two hypotheses were **investigated and dropped** before they reached this document, which is the
+reason it is worth recording them: `bb_rear_row`'s −11.9% (21 → 18.5kg) is the `stalls>=3` deload
+branch behaving exactly as specified after three sessions under the rep minimum, and `db_rear_fly`
+holding 5kg while its reps climb 10 → 12 → 14 toward a 15-20 range is the rebuild-reps-before-load
+path, also correct. Neither is a defect. Likewise `dips`: the engine has been returning *"↑ Less
+assistance (thinner)"* for five straight sessions and the band has not moved — the app is right
+and the advice is simply not being taken.
+
+### 24.1 · The re-anchor asked how FAR over, never how LONG
+
+`getSmartSugg`'s big-overshoot re-anchor keys on a single session: `over = minRep − ex.tg`, fired
+when `over >= overTrig`, where §22.1 made `overTrig = min(4, max(2, ceil(tg*0.4)))`. That is a
+sound question about magnitude and it is the only question asked. Persistence is a separate piece
+of evidence, and nothing read it.
+
+The export shows what that costs. Seven lifts sat **above the top of their prescribed range for
+3-7 consecutive sessions** without ever tripping the re-anchor:
+
+| lift | prescribed | logged lowest set | consecutive sessions |
+|---|---|---|---|
+| `dips` | 4-8 | 10 | **7 of 7** |
+| `lm_squat` | 6-8 | 10-12 | 6 |
+| `floor_press` | 8-10 | 12 | 4 |
+| `hex_dl` | 5 | 6 | 4 |
+| `db_rdl` | 8-10 | 12 | 3 (at rack ceiling) |
+| `db_curl` | 8-12 | 16-18 | fires already (+4) |
+| `db_floor_press` | 8-10 | 12 | — |
+
+`+2` is below `overTrig` on every target of 5 or more, so none of these escalated. `hex_dl` is the
+clearest case and the one the lifter actually noticed: 55 → 56kg over 51 days, the slowest-moving
+loaded lift in the program (+0.9% over four weeks, in a window where `hex_row` did +11.8%), while
+every one of those sessions was over target. Three brakes stack on it — the confirm brake, a
++0.5kg plate step, and ~8.5 days between Day A sessions — for a structural ceiling near
++0.9kg/month that no session can beat.
+
+**Fixed** with `OVER_STREAK = 3`: a run of three sessions that each `hitTarget` *and* clear it on
+every working set opens the same gate the single-session trigger does. Three is the smallest run
+that cannot be one good day. The jump stays `0.025 × over` under the existing 8%/12% caps —
+persistence earns the escalation, it does not inflate it — so this can only convert a plate-step
+into a proportional step, never overshoot what the reps imply. `hitTarget` is required per session
+so a partial or short session cannot extend a run.
+
+**Persistence does NOT bypass the confirm brake, and the first cut of this change did.** The
+single-session path deliberately runs ahead of that brake, but its rationale is explicitly *"a
+load you beat by 4+ reps on every set"* — plainly too light, so confirming it wastes a session.
+At **+1 rep** that argument does not hold, and `CONFIRM_LIFTS` are the heavy spinal movements the
+brake exists to protect. A **forward replay** — feeding the engine its own suggestion and logging
+one rep over target each time — caught it:
+
+```
+without the gate   ↑57.5 ↑59 ↑60.5 ↑62 ↑63.5 ↑65 ↑66.5 ↑68     (56 → 68kg in 8 sessions)
+with the gate      cf57.5 ↑57.5 cf59 ↑59 cf60.5 ↑60.5 …        (+1.5kg per 2 sessions)
+```
+
+Snapshot testing could not have found this: on the export as it stands both variants look
+reasonable. Persistence is now gated on `!isConfirmLift || hitsAtW >= 2`, so a confirm lift still
+earns its second session at the weight and persistence only decides how far the step goes — for
+`hex_dl` that is +1.5kg per two sessions against the +0.5kg it was getting, 3× faster with the
+brake intact.
+
+**Verified against the real export, both venues, every lift with history — exactly one suggestion
+changes today:**
+
+```
+floor_press   up ↑ 38.5kg   →   up ↑ 40kg
+```
+
+`hex_dl` correctly still reads `Confirm 56kg` and takes +1.5kg on the following session instead of
++0.5kg. Everything else is byte-identical: `lm_squat` and `db_curl` already cleared `overTrig` at
++4, `db_rdl` is at the 18.5kg ceiling so `nxt > lastLoad` fails, and `dips` is on the band path.
+Eight new assertions including the confirm-brake invariant, mutation-checked (`OVER_STREAK` raised
+to 99 → the escalation test fails and only that one).
+
+### 24.2 · `duration` is start-to-save wall clock and decomposes into nothing
+
+§20.2 modelled session length as bouts × 3.03 min, a constant fitted to **one** session (11 Jul,
+32 bouts → 97 min). Refitted across all 18 timed sessions since 1 Jul, it does not hold:
+
+```
+duration ≈ 98 + 0.96 × bouts        R² = 0.06
+```
+
+Bout count explains essentially none of it. Against prescribed work+rest computed from each
+lift's `tempo` and `rstS`: **mean prescribed 70 min, mean actual 128 min, 58 min unaccounted**
+(median 61, sd 18, range 22-93). And `corr(prescribed, unaccounted) = −0.60` — *negative*. The
+fullest session on record (29 Jul, 98 min prescribed, 40 bouts) finished in 120 min; a 66-min
+prescription on 4 Aug took 159. No session in six weeks came in under 112 minutes at any
+prescribed load between 51 and 98 min.
+
+**"Unaccounted" is not the same as "wasted", and the obvious confound was tested rather than
+assumed.** The prescribed figure counts logged working sets only. The program's warm-up is a
+3-item activation block (joint circles, isometric hold, single-leg balance) worth ~5 min, and it
+prescribes **no ramp sets** — nobody works up to a 56kg hex pull cold, so some genuine unlogged
+work is in that 58 minutes. If ramps were the explanation, unaccounted time would rise with the
+number of heavy barbell lifts in a session. It does not:
+
+```
+corr(heavy barbell lifts, unaccounted) = −0.16     (expect strongly POSITIVE if ramps explain it)
+corr(prescribed minutes,  unaccounted) = −0.60
+corr(exercise count,      unaccounted) = −0.33
+```
+
+Heavy-lift counts range 0-5 across the window, so there is variation to detect. Every correlation
+is negative: everything that should make a session longer is associated with *less* unaccounted
+time. A fixed floor of legitimate unlogged work certainly exists; what it cannot explain is the
+22-93 min *spread*.
+
+The practical consequence is that **trimming exercises cannot buy time back** — on this evidence
+it would only raise the unaccounted share — so the day sizes are deliberately left alone here and
+the stale model is annotated rather than refitted.
+
+What blocked going further is that the app measures nothing that could locate the 58 minutes:
+`duration` is `(Date.now() − SS)/6e4`, one number per session. **Fixed** by stamping
+`LOG[id].setTs[i]` when a set is ticked off (cleared on un-tick) and saving it on the finished
+session as `ex[].ts` — seconds from session start, offsets rather than epoch ms, key omitted
+entirely when nothing is stamped so legacy and retro rows keep their shape. `validSession` gets
+the same treatment `wts` has, so `row.ts` existing always implies real timing data. Once a
+session carries a set clock, actual rest is measurable against `rstS` and the gap can be
+attributed instead of guessed.
+
+### 24.3 · A lift climbing toward its rep floor was being cut one session short
+
+Follow-up, from checking two recommendations this document had made rather than asserting them.
+`getDeload` on the live export returns `due:false, consider:true, stalledMajor:0, avgDiff:2.6` —
+the gate §11 built specifically to refuse timer-only deloads. A "deload now" recommendation on
+that data was wrong, and the app was right. (`getFatigue` separately reads **10/10 Fatigued** off
+volume and frequency; the two measure different things and the disagreement is not a defect.)
+
+The second check found a real one. `stalls` counts consecutive below-minimum sessions at a load
+with **no regard for trajectory**, so `db_rear_fly` reading 10 → 10 → 14 against a 3×15 floor
+scored identically to 10 → 10 → 10 and was about to take the same ~10% cut — one session before
+it would have landed in range. **Fixed** with a `climb` guard ahead of the `stalls>=3` cut: hold
+the load when the run's reps are still rising and the latest is within 2 of the minimum.
+
+Two details are load-bearing. It compares the **last two sessions of the run, not first-to-last**
+— first-to-last does not terminate, since 10, 14, 14, 14… keeps reading "10 → 14" and would hold
+the load forever; last-two buys exactly one session at a time and stops when progress does. And
+the within-2-of-floor bound keeps a lift climbing from far below (6 → 10 against a 15-rep floor)
+on the cut path, because that one is on the wrong load rather than one session short. Four
+assertions including the termination case; mutating `to>from` to `to>=from` fails 9 tests.
+
+### 24.4 · Two coach notes had expired and were fighting the cards beside them
+
+`db_curl` and `db_rear_fly` both carried "type this load in once by hand" instructions, written
+when the pre-v21 partner cadence meant the engine could never re-anchor unaided. v21 collapsed
+the split, the exposures arrived, and the engine overtook both: `db_curl` now proposes **↑15kg/DB
+on its own** (3×12+4 clears `overTrig`, ≈10% jump) — the exact number the note asks you to type —
+and `db_rear_fly` is rebuilding reps at 5kg under §24.3's guard, not sitting at the 3kg the note
+prescribes. Static prose against a live engine expires, and expired prose does not fail loudly;
+it just contradicts the suggestion on the same card. Both are rewritten to say the instruction is
+spent and why.
+
+The test pinning the literal string `"Type 3kg/DB"` was replaced rather than deleted: pinning a
+phrase forces a stale instruction to live forever, so it now asserts the durable property (the
+note may *explain* that 3.5kg/DB is unbuildable but must never *prescribe* it) plus a new pair
+requiring both expired instructions to stay retired.
+
+### 24.5 · Recorded, not fixed
+
+- **The form gate fails open.** `sessClean` returns `true` when `form` is absent, which is the
+  right default, but form ratings have collapsed: **zero in the last 8 sessions**, 12 of 187
+  exercises since 20 Jun (6%). The gate that correctly held `hex_dl` on 5 Jul is now inert. Making
+  unrated count as unclean would freeze the whole program, so the semantics are deliberately
+  unchanged — this is a friction problem in the logging UI, not a calculation bug.
+- **`trainingWeek` is a dead field.** Present in the store, zero references in `index.html`.
+- **Two band strings in the store are not on the `BANDS` ladder** — `'Blue'` (26 Feb, `pullup_a`)
+  and `'Green (heaviest)'` (19 Mar, `pullup_c`), so `BAND_IDX` returns −1 for both. Both come from
+  the bundled `SEED` literal rather than from logging, and both sit far outside the 5-session
+  engine window, so nothing is currently mis-computed. Worth a `validSession` normalisation if
+  band handling is touched again.
+- **The app collects four signals it is barely being fed**, which is what limits what any future
+  pass can conclude: `bodyLog` has **1 entry** (88kg, 19 Jun) so every bodyweight-relative
+  feature — the strength-standards tiers especially — has nothing to stand on; form ratings are
+  **12 of 429** exercises (3%); session RPE is on 43 of 66; `cues` is empty.
+- **`durationSuspicious` missed a 352-minute session** (24 Jul, a stuck timer). The flag exists
+  and did not fire.
+- **Three `render.smoke.js` assertions fail on `HEAD`** (Muscle Trend card, strength ladder
+  ticks, e1RM tier rows) and did so before this pass — §23.4 claims 367 passing where the file
+  now reports 364 + 3 failed. Untouched here, but the suite is not green.
+- **`programVersion` not bumped.** No stored-shape, day-membership, set-count or rep-range change:
+  `ex[].ts` is additive and optional, exactly the shape §21.1/§22 left the migration chain alone for.
+
+**Net effect on the live export — two suggestions differ from the pre-pass engine:**
+
+```
+floor_press   up ↑ 38.5kg      →   up ↑ 40kg          (§24.1 persistent overshoot)
+db_rear_fly   dn ↓ 4.5kg/DB    →   stay → 5kg/DB      (§24.3 climbing guard)
+```
+
+Suite: **526 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v92`.
