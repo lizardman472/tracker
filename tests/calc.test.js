@@ -170,6 +170,20 @@ T('3 sessions over target escalates to a proportional jump', isPersist(sg) && sg
 // confirm-lift cap is 8% — so the step stays proportional to the reps, never beyond them.
 T('persistent jump stays proportional to the overshoot (≤ +2.5%)', sg.wt <= 56 * 1.025 + 0.5, JSON.stringify(sg));
 
+// SAFETY INVARIANT: persistence changes the SIZE of the step, never the confirm brake.
+// The single-session re-anchor runs ahead of that brake on purpose, but only because a load
+// beaten by 4+ reps every set is plainly too light. At +1 rep that argument does not hold,
+// and CONFIRM_LIFTS are the heavy spinal movements. Without this gate a forward replay had
+// hex_dl escalating on EVERY session, 56 → 68kg in eight.
+d.sessions = [...overRun(3, [6, 6, 6]),
+  { id: 'psNew', date: '2026-06-06', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 58, reps: [6, 6, 6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('a confirm lift on a fresh load still confirms, however long the run', sg.type === 'cf' && sg.wt === 58, JSON.stringify(sg));
+// …and once the load IS confirmed, persistence pays out the bigger step.
+d.sessions.push({ id: 'psNew2', date: '2026-06-07', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 58, reps: [6, 6, 6], band: '' }] });
+sg = getSmartSugg(hexA());
+T('after the confirm session, persistence gives the proportional step', isPersist(sg) && sg.wt > 58.5, JSON.stringify(sg));
+
 // A session merely AT target breaks the run — otherwise "over" would accumulate across
 // sessions that gave no evidence of being over.
 d.sessions = [...overRun(2, [6, 6, 6]),

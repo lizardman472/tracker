@@ -2202,7 +2202,15 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     // hitTarget is required per session so a partial or short session cannot extend a streak.
     const overStreak=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];
       const ws=workSets(h);if(!ws.length||!hitTarget(h)||Math.min(...ws)<=ex.tg)break;n++}return n})();
-    const persistent=over<overTrig&&over>=1&&overStreak>=OVER_STREAK;
+    // Persistence upgrades the STEP SIZE; it does NOT bypass the confirm brake. The
+    // single-session path above deliberately runs ahead of that brake, but its rationale is
+    // explicitly "a load you beat by 4+ reps on every set" — plainly too light, so confirming
+    // it wastes a session. At +1 rep over that rationale does not hold, and CONFIRM_LIFTS are
+    // the heavy spinal movements the brake exists to protect. Letting a persistent +1 through
+    // it made hex_dl escalate EVERY session in a forward replay (56 → 68kg in eight), which is
+    // not what "the load is creeping too slowly" asked for. So a confirm lift must still earn
+    // its second session at the weight; persistence then decides how far the step goes.
+    const persistent=over<overTrig&&over>=1&&overStreak>=OVER_STREAK&&(!isConfirmLift||hitsAtW>=2);
     if(over>=overTrig||persistent){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
       const raw=lastLoad*(1+pct);
