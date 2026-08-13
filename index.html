@@ -529,6 +529,12 @@ function nxDn(c,vw=VW){for(let i=vw.length-1;i>=0;i--)if(vw[i]<c)return vw[i];re
 function nxUpN(c,n,vw=VW){let w=c;for(let i=0;i<n;i++){const nw=nxUp(w,vw);if(nw===w)break;w=nw}return w}
 // Lifts where a single good session is NOT enough — heavy spinal-loaded compounds keep a 1-session confirm brake
 const CONFIRM_LIFTS=new Set(['hex_dl','hex_squat_b','lm_squat']);
+// Consecutive sessions clear of target that count as a persistent overshoot. See the
+// PERSISTENT OVERSHOOT block in getSmartSugg: the single-session re-anchor asks how FAR
+// over one session went and never how LONG a lift has been over, so a lift beaten by the
+// same +1 or +2 forever creeps a plate-step at a time. Three is the smallest run that
+// cannot be one good day, one favourable bodyweight or one generous rep count.
+const OVER_STREAK=3;
 function snapW(t,vw=VW){let b=vw[0];for(const w of vw)if(Math.abs(w-t)<Math.abs(b-t))b=w;return b}
 // Tolerant weight equality — ladder weights are exact, but a manually-typed "38.0" vs a
 // stored 38 (or re-anchor dust) must still bucket together for stall/confirm counting.
@@ -948,6 +954,22 @@ const PARTNER_BASE=[
 // 8-9 exercises and 27-46 working bouts. Dropping it is what buys the time back.
 // Modelled session length (calibrated on the 11 Jul session: 32 bouts → 97 min actual):
 //   v20  A 94 min / B 141 min / C 100 min     v21  A ~77 / B ~78 / C ~78
+// ⚠ THOSE NUMBERS DO NOT PREDICT ANYTHING, and the 13 Aug export is what shows it (§24).
+// The model above is bouts × a single min/bout constant fitted to ONE session. Refitted
+// across all 18 timed sessions since 1 Jul, the constant is not a constant and the fit is
+// noise: duration ≈ 98 + 0.96 × bouts, R² = 0.06. Bout count explains essentially none of
+// how long a session takes. Against prescribed work+rest computed from tempo and rstS:
+//   mean prescribed 70 min · mean actual 128 min · unaccounted 58 min (median 61, sd 18)
+//   corr(prescribed, unaccounted) = −0.60
+// That correlation is NEGATIVE: the fuller the session, the less time is lost inside it.
+// The largest prescribed session on record (29 Jul, 98 min of work+rest, 40 bouts) finished
+// in 120 min; a 66-min prescription on 4 Aug took 159. No session in six weeks came in under
+// 112 minutes at any prescribed load from 51 to 98 min. The session expands to fill ~2 hours.
+// So DO NOT trim exercises to buy time — on this evidence that only raises the unaccounted
+// share. The 58 minutes have to be located before anything can shorten them, which is what
+// the per-set `ts` stamps added alongside this note exist to do: once a session carries a set
+// clock, actual rest is measurable against rstS and the gap can be attributed instead of
+// guessed. Re-derive this block from a fresh export before any day is resized.
 const LOC_B_PR={
 A:[...PARTNER_BASE,
 {id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',ss:'Rear-Delt Fly',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'Re-seeded in v21. You logged 3×16-20 at 11kg against a target of 12 — several steps too light, and at one Day-A visit per quarter the engine would have taken years to catch up. Type 15kg/DB in once — the suggestion reads your history, so it cannot re-anchor itself; after that one entry the engine progresses from there. The rack allows 18.5.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
@@ -2159,14 +2181,38 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     // LOOSEN the trigger for low-rep lifts and never tightens it for anything: every target
     // of 8 or more keeps the historic ≥4 behaviour unchanged.
     const overTrig=Math.min(4,Math.max(2,Math.ceil(ex.tg*0.4)));
-    if(over>=overTrig){
+    // PERSISTENT OVERSHOOT — the trigger above asks only how FAR over a single session went.
+    // It never asks how LONG the lift has been over, and those are different pieces of
+    // evidence. A lift beaten by exactly +2 every session for two months is under-loaded on
+    // stronger evidence than one beaten by +4 once, but +2 is below overTrig on every target
+    // of 5 or more, so nothing fires and the load creeps one plate-step at a time — every
+    // OTHER session on a confirm lift.
+    //
+    // Measured on the 13 Aug 2026 export (§24), which is what this branch exists for: seven
+    // lifts sat above the top of their prescribed range for 3-7 CONSECUTIVE sessions without
+    // ever tripping the re-anchor — dips 7/7 sessions at 10 reps against 4-8, floor_press 4/4
+    // at 12 against 8-10, lm_squat 6/6, hex_dl 4/4 at 6 against a target of 5, plus db_rdl,
+    // db_floor_press and db_curl. hex_dl in particular moved 55 → 56kg in 51 days, the slowest
+    // lift in the program, while every one of those sessions was over target.
+    //
+    // A run of OVER_STREAK sessions clear of target is evidence no single session can supply,
+    // so it opens the same gate. The JUMP stays proportional to `over` (2.5%/rep, same caps) —
+    // persistence earns the escalation, it does not inflate it, so this can only convert a
+    // plate-step into a proportional step, never overshoot beyond what the reps imply.
+    // hitTarget is required per session so a partial or short session cannot extend a streak.
+    const overStreak=(()=>{let n=0;for(let i=hist.length-1;i>=0;i--){const h=hist[i];
+      const ws=workSets(h);if(!ws.length||!hitTarget(h)||Math.min(...ws)<=ex.tg)break;n++}return n})();
+    const persistent=over<overTrig&&over>=1&&overStreak>=OVER_STREAK;
+    if(over>=overTrig||persistent){
       const pct=Math.min(isConfirmLift?0.08:0.12,0.025*over);
       const raw=lastLoad*(1+pct);
       const nxt=ex.tp==='bb'?snapW(raw,vwOf(ex)):ex.tp==='db'?snapDB(raw,ex):Math.round(raw*2)/2;
       if(nxt>lastLoad){
         const jump=Math.round((nxt-lastLoad)*10)/10;
         return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
-          detail:`Hit ${lastSets}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
+          detail:persistent
+            ?`${overStreak} sessions running over ${ex.tg}${ex.perSide?'/side':''} — not a one-off, jumping +${jump}kg (≈${Math.round(pct*100)}%) instead of a plate-step. Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}.`
+            :`Hit ${lastSets}×${ex.tg}+${over} — well over target, jumping +${jump}kg (≈${Math.round(pct*100)}%). Aim for ${ex.s}×${ex.tg}${ex.perSide?'/side':''}; the app keeps escalating until you land in range.`,regress}}
     }
     // Heavy spinal compounds keep a 1-session confirm brake (joint safety): need 2 sessions at target.
     if(isConfirmLift&&hitsAtW<2){
@@ -2932,7 +2978,11 @@ const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:Array.from({length:ex.s},(_,i)=>{const r=last?last.reps[i]:null;return r>0?String(r):''}),
 wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
-setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
+setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),
+// Wall-clock (epoch ms) at which each set was ticked off, 0 = not yet. Saved as
+// SECONDS FROM SESSION START on the finished session (see the `ts` row below), which is
+// what makes the gap between prescribed and actual session length measurable at all.
+setTs:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 
 // The day's exercise list with any in-session swaps applied. Each returned object
 // carries _slot (the original program id it occupies) so the swap controls can
@@ -2998,6 +3048,7 @@ WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];
 for(const[id,row] of Object.entries(LOG)){if(!row||typeof row!=='object'){delete LOG[id];continue}
 if(!Array.isArray(row.reps))row.reps=[];
 if(!Array.isArray(row.setDone))row.setDone=Array(row.reps.length).fill(false);
+if(!Array.isArray(row.setTs))row.setTs=Array(row.reps.length).fill(0);
 if(!Array.isArray(row.wts))row.wts=Array(row.reps.length).fill('');
 if(!Array.isArray(row.form))row.form=[];
 if(!Array.isArray(row.discJoints))row.discJoints=[];
@@ -3212,9 +3263,11 @@ ${ex.fixedKg?`<span class="stp-fixed">Fixed ${ex.fixedKg}kg · progress reps &am
 // OVERRIDE on the working weight above (empty = inherit); ticked rows tint green.
 const nSets=Math.max(ex.s,log.reps.length);
 if(!log.setDone)log.setDone=Array(nSets).fill(false);
+if(!Array.isArray(log.setTs))log.setTs=Array(nSets).fill(0);
 if(!Array.isArray(log.wts))log.wts=[];
 while(log.wts.length<nSets)log.wts.push('');
 while(log.setDone.length<nSets)log.setDone.push(false);
+while(log.setTs.length<nSets)log.setTs.push(0);
 const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp);
 h+=`<div class="set-tbl">
 <div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${repUnit(ex)}</span><span></span></div>`;
@@ -3300,7 +3353,11 @@ function setRep(id,i,v){LOG[id].reps[i]=v;LOG[id].pf=false;LOG[id].touched=true;
 const ex=ALL_EX.find(e=>e.id===id);
 if(ex&&Number(v)>0&&i<ex.s-1&&(!TIMER||TIMER.done))startTimer(ex.rstS)}
 function toggleSetDone(id,i){if(!LOG[id].setDone)LOG[id].setDone=Array(LOG[id].reps.length).fill(false);
+if(!Array.isArray(LOG[id].setTs))LOG[id].setTs=Array(LOG[id].reps.length).fill(0);
 LOG[id].setDone[i]=!LOG[id].setDone[i];LOG[id].touched=true;
+// Stamp the tick, clear it on un-tick. This is the only moment the app learns anything
+// about WHEN work happened — `duration` is start-to-save wall clock and nothing else.
+LOG[id].setTs[i]=LOG[id].setDone[i]?Date.now():0;
 if(LOG[id].setDone[i]){const ex=ALL_EX.find(e=>e.id===id);if(ex&&(!TIMER||TIMER.done))startTimer(ex.rstS)}
 saveAW();render()}
 // Per-set weight override — no re-render on keystroke (matches setRep/setL); the
@@ -3320,11 +3377,13 @@ LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 function addSet(id){const l=LOG[id];if(!l)return;l.reps.push('');
 if(!Array.isArray(l.wts))l.wts=[];l.wts.push('');
 if(!Array.isArray(l.setDone))l.setDone=[];l.setDone.push(false);
+if(!Array.isArray(l.setTs))l.setTs=[];l.setTs.push(0);
 if(!Array.isArray(l.form))l.form=[];l.form.push(0);
 l.touched=true;saveAW();render()}
 function removeSet(id){const l=LOG[id];const ex=ALL_EX.find(e=>e.id===id);
 if(!l||l.reps.length<=(ex?ex.s:1))return;l.reps.pop();
-if(Array.isArray(l.wts))l.wts.pop();if(Array.isArray(l.setDone))l.setDone.pop();if(Array.isArray(l.form))l.form.pop();
+if(Array.isArray(l.wts))l.wts.pop();if(Array.isArray(l.setDone))l.setDone.pop();
+if(Array.isArray(l.setTs))l.setTs.pop();if(Array.isArray(l.form))l.form.pop();
 l.touched=true;saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
 if(idx>=0)j.splice(idx,1);else j.push(joint);saveAW();render()}
@@ -3360,6 +3419,14 @@ const logged=Object.entries(LOG).map(([id,v])=>{
   if(!reps.some(r=>r>0))return null;
   const wt=v.wt?Number(v.wt):null;
   const row={id,wt,reps,band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes};
+  // SET CLOCK — seconds from session start at which each counted set was ticked off.
+  // `duration` is start-to-save wall clock and decomposes into nothing, which is why the
+  // 13 Aug export could show 58 min/session of unaccounted time (§24) without being able
+  // to say whether it was rest overrun, setup, or drift between exercises. Offsets rather
+  // than epoch ms: smaller, and the absolute time of day is not the app's business.
+  // Omitted entirely when no set carries a stamp, so legacy/retro rows keep their shape.
+  const ts=(v.setTs||[]).map((t,i)=>reps[i]>0&&t>0&&SS?Math.round((t-SS)/1000):0);
+  if(ts.some(t=>t>0))row.ts=ts;
   // Per-set overrides persist (fully resolved) ONLY when some counted set actually
   // differs from the working weight — uniform sessions keep the lean legacy shape.
   const ov=(v.wts||[]).map(w=>Number(w)>0?Number(w):null);
@@ -4706,6 +4773,12 @@ for(const e of s.ex){
   // backup used to flow into templates as objects/arrays (escaped at render too).
   const row={...e,reps,wt,band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
   if(wts)row.wts=wts;else delete row.wts;
+  // Set clock (seconds from session start, 0 = unstamped): same treatment as wts — keep
+  // only a well-formed array of finite non-negative numbers, and drop the key entirely if
+  // nothing in it is stamped, so `row.ts` existing always means real timing data.
+  let ts;if(Array.isArray(e.ts)){ts=e.ts.map(t=>{const n=Number(t);return Number.isFinite(n)&&n>0?Math.round(n):0});
+    if(!ts.some(t=>t>0))ts=undefined}
+  if(ts)row.ts=ts;else delete row.ts;
   ex.push(row)}
 // `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
 // s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a

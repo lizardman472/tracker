@@ -144,6 +144,55 @@ d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id:
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
 
+// ── PERSISTENT overshoot: a small overshoot that never stops is its own signal ──
+// The single-session trigger asks how FAR over one session went; this asks how LONG the lift
+// has been over. hex_dl (target 5, a CONFIRM lift) logged at 6 reps every session is +1 over —
+// below overTrig(5)=2 — so on the old engine it alternated ↑0.5kg / Confirm forever. That is
+// the real 13 Aug export shape: 55 → 56kg over 51 days, the slowest lift in the program.
+const hexA = () => getProgram(1, 'home').A.find(e => e.id === 'hex_dl');
+const overRun = (n, reps) => Array.from({ length: n }, (_, i) => ({
+  id: 'ps' + i, date: `2026-06-0${i + 1}`, day: 'A', loc: 'home',
+  ex: [{ id: 'hex_dl', wt: 56, reps, band: '' }] }));
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+
+// The discriminator is the PERSISTENT path firing, not type — two sessions at one load
+// already satisfy the confirm brake, so an ordinary +0.5 plate step there is correct.
+const isPersist = s => /sessions running over/.test(s.detail || '');
+
+d.sessions = overRun(2, [6, 6, 6]);
+sg = getSmartSugg(hexA());
+T('2 sessions over target is NOT yet persistent (single plate step only)', !isPersist(sg) && sg.wt === 56.5, JSON.stringify(sg));
+
+d.sessions = overRun(3, [6, 6, 6]);
+sg = getSmartSugg(hexA());
+T('3 sessions over target escalates to a proportional jump', isPersist(sg) && sg.type === 'up' && sg.wt > 56.5, JSON.stringify(sg));
+// Persistence opens the gate; it must not inflate the jump. +1 rep over = 2.5%, and the
+// confirm-lift cap is 8% — so the step stays proportional to the reps, never beyond them.
+T('persistent jump stays proportional to the overshoot (≤ +2.5%)', sg.wt <= 56 * 1.025 + 0.5, JSON.stringify(sg));
+
+// A session merely AT target breaks the run — otherwise "over" would accumulate across
+// sessions that gave no evidence of being over.
+d.sessions = [...overRun(2, [6, 6, 6]),
+  { id: 'psAt', date: '2026-06-04', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [5, 5, 5], band: '' }] },
+  { id: 'psB', date: '2026-06-05', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [6, 6, 6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('an at-target session resets the persistence run', !isPersist(sg) && sg.wt === 56.5, JSON.stringify(sg));
+
+// A short session cannot extend the run — hitTarget requires the prescription be covered,
+// so 1 good set out of 3 must not count toward three "sessions over target".
+d.sessions = [...overRun(2, [6, 6, 6]),
+  { id: 'psShort', date: '2026-06-04', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 56, reps: [6], band: '' }] }];
+sg = getSmartSugg(hexA());
+T('a short session does not extend the persistence run', !isPersist(sg), JSON.stringify(sg));
+
+// Landing IN range must stay quiet — this is the guard that keeps the change targeted.
+// ohp target is 7; three sessions at exactly 7 is compliance, not evidence of a light load.
+d.sessions = Array.from({ length: 3 }, (_, i) => ({
+  id: 'psO' + i, date: `2026-06-0${i + 1}`, day: 'B', loc: 'home',
+  ex: [{ id: 'ohp', wt: 27.5, reps: [7, 7, 7, 7], band: '' }] }));
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
+T('3 sessions AT target does not trigger persistence', !/sessions running over/.test(sg.detail || ''), JSON.stringify(sg));
+
 // ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
 // Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
 // call it "optional". With 2+ COMPOUND lifts stalling it should now be RECOMMENDED.

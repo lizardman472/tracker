@@ -13,7 +13,7 @@
 // v90: v21.3 — the partner cards get the bar lifts' hero/plate/warm-up treatment, and three
 // unbuildable prescriptions are corrected (22kg/bell carry, 3.5kg/DB fly, +2kg clubbell). A
 // stale shell would keep prescribing loads the rack cannot build, so the key moves with it.
-const C = 'rft-v90';
+const C = 'rft-v91';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
