@@ -972,8 +972,8 @@ const PARTNER_BASE=[
 // guessed. Re-derive this block from a fresh export before any day is resized.
 const LOC_B_PR={
 A:[...PARTNER_BASE,
-{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',ss:'Rear-Delt Fly',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'Re-seeded in v21. You logged 3×16-20 at 11kg against a target of 12 — several steps too light, and at one Day-A visit per quarter the engine would have taken years to catch up. Type 15kg/DB in once — the suggestion reads your history, so it cannot re-anchor itself; after that one entry the engine progresses from there. The rack allows 18.5.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
-{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:30',rir:'2-3',tp:'db',ss:'DB Biceps Curl',rl:'⚡ Superset with the DB Curl. Hinge at the hips, chest down, raise the DBs wide with soft elbows, squeeze. Confirm → ↑0.5kg/DB.',note:'Re-seeded DOWN in v21 — the one direction nothing else moved. Prescribed 15-20 reps, you logged 10-12 at 5kg, so the load was too heavy for its own rep target. Type 3kg/DB in once (the suggestion reads history, so it will not drop itself) and earn 20 strict reps before adding anything back. ⚠ v21 said 3.5kg/DB here, which the rack cannot build: 3.5/bell needs 0.75kg per end and the smallest plate is 0.5 — 3kg is the rung below, and it is what the seed already uses.',tg:20,rstS:30,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',ss:'Rear-Delt Fly',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'One of the few partner lifts with real headroom — the matched rack reaches 18.5kg/DB. ⚠ v21 asked you to type 15kg/DB in by hand because at one Day-A visit per quarter the engine could never catch up on its own. That instruction is SPENT: the v21 collapse gave this lift ~3 exposures a month, and the big-overshoot re-anchor now does it unaided (beat the target of 12 by 4+ on every set and the load jumps proportionally, ≈10% capped). Type nothing in — follow the card.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
+{id:'db_rear_fly',nm:'DB Bent-Over Rear-Delt Fly',s:3,rp:'15-20',rst:'0:30',rir:'2-3',tp:'db',ss:'DB Biceps Curl',rl:'⚡ Superset with the DB Curl. Hinge at the hips, chest down, raise the DBs wide with soft elbows, squeeze. Confirm → ↑0.5kg/DB.',note:'Keep this LIGHT and strict — hypermobile shoulders, and a 15-20 rep target means the load has to let you finish the range. ⚠ v21.3 asked you to type 3kg/DB in by hand, on 10-12 reps at 5kg. That instruction is SPENT: the reps have been rebuilding at 5kg on their own (10 → 10 → 14 against a floor of 15) and the card now holds the load while they climb rather than cutting it. Earn 20 strict reps before adding anything back. ⚠ The rack cannot build 3.5kg/DB — that needs 0.75kg per end and the smallest plate is 0.5, so 3kg is the rung below 4.',tg:20,rstS:30,tempo:'2-1-2-1',perSide:false,loadUnit:'per_db'},
 {id:'cb_mills',nm:'Clubbell Mills',s:3,rp:'8/side',rst:'0:45',rir:'2',tp:'club',fixedKg:8,rl:'Optional finisher. Alternate inner/outer. Grip + anti-rotation. Skip freely on tight days.',note:'Fixed 8kg — the only clubbell you have, so this progresses by reps and control, never load. Kept because every partner session you have ever logged included clubbell work; one rotates onto each day (A Mills / B Shield Cast / C Arm Cast).',tg:8,rstS:45,tempo:'controlled',perSide:true,optional:true}],
 B:[...PARTNER_BASE,
 {id:'pb_dips',nm:'Dip Negatives (Parallel Bars)',s:3,rp:'3-5',rst:'0:45',rir:'—',tp:'bw',rl:'ECCENTRIC ONLY. Jump or step to the top, then lower under control for 5 seconds to upper-arm parallel. Step out and reset — do NOT press back up. 3×5 clean 5s negatives → lengthen to 6s.',note:'v21: this replaces the band-assisted dip the program used to prescribe here, which assumed a band could be anchored under the bars. It cannot, and unassisted full dips at this venue would be poor-quality reps. Negatives are the honest version — eccentric-only work still drives the chest/triceps hard and is the standard on-ramp to a strict dip. Progression ladder: 5s → 6s → 7s → add a 2s pause at the bottom → then start pressing out of the bottom. Your pressing STRENGTH is built at home.',tg:5,rstS:45,tempo:'5-0-0-0',perSide:false},
@@ -2257,6 +2257,28 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
       const cv=effectiveReps(ex,last.reps);
       return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
         detail:`Cluster hit (${cv.length}×${Math.min(...cv)}) — that was the prescribed intervention, not a third stall. Retry ${ex.s}×${mn}${ex.perSide?'/side':''} at ${lastLoad}kg before any load cut.`,regress}}
+    // CLIMBING toward the floor — a lift whose reps are RISING is not stalled, and cutting it
+    // is churn on a load that was already correcting itself. `stalls` counts consecutive
+    // below-minimum sessions with no regard for trajectory, so 10 → 10 → 14 against a 15-rep
+    // floor scored identically to 10 → 10 → 10 and earned the same ~10% cut. That is the live
+    // db_rear_fly case in the 13 Aug export (§24.4): three sessions at 5kg/DB reading 10, 10,
+    // 14 against a 3×15 minimum — one session from landing in range, and about to be cut.
+    // Compares the LAST TWO sessions of the run, not its first and last. First-to-last is the
+    // obvious reading and it does not terminate: a run of 10, 14, 14, 14… still shows 10 → 14
+    // and would hold the load forever. Last-two asks "is it STILL rising", so the guard buys
+    // exactly one session at a time and stops the moment progress does. A lift that keeps
+    // rising reaches `mn` and leaves this branch entirely. Bounded to within 2 reps of the
+    // floor as well, so a lift climbing from far below (6 → 10 against a 15-rep minimum) is
+    // still cut — that one is genuinely on the wrong load, not one session short.
+    const climb=(()=>{
+      if(stallRun.length<2)return null;
+      const a=workSets(stallRun[stallRun.length-2]),b=workSets(stallRun[stallRun.length-1]);
+      if(!a.length||!b.length)return null;
+      const from=Math.min(...a),to=Math.min(...b);
+      return to>from&&to>=mn-2?{from,to}:null})();
+    if(stalls>=3&&climb){
+      return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+        detail:`Reps climbing ${climb.from}→${climb.to} toward ${ex.s}×${mn}${ex.perSide?'/side':''} at ${lastLoad}kg — one more session to land it before any load cut.`,regress}}
     if(stalls>=3){
       // True deload: back off ~10% (the prior one-rung step was <2% on a micro-plate
       // ladder, so it sent you straight back into the same wall). bb snaps to the

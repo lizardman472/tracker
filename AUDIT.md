@@ -1833,4 +1833,48 @@ attributed instead of guessed.
 - **`programVersion` not bumped.** No stored-shape, day-membership, set-count or rep-range change:
   `ex[].ts` is additive and optional, exactly the shape §21.1/§22 left the migration chain alone for.
 
-Suite: **520 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v91`.
+### 24.4 · A lift climbing toward its rep floor was being cut one session short
+
+Follow-up, from checking two recommendations this document had made rather than asserting them.
+`getDeload` on the live export returns `due:false, consider:true, stalledMajor:0, avgDiff:2.6` —
+the gate §11 built specifically to refuse timer-only deloads. A "deload now" recommendation on
+that data was wrong, and the app was right. (`getFatigue` separately reads **10/10 Fatigued** off
+volume and frequency; the two measure different things and the disagreement is not a defect.)
+
+The second check found a real one. `stalls` counts consecutive below-minimum sessions at a load
+with **no regard for trajectory**, so `db_rear_fly` reading 10 → 10 → 14 against a 3×15 floor
+scored identically to 10 → 10 → 10 and was about to take the same ~10% cut — one session before
+it would have landed in range. **Fixed** with a `climb` guard ahead of the `stalls>=3` cut: hold
+the load when the run's reps are still rising and the latest is within 2 of the minimum.
+
+Two details are load-bearing. It compares the **last two sessions of the run, not first-to-last**
+— first-to-last does not terminate, since 10, 14, 14, 14… keeps reading "10 → 14" and would hold
+the load forever; last-two buys exactly one session at a time and stops when progress does. And
+the within-2-of-floor bound keeps a lift climbing from far below (6 → 10 against a 15-rep floor)
+on the cut path, because that one is on the wrong load rather than one session short. Four
+assertions including the termination case; mutating `to>from` to `to>=from` fails 9 tests.
+
+### 24.5 · Two coach notes had expired and were fighting the cards beside them
+
+`db_curl` and `db_rear_fly` both carried "type this load in once by hand" instructions, written
+when the pre-v21 partner cadence meant the engine could never re-anchor unaided. v21 collapsed
+the split, the exposures arrived, and the engine overtook both: `db_curl` now proposes **↑15kg/DB
+on its own** (3×12+4 clears `overTrig`, ≈10% jump) — the exact number the note asks you to type —
+and `db_rear_fly` is rebuilding reps at 5kg under §24.4's guard, not sitting at the 3kg the note
+prescribes. Static prose against a live engine expires, and expired prose does not fail loudly;
+it just contradicts the suggestion on the same card. Both are rewritten to say the instruction is
+spent and why.
+
+The test pinning the literal string `"Type 3kg/DB"` was replaced rather than deleted: pinning a
+phrase forces a stale instruction to live forever, so it now asserts the durable property (the
+note may *explain* that 3.5kg/DB is unbuildable but must never *prescribe* it) plus a new pair
+requiring both expired instructions to stay retired.
+
+**Net effect on the live export — two suggestions differ from the pre-pass engine:**
+
+```
+floor_press   up ↑ 38.5kg      →   up ↑ 40kg          (§24.1 persistent overshoot)
+db_rear_fly   dn ↓ 4.5kg/DB    →   stay → 5kg/DB      (§24.4 climbing guard)
+```
+
+Suite: **526 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v92`.

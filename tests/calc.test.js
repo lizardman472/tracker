@@ -207,6 +207,38 @@ d.sessions = Array.from({ length: 3 }, (_, i) => ({
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
 T('3 sessions AT target does not trigger persistence', !/sessions running over/.test(sg.detail || ''), JSON.stringify(sg));
 
+// ── stall branch: a lift CLIMBING toward its rep floor is not stalled ──
+// `stalls` counts consecutive below-minimum sessions with no regard for trajectory, so a lift
+// reading 10, 10, 14 against a 3×15 floor scored identically to 10, 10, 10 and earned the same
+// ~10% cut — one session before it would have landed. That is the live db_rear_fly case in the
+// 13 Aug export.
+const rearFly = () => getProgram(1, 'partner').A.find(e => e.id === 'db_rear_fly');
+const flyRun = rr => rr.map((r, i) => ({
+  id: 'cl' + i, date: `2026-07-0${i + 1}`, day: 'A', loc: 'partner',
+  ex: [{ id: 'db_rear_fly', wt: 5, reps: r, band: '' }] }));
+d = freshD({ phase: 1, phaseStart: '2026-01-01' });
+d.location = 'partner';
+
+d.sessions = flyRun([[10, 10, 10], [10, 10, 10], [14, 14, 14]]);
+sg = getSmartSugg(rearFly());
+T('climbing reps near the floor hold the load instead of cutting',
+  sg.type === 'stay' && sg.wt === 5 && /climbing 10→14/.test(sg.detail), JSON.stringify(sg));
+
+d.sessions = flyRun([[10, 10, 10], [10, 10, 10], [10, 10, 10]]);
+sg = getSmartSugg(rearFly());
+T('a flat run at the same load still cuts', sg.type === 'dn', JSON.stringify(sg));
+
+// TERMINATION: the guard compares the last TWO sessions, not first-to-last. Were it
+// first-to-last, 10, 14, 14 would still read "10 → 14" and hold the load indefinitely.
+d.sessions = flyRun([[10, 10, 10], [14, 14, 14], [14, 14, 14]]);
+sg = getSmartSugg(rearFly());
+T('once reps stop rising the cut proceeds (guard terminates)', sg.type === 'dn', JSON.stringify(sg));
+
+// Climbing but far from the floor is a wrong load, not a near miss — still cut.
+d.sessions = flyRun([[6, 6, 6], [8, 8, 8], [10, 10, 10]]);
+sg = getSmartSugg(rearFly());
+T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringify(sg));
+
 // ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
 // Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
 // call it "optional". With 2+ COMPOUND lifts stalling it should now be RECOMMENDED.
@@ -566,10 +598,25 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
     }
   }
   T('every "Type Xkg" instruction names a load the rack can actually build', bad.length === 0, bad.join(' · '));
-  // And the corrected figure specifically.
+  // And the corrected figure specifically. This used to pin the literal string "Type 3kg/DB".
+  // That instruction has since been retired as SPENT (the reps rebuilt at 5kg on their own),
+  // so pinning the phrase would force a stale instruction to stay on the card forever. What
+  // must hold is the durable property: the note may EXPLAIN that 3.5 is unbuildable, but it
+  // must never PRESCRIBE it — and 3 must remain a real rung while 3.5 is not.
   const fly = global.__X.ALL_EX.find(e => e.id === 'db_rear_fly');
-  T('rear-delt fly prescribes 3kg/DB (a real rung), not the unbuildable 3.5',
-    /Type 3kg\/DB/.test(fly.note) && global.__X.DBW_PAIR.includes(3) && !global.__X.DBW_PAIR.includes(3.5));
+  T('rear-delt fly never prescribes the unbuildable 3.5kg/DB',
+    !/[Tt]ype\s+3\.5\s*kg/.test(fly.note) && global.__X.DBW_PAIR.includes(3) && !global.__X.DBW_PAIR.includes(3.5));
+
+  // ── expired hand-entry instructions must be retired, not left to mislead ──
+  // Both of these told the lifter to type a load in once, because at the pre-v21 partner
+  // cadence the engine could never re-anchor. v21 collapsed the split, the exposures arrived,
+  // and the engine overtook both — db_curl now proposes 15kg/DB unaided and db_rear_fly is
+  // rebuilding reps at 5kg. A note that still says "type X in" now fights the card beside it.
+  const curl = global.__X.ALL_EX.find(e => e.id === 'db_curl');
+  T('db_curl hand-entry instruction is retired and marked spent',
+    !/Type 15kg\/DB in once/.test(curl.note) && /SPENT/.test(curl.note), curl.note.slice(0, 90));
+  T('db_rear_fly hand-entry instruction is retired and marked spent',
+    !/Type 3kg\/DB in once/.test(fly.note) && /SPENT/.test(fly.note), fly.note.slice(0, 90));
   T('3.5kg/bell really is unbuildable either way', dbEnd(3.5, true) === null && dbEnd(3.5, false) === null);
   // Its seed already used 3 — note and seed must agree, or the note fights the engine.
   T('rear-delt fly note and seed agree on 3kg', (() => {
