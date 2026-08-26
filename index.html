@@ -1193,6 +1193,16 @@ function getWeeklyVolume(days){
 // Rolling 7 days, and it names the muscles rather than scolding — the actionable fact is
 // WHICH tail got cut too often, because that tells you which accessory to put back first.
 function expressMEVRisk(days){
+  // A return ramp PRESCRIBES the cut this guard exists to flag: stage 1 is literally "drop the
+  // accessory tail", which is what Express does. Both halves of the conjunction below then hold
+  // by construction, so the banner would fire at a lifter for doing exactly what the app just
+  // told them to do — the app arguing with itself.
+  //
+  // Suppressed for the WHOLE ramp, not only stage 1: the guard reads a rolling 7-day window, so
+  // for days after stage 1 ends that window still contains the stage-1 sessions and any warning
+  // built from it would be part false. Missing a genuinely-earned nag inside a <=21-day window
+  // is the cheaper error, and the Balance dashboard still shows the real volume throughout.
+  if(D.comeback)return null;
   const win=days||7;
   const cut=new Date();cut.setDate(cut.getDate()-win);const cutS=ymd(cut);
   const recent=D.sessions.filter(s=>s.date>=cutS);
@@ -2881,11 +2891,28 @@ D.comebackLog=[...D.comebackLog,rec].slice(-RTN_LOG_MAX);
 D.comeback=null;
 return rec}
 
-// Ramps complete on the calendar, so something has to notice the date rolled over. render()
-// is that something: every screen goes through it, and it is the one place a read is allowed
-// to become a write. Returns whether it changed anything (so callers/tests can assert).
+// Ramps move on the calendar, so something has to notice the date rolled over. render() is
+// that something: every screen goes through it, and it is the one place a read is allowed to
+// become a write. Returns whether it changed anything (so callers/tests can assert).
 function comebackTick(){
-if(!D.comeback||today()<=D.comeback.end)return false;
+const c=D.comeback;if(!c)return false;
+const t=today();
+// The runway starts when YOU do. A ramp that burns calendar while no training happens is a
+// countdown to nothing: you reach the end date having trained zero times, the record claims a
+// ramp that never ran, and the offer stays suppressed the whole time because a ramp is
+// technically open. So while no session has landed inside the window, the window rolls forward
+// with today — and RE-SIZES, because the break kept getting longer while it waited.
+//
+// It stops rolling the instant one session lands inside it, which is what makes the end date
+// the stable promise it is meant to be. Deleting that session puts the ramp back to waiting;
+// that is deliberate — with nothing logged inside it, the ramp has not begun.
+if(t>c.start&&!D.sessions.some(x=>x.date>=c.start&&x.date<=c.end)){
+  const last=lastSessDate();
+  const gap=last?dayDiff(t,last):c.gap;
+  const days=rtnDays(gap);
+  D.comeback={start:t,end:rtnEnd(t,days),gap};
+  save();return true}
+if(t<=c.end)return false;
 archiveComeback('completed');save();return true}
 
 // Shape guard for a stored ramp. Validated hard — both dates feed date math, the render
@@ -2897,6 +2924,12 @@ const D8=/^\d{4}-\d{2}-\d{2}$/;
 if(typeof c.start!=='string'||!D8.test(c.start))return null;
 if(typeof c.end!=='string'||!D8.test(c.end))return null;
 if(c.end<c.start)return null;
+// beginComeback refuses a start more than a week out, so one that far ahead came from a
+// hand-edited store or a corrupted backup. Honouring it would park a ramp as permanently
+// "scheduled": never rolling (the roll only fires once today passes the start), never
+// completing, and suppressing the break offer forever. Reject rather than repair — there is
+// no defensible date to repair it to.
+if(dayDiff(c.start,today())>7)return null;
 const gap=Math.round(Number(c.gap));
 // Clamp an over-long window rather than trusting it: every ramp this app opens is already
 // clamped to RTN_MAX_DAYS, so a longer one came from a hand-edited store or a corrupted

@@ -2312,6 +2312,53 @@ T('ending early truncates the window to today', early.end === today() && early.d
 T('...records what was actually served', early.sessions === 2 && early.ended === 'early');
 T('...and closes the live ramp', d.comeback === null && d.comebackLog.length === 1);
 
+// ── the runway does not burn calendar while you are not training ──
+// The failure this prevents: tap Start, never train, and 20 days later the ramp completes
+// having served nothing — while suppressing the break offer the entire time, because a ramp
+// was technically open.
+d = freshD({ sessions: preBreak() });
+beginComeback(today());
+d.comeback = { start: ago(4), end: ago(4 - 19), gap: 19 };   // as if opened 4 days ago
+const before = { ...d.comeback };
+T('a ramp with nothing logged in it rolls forward', comebackTick() === true && d.comeback.start === today());
+T('...re-deriving the gap from the last real session', d.comeback.gap === 19, JSON.stringify(d.comeback));
+T('...with the full runway ahead of it again', dayDiff(d.comeback.end, d.comeback.start) + 1 === 19);
+T('...so it never completes empty', d.comebackLog.length === 0);
+T('...and the end date moved with it', d.comeback.end !== before.end);
+// A ramp left waiting long enough that the break outgrew its original size gets re-sized, up
+// to the 21-day ceiling — the runway should describe the break you actually took.
+{ const dd = freshD({ sessions: preBreak().map((x, i) => ({ ...x, date: i ? ago(40) : ago(42) })) });
+  dd.comeback = { start: ago(3), end: ago(3 - 8), gap: 9 };
+  comebackTick();
+  T('a long wait re-sizes the runway to the break it is now covering', dd.comeback.gap === 40 && dayDiff(dd.comeback.end, dd.comeback.start) + 1 === RTN_MAX_DAYS, JSON.stringify(dd.comeback)); }
+// One session inside the window freezes the dates — that is what makes the end date a promise.
+d.sessions = [...preBreak(), light('roll1', today())];
+const frozen = { ...d.comeback };
+T('one logged session stops the roll', comebackTick() === false && d.comeback.start === frozen.start && d.comeback.end === frozen.end);
+// A ramp scheduled for tomorrow must not roll — it has not been reached yet.
+d = freshD({ sessions: preBreak() });
+beginComeback(ahead(1));
+T('a scheduled ramp does not roll before its start date', comebackTick() === false && d.comeback.start === ahead(1));
+
+// ── a far-future start cannot park a ramp as permanently scheduled ──
+T('validComeback rejects a start more than a week out', validComeback({ start: ahead(30), end: ahead(40), gap: 9 }) === null);
+T('...but accepts one inside the window beginComeback allows', validComeback({ start: ahead(1), end: ahead(9), gap: 9 }) !== null);
+T('...and accepts an archived row starting in the past', validComeback({ start: ago(30), end: ago(24), gap: 9 }) !== null);
+
+// ── the Express guard must not nag you for following the ramp ──
+// Stage 1 is "drop the accessory tail", which is what Express does; without this the app
+// warns the lifter for doing exactly what it just told them to do.
+{
+const expressD = () => { const dd = freshD({ sessions: [] });
+  dd.sessions = [0, 1, 2].map(i => ({ id: 'xp' + i, date: ago(i), day: 'A', loc: 'home', phase: 1, express: true,
+    ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] })); return dd };
+const noRamp = expressD();
+T('express + under-MEV normally warns', expressMEVRisk(7) !== null);
+const onRamp = expressD();
+onRamp.comeback = { start: ago(3), end: ahead(15), gap: 19 };
+T('...but is silent while a ramp is running', expressMEVRisk(7) === null);
+}
+
 // ── history badging ──
 d = freshD({ sessions: preBreak() });
 d.comebackLog = [{ start: ago(10), end: ago(4), gap: 19, days: 7, sessions: 2, ended: 'completed' }];

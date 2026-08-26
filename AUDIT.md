@@ -2083,5 +2083,36 @@ the History record and badge, the chart marker, dark theme, and a reload round-t
 the negative that made the bug visible: the first lift on screen *does* take the `type:'new'`
 path, and the strip shows anyway.
 
-Suite: **612 + 277 + 386 (+3 pre-existing failures) + 49, 18/18 SW mutations caught,
-12/12 browser checks.** SW cache `rft-v95`.
+### 26.7 · Three edge cases closed, and a browser suite so the next one is caught
+
+A deliberate adversarial pass over the diff, after the §26.6 miss, found three more:
+
+- **The runway burned calendar while you were not training.** Tap Start, never train, and the
+  ramp counted down to an end date having served nothing — writing a zero-session row into a
+  permanent record, and suppressing the break offer the whole time because a ramp was
+  technically open. Now the window rolls forward with today, and *re-sizes*, until one session
+  lands inside it; then the dates freeze. That is what makes the end date the promise it is
+  meant to be, and it removes the empty-record case entirely. Deleting the only session in a
+  ramp puts it back to waiting, which is deliberate: with nothing logged inside it, it has not
+  begun.
+- **A far-future `comeback.start` parked the app in "scheduled" forever.** `beginComeback`
+  refuses a start more than a week out, but `validComeback` did not, so a hand-edited or
+  corrupted store could carry one — never rolling (the roll only fires once today passes the
+  start), never completing, suppressing the offer indefinitely. Rejected outright: there is no
+  defensible date to repair it to.
+- **The Express/MEV guard nagged you for following the ramp.** Stage 1 *is* "drop the accessory
+  tail", so both halves of that guard's conjunction hold by construction — the app warning a
+  lifter for doing exactly what it just told them to do. Suppressed for the whole ramp rather
+  than only stage 1, because the guard reads a rolling 7-day window that keeps containing the
+  stage-1 sessions for days afterward; missing a genuinely-earned nag inside a ≤21-day window is
+  the cheaper error, and Balance still shows the real volume throughout.
+
+**`tests/browser.test.js`** now loads the app in Chromium over real HTTP, seeds `localStorage`
+the way the app stores it, and asserts on what a person would see — including the negative that
+made §26.6 visible (the first lift on screen *does* take `getSmartSugg`'s early `type:'new'`
+return, and the strip shows anyway). It self-skips with a loud message if playwright or a
+Chromium build is absent, so it is an addition to the battery rather than a second gate on the
+suites that already pass. CI installs Chromium and runs it.
+
+Suite: **625 + 277 + 386 (+3 pre-existing failures) + 49 + 18 browser, 18/18 SW mutations
+caught.** SW cache `rft-v96`.

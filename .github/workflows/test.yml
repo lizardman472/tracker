@@ -23,6 +23,13 @@ jobs:
         run: node tests/render.smoke.js
       - name: Service-worker tests
         run: node tests/sw.test.js
+      - name: Install Chromium for the browser suite
+        # The stubbed-DOM suites cannot catch "the markup builds and says nothing useful" —
+        # that is how the return-ramp advisory shipped invisible with every other suite green
+        # (AUDIT §26.6). This installs the one browser tests/browser.test.js needs.
+        run: npm i -D playwright@1.56 && npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: node tests/browser.test.js
       - name: Service-worker mutation check
         # Proves the battery above actually fails when the SW breaks — a new test file that
         # passes on its first run has not yet demonstrated it can catch anything.
