@@ -2059,4 +2059,29 @@ done — so the ramp is a first-class object end to end:
   fixed once the ramp opens, and deriving leaves the session shape, `validSession`, imports and
   the two-tab merge completely untouched by this feature.
 
-Suite: **612 + 277 + 383 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v94`.
+### 26.6 · What the headless tests could not see
+
+Everything above was verified headless — Node harnesses against a DOM stub. Driving the real
+app in Chromium found one thing the stub could not: **the prescription was invisible on the
+workout screen for most lifts.**
+
+The per-lift advisory rides on `sg.regress`, which `getSmartSugg` emits from the middle of its
+ladder. Every branch that returns before that point — a first-time lift, a band with no
+history, a weight-only row — hardcodes `regress:''`. On a real store one session back, 8 of 9
+lifts on Day B took an early return, so the ramp showed on exactly one card. The calc test
+asserted on `sg.regress` (the data) and passed; the render smoke test never opened the workout
+screen. Both were green, and the feature was not doing its job.
+
+The fix is not to patch six early returns. A ramp is a **session-level** fact — "day 3, run it
+at ~90% and stop short" applies to the whole workout, not to one lift — so it is stated once as
+a strip at the top of `rWork`, above the first exercise. The per-lift cue stays for the lifts
+that do reach it. (The deload advisory has the identical hole and is left alone: its banner
+already lives on Home, and widening that is not this change's job.)
+
+Twelve browser checks now cover the offer, a scheduled start, a live ramp, the workout strip,
+the History record and badge, the chart marker, dark theme, and a reload round-trip — including
+the negative that made the bug visible: the first lift on screen *does* take the `type:'new'`
+path, and the strip shows anyway.
+
+Suite: **612 + 277 + 386 (+3 pre-existing failures) + 49, 18/18 SW mutations caught,
+12/12 browser checks.** SW cache `rft-v95`.

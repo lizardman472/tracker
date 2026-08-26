@@ -166,6 +166,17 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   T('...tracks sessions logged and the day it stops', /0 logged so far/.test(card) && /normal progression resumes/.test(card));
   T('...and offers a way out', /endComeback\(\)/.test(card));
 
+  // The prescription has to survive onto the workout screen itself. It rode only on the
+  // per-lift advisory at first, which getSmartSugg emits from the middle of its ladder — so
+  // every lift that returns early (first-time, band-with-no-history, weight-only) never got it,
+  // which on the first sessions back is most of the screen. Assert the session-level strip.
+  tryRender('workout (ramp running)', () => R.beginW('A'));
+  card = R.getA();
+  T('the workout screen states the ramp once, at the top', /Return ramp · day 1\/19 · session 1 back/.test(card), card.slice(0, 400));
+  T('...with the stage-1 prescription, not just the day count', /stage 1: ~90% of pre-break loads/.test(card));
+  R.finishW && R.setCIDX(0);
+  R.go('home');
+
   tryRender('history (with a live ramp)', () => R.go('history'));
   T('History records the ramp', /Return ramps/.test(R.getA()) && /In progress · day 1\/19/.test(R.getA()));
 
