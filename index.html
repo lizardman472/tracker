@@ -1348,7 +1348,7 @@ const SEED={sessions:[
 // programVersion:21 keeps the migrateToV12..V21 chain a no-op on demo bootstraps (they
 // exist for real older stores); the dead `confirmed` field is gone for the same reason —
 // the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:21};
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:21,comeback:null,comebackLog:[]};
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1532,6 +1532,12 @@ if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today()
 if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
 if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d.lastBackupCount=0;
 if(!d.dismissed)d.dismissed={};
+// Return-from-break ramp + its archive. Guarded on the load path for the same reason
+// sessions are: both dates drive date math, the render layer and the progression-memory
+// blackout, so a hand-edited or half-written store must not reach any of them. Absent on
+// every store written before this feature, which is why they default rather than migrate.
+d.comeback=validComeback(d.comeback);
+d.comebackLog=validComebackLog(d.comebackLog);
 if(!['auto','light','dark'].includes(d.theme))d.theme='auto';
 d=migrateData(d);
 d=migrateToV12(d);
@@ -1579,7 +1585,7 @@ try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
 // A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
 // rather than restoring the bundled demo sessions in SEED.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[]}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
 // The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
@@ -1980,6 +1986,16 @@ hist=hist.filter(h=>!h.noProg);
 // (edge case), keep it — a light anchor beats "first time".
 if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const dlEnd=ymd(de);
   const f=hist.filter(h=>h.date<D.lastDeload||h.date>dlEnd);if(f.length)hist=f}
+// A return ramp's STAGE 1 is deliberately submaximal for the same reason a deload week is, so
+// it gets the same treatment: those sessions leave progression memory, and the next suggestion
+// resumes from the PRE-BREAK load instead of anchoring to the backed-off one. This is the
+// ramp's ONLY mechanical effect on the app, and without it the light sessions of a comeback
+// read as consecutive below-range sessions — the app's definition of a stall — handing a
+// phantom ~10% cut to someone who just got out of bed. See rampMutedDates for why stage 2 is
+// deliberately NOT muted. Same `if(f.length)` escape hatch as above: a light anchor beats
+// "first time".
+{const muted=rampMutedDates();
+ if(muted.size){const f=hist.filter(h=>!muted.has(h.date));if(f.length)hist=f}}
 // Rows with a weight but NO reps carry no progression signal. savePast saves one as soon as a
 // weight or band is entered (`if(wt)hasData=true`), so "I trained this at 32kg" with the rep
 // boxes left blank produced a session the engine read as below-range — three of them forced a
@@ -2019,6 +2035,11 @@ else if(mildDisc>=3)discWarn='⚠ Mild discomfort 3 sessions running — monitor
 // Active deload week ("Took one" tapped <7 days ago): every lift carries the advisory.
 const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
 if(dlDay!=null&&dlDay>=0&&dlDay<7&&!discWarn)discWarn=`🛌 Deload week · day ${dlDay+1}/7 — take ~10% off, stop 2-3 reps shy`;
+// Active return ramp — same slot, same one-line budget. The two can never collide in
+// practice: getDeload refuses to recommend during a ramp, so a deload week and a ramp only
+// overlap if the lifter deliberately started both, and then discomfort/deload wins the line
+// because it is the more conservative instruction.
+if(!discWarn){const rtn=getComeback();if(rtn&&!rtn.pending&&!rtn.over)discWarn=rtnAdvice(rtn).cue}
 
 // How many sets of a logged session count as WORKING sets: today's prescription, capped by
 // what was actually logged (the same id can be 4 sets on one day and 3 on another).
@@ -2642,8 +2663,18 @@ const sc=Math.round(Math.min(10,Math.max(0,f*.8+pk*1.5+pv/3000))*10)/10;
 if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:sc,label:'Ready',color:'var(--pr)'};
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
-function getDeload(stalledMajor=0){const st=D.lastDeload||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
-const sc=D.lastDeload?D.sessions.filter(s=>s.date>D.lastDeload).length:D.sessions.length;
+function getDeload(stalledMajor=0){
+// The deload clock measures accumulated training fatigue since it was last discharged. A
+// layoff long enough to need a return ramp discharges it as surely as a deload week does, so
+// the clock restarts from the ramp's end when that is the more recent of the two. Without
+// this the weeks kept ticking through a break the lifter spent in bed and the banner fired
+// the moment they came back — recommending a light week to someone who had just had two.
+// Deliberately NOT done by writing lastDeload: that field is a record of a deload actually
+// taken, it is what mergeImport adopts on a fresh device, and faking it would make the
+// History and Progress screens claim a deload that never happened.
+const anchor=[D.lastDeload,rampEnd()].filter(Boolean).sort().pop()||null;
+const st=anchor||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
+const sc=anchor?D.sessions.filter(s=>s.date>anchor).length:D.sessions.length;
 // Signal-driven: don't deload on timer alone — check for actual fatigue signals.
 // Average RPE over the last 14 days (not the last 5 sessions whenever they were)
 // so a fortnight-old hard block can't keep flagging fatigue today. Fall back to
@@ -2665,12 +2696,224 @@ const stallDue=stalledMajor>=2;
 // doesn't stretch the deload clock the way calendar-only did. Strict > on weeks keeps the
 // off-by-one fix ("every 6 weeks" = after 6 completed weeks, not at week 6's start).
 const timerMet=wk>timerThresh||sc>=timerThresh*3;
-const due=timerMet&&(highFatigue||stallDue);
-const consider=timerMet&&!due;
+// An open ramp already IS the light week. Recommending a deload on top of it would put two
+// contradictory prescriptions on one screen — and the stalls feeding `stallDue` are exactly
+// what a de-adapted lifter produces. The object is still returned (callers read .wk) but it
+// never recommends while a ramp is running.
+const rtnOpen=!!D.comeback;
+const due=!rtnOpen&&timerMet&&(highFatigue||stallDue);
+const consider=!rtnOpen&&timerMet&&!due;
 const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledMajor} key lifts stalling`
   :highFatigue?`RPE avg ${Math.round(avgDiff*10)/10}/5 high`
   :stallDue?`${stalledMajor} key lifts stalling`:'';
-return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledMajor,reason}}
+return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledMajor,reason,
+  suppressed:rtnOpen?'comeback':null}}
+
+// ═══════════════ RETURN FROM BREAK ═══════════════
+// A layoff — illness, travel, life — was the one interruption this app could not see. The
+// deload machinery next door is signal-driven (RPE, repeated compound stalls) and fires on
+// FATIGUE; a break is the opposite state. After a week off you are not fatigued, you are
+// de-adapted, and the correct prescription (submaximal loads, trimmed volume, a fixed
+// runway back to normal) only LOOKS like a deload. It means something different, it is
+// triggered by something different, and it has to be recorded as something different —
+// hence its own object rather than a second use of lastDeload.
+//
+// Where the numbers come from:
+//   • Graduated return of 2–3 days per missed training unit, and "one day back per day
+//     out" — the return-to-play rules of thumb, e.g. the ACC 2022 expert consensus decision
+//     pathway (Gluckman et al., J Am Coll Cardiol 79:17). Consensus practice, not RCT dosing.
+//   • Volume is restored BEFORE intensity: connective tissue re-adapts slower than muscle,
+//     and the classic comeback injury is a lifter whose muscle recovered faster than the
+//     tendon attached to it.
+//   • The ramp rebuilds to the PRE-BREAK load rather than re-earning it, because a short
+//     layoff does not cost the machinery: myonuclei persist through months of detraining
+//     (Cumming et al. 2024, J Physiol 602:4171) and the first-session deficit is largely
+//     neural. Re-testing from scratch would throw away work that is still there.
+//
+// Because the dosing is consensus rather than evidence-grade, the ramp is ADVISORY
+// everywhere: it never blocks a session, never rewrites a prescription, never edits a
+// weight suggestion. It changes exactly one mechanical thing — progression memory, see
+// getSmartSugg — and otherwise it talks.
+
+// A gap this long stops being a rest day and starts being a layoff. Fixed at 7 rather than
+// derived from the lifter's own cadence: at any sane training frequency a full week off is
+// two or more missed sessions, which is where graduated-return advice starts to apply — and
+// a cadence-derived threshold would be dragged upward by the very breaks it exists to catch.
+const RTN_MIN_GAP=7;
+// Ramp length in days = the gap, clamped. Floor 7 because a runway shorter than a week
+// cannot hold two sessions at a normal cadence, so there would be no stage 1 to speak of.
+// Ceiling 21 because past three weeks off this is no longer a ramp back into a block, it is
+// a new block — the phase clock and the deload timer are the right tools at that point.
+const RTN_MIN_DAYS=7,RTN_MAX_DAYS=21;
+// Sessions spent in stage 1 before the ramp moves to stage 2. Staged on SESSIONS rather
+// than days because the thing that re-adapts is the tissue that actually trained: two
+// calendar days into a ramp you may have trained twice or not at all, and the prescription
+// ("first two sessions reduced, then rebuild") is written in sessions for that reason.
+const RTN_STAGE1_SESS=2;
+// Completed ramps kept. They are ~80 bytes each and only the last few are ever read, but the
+// record is the point of the feature, so the cap is generous.
+const RTN_LOG_MAX=40;
+
+// Max session date. D.sessions is kept date-sorted by every writer (savePast sorts, the
+// merges sort), but "last session" drives the entire break signal, so derive it rather than
+// trusting the tail — a single out-of-order row would otherwise fake or hide a layoff.
+function lastSessDate(){let m=null;for(const s of D.sessions)if(!m||s.date>m)m=s.date;return m}
+function rtnDays(gap){return Math.max(RTN_MIN_DAYS,Math.min(RTN_MAX_DAYS,Math.round(gap)))}
+// Inclusive end date: a 7-day ramp starting Monday ends the following Sunday, not Monday.
+function rtnEnd(start,days){const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+days-1);return ymd(d)}
+function dayAfter(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+1);return ymd(x)}
+
+// The break signal: a gap long enough to warrant a ramp, with none already running. Returns
+// null when there is nothing to offer — including when a ramp is open, because the offer and
+// the progress card are mutually exclusive states of the same thing.
+function getBreak(){
+if(D.comeback)return null;
+// A store still on the bundled SEED demo has months-old sessions nobody trained. Offering a
+// 21-day ramp back from a break that never happened is the first thing a new install would
+// see, and it would be a lie. load() marks that state; real training clears it.
+if(D.seeded)return null;
+const last=lastSessDate();if(!last)return null; // nothing to come back to
+const gap=dayDiff(today(),last);
+if(gap<RTN_MIN_GAP)return null;
+// Sized as if starting today; beginComeback re-derives from the start the lifter picks, so
+// choosing "tomorrow" lengthens the gap and can lengthen the ramp with it.
+return{last,gap,days:rtnDays(gap)}}
+
+// Open a ramp. `start` is the first day back — dating the ramp from the real first session
+// rather than from the tap is the whole reason this takes a parameter: "I'll start tomorrow"
+// is the normal case, and a day counter that began the day you READ the banner would be off
+// by one for the rest of the ramp.
+function beginComeback(start){
+const last=lastSessDate();if(!last)return false;
+const t=today();
+if(!/^\d{4}-\d{2}-\d{2}$/.test(String(start)))return false;
+if(start<t)start=t; // never backdate: a ramp is a plan, not a record
+// A start more than a week out is a mis-tap, not a plan — and the gap it would be sized
+// from has not happened yet.
+if(dayDiff(start,t)>7)return false;
+const gap=dayDiff(start,last);
+if(gap<RTN_MIN_GAP)return false;
+const days=rtnDays(gap);
+D.comeback={start,end:rtnEnd(start,days),gap};
+return true}
+
+// The active ramp, resolved for the UI. Null when none is open.
+//   day     1 on the start date, ≤0 while the ramp is still scheduled (kept RAW — the
+//           "starts in N days" copy is computed from it, and clamping here broke that)
+//   sess    sessions logged inside the window. Retro-logging a session dated inside a ramp
+//           counts it, which is right: the ramp is a property of the calendar, not of the
+//           order things were typed in.
+//   stage   1 = re-introduce, 2 = rebuild. Driven by sess, see RTN_STAGE1_SESS.
+function getComeback(){
+const c=D.comeback;if(!c)return null;
+const t=today();
+const days=dayDiff(c.end,c.start)+1;
+const day=dayDiff(t,c.start)+1;
+const sess=D.sessions.filter(s=>s.date>=c.start&&s.date<=c.end).length;
+return{start:c.start,end:c.end,gap:c.gap,days,day,sess,
+  pending:day<1,over:t>c.end,
+  until:Math.max(0,dayDiff(c.start,t)),            // days until it starts (0 once started)
+  left:Math.max(0,dayDiff(c.end,t)),               // days remaining (0 on the last day)
+  resumes:dayAfter(c.end),
+  stage:sess<RTN_STAGE1_SESS?1:2,
+  pct:Math.round(Math.max(0,Math.min(day,days))/days*100)}}
+
+// The prescription in the two lengths the app needs it. `cue` goes in the per-lift advisory
+// strip, where the deload advisory already lives and the budget is one line; `detail` goes
+// on the home card, where there is room to say why.
+function rtnAdvice(r){
+return r.stage===1
+?{cue:`🔄 Return · day ${r.day}/${r.days} — ~90% of pre-break load, stop 3+ reps shy`,
+  detail:`<b>Stage 1 · re-introduce</b> — first ${RTN_STAGE1_SESS} sessions back. Roughly 90% of the load you were using before the break, and cut the accessory tail (Express does exactly that). Stop 3+ reps shy on every set. The target is about half your normal training load, and you get there by dropping SETS, not by grinding out lighter ones.`}
+:{cue:`🔄 Return · day ${r.day}/${r.days} — pre-break loads, full volume, stop 2 reps shy`,
+  detail:`<b>Stage 2 · rebuild</b> — loads back to where they were before the break, full session, still stopping ~2 reps shy. Volume first, intensity second: connective tissue re-adapts slower than muscle, so this is not the week to test a max.`}}
+
+// Every window the progression engine must treat as deliberately submaximal: the live ramp
+// plus the most recent completed ones. Completed ramps still count because getHist looks 8
+// sessions back — a ramp that ended last week is still inside that lookback, and re-admitting
+// it would hand the engine three light sessions to read as a stall (the phantom-deload bug
+// this whole filter exists to prevent). `n` bounds the walk; 4 is already far more than the
+// lookback can reach, and the History screen passes Infinity because it badges every session.
+function rampWindows(n=4){
+const log=(Array.isArray(D.comebackLog)?D.comebackLog:[]).filter(c=>c&&c.start&&c.end);
+const w=Number.isFinite(n)?log.slice(-n):log.slice();
+if(D.comeback)w.push(D.comeback);
+return w}
+// Which ramp a given date was trained under, or null. Derived from the window rather than
+// stamped on the session: the window is fixed once the ramp opens, and deriving keeps the
+// session shape, imports and the two-tab merge completely untouched by this feature.
+// `ws` lets a caller hoist the window list out of a per-row loop — rHist badges every session
+// on screen, and rebuilding the list once per row is the kind of quiet O(rows x ramps) that
+// only shows up years later with a long log.
+function rampOf(date,ws){for(const c of(ws||rampWindows(Infinity)))if(date>=c.start&&date<=c.end)return c;return null}
+// The session DATES the progression engine must not see. Only STAGE 1 is muted — the first
+// RTN_STAGE1_SESS sessions of each ramp, which are the ones deliberately run at ~90% with the
+// accessory tail cut. Stage 2 is explicitly "back to pre-break loads, full volume", so it is
+// honest progression data and has to reach the engine: muting a whole 21-day ramp would blind
+// it to three weeks of real training and leave every suggestion anchored on a pre-break load
+// that is no longer true. Muting stage 1 is what stops the phantom deload; muting more than
+// that would trade one wrong answer for another.
+//
+// Keyed by DATE because that is the only join key `hist` rows carry. Two sessions logged on
+// one date therefore mute together — rare, and erring toward the conservative side.
+function rampMutedDates(){
+const out=new Set();
+for(const w of rampWindows()){
+  const dts=[...new Set(D.sessions.filter(s=>s.date>=w.start&&s.date<=w.end).map(s=>s.date))].sort();
+  for(const dt of dts.slice(0,RTN_STAGE1_SESS))out.add(dt)}
+return out}
+// End date of the most recently COMPLETED ramp. The live one has discharged nothing yet —
+// it is still being served — so it deliberately does not count here.
+function rampEnd(){let m=null;for(const c of(Array.isArray(D.comebackLog)?D.comebackLog:[]))if(c&&c.end&&(!m||c.end>m))m=c.end;return m}
+
+// Close the live ramp and write it into the permanent record. `how` is 'completed' (the end
+// date arrived) or 'early' (ended by hand), and it is kept because "9 days planned, ended on
+// day 4" is a different fact from "9 days planned, 9 days served".
+function archiveComeback(how){
+const c=D.comeback;if(!c)return null;
+if(!Array.isArray(D.comebackLog))D.comebackLog=[];
+// An early end truncates the window to today, so the record describes what was actually
+// served — and so the progression blackout does not extend past the light training it covers.
+const end=how==='early'?(today()<c.start?c.start:today()):c.end;
+const rec={start:c.start,end,gap:c.gap,days:dayDiff(end,c.start)+1,
+  sessions:D.sessions.filter(s=>s.date>=c.start&&s.date<=end).length,ended:how};
+D.comebackLog=[...D.comebackLog,rec].slice(-RTN_LOG_MAX);
+D.comeback=null;
+return rec}
+
+// Ramps complete on the calendar, so something has to notice the date rolled over. render()
+// is that something: every screen goes through it, and it is the one place a read is allowed
+// to become a write. Returns whether it changed anything (so callers/tests can assert).
+function comebackTick(){
+if(!D.comeback||today()<=D.comeback.end)return false;
+archiveComeback('completed');save();return true}
+
+// Shape guard for a stored ramp. Validated hard — both dates feed date math, the render
+// layer AND the progression-memory blackout, so a malformed one would not merely render
+// wrong, it would silently remove arbitrary history from every weight suggestion.
+function validComeback(c){
+if(!c||typeof c!=='object'||Array.isArray(c))return null;
+const D8=/^\d{4}-\d{2}-\d{2}$/;
+if(typeof c.start!=='string'||!D8.test(c.start))return null;
+if(typeof c.end!=='string'||!D8.test(c.end))return null;
+if(c.end<c.start)return null;
+const gap=Math.round(Number(c.gap));
+// Clamp an over-long window rather than trusting it: every ramp this app opens is already
+// clamped to RTN_MAX_DAYS, so a longer one came from a hand-edited store or a corrupted
+// backup, and the cost of honouring it is an unbounded blackout in progression memory.
+const end=dayDiff(c.end,c.start)+1>RTN_MAX_DAYS?rtnEnd(c.start,RTN_MAX_DAYS):c.end;
+return{start:c.start,end,gap:Number.isFinite(gap)&&gap>0?gap:RTN_MIN_GAP}}
+// Same guard for the archive. `days`/`sessions` are recomputed rather than trusted so the
+// row can never claim a length its own dates contradict.
+function validComebackLog(a){
+if(!Array.isArray(a))return[];
+const out=[];
+for(const c of a){const v=validComeback(c);if(!v)continue;
+  const n=Math.round(Number(c.sessions));
+  out.push({...v,days:dayDiff(v.end,v.start)+1,sessions:Number.isFinite(n)&&n>0?n:0,
+    ended:c.ended==='early'?'early':'completed'})}
+out.sort((x,y)=>x.start.localeCompare(y.start));
+return out.slice(-RTN_LOG_MAX)}
 
 // ═══════════════ TIMER ═══════════════
 // Wall-clock based: setInterval is throttled/paused with the screen off on
@@ -2779,7 +3022,13 @@ if(show){const tEl=ov.querySelector('.alarm-time');if(tEl)tEl.textContent=`Overt
 
 // ═══════════════ RENDER ═══════════════
 let CIV=null,LAST_VIEW=null;
-function render(){const n=document.getElementById('nav');
+function render(){
+// A ramp ends on a date, so something has to notice the date rolled over — and every screen
+// comes through here. Runs BEFORE the view is built so the screen that renders is already
+// looking at the post-completion state (the alternative is a home screen that shows a
+// finished ramp as live until the next tap).
+comebackTick();
+const n=document.getElementById('nav');
 if(['workout','summary','cardio','logpast'].includes(VIEW))n.innerHTML='';
 else{const ts=[['home','Today'],['history','History'],['stats','Progress'],['body','Body'],['settings','Settings']];
 n.innerHTML=ts.map(([v,l])=>`<button class="${VIEW===v?'a':''}" onclick="go('${v}')">${l}</button>`).join('')}
@@ -2894,6 +3143,38 @@ const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
 if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${dl.wk}wk since deload · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+
+// Return from break — the app's blind spot until now. The deload banner above fires on
+// FATIGUE; this fires on ABSENCE, and the two are mutually exclusive by construction
+// (getDeload refuses to recommend while a ramp is open). Offer, never impose: the button
+// starts a plan, it does not change a single prescription.
+{const bk=getBreak();
+if(bk&&!bannerDismissed('rtn',bk.last)){
+// Dismissal is keyed on the LAST SESSION DATE, not on the gap: keying it on the gap would
+// re-show the card every single day the break continued, which is the nagging this dismiss
+// exists to stop. It re-arms the moment they train again — i.e. for the next break.
+h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
+<button onclick="dismissBanner('rtn','${bk.last}')" aria-label="Dismiss return-from-break suggestion" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
+<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">🔄 ${bk.gap} days since your last session</div>
+<div class="dm" style="margin-bottom:8px">A gap this long is a layoff, not a rest day. A staged return — reduced load for the first ${RTN_STAGE1_SESS} sessions back, then straight to your pre-break loads — is what return-to-training guidance recommends, and it keeps those light sessions from being read as a stall. Planned runway: <b>${bk.days} days</b>, one day back per day out.</div>
+<div style="display:flex;gap:6px">
+<button class="btn btn-pr btn-md" style="flex:1" onclick="startComeback('${today()}')">Start today</button>
+<button class="btn btn-wh btn-md" style="flex:1" onclick="startComeback('${dayAfter(today())}')">Start tomorrow</button></div></div>`}}
+
+// Active (or scheduled) ramp — the tracker half of the feature: which day you are on, which
+// stage that puts you in, how many sessions have landed, and the date it stops.
+{const r=getComeback();
+if(r){const ad=rtnAdvice(r);
+h+=`<div class="cd" style="border:2px solid var(--pr)">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
+<div style="font-size:13px;font-weight:700;color:var(--pr)">🔄 ${r.pending?`Return ramp · starts ${fmtD(r.start)}`:`Return ramp · day ${r.day} of ${r.days}`}</div>
+<button class="btn-sm btn-wh" style="flex-shrink:0" onclick="endComeback()">${r.pending?'Cancel':'End early'}</button></div>
+${r.pending?'':`<div class="fg-bar"><div class="fg-fill" style="width:${r.pct}%;background:var(--pr)"></div></div>`}
+<div class="dm" style="margin-top:4px">${ad.detail}</div>
+<div class="dm" style="margin-top:7px;padding-top:6px;border-top:1px solid var(--cb)">${r.pending
+?`Starts in ${r.until} day${r.until===1?'':'s'} · ${r.days}-day runway after ${r.gap} days off · normal progression resumes ${fmtD(r.resumes)}`
+:`Session ${r.sess+1} of the ramp next · ${r.sess} logged so far · ${r.left===0?'last day':`${r.left} day${r.left===1?'':'s'} left`} · normal progression resumes ${fmtD(r.resumes)}`}</div>
+<div class="dm" style="margin-top:5px;font-size:10px">Your first ${RTN_STAGE1_SESS} sessions back are held out of weight suggestions, so training light now can't pull your working loads down. Stage 2 counts normally.</div></div>`}}
 
 // Hero — show rest-day card if last session was today or yesterday
 const ls=isP?'2':'1';
@@ -3937,6 +4218,9 @@ for(const s of ss){const p=s.phase;if(p==null)continue;
 if(prev!=null&&p!==prev){const i=idx[weekKey(s.date)];if(i!=null&&!marks.some(m=>m.i===i))marks.push({i,label:'P'+p})}
 prev=p}
 if(D.lastDeload){const i=idx[weekKey(D.lastDeload)];if(i!=null)marks.push({i,label:'DL',color:CH_TARGET})}
+// Return ramps, marked at the week they START. This is the annotation that explains an
+// otherwise alarming tonnage cliff — without it a comeback reads on the chart as a collapse.
+for(const c of rampWindows(Infinity)){const i=idx[weekKey(c.start)];if(i!=null&&!marks.some(m=>m.i===i))marks.push({i,label:'RTN',color:CH_PR})}
 return marks}
 // ── Recent PRs: scan history, find sessions that set a new best-weight or best-e1RM at the time ──
 // The full walk (ALL_EX × getHist(200)) is the app's heaviest hot path and rStats
@@ -4425,7 +4709,7 @@ let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol
 const pct=prior?Math.round((recent-prior)/prior*100):0;
 trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
 const marks=weeklyMarks(ws);
-h+=`<div class="cd">${svgBars(volData,360,150,C_PR,'Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(volData,360,150,C_PR,'Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week${marks.some(m=>m.label==='RTN')?' · RTN = return from break':''}</div>`:''}</div>`;
 h+=`<div class="cd">${svgBars(sessData,360,130,C_BL,'Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
 // RPE trend if data exists
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels
@@ -4667,7 +4951,19 @@ const shown=ss.slice(0,HIST_N),rest=ss.length-shown.length;
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
 <h2 class="pg-title" style="margin:0">History <span class="dm" style="font-size:11px;font-weight:600">· ${ss.length} session${ss.length===1?"":"s"}</span></h2>
 <button class="btn-sm btn-pr" onclick="go('logpast')">+ Log Past</button></div>`;
+// Return ramps, live and finished. A ramp is a training event in its own right — the reason
+// three weeks of your log look the way they do — so it belongs in the history record and not
+// only in the moment. Rendered as its own compact card rather than interleaved into the
+// session list, which is paged and reverse-chronological; the sessions themselves carry a
+// badge (below) so the two views agree.
+{const rl=[...(D.comebackLog||[])].reverse(),live=getComeback();
+if(rl.length||live){
+h+=`<div class="cd" style="padding:10px 14px;margin-bottom:8px"><div class="lb" style="margin-bottom:5px">Return ramps</div>`;
+if(live)h+=`<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0"><span style="color:var(--pr);font-weight:700">${live.pending?'Scheduled':`In progress · day ${live.day}/${live.days}`}</span><span class="mu">${fmtD(live.start)} → ${fmtD(live.end)} · ${live.sess} session${live.sess===1?'':'s'}</span></div>`;
+for(const c of rl)h+=`<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:3px 0;border-top:1px solid var(--cb)"><span>${fmtD(c.start)} → ${fmtD(c.end)}${c.ended==='early'?' <span class="mu">· ended early</span>':''}</span><span class="mu">${c.days}d back after ${c.gap}d off · ${c.sessions} session${c.sessions===1?'':'s'}</span></div>`;
+h+=`</div>`}}
 if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
+const RW=rampWindows(Infinity); // hoisted: rampOf runs once per rendered session row
 for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
@@ -4675,7 +4971,8 @@ h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP===
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
 ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
-${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}</div>
+${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}
+${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</div>
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
@@ -4699,6 +4996,20 @@ h+=`</div>`;el.innerHTML=h}
 // a weight suggestion. Additive flag: old backups without it import unchanged.
 window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)return;
 if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
+// Return-ramp controls. On window because they are reached from inline onclick handlers.
+window.startComeback=function(start){
+if(!beginComeback(start)){alert(`A return ramp needs ${RTN_MIN_GAP}+ days since your last logged session, and a start date no more than a week out.`);return}
+if(!save())alert('⚠ Could not save — storage is full or blocked. The ramp will not survive a reload until you free some space.');
+render()};
+// One button, two meanings, because "end" means something different depending on whether the
+// ramp ever ran. A ramp that has not started, or started today with nothing logged under it,
+// is a mis-tap — delete it outright rather than writing a zero-session row into a permanent
+// record. Anything else actually happened and gets archived, truncated to today.
+window.endComeback=function(){
+const r=getComeback();if(!r)return;
+if(r.pending||(r.sess===0&&r.day<=1)){D.comeback=null;save();render();return}
+if(!confirm(`End the return ramp now? It goes into your history as ${r.sess} session${r.sess===1?'':'s'} over ${r.day} day${r.day===1?'':'s'}, instead of the ${r.days} planned.`))return;
+archiveComeback('early');save();render()};
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
 // Tombstone the id so the two-tab conflict merge can't union the row back in from a stale
@@ -4850,6 +5161,20 @@ h+=`<div class="cd"><div style="display:flex;justify-content:space-between;align
 <button class="toggle${wkOn?' on':''}" aria-pressed="${wkOn}" onclick="toggleWake()"><span class="toggle-dot"></span></button></div>
 <div class="dm" style="margin-top:6px">Stops the screen sleeping mid-workout so the rest alarm always fires on time. Uses a little more battery; only held while a workout is in progress.</div></div>`;}
 else h+=`<div class="cd"><div class="dm">This browser can't keep the screen awake.</div></div>`;
+// Return from break. The home banner is dismissible and only re-arms on the next break, so
+// without an entrance here a dismissed offer would be unrecoverable until the lifter trained —
+// which is precisely the thing the ramp is meant to precede.
+{const rSt=getComeback(),rBk=rSt?null:getBreak();
+h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Return From Break</div><div class="cd">`;
+if(rSt)h+=`<div style="font-size:12px;margin-bottom:6px">${rSt.pending?`Scheduled to start <strong>${fmtD(rSt.start)}</strong>`:`<strong>Day ${rSt.day} of ${rSt.days}</strong> · stage ${rSt.stage} · ${rSt.sess} session${rSt.sess===1?'':'s'} logged`}</div>
+<div class="dm" style="margin-bottom:8px">Runs to ${fmtD(rSt.end)}; normal progression resumes ${fmtD(rSt.resumes)}. The first ${RTN_STAGE1_SESS} sessions back are held out of weight suggestions.</div>
+<button class="btn btn-wh btn-md" onclick="endComeback()">${rSt.pending?'Cancel ramp':'End ramp early'}</button>`;
+else if(rBk)h+=`<div style="font-size:12px;margin-bottom:6px">${rBk.gap} days since your last session</div>
+<div class="dm" style="margin-bottom:8px">A ${rBk.days}-day staged return is available: reduced load for the first ${RTN_STAGE1_SESS} sessions, then pre-break loads.</div>
+<div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="startComeback('${today()}')">Start today</button>
+<button class="btn btn-wh btn-md" style="flex:1" onclick="startComeback('${dayAfter(today())}')">Start tomorrow</button></div>`;
+else h+=`<div class="dm">No break to ramp back from — this appears after ${RTN_MIN_GAP}+ days without a logged session.${(D.comebackLog||[]).length?` ${D.comebackLog.length} past ramp${D.comebackLog.length===1?'':'s'} on record.`:''}</div>`;
+h+=`</div>`}
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd"><div style="font-size:12px;margin-bottom:8px">Current: <strong>Phase ${phi.phase} — ${phi.name}</strong> (Week ${phi.wk}/${phi.maxWk})</div>
 <div style="display:flex;gap:6px">`;
@@ -4957,6 +5282,13 @@ W.cardioLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 const bKeys=new Set(W.bodyLog.map(x=>x.date));
 for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x==='object'&&x.date&&!bKeys.has(x.date))W.bodyLog.push(x)}
 W.bodyLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+// Completed ramps are an append-only log keyed by start date — union them like body rows, so
+// a ramp archived in the other tab is not lost when this one saves. The LIVE ramp (W.comeback)
+// is deliberately not merged: it is current state, and every scalar in this merge keeps THIS
+// tab's value. Their rows pass the same guard the load path uses.
+{const rKeys=new Set((Array.isArray(W.comebackLog)?W.comebackLog:[]).map(x=>x.start));
+ const add=validComebackLog(theirs.comebackLog).filter(x=>!rKeys.has(x.start));
+ W.comebackLog=validComebackLog([...(Array.isArray(W.comebackLog)?W.comebackLog:[]),...add]);}
 const dKeys=new Set(W.discomfort.map(x=>x.date+x.exId+x.joint));
 for(const x of(Array.isArray(theirs.discomfort)?theirs.discomfort:[])){if(x&&typeof x==='object'&&!dKeys.has(x.date+x.exId+x.joint))W.discomfort.push(x)}
 // Cues had no branch here at all, so a coaching cue typed in one tab was dropped the moment
@@ -5018,6 +5350,11 @@ for(const x of d.discomfort){if(!dKeys.has(x.date+x.exId+x.joint))W.discomfort.p
 const bKeys=new Set(W.bodyLog.map(x=>x.date));
 for(const x of d.bodyLog){if(!bKeys.has(x.date))W.bodyLog.push(x)}
 W.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));
+// Ramp history is additive like the logs above — a backup from the phone should not drop the
+// comeback the tablet recorded. Keyed by start date, and re-validated rather than trusted.
+{const rKeys=new Set((Array.isArray(W.comebackLog)?W.comebackLog:[]).map(x=>x.start));
+ const add=validComebackLog(d.comebackLog).filter(x=>!rKeys.has(x.start));
+ W.comebackLog=validComebackLog([...(Array.isArray(W.comebackLog)?W.comebackLog:[]),...add]);}
 // Cue KEYS are interpolated into the delete-button onclick — constrain the charset.
 for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))W.cues[k]=v;
 // Adopt global metadata (phase clock / venue / deload date) ONLY when migrating into a fresh
@@ -5037,6 +5374,11 @@ if(wasFresh){
   // on top of real training silently removed those sessions from every suggestion; and the
   // `: null` fallback meant a backup with a malformed lastDeload wiped a valid local one.
   if(d.lastDeload!==undefined)W.lastDeload=(typeof d.lastDeload==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.lastDeload))?d.lastDeload:null;
+  // An IN-PROGRESS ramp travels with the phase clock, and for the same reason lastDeload does:
+  // it subtracts a date window from progression memory, so adopting one onto a device that
+  // already has real training in that window would silently blank those sessions from every
+  // suggestion. Fresh device only, validated, and null (no ramp) is a legitimate value to adopt.
+  if(d.comeback!==undefined)W.comeback=validComeback(d.comeback);
 }
 // Update nextDay from latest session — location aware
 {const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}

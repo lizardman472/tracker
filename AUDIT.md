@@ -1954,3 +1954,109 @@ ceiling, and cutting it further would leave a session training almost nothing.
   require touching `isExpressKeep`.
 
 Suite: **542 + 277 + 364 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v93`.
+
+## 26 · Return from break — the layoff the app could not see (26 Aug 2026)
+
+A week of illness, and the tracker had no concept of what had happened. It is not that the
+break went unnoticed cosmetically — it is that every mechanism the app has for "train lighter
+for a bit" is wired to the wrong trigger.
+
+### 26.1 · The deload machinery is the wrong tool, for a precise reason
+
+`getDeload` is signal-driven: a timer met, plus either self-rated RPE ≥ 4 or two compound lifts
+genuinely stalling. Every one of those inputs measures **accumulated fatigue**. A layoff is the
+opposite state — after a week off you are not fatigued, you are de-adapted — so the deload
+banner cannot fire for a break, and if it did it would be firing for the wrong reason.
+
+Worse, the break actively *breaks* the fatigue machinery in three separate places:
+
+| Mechanism | What a week off did to it |
+|---|---|
+| `getSmartSugg` stall ladder | Three light comeback sessions are three below-range sessions, which is the app's literal definition of a stall → a phantom ~10% cut handed to someone just out of bed |
+| `getPhaseInfo.stalledMajor` | Those same sessions raise the compound-stall count that feeds the deload gate |
+| `getDeload` week timer | Calendar weeks kept ticking through the break, so the banner fired the moment training resumed — recommending a light week to someone who had just had two |
+
+So the ramp is its own object (`D.comeback`) with its own record (`D.comebackLog`), rather than a
+second use of `lastDeload`. Reusing that field would have been three lines and a lie: it is the
+record of a deload actually taken, it is what `mergeImport` adopts onto a fresh device, and
+faking it would make History and Progress claim a deload that never happened.
+
+### 26.2 · The numbers, and how confident they are
+
+- **Threshold: 7 days.** At any sane training frequency a full week off is 2+ missed sessions,
+  which is where graduated-return advice starts to apply. Deliberately *not* derived from the
+  lifter's own cadence — `avgGap` is dragged upward by the very breaks it would be detecting.
+- **Runway: `clamp(gap, 7, 21)` days.** "One day back per day out", the return-to-play rule of
+  thumb; cross-checked against "2–3 days of graduated return per missed training unit" (ACC 2022
+  expert consensus decision pathway, Gluckman et al., *JACC* 79:17), which for ~3 missed sessions
+  lands in the same 6–9 day band. Floor 7: a shorter runway cannot hold two sessions, so there is
+  no stage 1. Ceiling 21: past three weeks this is a new block, and the phase clock is the tool.
+- **Stage 1 = first 2 SESSIONS,** not the first N days. Two calendar days into a ramp you may
+  have trained twice or not at all; the prescription is written in sessions because the thing
+  that re-adapts is the tissue that actually trained.
+- **Volume before intensity,** and stage 2 rebuilds to the *pre-break* load rather than
+  re-earning it: a short layoff does not cost the machinery (myonuclei persist through months of
+  detraining — Cumming et al. 2024, *J Physiol* 602:4171) and the first-session deficit is
+  largely neural. Re-testing from scratch throws away work that is still there.
+
+This is consensus practice, not RCT-grade dosing, and the code says so. The ramp is **advisory
+everywhere**: it never blocks a session, rewrites a prescription, or edits a weight suggestion.
+
+### 26.3 · The one mechanical effect, and why it stops where it does
+
+Stage-1 sessions leave progression memory (`rampMutedDates` → `getSmartSugg`), exactly as deload
+weeks already do. That is what kills the phantom deload.
+
+**Stage 2 is deliberately NOT muted.** The first cut of this muted the whole window, which is
+correct for a 9-day ramp with three sessions and wrong for a 21-day one with nine: it would
+blind the engine to three weeks of real training and leave every suggestion anchored on a
+pre-break load that is no longer true. Stage 2's own prescription is "back to pre-break loads,
+full volume" — that is honest data and has to reach the engine. Muting stage 1 stops the false
+stall; muting more would trade one wrong answer for another. Both halves are tested, including
+the negative: the same sessions with no ramp on record still deload.
+
+The deload clock also re-anchors on the most recent *completed* ramp's end date. A layoff
+discharges accumulated fatigue as surely as a deload week does. An **active** ramp deliberately
+does not re-anchor — it has discharged nothing yet, it is still being served — and instead
+suppresses the recommendation outright (`suppressed:'comeback'`), because a deload banner on top
+of a running ramp is two contradictory prescriptions on one screen.
+
+### 26.4 · Tracking, and what lands in the record
+
+The lifter asked to track it day by day with an end date, and for it to become history when
+done — so the ramp is a first-class object end to end:
+
+- **Home** shows either the offer (`getBreak`) or the live card: *day N of M*, a progress bar,
+  the stage prescription, sessions logged, days left, and the date normal progression resumes.
+- **The start date is a parameter**, not the moment of the tap. "I'll start tomorrow" is the
+  normal case, and a day counter that began when you *read* the banner would be off by one for
+  the whole ramp. A tomorrow start also lengthens the gap it is sized from, so the runway grows.
+- **Completion is calendar-driven.** `comebackTick()` runs at the top of `render()` — every
+  screen goes through it, and it is the one place a read is allowed to become a write.
+- **History** carries the ramp record (dates, planned length, days off, sessions, whether it
+  ended early) and badges every session trained under one. The weekly tonnage chart gets an
+  `RTN` marker at the ramp's start week — without it a comeback reads on the chart as a collapse.
+- **Ending early archives; a mis-tap deletes.** A ramp that never started, or started today with
+  nothing logged under it, is not an event and does not get a zero-session row in a permanent
+  record. Anything else is truncated to today and archived, because "9 days planned, ended on
+  day 4" is a different fact from "9 planned, 9 served".
+
+### 26.5 · Recorded
+
+- **`programVersion` not bumped.** No day membership, set count or rep range changes. `comeback`
+  and `comebackLog` are additive optional fields that `load()` defaults and validates, so there
+  is nothing for a migration to do — same call as §25.4.
+- **Both new fields are validated on the load path**, not just trusted. They are not cosmetic:
+  the ramp window subtracts dates from progression memory, so a hand-edited or half-written
+  store would silently blank real sessions from every weight suggestion rather than merely
+  rendering wrong. An over-long window is clamped to `RTN_MAX_DAYS` for the same reason.
+- **`comebackLog` is append-only and unions across tabs and imports**; the *live* ramp is current
+  state and keeps the local tab's value, and is adopted from a backup only onto a fresh device —
+  exactly the rule `lastDeload` already follows, and for exactly the same reason.
+- **The demo is excluded.** `getBreak` returns null on a `seeded` store: offering a 21-day ramp
+  back from a break that never happened would be the first thing a new install ever showed.
+- **Ramp membership is derived from the date window, not stamped on sessions.** The window is
+  fixed once the ramp opens, and deriving leaves the session shape, `validSession`, imports and
+  the two-tab merge completely untouched by this feature.
+
+Suite: **612 + 277 + 383 (+3 pre-existing failures) + 49, 18/18 SW mutations caught.** SW cache `rft-v94`.

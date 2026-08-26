@@ -140,6 +140,57 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   R.go('home');
 }
 
+// ── Return from break: the offer, the live ramp card, and the record ──
+// The engine is covered in calc.test.js; what this proves is that all three UI states build
+// and say the load-bearing things — a ramp the lifter cannot see is a ramp they will not run.
+{
+  const D3 = R.getD();
+  const realSessions = D3.sessions, realLog = D3.comebackLog, realCb = D3.comeback;
+  const iso = n => { const x = new Date(); x.setDate(x.getDate() - n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}` };
+  D3.location = 'home'; D3.nextDay = 'A'; D3.dismissed = {}; D3.comeback = null; D3.comebackLog = [];
+  D3.sessions = [{ id: 'br1', date: iso(19), day: 'A', loc: 'home', phase: 1,
+    ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
+
+  tryRender('home (break detected)', () => R.go('home'));
+  let card = R.getA();
+  T('a 19-day gap surfaces the return-from-break offer', /19 days since your last session/.test(card));
+  T('...naming the runway it would plan', /19 days<\/b>, one day back per day out/.test(card));
+  T('...and offering both start dates', /startComeback\('/.test(card) && /Start tomorrow/.test(card));
+  T('...dismissible on the last-session date, so it cannot nag daily', new RegExp(`dismissBanner\\('rtn','${iso(19)}'\\)`).test(card));
+
+  beginComeback(iso(0));
+  tryRender('home (ramp running)', () => R.render());
+  card = R.getA();
+  T('the live ramp card replaces the offer', /Return ramp · day 1 of 19/.test(card) && !/days since your last session/.test(card));
+  T('...shows the stage-1 prescription', /Stage 1 · re-introduce/.test(card));
+  T('...tracks sessions logged and the day it stops', /0 logged so far/.test(card) && /normal progression resumes/.test(card));
+  T('...and offers a way out', /endComeback\(\)/.test(card));
+
+  tryRender('history (with a live ramp)', () => R.go('history'));
+  T('History records the ramp', /Return ramps/.test(R.getA()) && /In progress · day 1\/19/.test(R.getA()));
+
+  // A finished ramp with a session inside it: the record, and the badge on the session.
+  D3.comeback = null;
+  D3.comebackLog = [{ start: iso(10), end: iso(4), gap: 19, days: 7, sessions: 1, ended: 'completed' }];
+  D3.sessions = [...D3.sessions, { id: 'br2', date: iso(7), day: 'B', loc: 'home', phase: 1,
+    ex: [{ id: 'ohp', wt: 21, reps: [6, 6, 6, 6], band: '' }] }];
+  tryRender('history (completed ramp)', () => R.go('history'));
+  card = R.getA();
+  T('a completed ramp stays in the history record', /7d back after 19d off/.test(card));
+  T('...and the session trained under it is badged', /↩ ramp/.test(card));
+
+  tryRender('settings (break pending)', () => R.go('settings'));
+  T('Settings carries a way back in after the banner is dismissed', /Return From Break/.test(R.getA()) && /startComeback\('/.test(R.getA()));
+  // Trained today = no break to offer, so the section falls back to reporting the record.
+  D3.sessions = [...D3.sessions, { id: 'br3', date: iso(0), day: 'C', loc: 'home', phase: 1,
+    ex: [{ id: 'rdl', wt: 43, reps: [8, 8, 8], band: '' }] }];
+  tryRender('settings (no break)', () => R.go('settings'));
+  T('...and with nothing to ramp back from, reports the record instead', /1 past ramp on record/.test(R.getA()), R.getA().slice(R.getA().indexOf('Return From Break'), R.getA().indexOf('Return From Break') + 300));
+
+  D3.sessions = realSessions; D3.comebackLog = realLog; D3.comeback = realCb; D3.dismissed = {};
+  R.go('home');
+}
+
 // ── Workout screen showing a hex lift ──
 R.getD().location = 'home';
 tryRender('workout (Day A, hex_dl current)', () => R.beginW('A'));

@@ -18,7 +18,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -34,7 +34,8 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK } = global.__X;
+const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK,
+  RTN_MIN_GAP, RTN_MIN_DAYS, RTN_MAX_DAYS, RTN_STAGE1_SESS } = global.__X;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -2144,6 +2145,216 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   d.sessions.sort((a, b) => a.date.localeCompare(b.date));
   const cy = consistency();
   T('young history divides by its own span', cy.perWk8 >= 2.9 && cy.perWk8 <= 3.6, cy.perWk8);
+}
+
+// ── Return from break: the layoff ramp ────────────────────────────────────────────────────
+// The deload machinery fires on FATIGUE; this fires on ABSENCE. The two must never
+// recommend at the same time, and a ramp's deliberately-light sessions must never reach the
+// progression engine — that last one is the whole reason the feature is mechanical at all.
+{
+const ago = n => { const x = new Date(); x.setDate(x.getDate() - n); return ymd(x) };
+const ahead = n => { const x = new Date(); x.setDate(x.getDate() + n); return ymd(x) };
+const dlEx = getProgram(1, 'home').A.find(e => e.id === 'hex_dl');
+// Pre-break history: two clean sessions at 47kg, a fortnight ago.
+const preBreak = () => [
+  { id: 'pb1', date: ago(21), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] },
+  { id: 'pb2', date: ago(19), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
+
+// ── ramp length: one day back per day out, clamped at both ends ──
+T('rtnDays floors a short gap at 7', rtnDays(3) === 7);
+T('rtnDays is 1:1 inside the band', rtnDays(9) === 9 && rtnDays(21) === 21);
+T('rtnDays ceils a long layoff at 21', rtnDays(60) === RTN_MAX_DAYS);
+
+// ── the break signal ──
+let d = freshD({ sessions: [] });
+T('no sessions → nothing to come back from', getBreak() === null);
+d = freshD({ sessions: preBreak().map((s, i) => ({ ...s, date: ago(4 - i) })) });
+T('a 3-day gap is a rest, not a layoff', getBreak() === null);
+d = freshD({ sessions: preBreak() });
+let bk = getBreak();
+T('a 19-day gap is a layoff', bk && bk.gap === 19, JSON.stringify(bk));
+T('...sized one day back per day out, clamped to 21', bk.days === 19);
+T('...and it names the session it is measuring from', bk.last === ago(19));
+
+// ── opening a ramp ──
+d = freshD({ sessions: preBreak() });
+T('beginComeback(today) opens a ramp', beginComeback(today()) === true);
+let r = getComeback();
+T('ramp starts today, day 1 of 19', r.day === 1 && r.days === 19, JSON.stringify(r));
+T('ramp end is INCLUSIVE (19 days = start + 18)', r.end === ahead(18), r.end);
+T('normal progression resumes the day after it ends', r.resumes === ahead(19));
+T('an open ramp replaces the offer', getBreak() === null);
+
+// "I'll start tomorrow" — the ramp is dated from the first real session, and the extra
+// day off is part of the gap it is sized from.
+d = freshD({ sessions: preBreak() });
+beginComeback(ahead(1));
+r = getComeback();
+T('a tomorrow start is scheduled, not running', r.pending === true && r.until === 1, JSON.stringify(r));
+T('...and the extra day off lengthens the gap it was sized from', r.gap === 20 && r.days === 20);
+T('...day counter is 0 the day before it starts', r.day === 0);
+
+d = freshD({ sessions: preBreak() });
+T('a start more than a week out is refused', beginComeback(ahead(8)) === false && !d.comeback);
+d = freshD({ sessions: preBreak() });
+beginComeback(ago(5));
+T('a backdated start is clamped to today', d.comeback.start === today());
+d = freshD({ sessions: preBreak().map(s => ({ ...s, date: ago(2) })) });
+T('no ramp without a real break', beginComeback(today()) === false && !d.comeback);
+d = freshD({ sessions: preBreak() });
+T('a malformed start is refused', beginComeback('tomorrow') === false && !d.comeback);
+
+// ── staging runs on SESSIONS, not days ──
+d = freshD({ sessions: preBreak() });
+beginComeback(today());
+T('stage 1 before anything is logged', getComeback().stage === 1);
+const rampSess = n => Array.from({ length: n }, (_, i) => ({ id: 'r' + i, date: today(), day: 'A', loc: 'home', phase: 1,
+  ex: [{ id: 'hex_dl', wt: 42, reps: [3, 3, 2], band: '' }] }));
+d.sessions = [...preBreak(), ...rampSess(1)];
+T('still stage 1 after one session back', getComeback().stage === 1 && getComeback().sess === 1);
+d.sessions = [...preBreak(), ...rampSess(2)];
+T('stage 2 once the first two sessions are done', getComeback().stage === 2 && getComeback().sess === 2);
+T('sessions logged BEFORE the ramp are not counted as ramp sessions', getComeback().sess === 2);
+
+// ── the one mechanical effect: STAGE 1 is invisible to the engine ──
+// Light sessions inside the window are below-range sessions — the app's exact definition of a
+// stall. Unmuted, a comeback forces a ~10% cut on a lifter who just got out of bed.
+// `light` = a stage-1 session: ~90% of the pre-break 47kg, cut short, well below the rep floor.
+const light = (id, date) => ({ id, date, day: 'A', loc: 'home', phase: 1,
+  ex: [{ id: 'hex_dl', wt: 42, reps: [3, 3, 2], band: '' }] });
+// The window is set directly rather than via beginComeback: opening a ramp can never
+// backdate (covered above), so a ramp with sessions already inside it has to be built here.
+d = freshD({ sessions: preBreak() });
+d.comeback = { start: ago(3), end: ahead(15), gap: 19 };
+d.sessions = [...preBreak(), light('rr0', ago(2)), light('rr1', ago(1))];
+let sg = getSmartSugg(dlEx);
+T('the first two sessions back do NOT read as a stall', sg.type !== 'dn', JSON.stringify(sg));
+T('...the suggestion still anchors on the pre-break load', sg.wt >= 47, JSON.stringify(sg));
+T('...and they raise no compound-stall signal for the deload gate', getPhaseInfo().stalledMajor === 0);
+// Without the ramp the very same sessions are two stalls on the way to a cut, and a third
+// completes it — proving the mute is what saved the load, not some unrelated leniency.
+d.sessions = [...preBreak(), light('rr0', ago(2)), light('rr1', ago(1)), light('rr2', ago(0))];
+d.comeback = null;
+T('the same sessions with no ramp open DO deload (the mute is load-bearing)', getSmartSugg(dlEx).type === 'dn', JSON.stringify(getSmartSugg(dlEx)));
+
+// Stage 2 is explicitly "back to pre-break loads, full volume", so it is honest data and MUST
+// reach the engine — muting a whole 21-day ramp would blind it to three weeks of real training.
+d = freshD({ sessions: preBreak() });
+d.comeback = { start: ago(3), end: ahead(15), gap: 19 };
+d.sessions = [...preBreak(), light('s1', ago(2)), light('s2', ago(1)),
+  { id: 's3', date: ago(0), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 47, reps: [3, 3, 3], band: '' }] }];
+sg = getSmartSugg(dlEx);
+T('a stage-2 session is NOT muted — it reaches the engine', sg.type === 'stay', JSON.stringify(sg));
+T('...so a struggle in stage 2 holds the load instead of adding weight', sg.wt === 47, JSON.stringify(sg));
+T('...and one stage-2 stall alone is still not a deload', sg.type !== 'dn');
+
+// A finished ramp stays muted: getHist looks 8 sessions back, so last week's comeback is still
+// inside the lookback the day after it ends.
+d = freshD({ sessions: [...preBreak(), light('fr0', ago(5)), light('fr1', ago(3)), light('fr2', ago(1))] });
+T('with no ramp on record those three light sessions deload', getSmartSugg(dlEx).type === 'dn');
+d.comebackLog = [{ start: ago(6), end: ago(2), gap: 19, days: 5, sessions: 2, ended: 'completed' }];
+T('a COMPLETED ramp still mutes its stage 1', getSmartSugg(dlEx).type !== 'dn', JSON.stringify(getSmartSugg(dlEx)));
+
+// ── the bundled demo must not look like a layoff ──
+T('a store still on the SEED demo is never offered a ramp', (() => {
+  const dd = freshD({ sessions: preBreak() }); dd.seeded = true; return getBreak() === null })());
+T('...and without that flag the same store is', (() => {
+  const dd = freshD({ sessions: preBreak() }); return getBreak() !== null })());
+
+// ── the per-lift advisory ──
+d = freshD({ sessions: preBreak() });
+beginComeback(today());
+T('stage 1 advisory names the load and the reps in reserve', /90%/.test(rtnAdvice(getComeback()).cue) && /3\+ reps shy/.test(rtnAdvice(getComeback()).cue));
+d.sessions = [...preBreak(), ...rampSess(2)];
+T('stage 2 advisory sends the load back to pre-break', /pre-break/.test(rtnAdvice(getComeback()).cue));
+T('the advisory reaches the lift suggestion', /Return · day/.test(getSmartSugg(dlEx).regress || ''), JSON.stringify(getSmartSugg(dlEx).regress));
+
+// ── the deload banner must not talk over the ramp ──
+d = freshD({ sessions: preBreak() });
+d.lastDeload = ago(70);
+// Open the ramp while the break is still real, then park it: once three sessions are logged
+// the gap is gone, and beginComeback would (correctly) refuse to open a second one.
+beginComeback(today());
+const openRamp = d.comeback;
+d.comeback = null;
+d.sessions = [...preBreak(), ...rampSess(3).map((s, i) => ({ ...s, date: ago(2 - i), id: 'dr' + i }))];
+T('with no ramp, timer + stalls recommend a deload', getDeload(2).due === true, JSON.stringify(getDeload(2)));
+d.comeback = openRamp;
+T('an open ramp suppresses the deload recommendation', getDeload(2).due === false && getDeload(2).consider === false);
+T('...and says why, rather than going quiet', getDeload(2).suppressed === 'comeback');
+
+// A layoff discharges accumulated fatigue, so the deload clock restarts from the ramp's end.
+d = freshD({ sessions: preBreak() });
+d.lastDeload = ago(70);
+d.comebackLog = [{ start: ago(20), end: ago(10), gap: 14, days: 11, sessions: 3, ended: 'completed' }];
+T('the deload clock counts from the ramp end, not through the break', getDeload(2).wk <= 3, JSON.stringify(getDeload(2)));
+T('...so the banner does not fire the day the lifter gets back', getDeload(2).due === false);
+T('an ACTIVE ramp does not restart the clock (it has discharged nothing yet)', (() => {
+  const dd = freshD({ sessions: preBreak() }); dd.lastDeload = ago(70);
+  dd.comeback = { start: today(), end: ahead(6), gap: 19 };
+  return getDeload(2).wk >= 10 })());
+
+// ── completion: the ramp ends on the calendar and becomes a record ──
+d = freshD({ sessions: preBreak() });
+beginComeback(today());
+T('tick is a no-op while the ramp is running', comebackTick() === false && !!d.comeback);
+d.comeback.end = ago(1);
+d.sessions = [...preBreak(), { id: 'c1', date: ago(0), day: 'A', loc: 'home', phase: 1, ex: [{ id: 'hex_dl', wt: 42, reps: [4, 4, 4], band: '' }] }];
+T('tick archives a ramp whose end date has passed', comebackTick() === true && d.comeback === null);
+T('...into the permanent record', d.comebackLog.length === 1 && d.comebackLog[0].ended === 'completed');
+T('...counting only the sessions inside its own window', d.comebackLog[0].sessions === 0, JSON.stringify(d.comebackLog[0]));
+
+d = freshD({ sessions: preBreak() });
+beginComeback(today());
+d.sessions = [...preBreak(), ...rampSess(2)];
+const early = archiveComeback('early');
+T('ending early truncates the window to today', early.end === today() && early.days === 1, JSON.stringify(early));
+T('...records what was actually served', early.sessions === 2 && early.ended === 'early');
+T('...and closes the live ramp', d.comeback === null && d.comebackLog.length === 1);
+
+// ── history badging ──
+d = freshD({ sessions: preBreak() });
+d.comebackLog = [{ start: ago(10), end: ago(4), gap: 19, days: 7, sessions: 2, ended: 'completed' }];
+T('a session inside a past ramp is attributable to it', rampOf(ago(7)) !== null);
+T('a session outside every ramp is not', rampOf(ago(2)) === null && rampOf(ago(19)) === null);
+T('the window is inclusive at both ends', rampOf(ago(10)) !== null && rampOf(ago(4)) !== null);
+
+// ── stored-shape guards ──
+T('validComeback rejects a non-object', validComeback(null) === null && validComeback([]) === null);
+T('validComeback rejects malformed dates', validComeback({ start: 'soon', end: ago(1), gap: 9 }) === null);
+T('validComeback rejects an end before its start', validComeback({ start: ago(1), end: ago(5), gap: 9 }) === null);
+T('validComeback clamps an over-long window (an unbounded blackout in progression memory)',
+  dayDiff(validComeback({ start: '2026-01-01', end: '2026-12-31', gap: 9 }).end, '2026-01-01') + 1 === RTN_MAX_DAYS);
+T('validComeback repairs a missing gap rather than dropping the ramp', validComeback({ start: ago(1), end: ago(0) }).gap === RTN_MIN_GAP);
+{
+const log = validComebackLog([{ start: ago(3), end: ago(1), gap: 9, days: 99, sessions: 'x', ended: 'nonsense' },
+  { start: ago(30), end: ago(28), gap: 8, days: 3, sessions: 2, ended: 'early' }, null, { start: 'bad', end: ago(1) }]);
+T('validComebackLog drops unusable rows', log.length === 2);
+T('...recomputes days from the dates rather than trusting them', log.every(x => x.days === 3));
+T('...normalises a bad session count and end reason', log[1].sessions === 0 && log[1].ended === 'completed');
+T('...and sorts oldest first', log[0].start === ago(30));
+}
+
+// ── the ramp record survives the two-tab merge and an import ──
+{
+const mine = { ...freshState(), comebackLog: [{ start: ago(30), end: ago(24), gap: 9, days: 7, sessions: 3, ended: 'completed' }] };
+const theirs = { ...freshState(), comebackLog: [{ start: ago(10), end: ago(4), gap: 8, days: 7, sessions: 2, ended: 'completed' }] };
+const m = mergeStores(mine, theirs);
+T('two-tab merge unions ramp history', m.comebackLog.length === 2, JSON.stringify(m.comebackLog));
+T('...without duplicating a ramp both tabs already had', mergeStores(mine, mine).comebackLog.length === 1);
+const live = { ...freshState(), comeback: { start: today(), end: ahead(6), gap: 9 } };
+T('two-tab merge keeps THIS tab’s live ramp', mergeStores(live, theirs).comeback.start === today());
+
+const backup = { ...freshState(), sessions: preBreak(), comeback: { start: today(), end: ahead(6), gap: 9 },
+  comebackLog: [{ start: ago(30), end: ago(24), gap: 9, days: 7, sessions: 3, ended: 'completed' }] };
+const onFresh = mergeImport(freshState(), JSON.parse(JSON.stringify(backup))).W;
+T('a fresh device adopts an in-progress ramp from the backup', onFresh.comeback && onFresh.comeback.start === today());
+T('...and its ramp history', onFresh.comebackLog.length === 1);
+const busy = { ...freshState(), sessions: [{ id: 'q', date: ago(1), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] }] };
+const onBusy = mergeImport(busy, JSON.parse(JSON.stringify(backup))).W;
+T('a device with real training does NOT adopt a foreign live ramp', onBusy.comeback === null);
+T('...but still merges the ramp history', onBusy.comebackLog.length === 1);
+}
 }
 
 // ── audit fix: one delivery path for every notification ──
