@@ -314,6 +314,30 @@ for (const seg of ['lifts', 'balance', 'consistency', 'lifetime']) {
   tryRender(`Progress (${seg} segment)`, () => R.render());
   T(`${seg} segment produced non-empty markup`, R.getA().length > 600);
 }
+// Two Progress cards read ROLLING WINDOWS off today's date rather than off the fixture:
+// musclePeriodCompare(28) compares the last 28 days with the 28 before (so it needs data
+// inside 56 days), and relStrength() takes each lift's best e1RM inside 60 days. The base
+// fixture's newest session is a hardcoded 2026-06-12, so both cards silently emptied out as
+// real time moved past them and three assertions had been failing ever since — a test rotting
+// on the calendar, not a render bug.
+//
+// The fix is dates RELATIVE TO TODAY. Do not re-hardcode these: any fixed date here starts
+// dying the moment it falls out of the window the card reads. The rows are scoped to the two
+// cards that need them and removed straight afterwards, because later suites assert on phase
+// markers, PR counts and the SEED band ladder, all of which extra sessions would perturb.
+const RECENT_LIFTS = [['hex_dl', 60], ['hex_squat_b', 50], ['ohp', 30], ['floor_press', 40]];
+const recentBackup = R.getD().sessions;
+{
+  const rel = n => { const d = new Date(); d.setDate(d.getDate() - n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` };
+  // Two inside the 28-day window and two in the 28 before it, so Muscle Trend has both a
+  // current and a previous period to compare — an empty `prev` renders no tick.
+  const rows = [7, 14, 35, 42].map((n, i) => ({ id: 'recent' + i, date: rel(n), day: i % 2 ? 'B' : 'A',
+    loc: 'home', phase: 1, difficulty: 3, duration: 50, volume: 2000, warmup: 1, notes: '',
+    ex: RECENT_LIFTS.map(([id, wt]) => ({ id, wt, reps: [5, 5, 5], band: '', notes: '' })) }));
+  R.getD().sessions = [...recentBackup, ...rows].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // Balance segment: muscle-trend comparison + per-muscle weekly set-count chart.
 R.setSEG('balance');
 R.render();
@@ -343,6 +367,14 @@ const liftsSeg = R.getA();
 T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
 T('strength bars share one ladder scale (ticks at fixed 20/40/60/80)', /std-tick" style="left:20%"/.test(liftsSeg) && /std-tick" style="left:80%"/.test(liftsSeg));
 T('strength rows show current e1RM and next-tier target', /· e1RM [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg e1RM/.test(liftsSeg));
+// Guard the guard: if the rolling-window rows above ever stop landing inside the windows, the
+// three assertions they feed would go quiet again rather than failing loudly. Assert the
+// precondition itself, so the next rot is reported as rot.
+T('the rolling-window fixture actually lands inside both windows',
+  musclePeriodCompare(28).length > 0 && relStrength() !== null && relStrength().lifts.length > 0);
+// Scope ends: later suites assert on phase markers, PR counts and the SEED band ladder.
+R.getD().sessions = recentBackup;
+R.render();
 // svgLine pads micro-ranges: a 55.3→55.5 series must not span the full chart height.
 {
   const line = svgLine([{ v: 55.3, l: 'a' }, { v: 55.5, l: 'b' }, { v: 55.5, l: 'c' }], 360, 170, '#000', 't');

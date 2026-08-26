@@ -2116,3 +2116,35 @@ suites that already pass. CI installs Chromium and runs it.
 
 Suite: **625 + 277 + 386 (+3 pre-existing failures) + 49 + 18 browser, 18/18 SW mutations
 caught.** SW cache `rft-v96`.
+
+## 27 · The three "pre-existing failures" were a test rotting on the calendar (26 Aug 2026)
+
+Three render-smoke assertions had been failing long enough to be recorded as background noise
+in §25.4 and §26.7. They were not render bugs, and nothing in the app was wrong.
+
+Two Progress cards read **rolling windows off today's date**, not off the fixture:
+
+| Card | Window it reads |
+|---|---|
+| Muscle Trend | `musclePeriodCompare(28)` — last 28 days vs the 28 before, so it needs data inside 56 days |
+| Strength Level | `relStrength()` — each lift's best e1RM inside 60 days |
+
+The smoke fixture's newest session is a hardcoded `2026-06-12`. As real time moved past it, both
+windows emptied, `musclePeriodCompare` returned `[]`, `relStrength` returned null, neither card
+rendered, and the three assertions that read them went red. A test dying of old age.
+
+The fix is four sessions dated **relative to today** — two inside the 28-day window and two in
+the 28 before, so Muscle Trend has both a current and a previous period — carrying exactly the
+four lifts `relStrength` tracks. They are scoped to the two cards that need them and removed
+immediately afterwards, because later suites assert on phase markers, PR counts and the SEED
+band ladder, all of which extra sessions would perturb.
+
+**Nothing was weakened to get there**: the diff is 32 insertions and zero deletions, and all
+three original assertions are untouched. A fourth assertion was added that checks the
+*precondition* — that the fixture actually lands inside both windows — so if this ever rots
+again it fails as rot rather than quietly taking the three real assertions down with it.
+
+Do not re-hardcode dates in that fixture. Any fixed date there begins dying the moment it falls
+out of the window the card reads.
+
+Suite: **625 + 277 + 390 + 49 + 18 browser, 18/18 SW mutations caught. Zero failures.**
