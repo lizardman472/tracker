@@ -2404,6 +2404,91 @@ T('...but still merges the ramp history', onBusy.comebackLog.length === 1);
 }
 }
 
+// ── Rest adherence: reading back the set clock ────────────────────────────────────────────
+// ex[].ts has been written since §24 and read by nothing. These are the readers. The feature
+// is descriptive only — no test here should ever find it changing a load or a suggestion.
+{
+const S = (rows) => ({ ex: rows });
+// gap is charged to the LATER set — it is that set's prescribed rest you were waiting out
+{
+const g = sessionGaps(S([{ id: 'hex_dl', ts: [0, 60, 180] }, { id: 'bb_curl', ts: [400] }]));
+T('sessionGaps pairs consecutive ticked sets', g.length === 2, JSON.stringify(g));
+T('...measuring the gap in seconds', g[0].sec === 120 && g[1].sec === 220);
+T('...and charging each gap to the later set', g[1].id === 'bb_curl');
+T('...with that set\'s own prescribed rest', g[1].pres === (ALL_EX.find(e => e.id === 'bb_curl').rstS));
+}
+T('unstamped sets (0) are skipped, not read as t=0',
+  sessionGaps(S([{ id: 'hex_dl', ts: [0, 0, 300] }, { id: 'ohp', ts: [360] }])).length === 1);
+T('a session with no clock yields no gaps', sessionGaps(S([{ id: 'hex_dl', reps: [5, 5] }])).length === 0);
+
+// restStats
+T('restStats stays quiet under 3 gaps', restStats(sessionGaps(S([{ id: 'hex_dl', ts: [0, 60, 120] }]))) === null);
+{
+// Six stamped sets = five gaps of 240s against a 60s prescription — the shape of the
+// 14 Aug session. NB the stamps start at 30, not 0: `ts[i] === 0` means "this set was
+// never ticked" and is skipped, so a leading 0 would silently cost a gap.
+const ts = [30, 270, 510, 750, 990, 1230];
+const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts }])));
+T('restStats medians the gaps', st.med === 240, JSON.stringify(st));
+T('...counts those over 1.5x prescribed', st.over === 5 && st.n === 5);
+T('...totals prescribed vs actual', st.pres === 300 && st.tot === 1200);
+T('...and reports the excess and ratio', st.excess === 900 && st.ratio === 4);
+T('...naming the worst gap', st.worst.sec === 240 && st.worst.id === 'hex_dl');
+}
+// a gap just past the buzzer is NOT a finding — racking and chalking is real time
+T('a gap inside 1.5x prescribed does not count as over', (() => {
+  const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts: [20, 100, 180, 260] }])));
+  return st.over === 0 && st.n === 3 })());
+
+// live LOG: epoch ms, and only TICKED sets carry a readable stamp
+{
+const t0 = 1700000000000;
+const log = { hex_dl: { setTs: [t0, t0 + 120000, t0 + 240000], setDone: [true, true, true] } };
+const lg = liveGaps(log);
+T('liveGaps normalises epoch ms to seconds', lg.length === 2 && lg[0].sec === 120, JSON.stringify(lg));
+// un-ticking clears setTs back to 0 (toggleSetDone), so the gap must vanish with it
+const log2 = { hex_dl: { setTs: [t0, 0, t0 + 240000], setDone: [true, false, true] } };
+T('an un-ticked set leaves no gap behind it', liveGaps(log2).length === 1 && liveGaps(log2)[0].sec === 240);
+// interleaved exercises still sort into one time order
+const log3 = { hex_dl: { setTs: [t0 + 300000], setDone: [true] },
+               ohp: { setTs: [t0], setDone: [true] } };
+T('liveGaps orders across exercises by time, not by key', liveGaps(log3)[0].sec === 300);
+}
+
+// restHistory counts only sessions that actually carry a clock
+{
+const d = freshD();
+const rec = n => { const x = new Date(); x.setDate(x.getDate() - n); return ymd(x) };
+d.sessions = [
+  { id: 'noclock', date: rec(5), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] },
+  { id: 'clock', date: rec(2), day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5, 5], band: '', ts: [30, 270, 510, 750] }] }];
+const rh = restHistory(90);
+T('restHistory reports its own denominator', rh.sessions === 1, JSON.stringify(rh && { s: rh.sessions, n: rh.n }));
+T('...ignoring sessions with no set clock', rh.n === 3);
+T('...and a leading 0 stamp is treated as un-ticked, not as t=0',
+  sessionGaps({ ex: [{ id: 'hex_dl', ts: [0, 300, 600] }] }).length === 1);
+T('...and medians across them', rh.med === 240);
+T('restHistory is null when nothing is timed', (() => {
+  const dd = freshD(); dd.sessions = [{ id: 'x', date: rec(1), day: 'A', loc: 'home',
+    ex: [{ id: 'hex_dl', wt: 50, reps: [5], band: '' }] }]; return restHistory(90) === null })());
+}
+T('fmtMS renders m:ss', fmtMS(240) === '4:00' && fmtMS(65) === '1:05' && fmtMS(0) === '0:00');
+
+// The guarantee that matters: reading the clock must not move a weight suggestion.
+{
+const d = freshD();
+const base = { id: 'r1', date: today(), day: 'A', loc: 'home', phase: 1,
+  ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] };
+d.sessions = [{ ...base, id: 'a' }, { ...base, id: 'b' }];
+const before = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl'));
+d.sessions = [{ ...base, id: 'a' }, { ...base, id: 'b', ex: [{ ...base.ex[0], ts: [0, 400, 800] }] }];
+const after = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl'));
+T('the set clock is invisible to the progression engine',
+  before.type === after.type && before.wt === after.wt, JSON.stringify([before.text, after.text]));
+}
+}
+
 // ── audit fix: one delivery path for every notification ──
 // notifyRestDone routed through reg.showNotification and explained why: page-context
 // `new Notification` is not honoured on most mobile browsers, and on Android Chrome the

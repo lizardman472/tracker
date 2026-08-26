@@ -168,6 +168,46 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
       await page.evaluate(() => { D.comeback = null; return expressMEVRisk(7) !== null }));
     await ctx.close() }
 
+  // ── rest adherence: the set clock, read back ──
+  // ex[].ts was written for months and read by nothing. These assert the readers reach a
+  // screen — a number computed and never displayed is what this whole feature is fixing.
+  { const s = baseStore();
+    // Six stamped sets, 4:00 apart, against a 1:00 prescription. Stamps start at 30, never 0
+    // (ts === 0 means "never ticked" and is skipped).
+    s.sessions = [...s.sessions, { id: 'timed', date: ago(2), day: 'A', loc: 'home', phase: 1,
+      difficulty: 3, duration: 40, volume: 900, warmup: 3, notes: '',
+      ex: [{ id: 'hex_dl', wt: 50, reps: [5,5,5,5,5,5], band: '', notes: '',
+             ts: [30, 270, 510, 750, 990, 1230] }] }];
+    const { page, ctx } = await open(s);
+    await page.evaluate(() => { go('stats'); STAT_SEG = 'consistency'; render() });
+    await page.waitForTimeout(500);
+    const t = await text(page);
+    T('Progress surfaces rest adherence', /Rest between sets/.test(t) && /4:00/.test(t), (t.match(/Rest between sets[\s\S]{0,90}/) || ['MISSING'])[0]);
+    T('...naming its own denominator, not implying full coverage', /1 timed session/.test(t));
+    T('...and flagging that one session is too few to trust', /too few|gets trustworthy|Only 1 session/.test(t));
+    T('...counting the gaps that ran over', /5 of 5 gaps/.test(t), (t.match(/\d+ of \d+ gaps[^\n]*/) || ['MISSING'])[0]);
+    // The guarantee: reading the clock must never move a weight.
+    T('the set clock does not touch the progression engine',
+      await page.evaluate(() => { const ex = getProgram(D.phase,'home').A.find(e => e.id === 'hex_dl');
+        const a = JSON.stringify(getSmartSugg(ex));
+        D.sessions[D.sessions.length-1].ex[0].ts = [10, 20, 30, 40, 50, 60];
+        return a === JSON.stringify(getSmartSugg(ex)) }));
+    await ctx.close() }
+
+  // ── the app finally asks for a bodyweight ──
+  { const s = baseStore();            // baseStore has an empty bodyLog
+    const { page, ctx } = await open(s);
+    T('home asks for a bodyweight when none is logged', /No bodyweight logged yet/.test(await text(page)));
+    const s2 = baseStore(); s2.bodyLog = [{ date: ago(3), weight: 88 }];
+    const r2 = await open(s2);
+    T('...and stays quiet when one is recent', !/bodyweight/i.test(await text(r2.page)));
+    await r2.ctx.close();
+    const s3 = baseStore(); s3.bodyLog = [{ date: ago(40), weight: 88 }];
+    const r3 = await open(s3);
+    T('...but speaks again once it goes stale', /Bodyweight last logged 40 days ago/.test(await text(r3.page)));
+    await r3.ctx.close();
+    await ctx.close() }
+
   // ── it survives a reload, in dark theme ──
   { const s = baseStore(); s.theme = 'dark';
     s.comeback = { start:ago(2), end:ahead(17), gap:20 };
