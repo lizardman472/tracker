@@ -225,3 +225,6 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
   await browser.close();
   server.close();
   for (const e of errors) T('no page error: ' + e, false);
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+})().catch(e => { console.error('browser suite crashed:', e); process.exit(1) });

@@ -2569,3 +2569,7 @@ process.exit(fail ? 1 : 0);
 // an explicit guard rather than trust.
 process.on('exit', code => {
   if (code === 0 && !FINISHED) {
+    console.log('\nFAIL: the suite exited without reporting — the async notification block never completed');
+    process.exitCode = 1;
+  }
+});
