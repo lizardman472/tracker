@@ -202,6 +202,45 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   R.go('home');
 }
 
+// ── Rest adherence reaches the two screens it has to ──
+// The engine is covered in calc.test.js; the point here is that the numbers are DISPLAYED.
+// This whole feature exists because ex[].ts was computed for months and rendered nowhere.
+{
+  const D4 = R.getD();
+  const realS = D4.sessions;
+  D4.location = 'home'; D4.nextDay = 'A'; D4.dismissed = {};
+  // Summary: build the _S shape finishW produces, with a set clock on it.
+  global.window._S = { day:'A', date:'2026-08-14', dur:132, ts:6, tr:30, tv:9000,
+    warmup:3, discCount:0, notes:'', prs:[], express:false,
+    exs:[{ id:'hex_dl', wt:50, reps:[5,5,5,5,5,5], band:'', notes:'', ts:[30,270,510,750,990,1230] }] };
+  tryRender('summary (with a set clock)', () => R.go('summary'));
+  const summ = R.getA();
+  T('the summary reports where the session went', /Rest between sets/.test(summ) && /4:00/.test(summ),
+    (summ.match(/Rest between sets[\s\S]{0,120}/) || ['MISSING'])[0]);
+  T('...counting the gaps that ran long', /5 of 5 gaps exceeded 1\.5/.test(summ));
+  T('...and naming the preceding exercise for the worst one', /Longest: 4:00 after Hex Bar Deadlift/.test(summ));
+  // A session with no clock must not grow an empty card.
+  global.window._S.exs = [{ id:'hex_dl', wt:50, reps:[5,5,5], band:'', notes:'' }];
+  R.render();
+  T('no set clock, no rest card', !/Rest between sets/.test(R.getA()));
+  global.window._S = null;
+
+  // Workout: the live strip carries a Rest cell fed by the same reader.
+  D4.sessions = realS;
+  R.beginW('A');
+  const lg = R.getLOG();
+  const first = Object.keys(lg)[0];
+  const t0 = 1700000000000;
+  lg[first].setTs = [t0, t0+240000, t0+480000, t0+720000];
+  lg[first].setDone = [true, true, true, true];
+  tryRender('workout (live rest cell)', () => R.render());
+  const w4 = R.getA();
+  T('the live strip carries a Set gap cell', /Set gap/.test(w4) && /id="lv-rest"/.test(w4));
+  T('...showing the running median gap', />4:00</.test(w4), (w4.match(/id="lv-rest"[^>]*>[^<]*/) || ['MISSING'])[0]);
+  T('...in amber once it passes 1.5x prescribed', /id="lv-rest"[^>]*var\(--am\)/.test(w4));
+  R.go('home');
+}
+
 // ── Workout screen showing a hex lift ──
 R.getD().location = 'home';
 tryRender('workout (Day A, hex_dl current)', () => R.beginW('A'));

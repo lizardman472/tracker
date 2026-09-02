@@ -2148,3 +2148,84 @@ Do not re-hardcode dates in that fixture. Any fixed date there begins dying the 
 out of the window the card reads.
 
 Suite: **625 + 277 + 390 + 49 + 18 browser, 18/18 SW mutations caught. Zero failures.**
+
+## 28 · The set clock, read back (26 Aug 2026)
+
+§24 built `ex[].ts` — a per-set timestamp, stamped by `toggleSetDone`, offsets from session
+start. §24.2 said outright that the 58 unaccounted min/session could not be attributed without
+it. It has been writing correctly ever since, and **no screen has ever read it.** The one
+instrument that could explain six months of two-hour sessions was filling a field nobody opened.
+
+Replaying the lifter's 26 Feb – 14 Aug export answered it on the first look. One session
+carries a clock:
+
+| Day C, 14 Aug | |
+|---|---|
+| Logged duration | 132 min |
+| Ticked sets | 30 (29 gaps) |
+| Median gap | **3:59** against a **1:00** prescription |
+| Gaps within 1.5× prescribed | **0 of 29** |
+| Time elapsed between completed sets | **127 of 132 min** |
+| Longest | 10:41, between two sets of pull-ups |
+
+First tick at 4.5 min, last at 131.5 — no dead time at either end. The 52-minute overrun against
+the §24.2 model (43 work + 37 rest = 80 min for Day C) is not one long break; it accumulates
+across the gaps between completed sets. Those gaps include deliberate rest, equipment changes,
+transitions and interruptions, so the clock locates the delay but does not label all of it rest.
+
+**This is why cutting exercises was the wrong lever** (§27 discussion, program left untouched):
+removing two exercises at this pace saves ~24 min and lands at 108. Taking the prescribed rest
+saves ~50.
+
+### 28.1 · Three readers, no writers
+
+`gapsFrom` / `sessionGaps` / `liveGaps` / `restStats` / `restHistory`. The split exists because a
+saved session stores seconds-from-start while the live `LOG` stores epoch ms; each caller
+normalises and shares one roll-up. Each gap is charged to the **earlier completed set**, because
+that is the exercise whose timer `toggleSetDone` starts. `ts[i] === 0` means *never ticked* and
+is skipped, which is also why every test fixture starts its stamps at 30 rather than 0.
+
+Three surfaces, all additive:
+
+- **Session summary** — median gap, gaps over 1.5×, minutes between completed sets, worst offender. Shown
+  while the session is still in mind rather than in a chart weeks later.
+- **Workout live strip** — a fourth cell, `Set gap med`, updating on the existing 1s tick, amber past
+  1.5×. Median-so-far rather than the current gap: the pill already counts the current one, and
+  one long rest is not the problem — a median that sits at 4:00 for thirty sets is.
+- **Progress → Consistency** — 90-day roll-up, prescribed vs actual as a bar, and it **names its
+  own denominator** ("1 timed session") plus a warning under three, because the clock is new and
+  most history has none.
+
+### 28.2 · Descriptive, never prescriptive
+
+Nothing here changes a load, a rest, or a suggestion, and a test asserts exactly that: stamping
+a session's clock leaves `getSmartSugg` byte-identical. The copy says so too — **long rests do
+not cost strength or size**; more recovery means more work at load. They cost session time. The
+app's job is to show the number, not to nag, and the lifter should not come away thinking six
+months of training were done wrong.
+
+### 28.3 · The app never asked for a bodyweight
+
+Six months, 69 sessions, **one** bodyLog entry (88 kg, 19 June). The backup nag has fired every
+three sessions since v9; nothing ever asked for a weight — which is how "am I gaining muscle or
+fat" became unanswerable by the app that tracked all of it. A weekly-cadence banner now asks
+once the last measurement is at least seven days old,
+dismissable per week (bodyweight is a weekly measurement; a daily prompt trains the dismiss
+reflex). Verified against the real export: *"Bodyweight last logged 68 days ago."*
+
+### 28.4 · Recorded
+
+- **Verified against the real export in a browser**, not only against fixtures: the shipped card
+  reproduces the analysis independently — 29 gaps, 3:59 median, 29 over, 127 min vs 29
+  prescribed, 4.4×, worst 10:41 on pull-ups.
+- **`programVersion` not bumped.** No day membership, set count or rep range changed. The program
+  is deliberately untouched pending the return ramp.
+- **Review correction before merge.** The first implementation charged a gap to the later set,
+  although `toggleSetDone` starts the earlier set's timer; it now uses the preceding exercise's
+  prescription. Even-sized medians now average their two middle gaps, and the weekly bodyweight
+  reminder now uses seven days rather than the contradictory 14-day threshold. User-facing copy
+  also distinguishes elapsed time between completed sets from pure rest time.
+- **The browser suite now exceeds a 120s foreground run.** It spawns a context per scenario; run
+  it backgrounded locally. CI is unaffected.
+
+Suite: **650 + 277 + 399 + 49 + 27 browser, 18/18 SW mutations caught.** SW cache `rft-v98`.

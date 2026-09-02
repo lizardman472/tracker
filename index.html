@@ -2719,6 +2719,70 @@ const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stall
 return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledMajor,reason,
   suppressed:rtnOpen?'comeback':null}}
 
+// ═══════════════ REST ADHERENCE ═══════════════
+// The set clock (`ex[].ts` — seconds from session start, stamped by toggleSetDone) has been
+// written since §24 and read back by NOTHING. Six months of two-hour sessions with the one
+// instrument that could locate the delay writing to a field no screen ever opened. §24.2 could
+// measure that 58 min/session was unaccounted but not say where it sat; these functions show
+// that it accumulated between completed sets. Those intervals include deliberate rest,
+// equipment changes and interruptions, so they must not be presented as pure rest time.
+//
+// Deliberately DESCRIPTIVE, not prescriptive: nothing here changes a load, a rest, or a
+// suggestion. Long rests are good for strength and fine for hypertrophy — they cost the
+// lifter their evening, not their results — so the app's job is to show the number, not to
+// nag about it.
+
+// Gaps between consecutive ticked sets, each paired with the rest prescribed AFTER the
+// earlier completed set. This matches the actual timer: toggleSetDone starts ex.rstS when that
+// set is ticked. Charging the gap to the later set is wrong whenever the exercise changes.
+// `marks` are {t:seconds, id}; the caller normalises, because a saved session stores
+// seconds-from-start while the live LOG stores epoch milliseconds.
+function gapsFrom(marks){
+marks.sort((a,b)=>a.t-b.t);
+const out=[];
+for(let i=1;i<marks.length;i++){
+  const from=marks[i-1],to=marks[i];
+  const def=ALL_EX.find(x=>x.id===from.id);
+  out.push({sec:to.t-from.t,pres:(def&&def.rstS)||60,id:from.id,nm:(def&&def.nm)||from.id})}
+return out}
+// A saved session (history, export, another device's import).
+function sessionGaps(s){const m=[];
+for(const e of(s&&s.ex)||[]){if(!Array.isArray(e.ts))continue;
+  for(let i=0;i<e.ts.length;i++)if(e.ts[i]>0)m.push({t:e.ts[i],id:e.id})}
+return gapsFrom(m)}
+// The workout in progress. Only TICKED sets carry a stamp worth reading — an untick clears
+// setTs back to 0, so a set logged and then unchecked leaves no gap behind it.
+function liveGaps(log){const m=[];
+for(const[id,v] of Object.entries(log||{})){
+  const ts=(v&&v.setTs)||[],done=(v&&v.setDone)||[];
+  for(let i=0;i<ts.length;i++)if(ts[i]>0&&done[i])m.push({t:Math.round(ts[i]/1000),id})}
+return gapsFrom(m)}
+// Rolled up. Null under 3 gaps: two data points is a coincidence, not a habit, and a card
+// that appears after the first two sets of every session would be noise.
+function restStats(gaps){
+if(!Array.isArray(gaps)||gaps.length<3)return null;
+const secs=gaps.map(g=>g.sec).sort((a,b)=>a-b);
+const tot=gaps.reduce((a,g)=>a+g.sec,0),pres=gaps.reduce((a,g)=>a+g.pres,0);
+// "Over" is 1.5x rather than 1.0x: racking the bar, chalking and walking back is real time,
+// and a gap 20 seconds past the buzzer is not a finding.
+const worst=gaps.reduce((b,g)=>(g.sec-g.pres)>(b.sec-b.pres)?g:b,gaps[0]);
+const mid=Math.floor(secs.length/2);
+const med=secs.length%2?secs[mid]:Math.round((secs[mid-1]+secs[mid])/2);
+return{n:gaps.length,med,
+  medPres:Math.round(pres/gaps.length),tot,pres,
+  over:gaps.filter(g=>g.sec>g.pres*1.5).length,worst,
+  excess:tot-pres,ratio:pres?Math.round(tot/pres*10)/10:null}}
+// Across the sessions that carry a clock at all. `n` is how many had one — the honest
+// denominator, because the feature only started stamping recently and most history has none.
+function restHistory(days){
+const cut=daysAgoStr(days||90);
+const timed=D.sessions.filter(s=>s.date>=cut&&(s.ex||[]).some(e=>Array.isArray(e.ts)&&e.ts.some(t=>t>0)));
+if(!timed.length)return null;
+const all=[];for(const s of timed)all.push(...sessionGaps(s));
+const st=restStats(all);
+return st?{...st,sessions:timed.length,last:timed[timed.length-1].date}:null}
+function fmtMS(sec){const s=Math.max(0,Math.round(sec));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
+
 // ═══════════════ RETURN FROM BREAK ═══════════════
 // A layoff — illness, travel, life — was the one interruption this app could not see. The
 // deload machinery next door is signal-driven (RPE, repeated compound stalls) and fires on
@@ -3076,7 +3140,13 @@ LAST_VIEW=VIEW;
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed();
 // live volume/sets track typed reps without a full re-render
 const lvv=document.getElementById('lv-vol'),lvs=document.getElementById('lv-sets');
-if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol.toLocaleString('en-NZ');if(lvs)lvs.textContent=lv.sets}},1000)}
+if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol.toLocaleString('en-NZ');if(lvs)lvs.textContent=lv.sets}
+// The rest cell updates on the same tick. Colour is re-applied here too: a median that
+// crosses 1.5x mid-session must turn amber without waiting for the next full render.
+{const lvr=document.getElementById('lv-rest');
+ if(lvr){const lr=restStats(liveGaps(LOG));
+   lvr.textContent=lr?fmtMS(lr.med):'—';
+   lvr.style.color=lr&&lr.med>lr.medPres*1.5?'var(--am)':'var(--tx)'}}},1000)}
 // HIST_N resets with EXP: leaving History and coming back should start at the first page,
 // not at however deep the last visit paged.
 function go(v){VIEW=v;EXP=null;HIST_N=HIST_PAGE;render();window.scrollTo(0,0)}
@@ -3163,6 +3233,21 @@ h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);posi
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚠ Back up your data</div>
 <div class="dm" style="margin-bottom:8px">${D.lastBackup?`${sinceCount} new session${sinceCount!==1?'s':''} since last backup (${dAgo(D.lastBackup)}).`:'No backup yet.'} A browser cache-clear wipes everything stored here.</div>
 <button class="btn btn-pr btn-md" onclick="expD()">↓ Download backup now</button></div>`}}
+
+// Body-log nag. The app has nagged about BACKUPS every three sessions since v9 and has never
+// once asked for a bodyweight — which is how a six-month export came to hold exactly one
+// entry, leaving "am I gaining muscle or fat" unanswerable by the app that tracked all of it.
+// Weekly cadence (the dismiss signature is the week), because bodyweight is a weekly
+// measurement and a daily prompt would train the dismiss reflex.
+{const bw=[...(D.bodyLog||[])].reverse().find(b=>b&&Number(b.weight)>0);
+const bDays=bw?dayDiff(today(),bw.date):null;
+const bSig='w'+weekKey(today());
+if(D.sessions.length>=3&&(bDays==null||bDays>=7)&&!bannerDismissed('body',bSig)){
+h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
+<button onclick="dismissBanner('body','${bSig}')" aria-label="Dismiss bodyweight reminder" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
+<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚖️ ${bDays==null?'No bodyweight logged yet':`Bodyweight last logged ${bDays} days ago`}</div>
+<div class="dm" style="margin-bottom:8px">Your lifts are tracked in detail; your body isn't. Without a weight and a waist measurement there is no way to tell muscle gained from fat gained — the training log alone cannot answer it. Takes a minute, once a week.</div>
+<button class="btn btn-pr btn-md" onclick="go('body')">Log it now</button></div>`}}
 
 // Location
 h+=`<div style="margin-bottom:6px">${locSwitchH(D.location,'setLoc')}</div>`;
@@ -3556,10 +3641,16 @@ h+=`<div style="display:flex;justify-content:space-between;align-items:center;ma
 // Live session strip (sticky): running duration + volume/sets banked from CHECKED
 // sets. The render() interval refreshes all three ids once a second.
 const lv=liveStats(LOG);
+// Rest joins the strip because it is the number that actually explains session length, and
+// it was the one thing the app measured but never showed. Median-so-far, not the current
+// gap — the pill already counts the current one, and a single long rest is not the problem;
+// the problem is a median that sits at 4:00 for thirty sets running. Amber past 1.5x.
+{const lr=restStats(liveGaps(LOG));
 h+=`<div class="work-sticky">
 <div><div class="ws-l">Duration</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
 <div><div class="ws-l">Volume</div><div class="ws-v"><span id="lv-vol">${lv.vol.toLocaleString('en-NZ')}</span><span class="ws-u"> kg</span></div></div>
-<div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div></div>`;
+<div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div>
+<div><div class="ws-l">Set gap <span class="ws-u">med</span></div><div class="ws-v" id="lv-rest" style="color:${lr&&lr.med>lr.medPres*1.5?'var(--am)':'var(--tx)'}">${lr?fmtMS(lr.med):'—'}</div></div></div>`;}
 
 // Progress
 // Tick-based "done" (matches the ticks-required finish): every set with reps must be
@@ -3916,6 +4007,16 @@ else h+=`<div style="margin-top:3px;font-size:11px;color:var(--am)">⚠ Warm-up 
 if(S.notes)h+=`<div style="margin-top:6px;font-size:11px;color:var(--mu);font-style:italic;background:var(--ib);padding:6px 10px;border-radius:var(--rad-sm)">${esc(S.notes)}</div>`;
 // Which muscles did this session actually hit? (Hevy-style split, from the MG map)
 {const ms=muscleSplitH(S.exs);if(ms)h+=`<div style="margin-top:12px;text-align:left">${ms}</div>`}
+// Where the session's time actually went. Shown the moment it is knowable — at the summary,
+// while the session is still in mind — rather than only in a chart weeks later.
+{const rs=restStats(sessionGaps({ex:S.exs}));
+if(rs){const hot=rs.med>rs.medPres*1.5;
+h+=`<div style="margin-top:12px;text-align:left;background:var(--ib);border-radius:var(--rad-sm);padding:10px 12px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+<span class="lb" style="margin:0">Rest between sets</span>
+<span style="font-family:var(--disp);font-size:15px;font-weight:800;color:${hot?'var(--am)':'var(--gr)'}">${fmtMS(rs.med)} <span style="font-size:10px;font-weight:600;color:var(--mu)">median</span></span></div>
+<div class="dm" style="margin-top:4px">${rs.over} of ${rs.n} gaps exceeded 1.5× the preceding set's prescribed rest · ${Math.round(rs.tot/60)} min elapsed between completed sets${rs.excess>120?`, ${Math.round(rs.excess/60)} min beyond those prescriptions`:''}.</div>
+${hot?`<div class="dm" style="margin-top:3px;color:var(--am)">Longest: ${fmtMS(rs.worst.sec)} after ${esc(rs.worst.nm)} — prescribed ${fmtMS(rs.worst.pres)}. Set gaps can include loading, transitions or interruptions as well as rest.</div>`:''}</div>`}}
 h+=`<div style="margin:12px 0"><div class="lb" style="margin-bottom:6px">Difficulty (RPE)</div>
 <div style="display:flex;justify-content:center;gap:4px">`;
 for(let i=1;i<=5;i++)h+=`<button type="button" class="diff-pick" aria-pressed="${SDIFF===i}" style="text-align:center;flex:1;max-width:64px;background:none;border:none;cursor:pointer;padding:0" onclick="SDIFF=${i};render()">
@@ -4773,6 +4874,23 @@ const c7=D.cardioLog.filter(c=>c.date>=ccut);
 const cMin=c7.reduce((a,c)=>a+(c.duration||0),0);
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span class="mu">Cardio · last 7 days</span><span style="color:${cMin>=60?'var(--gr)':'var(--mu)'};font-weight:700">${cMin?`${cMin} min · ${c7.length} session${c7.length===1?'':'s'}`:'—'}</span></div>`}
 h+=`</div>`;
+
+// Rest adherence — the decomposition of session length that `duration` alone could never
+// give (§24.2 measured the unaccounted time; this says what it was). Only sessions carrying
+// a set clock can answer, so the card names its own denominator rather than implying the
+// number covers everything.
+{const rh=restHistory(90);
+if(rh){const hot=rh.med>rh.medPres*1.5;
+h+=`<div class="cd">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
+<span style="font-size:12px;font-weight:600">Rest between sets</span>
+<span style="font-family:var(--disp);font-size:17px;font-weight:800;color:${hot?'var(--am)':'var(--gr)'}">${fmtMS(rh.med)}</span></div>
+<div class="dm" style="margin-bottom:10px">Median interval between completed sets · preceding-set prescription ${fmtMS(rh.medPres)} · ${rh.sessions} timed session${rh.sessions===1?'':'s'} in the last 90 days</div>
+<div class="fg-bar"><div class="fg-fill" style="width:${Math.max(3,Math.min(100,Math.round(rh.pres/rh.tot*100)))}%;background:var(--pr)"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:3px">
+<span>${Math.round(rh.pres/60)} min prescribed rest</span><span>${Math.round(rh.tot/60)} min between set completions</span></div>
+<div class="dm" style="margin-top:8px">${rh.over} of ${rh.n} gaps exceeded 1.5× the preceding set's prescription${rh.ratio?` · ${rh.ratio}× overall`:''}. These intervals can include deliberate rest, equipment changes and interruptions. Longer rests do not cost strength or size; the trade-off is session time.</div>
+${rh.sessions<3?`<div class="dm" style="margin-top:6px;color:var(--am)">Only ${rh.sessions} session${rh.sessions===1?' has':'s have'} a set clock so far — tick sets as you go and this gets trustworthy fast.</div>`:''}</div>`}}
 
 // Weekly cardio trend by intensity — the 7-day line above is only a snapshot.
 {const cw=cardioWeekly(8);
