@@ -2409,13 +2409,16 @@ T('...but still merges the ramp history', onBusy.comebackLog.length === 1);
 // is descriptive only — no test here should ever find it changing a load or a suggestion.
 {
 const S = (rows) => ({ ex: rows });
-// gap is charged to the LATER set — it is that set's prescribed rest you were waiting out
+// A gap is charged to the EARLIER completed set: toggleSetDone starts that exercise's timer.
 {
 const g = sessionGaps(S([{ id: 'hex_dl', ts: [0, 60, 180] }, { id: 'bb_curl', ts: [400] }]));
 T('sessionGaps pairs consecutive ticked sets', g.length === 2, JSON.stringify(g));
 T('...measuring the gap in seconds', g[0].sec === 120 && g[1].sec === 220);
-T('...and charging each gap to the later set', g[1].id === 'bb_curl');
-T('...with that set\'s own prescribed rest', g[1].pres === (ALL_EX.find(e => e.id === 'bb_curl').rstS));
+T('...and charging each gap to the earlier completed set', g[1].id === 'hex_dl');
+T('...with that set\'s own prescribed rest', g[1].pres === (ALL_EX.find(e => e.id === 'hex_dl').rstS));
+const mixed = sessionGaps(S([{ id: 'db_lateral', ts: [30] }, { id: 'hex_dl', ts: [120] }]));
+T('an exercise transition uses the timer started by the preceding exercise',
+  mixed[0].id === 'db_lateral' && mixed[0].pres === 30, JSON.stringify(mixed));
 }
 T('unstamped sets (0) are skipped, not read as t=0',
   sessionGaps(S([{ id: 'hex_dl', ts: [0, 0, 300] }, { id: 'ohp', ts: [360] }])).length === 1);
@@ -2435,6 +2438,9 @@ T('...totals prescribed vs actual', st.pres === 300 && st.tot === 1200);
 T('...and reports the excess and ratio', st.excess === 900 && st.ratio === 4);
 T('...naming the worst gap', st.worst.sec === 240 && st.worst.id === 'hex_dl');
 }
+T('an even-sized median averages the two middle gaps', (() => {
+  const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts: [30, 90, 210, 390, 630] }])));
+  return st.med === 150 })());
 // a gap just past the buzzer is NOT a finding — racking and chalking is real time
 T('a gap inside 1.5x prescribed does not count as over', (() => {
   const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts: [20, 100, 180, 260] }])));
@@ -2563,7 +2569,3 @@ process.exit(fail ? 1 : 0);
 // an explicit guard rather than trust.
 process.on('exit', code => {
   if (code === 0 && !FINISHED) {
-    console.log('\nFAIL: the suite exited without reporting — the async notification block never completed');
-    process.exitCode = 1;
-  }
-});

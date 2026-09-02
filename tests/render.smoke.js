@@ -217,8 +217,8 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   const summ = R.getA();
   T('the summary reports where the session went', /Rest between sets/.test(summ) && /4:00/.test(summ),
     (summ.match(/Rest between sets[\s\S]{0,120}/) || ['MISSING'])[0]);
-  T('...counting the gaps that ran long', /5 of 5 gaps over 1\.5/.test(summ));
-  T('...and naming the worst one', /Longest: 4:00/.test(summ));
+  T('...counting the gaps that ran long', /5 of 5 gaps exceeded 1\.5/.test(summ));
+  T('...and naming the preceding exercise for the worst one', /Longest: 4:00 after Hex Bar Deadlift/.test(summ));
   // A session with no clock must not grow an empty card.
   global.window._S.exs = [{ id:'hex_dl', wt:50, reps:[5,5,5], band:'', notes:'' }];
   R.render();
@@ -235,7 +235,7 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   lg[first].setDone = [true, true, true, true];
   tryRender('workout (live rest cell)', () => R.render());
   const w4 = R.getA();
-  T('the live strip carries a Rest cell', /id="lv-rest"/.test(w4));
+  T('the live strip carries a Set gap cell', /Set gap/.test(w4) && /id="lv-rest"/.test(w4));
   T('...showing the running median gap', />4:00</.test(w4), (w4.match(/id="lv-rest"[^>]*>[^<]*/) || ['MISSING'])[0]);
   T('...in amber once it passes 1.5x prescribed', /id="lv-rest"[^>]*var\(--am\)/.test(w4));
   R.go('home');

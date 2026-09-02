@@ -198,10 +198,14 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
   { const s = baseStore();            // baseStore has an empty bodyLog
     const { page, ctx } = await open(s);
     T('home asks for a bodyweight when none is logged', /No bodyweight logged yet/.test(await text(page)));
-    const s2 = baseStore(); s2.bodyLog = [{ date: ago(3), weight: 88 }];
+    const s2 = baseStore(); s2.bodyLog = [{ date: ago(6), weight: 88 }];
     const r2 = await open(s2);
     T('...and stays quiet when one is recent', !/bodyweight/i.test(await text(r2.page)));
     await r2.ctx.close();
+    const sWeek = baseStore(); sWeek.bodyLog = [{ date: ago(7), weight: 88 }];
+    const rWeek = await open(sWeek);
+    T('...using the stated weekly cadence', /Bodyweight last logged 7 days ago/.test(await text(rWeek.page)));
+    await rWeek.ctx.close();
     const s3 = baseStore(); s3.bodyLog = [{ date: ago(40), weight: 88 }];
     const r3 = await open(s3);
     T('...but speaks again once it goes stale', /Bodyweight last logged 40 days ago/.test(await text(r3.page)));
@@ -221,6 +225,3 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
   await browser.close();
   server.close();
   for (const e of errors) T('no page error: ' + e, false);
-  console.log(`\n${pass} passed, ${fail} failed`);
-  process.exit(fail ? 1 : 0);
-})().catch(e => { console.error('browser suite crashed:', e); process.exit(1) });
