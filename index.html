@@ -287,6 +287,19 @@ padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0
 .ws-l{font-size:10px;color:var(--mu);margin-bottom:1px}
 .ws-v{font-family:var(--disp);font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
 .ws-u{font-size:10px;color:var(--mu);font-weight:600}
+/* Essentials is meant to fit the user's ordinary 40–80 minute window, but an 80-minute
+   target is a pacing aid rather than a licence to cut recovery on a demanding set. Keep the
+   target visually separate from the rest prescription so elapsed time can never masquerade
+   as a rest cap. */
+.xp-pace{margin:-2px 0 8px;padding:7px 9px;background:var(--prl);border:1px solid rgba(var(--prRGB),.28);border-radius:var(--rad-sm)}
+.xp-pace-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10px;color:var(--mu)}
+.xp-pace-top b{font-family:var(--disp);font-size:11px;color:var(--pr)}
+.xp-pace-time{font-family:var(--disp);font-size:12px;font-weight:800;color:var(--pr);font-variant-numeric:tabular-nums;white-space:nowrap}
+.xp-pace.over .xp-pace-time{color:var(--am)}
+.xp-pace-track{height:5px;margin-top:5px;background:var(--ib);border-radius:3px;overflow:hidden}
+.xp-pace-fill{height:100%;background:var(--pr);border-radius:3px;transition:width .25s}
+.xp-pace.over .xp-pace-fill{background:var(--am)}
+.xp-pace-note{margin-top:4px;font-size:9px;color:var(--mu)}
 /* Ghost buttons for extra sets */
 .add-set{flex:1;padding:9px;font-size:12px;font-weight:700;color:var(--mu);background:none;border:1.5px dashed var(--ibr);border-radius:var(--rad-sm);cursor:pointer;transition:.15s}
 .add-set:active{border-color:var(--pr);color:var(--pr)}
@@ -371,7 +384,7 @@ button.set-prev:active{color:var(--pr)}
 .disc-joint{padding:4px 9px;border-radius:6px;border:1px solid var(--ibr);background:var(--ib);font-size:10px;font-weight:600;cursor:pointer;color:var(--mu)}
 .disc-joint.sel{border-color:var(--rd);background:var(--rdl);color:var(--rd)}
 
-/* RPE scale */
+/* Session-effort scale */
 .diff-btn{width:46px;height:46px;border-radius:50%;border:2px solid var(--ibr);background:var(--ib);font-family:var(--disp);font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;color:var(--tx)}
 .diff-btn.sel{border-color:var(--pr);background:var(--prl);color:var(--pr)}
 
@@ -642,7 +655,7 @@ const lastRotSession=ss=>{for(let i=ss.length-1;i>=0;i--)if(isRotDay(ss[i].day))
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
   adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'10-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_floor_press:{rp:'8-10',tg:10},db_ohp:{rp:'8-10',tg:10},db_bss:{rp:'8/leg',tg:8},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_curl:{rp:'8-12',tg:12}}},
-2:{name:'Hypertrophy',wk:8,desc:'Higher reps, more volume. Loads re-anchor ~5-10% lighter.',
+2:{name:'Hypertrophy',wk:8,desc:'Higher-rep emphasis at loads re-anchored from recent performance.',
   adj:{hex_dl:{rp:'8',tg:8},b_stance_rdl:{rp:'10/side',tg:10},hex_squat_b:{rp:'8',tg:8},lm_squat:{rp:'8-10',tg:10},ohp:{rp:'8-10',tg:10},floor_press:{rp:'10-12',tg:12},hex_row:{rp:'10-12',tg:12},hex_rdl:{rp:'10-12',tg:12},hex_floor_press:{rp:'12-15',tg:15},lm_lateral_squat:{rp:'10/side',tg:10},lm_lateral:{rp:'15-20',tg:20},bb_rear_row:{rp:'15-20',tg:20},bb_curl:{rp:'12-15',tg:15},bb_skullcr:{rp:'12-15',tg:15},lm_pallof:{rp:'12/side',tg:12},band_er:{rp:'15-20/side',tg:20},
   db_rdl:{rp:'10-12',tg:12},db_floor_press:{rp:'10-12',tg:12},db_ohp:{rp:'10-12',tg:12},db_bss:{rp:'10-12/leg',tg:12},db_lateral:{rp:'15-20',tg:20},db_rear_fly:{rp:'20-25',tg:25},db_curl:{rp:'12-15',tg:15}}},
 3:{name:'Strength',wk:8,desc:'Return to lower reps at higher weights.',
@@ -680,31 +693,43 @@ const BASE_PR={A:[
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
 {id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
-{id:'pullup_a',nm:'Pull-ups (Wide)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Full ROM, control through bottom (no dead-hang).',note:'Plateaued on a band? Step down ONE rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Build a clean 4x10 before dropping, keep every rep strict, and add 4-5s negatives after your last set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_a',nm:'Pull-ups (Comfortable Grip)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Use a shoulder-width or slightly wider overhand grip; choose the pain-free width. Control the bottom — no dead hang or forced end range.',note:'Step down ONE band rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Earn a clean 4×8 (the programmed target) before dropping assistance. Keep every rep strict; if the bottom position loses control, use more assistance or shorten to the controlled range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
-{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Confirm → ↑ weight.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true}],
+{id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Own every rep → add the smallest load step.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true,xp:true,qualityLoad:true}],
 B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:60,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'1:00',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:60,tempo:'3-1-2-0',perSide:false},
-{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 → less assistance. Depth to upper-arm parallel.',note:'Strict only — a clean 6 beats a bouncy 10 (loose reps are gated by design). Add a 1-2s pause at the bottom and build to 4x10 strict before reducing the band. Reduce band assistance when all sets hit the top of the rep range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Push-day finisher — the program\'s only direct elbow extension (backs up the OHP + dips pressing; back on the floor v18, where it was before the v13 overhead swap). Lie on the floor like a floor press, bar over the chest, elbows tucked and pointing at the ceiling. Lower to the forehead/just behind the head, extend without flaring. The floor caps the stretch and the bar can be set down at any point — that\'s the whole reason this beats the overhead version here. Confirm → ↑ weight.',note:'Back on the ground from v18. Your overhead load does NOT carry across 1:1 — lying is the stronger line, so expect roughly +10% once you have found the groove. If the suggestion looks stale (it may be reading your pre-v13 skullcrusher sessions), type your real number once and the engine re-anchors from there. Elbows stay pointing up; the moment they drift out, the triceps stop working.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false},
+{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Lower only to the deepest pain-free, controlled position; upper-arm parallel is a cap, not a depth target.',note:'Strict only — a clean 6 beats a bouncy 10. Earn a clean 4×8 (the programmed target) before reducing the band. No bounce. If elbow or front-shoulder discomfort rises during a set, stop and use more assistance or less range on the next set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',rl:'Optional direct-triceps finisher — OHP and dips already provide substantial triceps work. Lie on the floor with the bar over the chest, elbows tucked and pointing up. Lower toward the forehead/just behind the head, then extend without flaring. Keep the range pain-free; skip it if the elbow is irritated. Confirm → ↑ weight.',note:'Optional after OHP + dips. Use a controlled, pain-free range and do not progress through elbow discomfort. If you skip it, nothing else needs replacing. Elbows stay pointing up; stop the set when they drift or the joint, rather than the triceps, becomes the limiter.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,optional:true},
 {id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:60,tempo:'2-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 4 sets. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false},
-{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false},
-{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true}],
+{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false,xp:true},
+{id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true,xp:true}],
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'3-1-1-0',perSide:false},
-{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. 3×10 → less assistance.',note:'Volume slot — strict reps drive it. Build 3x10 clean before dropping a band, add slow negatives, and do not kip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. Use the same shoulder-width or slightly wider pain-free overhand grip as Day A. 3×10 strict → less assistance. Control the bottom; no dead hang.',note:'Volume slot — strict reps drive it. Build 3×10 clean before dropping a band; never kip or force a wider grip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:00',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
-{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true},
+{id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Own every rep → add the smallest load step.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true,xp:true,qualityLoad:true},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:00',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:60,tempo:'controlled',perSide:false},
-{id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'1:00',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:true},
-{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true}]};
+{id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'1:00',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:true,xp:true},
+{id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true,xp:false}]};
+
+// Recovery-aware home rests. The one-minute blanket made the strength pillars
+// unnecessarily conditioning-limited; accessories stay at 1:00, while compounds get
+// enough time to preserve rep quality and joint control.
+const HOME_REST_SECONDS={
+  hex_dl:120,hex_squat_b:120,ohp:120,
+  lm_bstance_squat:90,b_stance_rdl:90,floor_press:90,pullup_a:90,
+  hex_row:90,dips:90,hex_rdl:90,hex_floor_press:90,pullup_c:90,
+  lm_squat:90,lm_press:90,lm_lateral_squat:90
+};
+for(const day of Object.values(BASE_PR))for(const ex of day){const sec=HOME_REST_SECONDS[ex.id];
+  if(sec){ex.rstS=sec;ex.rst=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`}}
 
 // ═══════════════ HEX BAR + LANDMINE (both owned) ═══════════════
 // Hex bar → integrated as STRAIGHT SWAPS (not a rotation): hex_dl (Day A),
@@ -968,8 +993,9 @@ const PARTNER_BASE=[
 // So DO NOT trim exercises to buy time — on this evidence that only raises the unaccounted
 // share. The 58 minutes have to be located before anything can shorten them, which is what
 // the per-set `ts` stamps added alongside this note exist to do: once a session carries a set
-// clock, actual rest is measurable against rstS and the gap can be attributed instead of
-// guessed. Re-derive this block from a fresh export before any day is resized.
+// clock, the interval between set completions is measurable instead of guessed. Actual rest
+// still is not: a completion interval also contains setup and the next set's work. Re-derive
+// this block from a fresh export before any day is resized.
 const LOC_B_PR={
 A:[...PARTNER_BASE,
 {id:'db_curl',nm:'DB Biceps Curl',s:3,rp:'8-12',rst:'0:30',rir:'1-2',tp:'db',ss:'Rear-Delt Fly',rl:'⚡ Superset with the Rear-Delt Fly. Elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑0.5kg/DB.',note:'One of the few partner lifts with real headroom — the matched rack reaches 18.5kg/DB. ⚠ v21 asked you to type 15kg/DB in by hand because at one Day-A visit per quarter the engine could never catch up on its own. That instruction is SPENT: the v21 collapse gave this lift ~3 exposures a month, and the big-overshoot re-anchor now does it unaided (beat the target of 12 by 4+ on every set and the load jumps proportionally, ≈10% capped). Type nothing in — follow the card.',tg:12,rstS:30,tempo:'2-0-2-1',perSide:false,loadUnit:'per_db'},
@@ -1082,7 +1108,7 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
 const ALL_EX=(()=>{const seen=new Set();return ALL_EX_RAW.filter(e=>!seen.has(e.id)&&seen.add(e.id))})();
 const BANDS=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
 const BAND_IDX=b=>{if(!b)return 99;const n=b.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===b||x===n||x.replace(/ \(heaviest\)/,'')==n);return i>=0?i:99};
-const JOINTS=['Shoulder','Elbow','Wrist'];
+const JOINTS=['Shoulder','Elbow','Wrist','Lower Back','Hip','Knee','Ankle'];
 
 // ═══════════════ MUSCLE-GROUP VOLUME TRACKING ═══════════════
 // Per-exercise effective-set contribution by muscle (1.0 = direct, 0.5 = strong indirect).
@@ -1334,7 +1360,7 @@ for(const sh of BODY_SIL)s+=sh.c?`<circle cx="${sh.c[0]}" cy="${sh.c[1]}" r="${s
 for(const rg of regions){const mi=MG_INFO.find(x=>x[0]===rg.m);const v=Math.round((wv[rg.m]||0)*10)/10;
 const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null)||HEAT_NONE;
 const und=heatUnder(v,mi?mi[2]:null);
-const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · under MEV':''}</title>`;
+const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · below reference minimum':''}</title>`;
 const attrs=`fill="${fill}"${und?` stroke="${HEAT_FLAG}" stroke-width="1" stroke-dasharray="4 2.5"`:''} style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
 if(rg.d)s+=`<path d="${rg.d}" ${attrs}>${t}</path>`;
 if(rg.r)s+=`<rect x="${rg.r[0]}" y="${rg.r[1]}" width="${rg.r[2]}" height="${rg.r[3]}" rx="${rg.r[4]}" ${attrs}>${t}</rect>`;
@@ -1343,22 +1369,11 @@ return s+`</svg>`};
 return`<div style="display:flex;gap:14px;justify-content:center">
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
-<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>under MEV</span><span><i style="background:${HEAT_GREEN}"></i>productive</span><span><i style="background:${HEAT_CYAN}"></i>high</span><span><i style="background:${HEAT_MUTE}"></i>no target</span></div>`}
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>below reference</span><span><i style="background:${HEAT_GREEN}"></i>reference range</span><span><i style="background:${HEAT_CYAN}"></i>high</span><span><i style="background:${HEAT_MUTE}"></i>no reference</span></div>`}
 
-// ═══════════════ SEED ═══════════════
-const SEED={sessions:[
-{id:'s1',date:'2026-02-26',day:'A',ex:[{id:'deadlift',wt:46,reps:[8,7,7],band:'',notes:'Finding week'},{id:'pullup_a',wt:null,reps:[6,5,5,4],band:'Blue',notes:''},{id:'floor_press',wt:26,reps:[8,8,8],band:'',notes:''},{id:'face_pull',wt:null,reps:[18,16,15],band:'Purple',notes:''},{id:'leg_raise',wt:5,reps:[12,10,10],band:'',notes:'5kg overhead'}]},
-{id:'s2',date:'2026-03-01',day:'A',ex:[{id:'deadlift',wt:46,reps:[6,6,6],band:'',notes:''},{id:'pullup_a',wt:null,reps:[5,5,4,4],band:'Green',notes:''},{id:'zercher_a',wt:28,reps:[7,6,6],band:'',notes:''}]},
-{id:'s3',date:'2026-03-04',day:'A',ex:[{id:'deadlift',wt:46,reps:[1,1,1],band:'',notes:'Heavy singles'},{id:'floor_press',wt:26,reps:[8,8,8],band:'',notes:''},{id:'zercher_a',wt:21,reps:[8,7,6],band:'',notes:''}]},
-{id:'s4',date:'2026-03-06',day:'B',ex:[{id:'zercher_b',wt:26,reps:[6,6,5,5],band:'',notes:''},{id:'ohp',wt:16,reps:[7,6,5],band:'',notes:''}]},
-{id:'s5',date:'2026-03-10',day:'B',ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:21,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,5,5,4],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,9,8],band:'',notes:''}]},
-{id:'s6',date:'2026-03-14',day:'C',ex:[{id:'rdl',wt:41,reps:[8,8,8],band:'',notes:''}]},
-{id:'s7',date:'2026-03-17',day:'B',difficulty:null,duration:40,volume:3013,ex:[{id:'zercher_b',wt:31,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:23,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:30,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:32,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
-{id:'s8',date:'2026-03-19',day:'C',difficulty:2,duration:56,volume:1758,ex:[{id:'rdl',wt:43,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:10,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:11,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:32,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
-// programVersion:21 keeps the migrateToV12..V21 chain a no-op on demo bootstraps (they
-// exist for real older stores); the dead `confirmed` field is gone for the same reason —
-// the migration's cleanup no longer runs here. load() stamps phaseStart=today() on seeding.
-nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2026-02-26',discomfort:[],location:'home',programVersion:21,comeback:null,comebackLog:[]};
+// Empty production template. Historical regression data belongs in tests/fixtures only;
+// shipping it here made a fresh install look like a real, stale training history.
+const SEED=freshState();
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
@@ -1377,7 +1392,8 @@ const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp',
 for(const s of d.sessions){
   if(!s.loc)s.loc=s.ex.some(e=>partnerIds.has(e.id))?'partner':'home';
   // Always re-derive stored volume so history stays consistent with the
-  // current tonnage formula (perSide ×2, carries excluded, per_db ×2).
+  // current tonnage formula (per-side fields already contain both sides;
+  // carries excluded; per_db ×2 where two dumbbells move together).
   {let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps,e.wts)}
    if(tv>0||s.volume!=null)s.volume=tv}
   if(s.duration!=null&&s.duration<10&&s.ex.length>=3)s.duration=null}
@@ -1457,7 +1473,7 @@ if(d.programVersion>=19)return d;
 d.programVersion=19;
 return d}
 
-// v20 migration: the core block is DISSOLVED and every prescribed rest drops to 1:00.
+// v20 migration: the core block is DISSOLVED and rests initially dropped to 1:00.
 // Structural for the PROGRAM again, not for stored data:
 //   • Day 'X' no longer exists. Its four movements went back onto the lifting days —
 //     home: dead_bugs_a→A, bb_rollout + bird_dog→B, lm_pallof→C;
@@ -1467,8 +1483,7 @@ return d}
 //   • Those stored day:'X' sessions stay off-rotation forever: isRotDay/lastRotSession are
 //     KEPT (not cleaned up) precisely so an old core block can never retro-shunt the A→B→C
 //     pointer. dayBadge still renders them as "Core" in history.
-//   • Rests: every active slot is rst:'1:00'/rstS:60. Display string and timer seconds are
-//     the same two fields the timer already read, so nothing downstream changes shape.
+//   • v99 later differentiates demanding home compounds again without changing state shape.
 // Stamp only — no stored session is rewritten.
 function migrateToV20(d){
 if(d.programVersion>=20)return d;
@@ -1501,12 +1516,9 @@ return d}
 let LOAD_DROPPED=0;
 function load(){LOAD_DROPPED=0;try{let s=localStorage.getItem(SK);
 if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
-// `seeded` marks a store bootstrapped from the bundled SEED demo (nothing the user
-// entered) — import treats it like a fresh device and adopts backup metadata wholesale.
-let d;if(s)d=JSON.parse(s);else{d=structuredClone(SEED);d.seeded=true;
-// Fresh install: start the phase clock now — the SEED literal's phaseStart is a fixed
-// demo date that would boot every new device straight into "phase overdue" banners.
-d.phaseStart=today()}
+// A fresh device starts empty. `seeded` is still understood by mergeImport for old
+// releases that did ship a demo history, but new stores never create that flag.
+let d;if(s)d=JSON.parse(s);else d=freshState();
 // Guard the load path like import does — drop malformed sessions so a partially corrupted
 // (but still parseable) store can't crash render. Good data passes through unchanged.
 // Losses are COUNTED and the raw store is parked under SK+'-corrupt' first. This used to be
@@ -1525,7 +1537,7 @@ if(Array.isArray(d.sessions)){
 }
 // The COUNT is persisted next to the copy: LOAD_DROPPED describes this boot only, and the
 // rescue copy outlives it, so without this the banner reverted to the total-loss wording
-// ('what you see now is a fresh/demo state') on every boot after the first — the exact
+// ('what you see now is a fresh empty state') on every boot after the first — the exact
 // misleading copy this fix set out to remove, shown to a user whose history is fine.
 if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED))}catch(_){}
 // Cue KEYS are interpolated into the delete-button onclick, so mergeImport constrains their
@@ -1569,7 +1581,7 @@ try{for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
 }catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw);
 // Unparseable store = total loss. Clear any partial-drop count from an earlier rescue so
 // the banner doesn't under-report this as 'N sessions couldn't be read'.
-localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=structuredClone(SEED);D.seeded=true}}
+localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=freshState()}}
 // Returns false on quota/write failure so callers can warn instead of losing data silently.
 // Two-tab guard: D.gen is the generation of the snapshot this tab loaded; a cheap sidecar
 // key mirrors the last-written gen. If another tab wrote since we loaded (sidecar > ours),
@@ -1593,8 +1605,7 @@ D.gen=prev+1;
 try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){D.gen=prev;return false}
 try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
 return true}catch(e){return false}}
-// A clean empty program state — "Reset All Data" uses this so a reset gives a blank slate
-// rather than restoring the bundled demo sessions in SEED.
+// A clean empty program state shared by first boot, corruption recovery, and full reset.
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[]}}
 // Full reset also drops the active-workout backup + timer — leaving them meant the
 // home screen offered "Resume Day X?" built from the data that was just wiped.
@@ -1694,7 +1705,11 @@ const seenEx=new Set();const uniqEx=[];
 for(const loc of ['home','partner'])for(const day of Object.values(getProgram(D.phase,loc)))for(const ex of day){
   if(seenEx.has(ex.id))continue;seenEx.add(ex.id);uniqEx.push(ex)}
 let stalledEx=0,stalledMajor=0,totalEx=0,progressingEx=0;
-for(const ex of uniqEx){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
+// Loaded motor-control slots still receive conservative load suggestions, but they are not
+// phase-performance tests. A dead bug or anti-rotation press can be limited by brace, tempo,
+// or usable range; treating that as a strength-block stall can recommend a phase change for
+// exactly the quality constraint the exercise is meant to train.
+for(const ex of uniqEx){if(ex.qualityLoad||ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;
   if(sg.type==='dn'||sg.stalled)stalledEx++;
   // Deload-grade stall (stricter than the phase-change signal): a REAL repeated stall
@@ -1708,8 +1723,11 @@ for(const ex of uniqEx){if(ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp=
 // eat a quarter of the block; the session floor tracks actual training done. Strict > on
 // weeks keeps the old off-by-one fix (due when wksSince hits 9, not at the start of wk 8).
 const timerDue=wksSince>p.wk||sessSince>=24;
-const stallDue=stalledEx>=2; // 2+ exercises genuinely stalling (below min range)
-// Phase change recommended if: timer AND stalls, OR early if lots of stalls
+// A whole-program rep-emphasis change needs evidence from meaningful compound work.
+// Accessory stalls remain visible in stalledEx, but two curls/raises stalling while the
+// strength pillars are moving is not a reason to redirect every lift in the program.
+const stallDue=stalledMajor>=2;
+// Phase change recommended if: timer AND 2+ compound stalls, OR early on the same signal.
 const recommend=timerDue&&stallDue?'due':timerDue&&!stallDue?'timer_only':!timerDue&&stallDue?'early_stall':'not_due';
 return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSince,
   recommend,stalledEx,stalledMajor,progressingEx,totalEx,timerDue,stallDue}}
@@ -1732,29 +1750,40 @@ if(checkResume()&&!confirm('You have an unfinished workout at the other location
 D.location=l;save();render()}
 
 // ═══════════════ PROGRESSION ═══════════════
-function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const e=D.sessions[i].ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:D.sessions[i].date,phase:D.sessions[i].phase,...(D.sessions[i].noProg?{noProg:true}:{})})}return h}
+function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const s=D.sessions[i],e=s.ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:s.date,phase:s.phase,loc:s.loc||'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup,...(s.noProg?{noProg:true}:{})})}return h}
 function getLast(exId){const h=getHist(exId,1);return h.length?h[0]:null}
 function getRepMin(ex){const parts=ex.rp.replace(/\/.*/, '').split('-');return parseInt(parts[0])||ex.tg}
-// Discomfort signal for the progression gate. Two audit fixes baked in:
+// Discomfort signal for the progression gate. Three audit fixes baked in:
 // (1) SESSION-scoped, not row-scoped — finishW writes one row PER JOINT, so a single
 //     session flagging shoulder+elbow used to read as "2 sessions of pain" and
 //     instantly trip the repeated-discomfort hold. Collapse to worst level per date.
 // (2) 30-day recency window — a months-old flag must not warn/hold forever.
+// (3) joint-family scope — repeated shoulder/elbow/wrist flags inform related upper-body
+//     lifts, while lower-back/hip/knee/ankle flags inform related lower-body lifts. Exact
+//     exercise matches always count. This catches a joint trend spread across exercise ids.
+const LOWER_JOINTS=new Set(['Lower Back','Hip','Knee','Ankle']);
+function jointFamily(exId){const m=MG[exId]||{};
+  const lower=!!(m.quads||m.hams||m.glutes||m.calves);
+  const upper=!!(m.chest||m.fdelt||m.sidedelt||m.reardelt||m.biceps||m.triceps||m.cuff||(m.back&&!lower));
+  return lower?'lower':upper?'upper':null}
+function sameJointFamily(exId,row){if(row.exId===exId)return true;
+  const want=LOWER_JOINTS.has(row.joint)?'lower':'upper';
+  return jointFamily(exId)===want&&jointFamily(row.exId)===want}
 function getDiscomfortRecent(exId,n=3){
 const cut=daysAgoStr(30);
 const rank={none:0,mild:1,moderate:2};
 const byDate={};
-for(const r of D.discomfort){if(r.exId!==exId||r.date<cut)continue;
+for(const r of D.discomfort){if(!sameJointFamily(exId,r)||r.date<cut)continue;
   if(!byDate[r.date]||(rank[r.level]||0)>(rank[byDate[r.date].level]||0))byDate[r.date]=r}
 return Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)).slice(-n)}
 
-// CONVENTION: reps are entered AS PERFORMED PER SIDE for perSide exercises,
-// matching the on-screen prescription ("8/side" → type 8). Targets (tg) and
-// rep minimums are also per-side, so entered values compare directly — no
-// halving. (The old Patch-2 halving assumed both-sides totals were entered,
-// which made every per-side exercise need double the displayed reps to progress.)
+// CONVENTION: the rep box stores the COMBINED total across both sides for a
+// perSide exercise ("8/side" → type 16). Progression targets and minimums remain
+// per-side, so convert the stored total to the conservative lower-side count.
+// An odd total such as 15 is treated as 7+8 and therefore scores as 7/side; the
+// engine must never award progression by assuming the larger side was matched.
 function effectiveReps(ex,reps){
-return (reps||[]).filter(r=>Number(r)>0).map(Number)}
+return (reps||[]).filter(r=>Number(r)>0).map(r=>ex&&ex.perSide?Math.floor(Number(r)/2):Number(r))}
 
 // ── Form quality (1–5: 5=Strict … 1=Negatives). Per-set scores are the source of
 // truth; sessClean() gates progression — a session only counts as a "clean hit"
@@ -1769,16 +1798,16 @@ for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0&&f[i]
 function sessForm(h){const f=h&&h.form;if(!Array.isArray(f))return 0;let m=0;
 for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0)m=m?Math.min(m,f[i]):f[i]}return m}
 
-// Tonnage helper. perSide reps are logged per side, so the load is moved twice
-// the entered rep count; per_db means the entered weight is per dumbbell with two
-// held. Carries log steps/metres in the rep field — excluding them keeps kg·steps
+// Tonnage helper. perSide reps are already the combined total across both sides,
+// so they must NOT be doubled again. per_db means the entered weight is per dumbbell
+// with two held at once. Carries log steps/metres in the rep field — excluding them keeps kg·steps
 // from dwarfing real tonnage (32kg × 120 steps was adding ~3.8t to a session).
 // Optional wts[] carries per-set weight OVERRIDES (aligned with reps; null/0 =
 // inherit wt). Sessions without wts take the original single-weight path.
 function calcExVol(exId,wt,reps,wts){
 const def=ALL_EX.find(e=>e.id===exId);
 if(def&&def.tp==='carry')return 0;
-const mult=((def&&def.loadUnit==='per_db')?2:1)*((def&&def.perSide)?2:1);
+const mult=(def&&def.loadUnit==='per_db')?2:1;
 if(Array.isArray(wts)&&wts.some(w=>Number(w)>0)){
   let t=0;const rr=reps||[];
   for(let i=0;i<rr.length;i++){const r=Number(rr[i]);if(!(r>0))continue;
@@ -1843,9 +1872,13 @@ if(Array.isArray(e.wts)&&e.wts.some(w=>Number(w)>0)){
   return parts.join(', ')}
 return`${e.wt?e.wt+'kg ':''}[${vr.filter(r=>r>0).join(',')}]`}
 
-// RPE scale — replaces emoji system
-const RPE_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
-const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#b3134d']; // MAX stays raw hex — the summary picker concatenates '18' for a hex-alpha tint
+// Custom session-effort scale — stored under the historical `difficulty` field.
+// This is deliberately not called RPE: it is a simple 1–5 ordinal self-report, not a
+// Borg or repetitions-in-reserve RPE scale.
+const EFFORT_LABELS=['Light','Moderate','Hard','Very Hard','Maximal'];
+const EFFORT_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#b3134d']; // MAX stays raw hex — the summary picker concatenates '18' for a hex-alpha tint
+function targetRirLabel(ex){const r=String(ex&&ex.rir||'').trim();if(!r||r==='—')return'';
+return /^\d/.test(r)?`Target RIR ${esc(r)} (reps left)`:`Effort: ${esc(r)}`}
 
 // ═══════════════ RELATED EXERCISE MAPPINGS ═══════════════
 // When a new exercise has no history, fall back to a related exercise's most recent
@@ -1854,10 +1887,8 @@ const RPE_COLORS=['var(--gr)','var(--pr)','var(--am)','var(--rd)','#b3134d']; //
 //   mult — multiplier on related weight (default 1.0)
 //   addKg — kg to add after multiplication (default 0)
 const RELATED_EX={
-  // Home staples that had no first-session fallback. These are NOT new lifts — they simply
-  // never got a seed, because the bundled demo carries history for them and that masked the
-  // gap. The moment a user restores a real backup the demo rows are dropped (mergeImport), so
-  // any of these the backup doesn't cover fell through to a bare "First weighted session —
+  // Home staples need deterministic first-session fallbacks now that production starts empty.
+  // Any exercise a backup does not cover would otherwise fall through to a bare "First weighted session —
   // find your starting load" with no number at all. `dead_bugs_a` had no fallback either way.
   // Seeded conservatively — bar-only / heaviest assist — because undershooting is cheap now
   // that the big-overshoot re-anchor works (≈2.5%/rep over target, capped +12%/session, so a
@@ -1866,9 +1897,9 @@ const RELATED_EX={
   'ohp':            {id:null,               seedWt:BAR, note:'First logged session — start with the empty 11kg bar and add plates once the groove feels solid. Strict, no leg drive.'},
   'floor_press':    {id:null,               seedWt:BAR, note:'First logged session — empty 11kg bar to find the groove, then build. Wrist wraps if you have them.'},
   'dead_bugs_a':    {id:null,               seedWt:BAR, note:"Bar held at arm's length over the chest — start with the empty 11kg bar and keep the low back flat. Add load only once the ribs stay down for every rep."},
-  'pullup_a':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue) and reduce assistance as reps come. Full ROM, control through the bottom.'},
-  'pullup_c':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — volume slot, so start on the heaviest assist band (Blue) and drop a band once you clear the target.'},
-  'dips':           {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue). Depth to upper-arm parallel before reducing assistance.'},
+  'pullup_a':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue) and reduce assistance as strict reps come. Use a comfortable shoulder-width or slightly wider grip and control the bottom.'},
+  'pullup_c':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — volume slot, so start on the heaviest assist band (Blue) and drop a band once you clear the target with the same controlled, comfortable grip.'},
+  'dips':           {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue). Use the deepest pain-free controlled range; upper-arm parallel is a cap, not a target.'},
   // Home program new exercises
   // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
   // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
@@ -1983,7 +2014,7 @@ function getRelatedSuggestion(ex){
   return null;
 }
 
-function getSmartSugg(ex){
+function getSmartSuggCore(ex){
 let hist=getHist(ex.id,8);
 // Sessions the user flagged in History ("ignore for progression" — e.g. a glitch session
 // logged at submaximal loads after a data mishap) are invisible to the engine only:
@@ -2217,13 +2248,30 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     const eRl=workSets(last);
     const minRep=eRl.length?Math.min(...eRl):ex.tg;
     const over=minRep-ex.tg; // 0 = just hit target; higher = lots in reserve
+    // Loaded motor-control work progresses, but it is not a strength test. Rep overshoot is
+    // not evidence for a proportional jump when brace, range and tempo are the real task.
+    // Advance exactly one loadable rung; if form was rated below clean, the form gate above
+    // already held the load. With no form rating, the card states the condition explicitly.
+    if(ex.qualityLoad){
+      let nxt;
+      if(ex.tp==='bb')nxt=nxUp(lastLoad,vwOf(ex));
+      else if(ex.tp==='db')nxt=nxUp(lastLoad,dbwOf(ex));
+      else nxt=Math.round((lastLoad+dbInc)*10)/10;
+      if(nxt<=lastLoad){
+        return{text:`🔒 MAX — progress control`,type:'st',wt:lastLoad,traj,
+          detail:`At the load ceiling. Keep the brace, range and prescribed tempo strict; do not chase more weight.`,regress,maxed:true};
+      }
+      const jump=Math.round((nxt-lastLoad)*100)/100;
+      return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,
+        detail:`Rep target met — add only the smallest load step (+${jump}kg), and repeat instead if brace, range or tempo was not controlled.`,regress};
+    }
     // NOTE: the big-overshoot check runs BEFORE the confirm brake — confirming a load you
     // beat by 4+ reps on every set just wastes a session at a weight that is plainly too
     // light (the hex_dl coach note says exactly this). Confirm lifts keep a tighter jump
     // cap (+8% vs +12%) since they are the heavy spinal movements.
     // BIG-OVERSHOOT re-anchor: a single plate/micro step moves ~0.5-1kg, which can never
-    // catch up to a load you're beating by many reps (e.g. a 3×8 slot logged at 20/side
-    // crawls +1kg/session for ~15 sessions). When the LOWEST working set clears target by
+    // catch up to a load you're beating by many reps (e.g. a 3×8/side slot logged at 40
+    // total reps, 20+20, crawls +1kg/session for ~15 sessions). When the LOWEST working set clears target by
     // enough, jump proportionally — ≈2.5% per rep over, capped at +12%/session for joint
     // safety — and snap to a valid load. Keyed off the lowest set (not one hot AMRAP set),
     // so it only fires when EVERY set is well over target. Re-fires until you land in range.
@@ -2307,6 +2355,29 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
     return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:over>=3?`Hit ${lastSets}×${ex.tg}+${over} — +${(dbInc*steps)}kg`:`Hit ${lastSets}×${ex.tg} — +${dbInc}kg`,regress}}
   // FAILING (below minimum) → escalation ladder: rep-scheme cluster first, then load reset
   if(!lastInRange){
+    // Clusters deliberately trade rep quality for completed volume, which is useful for a
+    // stalled strength lift but contrary to the purpose of these loaded control exercises.
+    // Count every same-load miss (including a historically cluster-shaped entry), hold for
+    // two exposures, then make the same bounded ~10% reset used elsewhere and rebuild cleanly.
+    if(ex.qualityLoad){
+      const qualityStalls=stallRun.length;
+      if(qualityStalls>=3){
+        let d;
+        if(ex.tp==='bb'){const vw=vwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+        else if(ex.tp==='db'){const vw=dbwOf(ex),cap=lastLoad*0.9;d=[...vw].reverse().find(w=>w<=cap)??vw[0]}
+        else d=Math.max(0,Math.round(lastLoad*0.9*2)/2);
+        if(d>=lastLoad){
+          return{text:`→ ${lastLoad}kg${u} (rebuild)`,type:'stay',wt:lastLoad,traj,stalled:true,
+            detail:`${qualityStalls} control-work sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} at the lightest load — shorten the range if needed and rebuild the prescribed brace and tempo.`,regress};
+        }
+        const cut=Math.round((lastLoad-d)*10)/10;
+        const pct=Math.round((lastLoad-d)/lastLoad*100);
+        return{text:`↓ ${d}kg${u}`,type:'dn',wt:d,traj,stalled:true,
+          detail:`${qualityStalls} control-work sessions below ${ex.s}×${mn}${ex.perSide?'/side':''} — reset to ${d}kg (−${cut}kg, ~${pct}%) and rebuild without clusters.`,regress};
+      }
+      return{text:`→ ${lastLoad}kg${u}`,type:'stay',wt:lastLoad,traj,
+        detail:`Control work below range (${qualityStalls}/3). Hold the load and rebuild the brace, range and tempo; clusters are not used here.`,regress};
+    }
     // clusterHeld is true only for the ONE forgiven cluster, and only on the session that
     // took the advice. A second cluster scores as an ordinary stall, pushing stalls to 3 and
     // falling through to the deload below — that is what stops the hold repeating forever.
@@ -2458,6 +2529,46 @@ if(ex.tp==='bw'){
 // ─── Fallback ───
 return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],detail:'',regress:discWarn}}
 
+// Final safety overlay. The core engine still computes the appropriate progression or
+// regression first; performance/recovery signals can veto an increase, but never mask a
+// prescribed hold or load reduction. Warm-up completion stays advisory: the session-level
+// checklist is neither exercise-specific nor proof of readiness, so it cannot scientifically
+// justify overriding otherwise-earned progression. Missing historical metadata is neutral.
+const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat']);
+const PARTNER_SPLIT_SQUAT_IDS=new Set(['db_bss','db_lunge']);
+function recentPartnerLegWork(){const cut=daysAgoStr(6),now=today();
+  return D.sessions.some(s=>(s.loc||'home')==='partner'&&s.date>=cut&&s.date<=now&&
+    (s.ex||[]).some(e=>PARTNER_SPLIT_SQUAT_IDS.has(e.id)&&effectiveReps(ALL_EX.find(x=>x.id===e.id)||{},e.reps).length>=3))}
+function safetyHist(ex){let h=getHist(ex.id,8).filter(x=>!x.noProg&&effectiveReps(ex,x.reps).length>0);
+  if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const end=ymd(de);
+    const f=h.filter(x=>x.date<D.lastDeload||x.date>end);if(f.length)h=f}
+  const muted=rampMutedDates();if(muted.size){const f=h.filter(x=>!muted.has(x.date));if(f.length)h=f}
+  return h.slice(-5)}
+function getSmartSugg(ex){
+  const base=getSmartSuggCore(ex);
+  if(base.type!=='up')return base;
+  const hist=safetyHist(ex),last=hist[hist.length-1],reasons=[];
+  if(last&&Number(last.difficulty)===5)reasons.push('last session effort was 5/5');
+  if(last&&hist.length>=2){const prev=hist[hist.length-2];
+    const n=h=>Math.min(ex.s,(h.reps||[]).length||ex.s);
+    const reps=h=>effectiveReps(ex,h.reps).slice(0,n(h));
+    const pr=reps(prev),cr=reps(last);
+    const sameLever=ex.tp==='band'?BAND_IDX(prev.band)===BAND_IDX(last.band):
+      wEq(sessLoad(prev,n(prev))||0,sessLoad(last,n(last))||0);
+    if(sameLever&&pr.length&&cr.length){const pt=pr.reduce((a,b)=>a+b,0),ct=cr.reduce((a,b)=>a+b,0);
+      const pa=pt/pr.length,ca=ct/cr.length;
+      if(ct<pt-3&&ca<=pa-2)reasons.push(`average reps dropped ${pa.toFixed(1)}→${ca.toFixed(1)}`)}}
+  if(HOME_LOWER_IDS.has(ex.id)&&recentPartnerLegWork())reasons.push('partner split-squat/lunge work was logged in the last 7 days');
+  if(!reasons.length)return base;
+  const lastLoad=last?sessLoad(last,Math.min(ex.s,(last.reps||[]).length||ex.s)):0;
+  const unit=ex.loadUnit==='per_db'?'/DB':'';
+  const text=ex.tp==='band'?`Stay on ${last.band||base.band||'current band'} (recovery hold)`:
+    lastLoad?`→ ${lastLoad}kg${unit} (recovery hold)`:'Hold progression for recovery';
+  return{...base,type:'stay',text,wt:lastLoad||base.wt,band:last&&last.band||base.band,
+    detail:`Progression held: ${reasons.join('; ')}.${base.detail?` ${base.detail}`:''}`,
+    regress:`⚠ ${reasons.join(' · ')}`}
+}
+
 // e1RM only makes sense where the rep field holds REPS of a rep-max-style lift.
 // Carries log steps/metres (e1rmF(40 steps) minted nonsense "E1RM PRs" on farmer's
 // carries) and band/bw lifts have no meaningful load — all excluded.
@@ -2473,7 +2584,8 @@ const E1RM_TYPES=new Set(['bb','db','kb','mace','club']);
 // [40,40,50] priced the 6-rep set at 40).
 function exSetE1RMMax(def,e){
 const rr=e.reps||[];let be=0;
-for(let i=0;i<rr.length;i++){const r=Number(rr[i]);if(!(r>0))continue;
+for(let i=0;i<rr.length;i++){const raw=Number(rr[i]);if(!(raw>0))continue;
+const r=def&&def.perSide?Math.floor(raw/2):raw;if(!(r>0))continue;
 const w=setWt(e,i);if(!w)continue;const x=e1rm(w,r);if(x>be)be=x}
 return be}
 function exBestE1RM(def,e){return def&&E1RM_TYPES.has(def.tp)?exSetE1RMMax(def,e):0}
@@ -2591,7 +2703,7 @@ if(data.length<2)return`<div class="dm" style="text-align:center;padding:16px">N
 const pad={t:22,r:18,b:28,l:36},w=W-pad.l-pad.r,h=H-pad.t-pad.b;
 let vals=data.map(d=>d.v),mn=Math.min(...vals),mx=Math.max(...vals);
 const rawMn=mn;
-// A perfectly flat series (e.g. every week RPE 3) printed four identical tick
+// A perfectly flat series (e.g. every week effort 3) printed four identical tick
 // labels — pad the domain by ±1 so ticks differ and the line sits mid-chart.
 if(mx===mn){mn=mn-1;mx=mx+1}
 else{
@@ -2646,15 +2758,15 @@ D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=ca
 D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2,load:c.intensity==='hard'?.5:c.intensity==='moderate'?.35:.2}))}
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // Calibration (audit fix): the old weights (f*1.2 + ad*0.9 + vol/1200f) pushed a
-// perfectly normal week — 3 sessions, RPE 3, ~9t — to 8.8/10 "Fatigued", so the meter
-// red-lined permanently. Target anchors: 3 sessions @RPE3 & normal volume ≈ 5 (Ready);
-// 5-6 hard sessions @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh).
+// perfectly normal week — 3 sessions, effort 3, ~9t — to 8.8/10 "Fatigued", so the meter
+// red-lined permanently. Target anchors: 3 sessions @effort 3 & normal volume ≈ 5 (Ready);
+// 5-6 hard sessions @effort 4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh).
 // f is session-EQUIVALENTS (summed load), not a raw entry count — see `load` above.
 // MONOTONICITY (audit 6). The invariant this function has always claimed — "logging more work
 // must never make the meter read less fatigued" — was FALSE, and load-weighting the means did
 // not fix it, only shrink it. Any MEAN is non-monotone: the added entry lands in the numerator
 // AND the denominator, so a below-average one drags the term down. Measured on the old
-// formula: one brutal session (RPE 5, 10t) read 8.6 Fatigued, and logging a second, easy,
+// formula: one brutal session (effort 5, 10t) read 8.6 Fatigued, and logging a second, easy,
 // light session dropped it to 4.9 Ready — two bands lower for strictly more work. Cardio hit
 // the same wall (3.1 Ready → 2.9 Fresh after a 10-minute row); 182 of 1080 sampled
 // lifting+cardio states scored LOWER with the cardio logged, 724 of 6480 crossing a label.
@@ -2662,8 +2774,8 @@ if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // over non-negative per-entry terms can only grow, so the score is monotone by construction,
 // and on a UNIFORM week (every entry the same effort and volume — which is what all three
 // documented calibration anchors are) max == mean, so this reproduces the existing
-// calibration exactly: 3 sessions @RPE3 & normal volume ≈ 5 (Ready); 5-6 hard sessions
-// @RPE4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh). It differs only on MIXED weeks, and
+// calibration exactly: 3 sessions @effort 3 & normal volume ≈ 5 (Ready); 5-6 hard sessions
+// @effort 4+ ≈ 8+ (Fatigued); 1 light session ≈ 2 (Fresh). It differs only on MIXED weeks, and
 // only upward — reading "the hardest thing you did, plus how often you trained" instead of
 // letting an easy session average a hard one away.
 const f=scores.reduce((a,b)=>a+(b.load??1),0);
@@ -2686,7 +2798,7 @@ const anchor=[D.lastDeload,rampEnd()].filter(Boolean).sort().pop()||null;
 const st=anchor||D.sessions[0]?.date;if(!st)return null;const wk=Math.max(1,Math.floor((new Date()-new Date(st+'T00:00:00'))/6048e5)+1);
 const sc=anchor?D.sessions.filter(s=>s.date>anchor).length:D.sessions.length;
 // Signal-driven: don't deload on timer alone — check for actual fatigue signals.
-// Average RPE over the last 14 days (not the last 5 sessions whenever they were)
+// Average self-reported effort over the last 14 days (not the last 5 sessions whenever they were)
 // so a fortnight-old hard block can't keep flagging fatigue today. Fall back to
 // the 5 most recent rated sessions if nothing falls inside the window.
 const cut14=daysAgoStr(14);
@@ -2696,7 +2808,7 @@ const avgDiff=rated.length?rated.reduce((a,s)=>a+s.difficulty,0)/rated.length:0;
 const highFatigue=avgDiff>=4;
 // For beginners (<30 sessions), extend timer to 8 weeks and require signals
 const isBeginner=D.sessions.length<30;const timerThresh=isBeginner?8:6;
-// Two independent fatigue signals: self-reported RPE (subjective, often under-rated) OR
+// Two independent fatigue signals: self-reported session effort (subjective) OR
 // 2+ lifts genuinely stalling/regressing (objective, from getSmartSugg). Either one, with
 // the timer met, recommends a deload — so an athlete who under-rates effort but is clearly
 // grinding to a halt still gets caught. Timer met with neither signal = optional checkpoint.
@@ -2713,13 +2825,13 @@ const timerMet=wk>timerThresh||sc>=timerThresh*3;
 const rtnOpen=!!D.comeback;
 const due=!rtnOpen&&timerMet&&(highFatigue||stallDue);
 const consider=!rtnOpen&&timerMet&&!due;
-const reason=highFatigue&&stallDue?`RPE ${Math.round(avgDiff*10)/10}/5 + ${stalledMajor} key lifts stalling`
-  :highFatigue?`RPE avg ${Math.round(avgDiff*10)/10}/5 high`
+const reason=highFatigue&&stallDue?`Effort ${Math.round(avgDiff*10)/10}/5 + ${stalledMajor} key lifts stalling`
+  :highFatigue?`Effort avg ${Math.round(avgDiff*10)/10}/5 high`
   :stallDue?`${stalledMajor} key lifts stalling`:'';
 return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,stalledMajor,reason,
-  suppressed:rtnOpen?'comeback':null}}
+  ratedN:rated.length,suppressed:rtnOpen?'comeback':null}}
 
-// ═══════════════ REST ADHERENCE ═══════════════
+// ═══════════════ SET-COMPLETION INTERVALS ═══════════════
 // The set clock (`ex[].ts` — seconds from session start, stamped by toggleSetDone) has been
 // written since §24 and read back by NOTHING. Six months of two-hour sessions with the one
 // instrument that could locate the delay writing to a field no screen ever opened. §24.2 could
@@ -2727,65 +2839,81 @@ return{wk,sc,due,consider,isBeginner,avgDiff:Math.round(avgDiff*10)/10,stallDue,
 // that it accumulated between completed sets. Those intervals include deliberate rest,
 // equipment changes and interruptions, so they must not be presented as pure rest time.
 //
-// Deliberately DESCRIPTIVE, not prescriptive: nothing here changes a load, a rest, or a
-// suggestion. Long rests are good for strength and fine for hypertrophy — they cost the
-// lifter their evening, not their results — so the app's job is to show the number, not to
-// nag about it.
+// Deliberately DESCRIPTIVE, not prescriptive: nothing here changes a load, rest timer, or
+// suggestion. The clock cannot distinguish deliberate rest from the other contributors, so
+// the app reports the measurable interval without inventing a rest-adherence score.
 
-// Gaps between consecutive ticked sets, each paired with the rest prescribed AFTER the
-// earlier completed set. This matches the actual timer: toggleSetDone starts ex.rstS when that
-// set is ticked. Charging the gap to the later set is wrong whenever the exercise changes.
+// Intervals between consecutive ticked-set completions, attributed to the earlier completed
+// exercise only so the longest interval can be located. These are NOT rest durations: each
+// includes the next set's setup and work, plus any transition or interruption.
 // `marks` are {t:seconds, id}; the caller normalises, because a saved session stores
 // seconds-from-start while the live LOG stores epoch milliseconds.
-function gapsFrom(marks){
+function intervalsFrom(marks){
 marks.sort((a,b)=>a.t-b.t);
 const out=[];
 for(let i=1;i<marks.length;i++){
   const from=marks[i-1],to=marks[i];
   const def=ALL_EX.find(x=>x.id===from.id);
-  out.push({sec:to.t-from.t,pres:(def&&def.rstS)||60,id:from.id,nm:(def&&def.nm)||from.id})}
+  out.push({sec:to.t-from.t,id:from.id,nm:(def&&def.nm)||from.id})}
 return out}
 // A saved session (history, export, another device's import).
-function sessionGaps(s){const m=[];
+function sessionIntervals(s){const m=[];
 for(const e of(s&&s.ex)||[]){if(!Array.isArray(e.ts))continue;
   for(let i=0;i<e.ts.length;i++)if(e.ts[i]>0)m.push({t:e.ts[i],id:e.id})}
-return gapsFrom(m)}
+return intervalsFrom(m)}
 // The workout in progress. Only TICKED sets carry a stamp worth reading — an untick clears
-// setTs back to 0, so a set logged and then unchecked leaves no gap behind it.
-function liveGaps(log){const m=[];
+// setTs back to 0, so a set logged and then unchecked leaves no interval behind it.
+function liveIntervals(log){const m=[];
 for(const[id,v] of Object.entries(log||{})){
   const ts=(v&&v.setTs)||[],done=(v&&v.setDone)||[];
   for(let i=0;i<ts.length;i++)if(ts[i]>0&&done[i])m.push({t:Math.round(ts[i]/1000),id})}
-return gapsFrom(m)}
-// Rolled up. Null under 3 gaps: two data points is a coincidence, not a habit, and a card
+return intervalsFrom(m)}
+// Rolled up. Null under 3 intervals: two data points is a coincidence, not a habit, and a card
 // that appears after the first two sets of every session would be noise.
-function restStats(gaps){
-if(!Array.isArray(gaps)||gaps.length<3)return null;
-const secs=gaps.map(g=>g.sec).sort((a,b)=>a-b);
-const tot=gaps.reduce((a,g)=>a+g.sec,0),pres=gaps.reduce((a,g)=>a+g.pres,0);
-// "Over" is 1.5x rather than 1.0x: racking the bar, chalking and walking back is real time,
-// and a gap 20 seconds past the buzzer is not a finding.
-const worst=gaps.reduce((b,g)=>(g.sec-g.pres)>(b.sec-b.pres)?g:b,gaps[0]);
+function intervalStats(intervals){
+if(!Array.isArray(intervals)||intervals.length<3)return null;
+const secs=intervals.map(g=>g.sec).sort((a,b)=>a-b);
+const tot=intervals.reduce((a,g)=>a+g.sec,0);
+const worst=intervals.reduce((b,g)=>g.sec>b.sec?g:b,intervals[0]);
 const mid=Math.floor(secs.length/2);
 const med=secs.length%2?secs[mid]:Math.round((secs[mid-1]+secs[mid])/2);
-return{n:gaps.length,med,
-  medPres:Math.round(pres/gaps.length),tot,pres,
-  over:gaps.filter(g=>g.sec>g.pres*1.5).length,worst,
-  excess:tot-pres,ratio:pres?Math.round(tot/pres*10)/10:null}}
+return{n:intervals.length,med,tot,worst}}
 // Across the sessions that carry a clock at all. `n` is how many had one — the honest
 // denominator, because the feature only started stamping recently and most history has none.
-function restHistory(days){
+function intervalHistory(days){
 const cut=daysAgoStr(days||90);
 const timed=D.sessions.filter(s=>s.date>=cut&&(s.ex||[]).some(e=>Array.isArray(e.ts)&&e.ts.some(t=>t>0)));
 if(!timed.length)return null;
-const all=[];for(const s of timed)all.push(...sessionGaps(s));
-const st=restStats(all);
+const all=[];for(const s of timed)all.push(...sessionIntervals(s));
+const st=intervalStats(all);
 return st?{...st,sessions:timed.length,last:timed[timed.length-1].date}:null}
 function fmtMS(sec){const s=Math.max(0,Math.round(sec));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
 
+// ═══════════════ ESSENTIALS TIME BUDGET ═══════════════
+// The user has an ordinary 40–80 minute training window. Eighty minutes is therefore a
+// transparent pacing TARGET for Essentials, not a predicted duration and not a recovery
+// ceiling. It never changes exercise selection, set count, progression, or rest timers.
+// The timestamped full sessions are useful evidence that time drifts, but they cannot tell
+// us how the new Essentials prescription behaves. One measured A/B/C Essentials cycle can.
+const ESSENTIALS_TARGET_SEC=80*60;
+function essentialsBudget(start,now){
+if(!(Number(start)>0))return null;
+const elapsed=Math.max(0,Math.floor(((now==null?Date.now():now)-Number(start))/1000));
+const left=ESSENTIALS_TARGET_SEC-elapsed;
+return{elapsed,left,over:left<0,pct:Math.min(100,elapsed/ESSENTIALS_TARGET_SEC*100)}}
+function essentialsBudgetLabel(b){
+if(!b)return'';
+return b.over?`+${fmtMS(-b.left)} over target`:`${fmtMS(b.left)} left`}
+function updateEssentialsBudget(){
+const box=document.getElementById('xp-pace');if(!box)return;
+const b=essentialsBudget(SS);if(!b)return;
+box.classList.toggle('over',b.over);
+const t=document.getElementById('xp-rem');if(t)t.textContent=essentialsBudgetLabel(b);
+const f=document.getElementById('xp-fill');if(f)f.style.width=`${b.pct}%`}
+
 // ═══════════════ RETURN FROM BREAK ═══════════════
 // A layoff — illness, travel, life — was the one interruption this app could not see. The
-// deload machinery next door is signal-driven (RPE, repeated compound stalls) and fires on
+// deload machinery next door is signal-driven (session effort, repeated compound stalls) and fires on
 // FATIGUE; a break is the opposite state. After a week off you are not fatigued, you are
 // de-adapted, and the correct prescription (submaximal loads, trimmed volume, a fixed
 // runway back to normal) only LOOKS like a deload. It means something different, it is
@@ -2898,7 +3026,7 @@ return{start:c.start,end:c.end,gap:c.gap,days,day,sess,
 function rtnAdvice(r){
 return r.stage===1
 ?{cue:`🔄 Return · day ${r.day}/${r.days} — ~90% of pre-break load, stop 3+ reps shy`,
-  detail:`<b>Stage 1 · re-introduce</b> — first ${RTN_STAGE1_SESS} sessions back. Roughly 90% of the load you were using before the break, and cut the accessory tail (Express does exactly that). Stop 3+ reps shy on every set. The target is about half your normal training load, and you get there by dropping SETS, not by grinding out lighter ones.`}
+  detail:`<b>Stage 1 · re-introduce</b> — first ${RTN_STAGE1_SESS} sessions back. Roughly 90% of the load you were using before the break, and cut the accessory tail (Essentials does exactly that). Stop 3+ reps shy on every set. The target is about half your normal training load, and you get there by dropping SETS, not by grinding out lighter ones.`}
 :{cue:`🔄 Return · day ${r.day}/${r.days} — pre-break loads, full volume, stop 2 reps shy`,
   detail:`<b>Stage 2 · rebuild</b> — loads back to where they were before the break, full session, still stopping ~2 reps shy. Volume first, intensity second: connective tissue re-adapts slower than muscle, so this is not the week to test a max.`}}
 
@@ -3138,15 +3266,14 @@ const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body
 if(VIEW===LAST_VIEW){try{a.querySelectorAll('.sec').forEach(e=>e.style.animation='none')}catch(e){}}
 LAST_VIEW=VIEW;
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed();
+updateEssentialsBudget();
 // live volume/sets track typed reps without a full re-render
 const lvv=document.getElementById('lv-vol'),lvs=document.getElementById('lv-sets');
 if(lvv||lvs){const lv=liveStats(LOG);if(lvv)lvv.textContent=lv.vol.toLocaleString('en-NZ');if(lvs)lvs.textContent=lv.sets}
-// The rest cell updates on the same tick. Colour is re-applied here too: a median that
-// crosses 1.5x mid-session must turn amber without waiting for the next full render.
-{const lvr=document.getElementById('lv-rest');
- if(lvr){const lr=restStats(liveGaps(LOG));
-   lvr.textContent=lr?fmtMS(lr.med):'—';
-   lvr.style.color=lr&&lr.med>lr.medPres*1.5?'var(--am)':'var(--tx)'}}},1000)}
+// The set-completion interval updates on the same tick.
+{const lvi=document.getElementById('lv-interval');
+ if(lvi){const li=intervalStats(liveIntervals(LOG));
+   lvi.textContent=li?fmtMS(li.med):'—'}}},1000)}
 // HIST_N resets with EXP: leaving History and coming back should start at the first page,
 // not at however deep the last visit paged.
 function go(v){VIEW=v;EXP=null;HIST_N=HIST_PAGE;render();window.scrollTo(0,0)}
@@ -3194,7 +3321,7 @@ ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">
 <button class="btn btn-wh btn-md" style="flex:1" onclick="clearAW();render()">Discard</button></div></div>`}
 
 // Corrupt-store rescue: load() parked the raw store under SK+'-corrupt' and either fell back
-// to demo data (unparseable) or dropped the sessions it couldn't validate (parseable but
+// to an empty state (unparseable) or dropped the sessions it couldn't validate (parseable but
 // malformed) — but never told the user. Surface it with a way out. The copy outlives the
 // boot that made it, so the drop COUNT is persisted beside it — keying the wording off this
 // boot's LOAD_DROPPED alone meant every boot after the first fell back to the total-loss copy.
@@ -3206,7 +3333,7 @@ h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
 <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${dropN} session${dropN>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
 <div class="dm" style="margin-bottom:8px">${partial
 ?`${dropN} stored session${dropN>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
-:`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh/demo state. Download the raw copy (for recovery), then import your latest backup.`}</div>
+:`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh empty state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
 // Express MEV guard — express trades accessory volume for time, and this is where the week
@@ -3218,8 +3345,8 @@ if(xr){const sig=xr.short.map(m=>m.k).join(',');
 if(!bannerDismissed('xpmev',sig)){
 h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
 <button onclick="dismissBanner('xpmev','${sig}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
-<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚡ ${xr.xp} of your last ${xr.total} sessions were Express</div>
-<div class="dm">Express keeps the compounds and drops the accessory tail — fine now and then, because MEV is a weekly landmark, not a per-session one. This week it landed short: ${xr.short.map(m=>`<b>${esc(m.nm)}</b> ${m.have}/${m.mev}`).join(' · ')}. Run a full day next, or put those slots back.</div></div>`}}}
+<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${xr.xp} of your last ${xr.total} sessions were Essentials</div>
+<div class="dm">Essentials prioritises the main lifts and targeted stability work. This week's directional set estimate fell below its reference minimum: ${xr.short.map(m=>`<b>${esc(m.nm)}</b> ${m.have}/${m.mev}`).join(' · ')}. Run a full day next, or put those slots back.</div></div>`}}}
 
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
@@ -3246,8 +3373,15 @@ if(D.sessions.length>=3&&(bDays==null||bDays>=7)&&!bannerDismissed('body',bSig))
 h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
 <button onclick="dismissBanner('body','${bSig}')" aria-label="Dismiss bodyweight reminder" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">⚖️ ${bDays==null?'No bodyweight logged yet':`Bodyweight last logged ${bDays} days ago`}</div>
-<div class="dm" style="margin-bottom:8px">Your lifts are tracked in detail; your body isn't. Without a weight and a waist measurement there is no way to tell muscle gained from fat gained — the training log alone cannot answer it. Takes a minute, once a week.</div>
+<div class="dm" style="margin-bottom:8px">Weight and waist trends add useful context, but they cannot directly separate muscle from fat. Logging them weekly makes the training trend easier to interpret.</div>
 <button class="btn btn-pr btn-md" onclick="go('body')">Log it now</button></div>`}}
+
+// A new device contains no implied history. Say that plainly and put backup recovery in
+// reach before the normal start card teaches the rest of the flow.
+if(!D.sessions.length&&!resume)h+=`<div class="cd" style="border:1px solid var(--pr);background:var(--prl)">
+<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:3px">Fresh start — no workouts preloaded</div>
+<div class="dm" style="margin-bottom:8px">Your log starts empty and stays in this browser unless you export it. Start below, or restore an existing backup from Settings.</div>
+<button class="btn btn-wh btn-md" onclick="go('settings')">Import a backup</button></div>`;
 
 // Location
 h+=`<div style="margin-bottom:6px">${locSwitchH(D.location,'setLoc')}</div>`;
@@ -3260,7 +3394,7 @@ if(wuSk>=2&&!bannerDismissed('warmup',wuSig))h+=`<div class="deload-banner" styl
 const dlT=dl?.isBeginner?8:6;
 const dlSig=dl?'wk'+dl.wk+(dl.due?'-due':'-opt'):'';
 if(dl&&dl.due&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${dl.wk}wk since deload · ${dl.reason} — deload recommended <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
-else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · RPE avg ${dl.avgDiff}/5 — fatigue fine, deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
+else if(dl&&dl.consider&&!bannerDismissed('deload',dlSig))h+=`<div class="deload-banner" style="font-size:11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><span>${dl.wk}wk since deload · ${dl.ratedN?`effort avg ${dl.avgDiff}/5 — no high-effort signal`:`no recent effort ratings`} · deload OPTIONAL. Take a light week only if joints feel cranky. <button class="btn-sm btn-wh" style="margin-left:6px" onclick="D.lastDeload=today();save();render()">Took one</button></span><button onclick="dismissBanner('deload','${dlSig}')" aria-label="Dismiss deload reminder" style="background:0;border:none;color:var(--am);font-size:15px;cursor:pointer;line-height:1;flex-shrink:0">✕</button></div>`;
 
 // Return from break — the app's blind spot until now. The deload banner above fires on
 // FATIGUE; this fires on ABSENCE, and the two are mutually exclusive by construction
@@ -3331,7 +3465,7 @@ if(restDay){
   <div style="font-size:10px;color:var(--mu);margin-bottom:12px;padding:6px 10px;background:var(--ib);border-radius:8px;display:inline-block">
     <span class="bg bg-${restDay.last.day.toLowerCase()}" style="font-size:9px">Day ${restDay.last.day}${lastLoc}</span>
     <span style="margin-left:6px">${sinceTxt}</span>
-    ${restDay.last.difficulty?`<span style="margin-left:6px;color:${RPE_COLORS[restDay.last.difficulty-1]};font-weight:700">RPE ${restDay.last.difficulty}</span>`:''}
+    ${restDay.last.difficulty?`<span style="margin-left:6px;color:${EFFORT_COLORS[restDay.last.difficulty-1]};font-weight:700">Effort ${restDay.last.difficulty}/5</span>`:''}
     ${restDay.last.duration?`<span style="margin-left:6px">${restDay.last.duration}m</span>`:''}
   </div>
   ${repeatHint}${picker}
@@ -3341,17 +3475,19 @@ if(restDay){
   </div>
   </div>`;
 }else{
-  // EXPRESS — on-demand short version of a home day. Rendered as a secondary action under
-  // Start so it is one tap on a tired evening, but never the default. Hidden at the partner
+  // ESSENTIALS — the focused home session is the everyday default; the complete accessory-inclusive
+  // session remains one tap away. Hidden at the partner
   // venue (already one collapsed full-body session on short rests) and whenever the cut
   // would drop nothing, which would make the button a lie.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const xpBtn=xpD&&xpD.drop.length?`<button class="btn btn-pr btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}',true)">⚡ Express — ${xpD.keep.length} lift${xpD.keep.length===1?'':'s'}, compounds only</button>
-  <div class="dm" style="margin-top:6px;text-align:center">Keeps every loaded compound at full sets. Drops ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`:'';
+  const startBtns=xpD&&xpD.drop.length?`<button onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
+  <div class="dm" style="margin-top:6px;text-align:center">Essentials keeps the main lifts plus targeted stability work. Full adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
+  :`<button onclick="beginW('${nd}')">Start Workout</button>`;
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
-  <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
+  <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
-  <button onclick="beginW('${nd}')">Start Workout</button>${xpBtn}</div>`;
+  ${startBtns}</div>`;
 }
 
 // Training cycle — rotation position + rest-day gaps
@@ -3372,13 +3508,15 @@ h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d bet
 }else{h+=`<div class="dm" style="margin-top:2px">No sessions yet — Day A kicks off your first A→B→C cycle.</div>`}
 h+=`</div>`;}
 
-// Preview
-h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${exs.length}</div>`;
+// Preview mirrors the primary action: Essentials on an ordinary home day, full session at the
+// partner venue or when deliberately lifting through a recommended rest day.
+const previewExs=!restDay&&expressAvailable()?dayExs(nd,{},true):exs;
+h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${previewExs.length}${previewExs!==exs?' · Essentials':''}</div>`;
 const tpIcon={bb:'🏋',db:'💪',band:'🎗',bw:'🤸',kb:'🔔',carry:'🧳',club:'🪈',mace:'⚔'};
 // 'stay' was MISSING from this map entirely (only 'st' existed), so every hold row fell
 // through to the '·' fallback — a lone middle-dot chip that read as broken UI.
 const arrow={up:'↑',cf:'✓',dn:'↓','new':'★',st:'→',stay:'→'};
-for(const ex of exs){const sg=getSmartSugg(ex);
+for(const ex of previewExs){const sg=getSmartSugg(ex);
 const ic=tpIcon[ex.tp]||'•';
 // big bold load: prefer a kg number; else a band colour; else a short status word — never a long sentence
 const m=sg.text.match(/([\d.]+)\s*kg/);
@@ -3403,14 +3541,14 @@ if(dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="backgrou
 
 // Fatigue strip — no fake "Wk 19/8" denominators: past the deload timer just say how long it's been.
 if(dl)h+=`<div style="display:flex;justify-content:space-between;padding:4px 2px;font-size:10px;color:var(--mu)">
-<span>${dl.wk}wk since deload${dl.wk<=dlT?` (deload ~${dlT})`:''} · ${dl.sc} sessions</span><span style="color:${fat.color};font-weight:600">${fat.label} ${fat.score}/10</span></div>`;
+<span>${dl.wk}wk since deload${dl.wk<=dlT?` (deload ~${dlT})`:''} · ${dl.sc} sessions</span><span style="color:${fat.color};font-weight:600">Workload ${fat.label} ${fat.score}/10</span></div>`;
 h+=`<div class="fg-bar"><div class="fg-fill" style="width:${fat.score*10}%;background:${fat.color}"></div></div>`;
 
 // Phase change — all three computed states now surface (timer_only and early_stall were
 // computed but never rendered, so a well-progressing user never saw a phase prompt).
 const nxtP=phi.phase>=3?1:phi.phase+1;
 if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
-<div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledEx} lifts stalling · ${PHASES[nxtP].desc}</div>
+<div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledMajor} key lifts stalling · ${PHASES[nxtP].desc}</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
 // The dismissal key is the PHASE, not phase+week: keying it to the week regenerated a new
 // key every 7 days, so a lifter who has decided to ride a working phase out got the same
@@ -3422,9 +3560,9 @@ else if(phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.p
 <div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:3px;padding-right:20px">Phase timer complete</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks of ${phi.name} and lifts are still moving (${phi.progressingEx}/${phi.totalEx} progressing). Switch when ready — or ride the wave a little longer.</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
-else if(phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledEx))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
-<button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledEx}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
-<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${phi.stalledEx} lifts stalling early</div>
+else if(phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledMajor))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
+<button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledMajor}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
+<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${phi.stalledMajor} key lifts stalling early</div>
 <div class="dm" style="margin-bottom:6px">Only week ${phi.wk}/${phi.maxWk} of ${phi.name} — check the deload advice above first; if fatigue is fine, an early phase switch can reset momentum.</div>
 <button class="btn-sm btn-wh" onclick="advancePhaseSafe()">Switch early → P${nxtP} ${PHASES[nxtP].name}</button></div>`;
 
@@ -3435,7 +3573,7 @@ if(rec.length){h+=`<div class="lb" style="margin-top:10px;margin-bottom:4px">Rec
 for(const s of rec){h+=`<div class="cd" style="padding:6px 12px"><div style="display:flex;align-items:center;gap:5px;font-size:11px">
 <span class="bg bg-${s.day.toLowerCase()}" style="font-size:9px;padding:1px 6px">${dayBadge(s)}</span>
 <span class="dm">${fmtD(s.date)}</span>
-${s.difficulty?`<span style="font-size:9px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
+${s.difficulty?`<span style="font-size:9px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
 ${s.duration?`<span class="dm">${s.duration}m</span>`:''}
 ${s.volume?`<span class="dm">${(s.volume/1000).toFixed(1)}k</span>`:''}</div></div>`}}
 h+=`</div>`;el.innerHTML=h}
@@ -3461,31 +3599,26 @@ setTs:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],
 // The day's exercise list with any in-session swaps applied. Each returned object
 // carries _slot (the original program id it occupies) so the swap controls can
 // re-swap or revert that slot regardless of what currently fills it.
-// ── EXPRESS DAY ───────────────────────────────────────────────────────────────────────
-// An on-demand short version of a HOME day, for a tired/late/short evening. The design
-// question is what to cut, and the 13 Aug export answered it: the accessory tail is where
-// the time is, not the compounds. On Day C, lm_pallof + hex_carry + band_er +
-// lm_lateral_squat cost 43 of 80 prescribed minutes — 54% of the day in core, cuff and
-// unilateral finishers — while hex_rdl and hex_floor_press cost 6 minutes each.
+// ── ESSENTIALS DAY (stored as `express` for backward compatibility) ───────────────────
+// A shorter HOME day for the user's ordinary 40–80 minute window. Every primary compound
+// stays at its full prescription, then explicit `xp:true` overrides retain selected trunk
+// and shoulder-control work: dead bugs on A, face pulls + bird dog on B, and anti-rotation
+// + external rotation on C. The optional, redundant deficit push-up is explicitly excluded
+// with `xp:false`; the full routine still contains it.
 //
-// So express keeps every loaded compound at FULL sets and load (strength progression is
-// untouched, and the confirm lifts keep their brake) and drops the isolation/core/cuff
-// finishers. A lift survives when it carries a PRIMARY muscle at full weight: chest, back,
-// quads, hams or glutes at 1.0, or fdelt 1.0 for the overhead presses. That keeps hex_dl,
-// the squat and hinge patterns, the presses and the vertical/horizontal pulls, and drops
-// lm_lateral (sidedelt 1), bb_curl (biceps 1), bb_rear_row (reardelt 1, back only 0.5),
-// dead_bugs_a, bb_rollout, lm_pallof, hex_carry and band_er.
+// A lift otherwise survives when it carries a PRIMARY muscle at full weight: chest, back,
+// quads, hams or glutes at 1.0, or fdelt 1.0 for the overhead presses. This preserves the
+// squat/hinge, press, and vertical/horizontal pull patterns without treating joint-control
+// work as disposable—the central correction from the workout audit.
 //
 // Pure muscle-coverage set-cover was tried first and rejected: on Day A it keeps bb_curl
 // and drops lm_bstance_squat, because hex_dl nominally "covers" quads at weight 0.5 so the
 // algorithm believes quads are handled. Coverage-at-any-weight is the wrong objective for a
 // program whose point is loaded progression.
 //
-// Measured effect (prescribed work+rest from each lift's own tempo/rstS):
-//   Day A 76 → 43 min (9 → 5 ex) · Day B 69 → 29 (9 → 4) · Day C 80 → 37 (10 → 6)
-//
-// This is a VOLUME trade, not a free lunch: coverage and load survive, accessory volume
-// does not. It is safe occasionally because MEV is a WEEKLY landmark and getWeeklyVolume
+// This is a VOLUME trade, not a free lunch: main patterns and selected control work survive;
+// some accessory volume does not. It is safe while weekly volume remains adequate because
+// MEV is a WEEKLY landmark and getWeeklyVolume
 // counts across sessions and venues — lean on it and expressMEVRisk() below says so.
 // `xp` on an exercise def overrides the rule outright (true = always keep, false = always
 // drop) for cases the muscle map cannot express.
@@ -3594,10 +3727,11 @@ VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 // plank's column contradicted its cue as well. Read off the prescription, where the unit is
 // already declared, so a new slot can't disagree with its own header.
 function repUnit(ex){const rp=String((ex&&ex.rp)||'');
-if(/\d\s*m\b/.test(rp))return'Metres';
-if(/step/i.test(rp))return'Steps';
-if(/\d\s*s(?![a-z])/i.test(rp))return'Secs';
-return'Reps'}
+const total=!!(ex&&ex.perSide);
+if(/\d\s*m\b/.test(rp))return total?'Total metres':'Metres';
+if(/step/i.test(rp))return total?'Total steps':'Steps';
+if(/\d\s*s(?![a-z])/i.test(rp))return total?'Total secs':'Secs';
+return total?'Total reps':'Reps'}
 
 // ─── Load-input fragments shared by the non-barbell cards ───────────────────────────
 // Editable hero weight readout — the visual twin of the bar lifts' static .stp-hero, used
@@ -3635,22 +3769,31 @@ let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
 
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span></div>
+<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span>${EXPRESS?` <span class="bg" style="background:var(--prl);color:var(--pr)">Essentials</span>`:''}</div>
 <button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div>`;
 
 // Live session strip (sticky): running duration + volume/sets banked from CHECKED
 // sets. The render() interval refreshes all three ids once a second.
 const lv=liveStats(LOG);
-// Rest joins the strip because it is the number that actually explains session length, and
-// it was the one thing the app measured but never showed. Median-so-far, not the current
-// gap — the pill already counts the current one, and a single long rest is not the problem;
-// the problem is a median that sits at 4:00 for thirty sets running. Amber past 1.5x.
-{const lr=restStats(liveGaps(LOG));
+// The set-completion interval joins the strip because it helps locate session-time drift.
+// Median-so-far, not the current interval. It is intentionally neutral rather than graded
+// against the rest timer because it also includes setup and the next set's work.
+{const li=intervalStats(liveIntervals(LOG));
 h+=`<div class="work-sticky">
-<div><div class="ws-l">Duration</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
-<div><div class="ws-l">Volume</div><div class="ws-v"><span id="lv-vol">${lv.vol.toLocaleString('en-NZ')}</span><span class="ws-u"> kg</span></div></div>
+<div><div class="ws-l">Duration${EXPRESS?' · 80m target':''}</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
+<div><div class="ws-l">External load</div><div class="ws-v"><span id="lv-vol">${lv.vol.toLocaleString('en-NZ')}</span><span class="ws-u"> kg</span></div></div>
 <div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div>
-<div><div class="ws-l">Set gap <span class="ws-u">med</span></div><div class="ws-v" id="lv-rest" style="color:${lr&&lr.med>lr.medPres*1.5?'var(--am)':'var(--tx)'}">${lr?fmtMS(lr.med):'—'}</div></div></div>`;}
+<div><div class="ws-l">Set interval <span class="ws-u">med</span></div><div class="ws-v" id="lv-interval">${li?fmtMS(li.med):'—'}</div></div></div>`;}
+
+// A factual elapsed-time budget, not an algorithmic duration estimate. The copy explicitly
+// protects needed recovery: the correct response to a slow, technically demanding set is
+// not to race the clock. What it does expose is the otherwise invisible setup/interruption
+// drift that the timestamp audit found in the recent full sessions.
+if(EXPRESS){const xb=essentialsBudget(SS);
+h+=`<div class="xp-pace${xb.over?' over':''}" id="xp-pace" role="group" aria-label="Essentials 80-minute pacing target">
+<div class="xp-pace-top"><span><b>80-minute pacing target</b> · not a rest cap</span><span class="xp-pace-time" id="xp-rem">${essentialsBudgetLabel(xb)}</span></div>
+<div class="xp-pace-track"><div class="xp-pace-fill" id="xp-fill" style="width:${xb.pct}%"></div></div>
+<div class="xp-pace-note">Use the prescribed rest timer. Take longer when form or performance requires it.</div></div>`}
 
 // Progress
 // Tick-based "done" (matches the ticks-required finish): every set with reps must be
@@ -3678,7 +3821,7 @@ if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:va
 const wuD=WU_CHECKS.filter(Boolean).length;const fIso=exs.find(e=>e.isoWU);
 h+=`<div class="ex-row${wuD>=2?' done-row':''}" onclick="CIDX=-1;render()">
 <div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:12px;font-weight:700">Activation</span>
+<span style="font-size:12px;font-weight:700">Activation <span class="dm" style="font-weight:500">· recommended before loaded work</span></span>
 <span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></div>`;
 if(CIDX===-1){const its=[{l:'Joint Circles',d:'Shoulders, wrists, elbows, hips'},{l:fIso?.isoWU||'Isometric Hold',d:'Build tension before loading'},{l:'Single-Leg Balance',d:'30s per leg'}];
 h+=`<div class="ex-expand">`;for(let i=0;i<its.length;i++){
@@ -3707,6 +3850,7 @@ h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
 <span style="font-size:12px;font-weight:600">${esc(ex.nm)} <span class="dm">${ex.s}×${ex.rp}</span></span>
 <span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></div></div>`;
 } else {
+const targetEffort=targetRirLabel(ex);
 // Current — expanded
 h+=`<div class="ex-row cur" id="ex-cur">
 <div style="display:flex;justify-content:space-between;align-items:center">
@@ -3714,7 +3858,7 @@ h+=`<div class="ex-row cur" id="ex-cur">
 <span style="display:flex;align-items:center;gap:8px">
 <button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>
 <span class="dm">${idx+1}/${exs.length}</span></span></div>
-<div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst} · RIR ${ex.rir}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
+<div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst}${targetEffort?` · ${targetEffort}`:''}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
 ${ex.ss?`<div class="ss-chip">⚡ Superset · ${esc(ex.ss)}</div>`:''}`;
 if(SWAP_OPEN===ex._slot){
 const tps=['all',...Array.from(new Set(swapCandidates(ex._slot,ex.id,'all').map(c=>c.tp)))];
@@ -3822,7 +3966,7 @@ h+=`<div class="set-gr set-row${dn?' done':''}">
 ${pl==='—'?`<span class="set-prev">—</span>`
 :`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
-<input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} reps"
+<input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} ${ex.perSide?'total reps across both sides':'reps'}"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
 <button type="button" class="set-tick${dn?' done':''}" aria-label="Set ${i+1} done" aria-pressed="${!!dn}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</button></div>`}
 h+=`</div>
@@ -3956,6 +4100,12 @@ let dropped=0;
 for(const v of Object.values(LOG)){const done=v.setDone||[];
   for(let i=0;i<v.reps.length;i++)if(Number(v.reps[i])>0&&!done[i])dropped++}
 if(dropped&&typeof confirm==='function'&&!confirm(`${dropped} set${dropped>1?'s':''} with reps ${dropped>1?"aren't":"isn't"} checked off (✓) and won't be saved. Finish anyway?`))return;
+const loadedTypes=new Set(['bb','db','kb','mace','club','carry']);
+const loadedDone=dayExs(ADAY).some(ex=>loadedTypes.has(ex.tp)&&(()=>{const l=LOG[ex.id]||{},done=l.setDone||[];
+  return (l.reps||[]).some((r,i)=>Number(r)>0&&done[i])})());
+if(loadedDone&&!WU_CHECKS.some(Boolean)&&typeof confirm==='function'&&
+  !confirm('No activation warm-up is logged for this loaded session. Finish anyway?')){
+  CIDX=-1;render();return}
 const logged=Object.entries(LOG).map(([id,v])=>{
   const done=v.setDone||[];
   // Unchecked sets zero out IN PLACE — positions must survive so wts stays aligned.
@@ -3999,32 +4149,33 @@ let h=`<div class="sec">
 <div><div class="summary-num">${S.dur}</div><div class="summary-label">min</div></div>
 <div><div class="summary-num">${S.ts}</div><div class="summary-label">sets</div></div>
 <div><div class="summary-num">${S.tr}</div><div class="summary-label">reps</div></div>
-${S.tv?`<div><div class="summary-num">${(S.tv/1000).toFixed(1)}k</div><div class="summary-label">vol</div></div>`:''}</div>`;
+${S.tv?`<div><div class="summary-num">${(S.tv/1000).toFixed(1)}k</div><div class="summary-label">ext. load</div></div>`:''}</div>`;
 if(S.prs.length)for(const p of S.prs)h+=`<div><span class="pr-badge">🏆 PR</span> ${esc(p.nm)}</div>`;
 if(S.discCount)h+=`<div style="margin-top:6px;font-size:11px;color:var(--rd)">⚠ ${S.discCount} exercise${S.discCount>1?'s':''} flagged discomfort</div>`;
 if(S.warmup>=2)h+=`<div style="margin-top:3px;font-size:11px;color:var(--gr)">✓ Warm-up ${S.warmup}/3</div>`;
-else h+=`<div style="margin-top:3px;font-size:11px;color:var(--am)">⚠ Warm-up ${S.warmup}/3</div>`;
+else h+=`<div style="margin-top:3px;font-size:11px;color:var(--am)">⚠ Warm-up ${S.warmup}/3${S.warmup===0?' — none logged':''}</div>`;
 if(S.notes)h+=`<div style="margin-top:6px;font-size:11px;color:var(--mu);font-style:italic;background:var(--ib);padding:6px 10px;border-radius:var(--rad-sm)">${esc(S.notes)}</div>`;
 // Which muscles did this session actually hit? (Hevy-style split, from the MG map)
 {const ms=muscleSplitH(S.exs);if(ms)h+=`<div style="margin-top:12px;text-align:left">${ms}</div>`}
-// Where the session's time actually went. Shown the moment it is knowable — at the summary,
-// while the session is still in mind — rather than only in a chart weeks later.
-{const rs=restStats(sessionGaps({ex:S.exs}));
-if(rs){const hot=rs.med>rs.medPres*1.5;
+// Show the measurable timing fact at summary: completion-to-completion intervals. These
+// locate slow sections but cannot split them into rest, setup, work and interruptions.
+{const is=intervalStats(sessionIntervals({ex:S.exs}));
+if(is){
 h+=`<div style="margin-top:12px;text-align:left;background:var(--ib);border-radius:var(--rad-sm);padding:10px 12px">
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-<span class="lb" style="margin:0">Rest between sets</span>
-<span style="font-family:var(--disp);font-size:15px;font-weight:800;color:${hot?'var(--am)':'var(--gr)'}">${fmtMS(rs.med)} <span style="font-size:10px;font-weight:600;color:var(--mu)">median</span></span></div>
-<div class="dm" style="margin-top:4px">${rs.over} of ${rs.n} gaps exceeded 1.5× the preceding set's prescribed rest · ${Math.round(rs.tot/60)} min elapsed between completed sets${rs.excess>120?`, ${Math.round(rs.excess/60)} min beyond those prescriptions`:''}.</div>
-${hot?`<div class="dm" style="margin-top:3px;color:var(--am)">Longest: ${fmtMS(rs.worst.sec)} after ${esc(rs.worst.nm)} — prescribed ${fmtMS(rs.worst.pres)}. Set gaps can include loading, transitions or interruptions as well as rest.</div>`:''}</div>`}}
-h+=`<div style="margin:12px 0"><div class="lb" style="margin-bottom:6px">Difficulty (RPE)</div>
+<span class="lb" style="margin:0">Set-completion interval</span>
+<span style="font-family:var(--disp);font-size:15px;font-weight:800;color:var(--gr)">${fmtMS(is.med)} <span style="font-size:10px;font-weight:600;color:var(--mu)">median</span></span></div>
+<div class="dm" style="margin-top:4px">${is.n} intervals · ${Math.round(is.tot/60)} min elapsed between completed sets.</div>
+<div class="dm" style="margin-top:3px">Longest: ${fmtMS(is.worst.sec)} after ${esc(is.worst.nm)}. Each interval includes rest, loading/setup, the next set's work, transitions and interruptions.</div></div>`}}
+h+=`<div style="margin:12px 0"><div class="lb" style="margin-bottom:3px">Session effort (1–5)</div>
+<div class="dm" style="text-align:center;margin-bottom:7px">Your overall rating — separate from each lift's target RIR.</div>
 <div style="display:flex;justify-content:center;gap:4px">`;
 for(let i=1;i<=5;i++)h+=`<button type="button" class="diff-pick" aria-pressed="${SDIFF===i}" style="text-align:center;flex:1;max-width:64px;background:none;border:none;cursor:pointer;padding:0" onclick="SDIFF=${i};render()">
-<div class="diff-btn${SDIFF===i?' sel':''}" style="margin:0 auto;${SDIFF===i?'border-color:'+RPE_COLORS[i-1]+';background:'+RPE_COLORS[i-1]+'18;color:'+RPE_COLORS[i-1]:''}">${i}</div>
-<div style="font-size:8px;color:${SDIFF===i?RPE_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${RPE_LABELS[i-1]}</div></button>`;
+<div class="diff-btn${SDIFF===i?' sel':''}" style="margin:0 auto;${SDIFF===i?'border-color:'+EFFORT_COLORS[i-1]+';background:'+EFFORT_COLORS[i-1]+'18;color:'+EFFORT_COLORS[i-1]:''}">${i}</div>
+<div style="font-size:8px;color:${SDIFF===i?EFFORT_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${EFFORT_LABELS[i-1]}</div></button>`;
 h+=`</div></div></div>
 <button class="btn btn-pr" onclick="saveSumm()">Save ✓</button>
-${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Tip: an RPE rating feeds the fatigue score + deload timing.</div>`}</div>`;el.innerHTML=h}
+${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Optional: this self-report feeds the workload estimate and deload timing.</div>`}</div>`;el.innerHTML=h}
 
 function saveSumm(){const S=window._S;if(!S)return;
 // Discomfort rows are written HERE (not at summary-build time) so that going Back to
@@ -4262,7 +4413,8 @@ const milestone=Math.floor(s.latest/5)*5+5;
 const wks=(milestone-s.latest)/s.slope;
 if(wks>12)return null;
 const d=new Date();d.setDate(d.getDate()+Math.round(wks*7));
-return{kg:milestone,wks:Math.round(wks*10)/10,date:d.toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}}
+return{kg:milestone,wks:Math.round(wks*10)/10,date:d.toLocaleDateString('en-NZ',{day:'numeric',month:'short'}),
+  range:[Math.max(1,Math.floor(wks*.75)),Math.max(2,Math.ceil(wks*1.5))]}}
 // ── Big-4 combined e1RM (the STD strength-tier lifts): weekly sum of each lift's
 // best-session e1RM. A week a lift wasn't trained carries FORWARD its last known
 // e1RM — a missed exposure is not strength loss. The series starts at the first
@@ -4502,7 +4654,7 @@ const conV=con.perWk8>=3?{t:'On track',c:'var(--gr)'}
 let below=0,worst=null,worstGap=0;for(const[k,l,mev] of MG_INFO){if(mev==null)continue;const v=wv[k]||0;if(v<mev){below++;if(mev-v>worstGap){worstGap=mev-v;worst=l}}}
 const noVol=!Object.keys(wv).length;
 const balV=noVol?{t:'No sets',c:'var(--mu)',s:'last 10 days'}
-  :below<=1?{t:'Balanced',c:'var(--gr)',s:'all near MEV'}
+  :below<=1?{t:'Balanced',c:'var(--gr)',s:'near reference range'}
   :below<=3?{t:`${below} gaps`,c:'var(--am)',s:worst?`lowest: ${worst}`:''}
   :{t:`${below} low`,c:'var(--rd)',s:worst?`lowest: ${worst}`:''};
 h+=`<div class="status-hd">
@@ -4541,15 +4693,15 @@ const dAbs=(c,p)=>{if(c==null||p==null)return'';const d=Math.round((c-p)*10)/10;
   return d===0?`<span style="color:var(--mu)">→</span>`:`<span style="color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'↑':'↓'}${Math.abs(d)}</span>`};
 const dPct=(c,p)=>{if(!p)return'';const d=Math.round((c-p)/p*100);
   return Math.abs(d)<3?`<span style="color:var(--mu)">→</span>`:`<span style="color:${d>0?'var(--gr)':'var(--am)'}">${d>0?'↑':'↓'}${Math.abs(d)}%</span>`};
-// RPE delta stays neutral-colored: harder is not automatically better or worse.
+// Effort delta stays neutral-colored: harder is not automatically better or worse.
 const dRpe=(c,p)=>{if(c==null||p==null)return'';const d=Math.round((c-p)*10)/10;
   return`<span style="color:var(--mu)">${d===0?'→':d>0?'↑':'↓'}${d?Math.abs(d):''}</span>`};
 h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Last 4 wk vs prior 4 wk</div>
 <div class="estrip">
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${(pc.cur.vol/1000).toFixed(1)}t</div><div class="estrip-lbl">Tonnage ${dPct(pc.cur.vol,pc.prev.vol)}</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${(pc.cur.vol/1000).toFixed(1)}t</div><div class="estrip-lbl">External load ${dPct(pc.cur.vol,pc.prev.vol)}</div></div>
 <div class="estrip-cell"><div class="estrip-num">${pc.cur.sessions}</div><div class="estrip-lbl">Sessions ${dAbs(pc.cur.sessions,pc.prev.sessions)}</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${pc.cur.sets}</div><div class="estrip-lbl">Sets ${dAbs(pc.cur.sets,pc.prev.sets)}</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${pc.cur.rpe!=null?pc.cur.rpe:'—'}</div><div class="estrip-lbl">Avg RPE ${dRpe(pc.cur.rpe,pc.prev.rpe)}</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${pc.cur.rpe!=null?pc.cur.rpe:'—'}</div><div class="estrip-lbl">Avg effort ${dRpe(pc.cur.rpe,pc.prev.rpe)}</div></div>
 </div></div>`}}
 
 const rprs=recentPRs(30);
@@ -4569,7 +4721,7 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum<
 // read as inconsistent precision); comparisons keep full precision.
 // Each row carries an inline e1RM sparkline (last 8 sessions) so the shape of the
 // trend reads without opening the Lifts detail — the text keeps the exact number.
-const momSpark=(id,color)=>{const vals=getHist(id,8).filter(x=>x.wt&&(x.reps||[]).some(r=>r>0)).map(x=>e1rm(x.wt,Math.max(...x.reps.filter(r=>r>0))));return spark(vals,60,16,color)};
+const momSpark=(id,color)=>{const def=ALL_EX.find(e=>e.id===id);const vals=getHist(id,8).filter(x=>x.wt&&effectiveReps(def,x.reps).length).map(x=>e1rm(x.wt,Math.max(...effectiveReps(def,x.reps))));return spark(vals,60,16,color)};
 for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,C_GR)}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
 for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,m.slope<-0.05?CH_PR:CH_TXT)}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
 if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
@@ -4590,7 +4742,7 @@ if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;paddin
 {let worst=null,worstGap=0;
 if(D.sessions.length)
 for(const[key,label,mev] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
-if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below MEV — add a set there first. Details in Balance.</span></div>`;}
+if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below the reference minimum — consider a set there first. Details in Balance.</span></div>`;}
 
 }else if(STAT_SEG==='lifts'){
 // ═══ LIFTS — strength level + per-exercise deep-dive ═══
@@ -4608,7 +4760,7 @@ const e1D=hist.map(h=>({v:exSetE1RMMax(selEx,h),l:new Date(h.date+'T00:00:00').t
 
 // Relative strength (only renders once a bodyweight is logged in Body Tracking)
 const rel=relStrength();
-if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Strength Level <span class="dm" style="font-weight:400;text-transform:none;letter-spacing:0">· vs ${rel.bw}kg bodyweight</span></div>`;
+if(rel){h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Relative Strength · App Reference <span class="dm" style="font-weight:400;text-transform:none;letter-spacing:0">· vs ${rel.bw}kg bodyweight</span></div>`;
 for(const r of rel.lifts){
 const toGo=r.nextKg!=null?Math.max(0,Math.round((r.nextKg-r.e1rm)*10)/10):null;
 h+=`<div class="std-row">
@@ -4617,7 +4769,7 @@ h+=`<div class="std-row">
 <div class="std-bar"><div class="std-fill" style="width:${r.ladderPct}%;background:${r.color}"></div>
 ${[20,40,60,80].map(t=>`<div class="std-tick" style="left:${t}%"></div>`).join('')}</div>
 <div class="std-sub">${r.next?`${esc(r.next)} at ${r.nextKg}kg e1RM${toGo?` · +${toGo}kg to go`:''}`:'Top tier — Elite 🏆'}</div></div>`}
-h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight. Bar = position on the 5-band tier ladder (equal bands: Beginner → Novice → Int → Adv → Elite) — same scale on every row. Approximate signposts for these lifts.</div></div>`}
+h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best 60-day estimated 1RM ÷ bodyweight. These are app reference bands, not validated standards or a diagnosis of training status.</div></div>`}
 else if(logged.size){h+=`<div class="cd" style="text-align:center;padding:16px"><div style="font-size:20px;margin-bottom:4px">⚖️</div><div class="dm">Log your bodyweight in <b style="color:var(--pr)">Body Tracking</b> to unlock strength-level tiers (Novice → Elite) for your main lifts.</div></div>`}
 
 // Exercise deep-dive
@@ -4679,7 +4831,7 @@ if(selEx&&E1RM_TYPES.has(selEx.tp)){
 const proj=e1rmProjection(STAT_EX);
 const lastPr=liftPrs[0];
 if(proj||lastPr){h+=`<div class="cd" style="padding:11px 16px;font-size:11px;color:var(--dm)">
-${proj?`<div>At the current 8-wk trend: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> around <b style="color:var(--tx)">${proj.date}</b> — straight-line estimate, not a promise.</div>`:''}
+${proj?`<div>If the recent trend continued: <b style="color:var(--tx)">~${proj.kg}kg e1RM</b> in roughly <b style="color:var(--tx)">${proj.range[0]}–${proj.range[1]} weeks</b> — a broad straight-line scenario, not a forecast.</div>`:''}
 ${lastPr?`<div style="margin-top:${proj?'4px':'0'}">Last PR: <b style="color:var(--tx)">${lastPr.val}kg ${lastPr.type==='weight'?'weight':'e1RM'}</b> · ${dAgo(lastPr.date)}</div>`:''}</div>`}}
 h+=`<div class="cd">${svgLine(wtD,360,170,C_PR,'Top-Set Weight (kg)')}</div>`;
 if(selEx&&E1RM_TYPES.has(selEx.tp)){
@@ -4735,14 +4887,14 @@ ${bodyHeatH(wv)}</div>`;
 // Per-muscle MEV/MAV status (10-day window = full A→B→C rotation), merged with
 // each muscle's 8-week history so "where am I now" and "how did I get here"
 // read as one section instead of two separately-computed ones.
-h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Weekly Volume by Muscle</div>
-<div class="dm" style="margin-bottom:14px">Sets/week (normalized from the last 10 days) · all locations · effective sets vs MEV–MAV · 8-wk history</div>`;
+h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Directional Sets by Muscle</div>
+<div class="dm" style="margin-bottom:14px">Estimated sets/week, normalized from the last 10 days · all locations · compared with app reference minimum/range · 8-wk history</div>`;
 let anyVol=false;
 for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
   let col='var(--mu)',tag='';
   if(mev!=null){
-    if(v<mev){col='var(--am)';tag='below MEV — add a set';}
+    if(v<mev){col='var(--am)';tag='below reference — consider a set';}
     else if(v<mav){col='var(--gr)';tag='productive';}
     else{col='var(--pr)';tag='high volume';}
   }
@@ -4778,7 +4930,7 @@ h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin
 if(push&&pull)h+=`<div style="display:flex;gap:2px;height:7px;margin-top:6px;border-radius:3px;overflow:hidden">
 <div style="width:${Math.round(push/(push+pull)*100)}%;background:var(--pr);opacity:.85"></div>
 <div style="flex:1;background:var(--pu);opacity:.85"></div></div>`}}
-h+=`<div class="dm" style="margin-top:4px">Tick = MEV (minimum). Bar fills toward MAV but more is fine if recovering well — MAV is not a cap. Indirect work counts half — these numbers are directional, not precise. Mini-bars: one per week, amber = under MEV that week.</div></div>`;
+h+=`<div class="dm" style="margin-top:4px">Tick = app reference minimum; the full bar is the upper reference. Indirect work counts half, so these are directional estimates—not precise dose measurements or universal targets. Mini-bars: one per week, amber = below reference.</div></div>`;
 
 // ── Muscle Trend: this 28-day window vs the 28 days before it, per muscle ──
 {const mpc=musclePeriodCompare(28);
@@ -4804,7 +4956,7 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Set Count per Musc
 for(const[k,l] of MG_INFO)h+=`<option value="${k}"${k===STAT_MG?' selected':''}>${l}</option>`;
 h+=`</select>`;
 h+=svgBars(series,360,150,C_PR,`${mi[1]} sets/week`,{target:mi[2]||undefined});
-h+=`<div class="dm" style="margin-top:4px">Actual sets per calendar week${mi[2]?' · dashed line = MEV':''}. Unlike the normalized rate above, partial weeks show as-is.</div></div>`}
+h+=`<div class="dm" style="margin-top:4px">Actual sets per calendar week${mi[2]?' · dashed line = app reference minimum':''}. Unlike the normalized rate above, partial weeks show as-is.</div></div>`}
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
 {const dcut=daysAgoStr(30);
@@ -4848,23 +5000,23 @@ const ws=wsAll.filter(w=>!w.partial);
 if(ws.length>=2){
 const volData=ws.map(w=>({v:Math.round(w.vol/1000*10)/10,lbl:w.lbl}));
 const sessData=ws.map(w=>({v:w.sessions,lbl:w.lbl}));
-// progressing? compare last 2 complete weeks' avg tonnage vs the prior 2
+  // compare last 2 complete weeks' external-load work vs the prior 2
 let trendMsg='';if(ws.length>=4){const recent=ws.slice(-2).reduce((a,w)=>a+w.vol,0)/2,prior=ws.slice(-4,-2).reduce((a,w)=>a+w.vol,0)/2;
 const pct=prior?Math.round((recent-prior)/prior*100):0;
-trendMsg=pct>5?`<span style="color:var(--pr)">↑ Volume trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ Volume down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ Volume steady</span>`}
+trendMsg=pct>5?`<span style="color:var(--pr)">↑ External load trending up ${pct}%</span>`:pct<-5?`<span style="color:var(--am)">↓ External load down ${Math.abs(pct)}% — plateau or deload</span>`:`<span style="color:var(--mu)">→ External load steady</span>`}
 const marks=weeklyMarks(ws);
-h+=`<div class="cd">${svgBars(volData,360,150,C_PR,'Weekly Tonnage (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week${marks.some(m=>m.label==='RTN')?' · RTN = return from break':''}</div>`:''}</div>`;
+h+=`<div class="cd">${svgBars(volData,360,150,C_PR,'Weekly External Load (t)',{marks})}${trendMsg?`<div class="dm" style="text-align:center;margin-top:4px">${trendMsg}</div>`:''}${curW?`<div class="dm" style="text-align:center;margin-top:3px">This week so far: ${curW.vol>=1000?(curW.vol/1000).toFixed(1)+'t':curW.vol+'kg'} · ${curW.sessions} session${curW.sessions===1?'':'s'}</div>`:''}${marks.length?`<div class="dm" style="text-align:center;margin-top:3px">P# = phase change · DL = deload week${marks.some(m=>m.label==='RTN')?' · RTN = return from break':''}</div>`:''}</div>`;
 h+=`<div class="cd">${svgBars(sessData,360,130,C_BL,'Sessions / Week',{target:3})}<div class="dm" style="text-align:center;margin-top:4px">Dashed line = 3×/week target · complete weeks only</div></div>`;
-// RPE trend if data exists
+// Session-effort trend if data exists (the internal `rpe` key is retained for compatibility).
 const rpeData=ws.filter(w=>w.rpe!=null).map(w=>({v:w.rpe,l:w.lbl})); // svgLine reads .l — .lbl printed literal "undefined" x-labels
-if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,CH_TARGET,'Avg RPE / Week')}</div>`;
+if(rpeData.length>=2)h+=`<div class="cd">${svgLine(rpeData,360,140,CH_TARGET,'Avg Session Effort / Week')}</div>`;
 }
 
 h+=`<div class="cd"><div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${con.perWk8}</div><div class="estrip-lbl">/wk · 8wk</div></div>
 <div class="estrip-cell"><div class="estrip-num">${con.avgGap!=null?con.avgGap+'d':'—'}</div><div class="estrip-lbl">Avg Gap</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${con.avgDur!=null?con.avgDur+'m':'—'}</div><div class="estrip-lbl">Avg Length</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg RPE</div></div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${con.avgRpe!=null?con.avgRpe:'—'}</div><div class="estrip-lbl">Avg effort</div></div></div>
 <div class="dm" style="margin-top:2px">Lifetime: ${con.perWk}/wk over ${con.spanWk} weeks since your first session.</div>`;
 if(con.wuRate!=null){h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span class="mu">Warm-up compliance</span><span style="color:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'};font-weight:700">${con.wuRate}%</span></div>
 <div class="fg-bar"><div class="fg-fill" style="width:${con.wuRate}%;background:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'}"></div></div>`}
@@ -4875,22 +5027,19 @@ const cMin=c7.reduce((a,c)=>a+(c.duration||0),0);
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span class="mu">Cardio · last 7 days</span><span style="color:${cMin>=60?'var(--gr)':'var(--mu)'};font-weight:700">${cMin?`${cMin} min · ${c7.length} session${c7.length===1?'':'s'}`:'—'}</span></div>`}
 h+=`</div>`;
 
-// Rest adherence — the decomposition of session length that `duration` alone could never
-// give (§24.2 measured the unaccounted time; this says what it was). Only sessions carrying
-// a set clock can answer, so the card names its own denominator rather than implying the
-// number covers everything.
-{const rh=restHistory(90);
-if(rh){const hot=rh.med>rh.medPres*1.5;
+// Set-completion intervals — the part of session timing the stored clock can actually
+// measure. Only sessions carrying a set clock can answer, so the card names its denominator.
+{const ih=intervalHistory(90);
+if(ih){
 h+=`<div class="cd">
 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
-<span style="font-size:12px;font-weight:600">Rest between sets</span>
-<span style="font-family:var(--disp);font-size:17px;font-weight:800;color:${hot?'var(--am)':'var(--gr)'}">${fmtMS(rh.med)}</span></div>
-<div class="dm" style="margin-bottom:10px">Median interval between completed sets · preceding-set prescription ${fmtMS(rh.medPres)} · ${rh.sessions} timed session${rh.sessions===1?'':'s'} in the last 90 days</div>
-<div class="fg-bar"><div class="fg-fill" style="width:${Math.max(3,Math.min(100,Math.round(rh.pres/rh.tot*100)))}%;background:var(--pr)"></div></div>
-<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:3px">
-<span>${Math.round(rh.pres/60)} min prescribed rest</span><span>${Math.round(rh.tot/60)} min between set completions</span></div>
-<div class="dm" style="margin-top:8px">${rh.over} of ${rh.n} gaps exceeded 1.5× the preceding set's prescription${rh.ratio?` · ${rh.ratio}× overall`:''}. These intervals can include deliberate rest, equipment changes and interruptions. Longer rests do not cost strength or size; the trade-off is session time.</div>
-${rh.sessions<3?`<div class="dm" style="margin-top:6px;color:var(--am)">Only ${rh.sessions} session${rh.sessions===1?' has':'s have'} a set clock so far — tick sets as you go and this gets trustworthy fast.</div>`:''}</div>`}}
+<span style="font-size:12px;font-weight:600">Set-completion interval</span>
+<span style="font-family:var(--disp);font-size:17px;font-weight:800;color:var(--gr)">${fmtMS(ih.med)}</span></div>
+<div class="dm" style="margin-bottom:8px">Median between completed sets · ${ih.sessions} timed session${ih.sessions===1?'':'s'} in the last 90 days</div>
+<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu)">
+<span>${ih.n} intervals</span><span>${Math.round(ih.tot/60)} min elapsed</span></div>
+<div class="dm" style="margin-top:8px">This is not a rest measurement: every interval also includes setup and the next set's work, and may include transitions or interruptions.</div>
+${ih.sessions<3?`<div class="dm" style="margin-top:6px;color:var(--am)">Only ${ih.sessions} session${ih.sessions===1?' has':'s have'} a set clock so far — tick sets as you go and this gets trustworthy fast.</div>`:''}</div>`}}
 
 // Weekly cardio trend by intensity — the 7-day line above is only a snapshot.
 {const cw=cardioWeekly(8);
@@ -4917,10 +5066,10 @@ if(!rep.sessions){h+=`<div class="dm" style="text-align:center;padding:12px">No 
 else{
 h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${rep.sessions}${dl(rep.sessions,prevRep.sessions)}</div><div class="estrip-lbl">Workouts</div></div>
-<div class="estrip-cell"><div class="estrip-num">${rep.tonnage>=1000?(rep.tonnage/1000).toFixed(1)+'t':rep.tonnage+'kg'}${dl(Math.round(rep.tonnage/100)/10,prevRep.sessions?Math.round(prevRep.tonnage/100)/10:0)}</div><div class="estrip-lbl">Tonnage</div></div>
+<div class="estrip-cell"><div class="estrip-num">${rep.tonnage>=1000?(rep.tonnage/1000).toFixed(1)+'t':rep.tonnage+'kg'}${dl(Math.round(rep.tonnage/100)/10,prevRep.sessions?Math.round(prevRep.tonnage/100)/10:0)}</div><div class="estrip-lbl">External load</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${rep.sets}${dl(rep.sets,prevRep.sets)}</div><div class="estrip-lbl">Sets</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${rep.prCount}</div><div class="estrip-lbl">PRs</div></div></div>`;
-const meta=[rep.avgDur?`Avg ${rep.avgDur} min`:'',rep.avgRpe?`Avg RPE ${rep.avgRpe}`:'',rep.cardioMin?`Cardio ${rep.cardioMin} min`:''].filter(Boolean);
+const meta=[rep.avgDur?`Avg ${rep.avgDur} min`:'',rep.avgRpe?`Avg effort ${rep.avgRpe}/5`:'',rep.cardioMin?`Cardio ${rep.cardioMin} min`:''].filter(Boolean);
 if(meta.length)h+=`<div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--mu);margin-top:8px">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`;
 if(prevRep.sessions)h+=`<div class="dm" style="text-align:center;margin-top:6px">Deltas vs ${monthLabel(prevMonth(ym))}</div>`;
 h+=`</div>`;
@@ -5100,6 +5249,25 @@ window.delBod=function(date){if(!confirm('Delete this measurement log?'))return;
 D.bodyLog=(D.bodyLog||[]).filter(b=>b.date!==date);save();render()}
 
 // ─── HISTORY ─────────────────────────────────
+// Content-based duplicate detector. Session ids are creation artifacts, so they cannot catch
+// the same workout saved/imported twice under different ids. Compare the performed work on
+// the same date/day/venue instead: exercise ids, reps, resolved set weights and band rung.
+// Metadata such as duration, session effort, notes, form and set timestamps is deliberately ignored — a
+// later copy may contain richer metadata while still representing the same workout.
+// This only FLAGS later matches for human review; it never deletes training data silently.
+function sessionWorkKey(s){
+if(!s||!Array.isArray(s.ex)||!s.date)return'';
+const rows=s.ex.map(e=>{const reps=(e.reps||[]).map(r=>Number(r)||0);
+  const weights=reps.map((_,i)=>{const w=Array.isArray(e.wts)&&Number(e.wts[i])>0?e.wts[i]:e.wt;return Number(w)||0});
+  const bi=BAND_IDX(String(e.band||''));
+  const band=bi<99?'#'+bi:String(e.band||'').toLowerCase().replace(/\s*\(heaviest\)\s*/g,'').trim();
+  return[e.id||'',weights,reps,band]})
+  .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+return JSON.stringify([s.date,s.day,s.loc||'home',rows])}
+function sessionDuplicateMap(sessions){const seen=new Map(),dups=new Map();
+for(const s of sessions||[]){const k=sessionWorkKey(s);if(!k)continue;
+  if(seen.has(k))dups.set(s.id,seen.get(k));else seen.set(k,s.id)}
+return dups}
 // How many session cards History builds per render. Every session used to be rendered
 // into a single innerHTML string, so a few years of training (3/wk ≈ 150/yr) meant
 // hundreds of cards — each with badges, and an expanded one carrying per-exercise rows
@@ -5109,9 +5277,11 @@ const HIST_PAGE=30;let HIST_N=HIST_PAGE;
 function moreHist(){HIST_N+=HIST_PAGE;render()}
 function rHist(el){const ss=[...D.sessions].reverse();
 const shown=ss.slice(0,HIST_N),rest=ss.length-shown.length;
+const dupMap=sessionDuplicateMap(D.sessions);
 let h=`<div class="sec"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
 <h2 class="pg-title" style="margin:0">History <span class="dm" style="font-size:11px;font-weight:600">· ${ss.length} session${ss.length===1?"":"s"}</span></h2>
 <button class="btn-sm btn-pr" onclick="go('logpast')">+ Log Past</button></div>`;
+if(dupMap.size)h+=`<div class="deload-banner" style="background:var(--aml);border-color:var(--am);color:var(--am);font-size:11px">⚠ ${dupMap.size} possible duplicate session${dupMap.size===1?'':'s'} · flagged below for review; nothing was removed.</div>`;
 // Return ramps, live and finished. A ramp is a training event in its own right — the reason
 // three weeks of your log look the way they do — so it belongs in the history record and not
 // only in the moment. Rendered as its own compact card rather than interleaved into the
@@ -5130,9 +5300,10 @@ h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP===
 <div style="display:flex;justify-content:space-between;align-items:center">
 <div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
-${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${RPE_COLORS[s.difficulty-1]}">RPE ${s.difficulty}</span>`:''}
+${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
 ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
 ${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}
+${dupMap.has(s.id)?`<span style="font-size:9px;font-weight:700;color:var(--am);border:1px solid var(--am);border-radius:4px;padding:1px 4px" title="Same exercises, loads and reps as another session on this date">possible duplicate</span>`:''}
 ${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</div>
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
@@ -5145,6 +5316,7 @@ else if(isDbLoaded(def)&&e.wt&&e.wt>DB_BAR)h+=dbPlateH(e.wt,def.loadUnit==='per_
 h+=`</div>`}
 if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padding:6px 0;border-top:1px solid var(--cb)">${esc(s.notes)}</div>`;
 {const ms=muscleSplitH(s.ex);if(ms)h+=`<div style="padding:8px 0 2px;border-top:1px solid var(--cb)">${ms}</div>`}
+if(dupMap.has(s.id))h+=`<div style="font-size:10px;color:var(--am);margin-top:5px">Same date, exercises, loads and reps as another entry. Compare both records before deleting one.</div>`;
 h+=`<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
 <button class="btn-sm btn-rd" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button>
 <button class="btn-sm btn-wh" onclick="event.stopPropagation();toggleNoProg('${s.id}')">${s.noProg?'▶ Include in progression':'⏸ Ignore for progression'}</button></div>
@@ -5221,7 +5393,7 @@ h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${i
 ${BANDS.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select></div>`;
 // Rep inputs
 h+=`<div style="display:flex;gap:6px">`;
-for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:46px;height:46px;font-size:17px" id="${inputId}_r${i}" placeholder="S${i+1}" aria-label="${esc(ex.nm)} set ${i+1} reps" inputmode="numeric">`;
+for(let i=0;i<ex.s;i++)h+=`<input type="number" class="ri" style="width:46px;height:46px;font-size:17px" id="${inputId}_r${i}" placeholder="S${i+1}" aria-label="${esc(ex.nm)} set ${i+1} ${ex.perSide?'total reps across both sides':'reps'}" inputmode="numeric">`;
 h+=`</div></div>`}
 
 h+=`<div style="display:flex;gap:8px;margin-top:14px">
@@ -5485,10 +5657,9 @@ d.discomfort=(Array.isArray(d.discomfort)?d.discomfort:[]).filter(x=>x&&typeof x
 // partially mutated with the drift persisted by the next save(). D is only replaced
 // once the whole merge succeeded.
 const W=structuredClone(cur);
-// Fresh device = truly empty OR still on the bundled demo SEED (load() marks that with
-// `seeded`) — the old sessions.length===0 test was unreachable because an empty store
-// always loads the demo. On a fresh restore, demo rows are dropped, and phase/venue
-// metadata is adopted from the backup instead of silently keeping the demo defaults.
+// Fresh device = truly empty OR an old release still carrying the legacy `seeded` flag.
+// On a fresh restore, obsolete demo rows are dropped and phase/venue metadata is adopted
+// from the backup instead of silently keeping defaults.
 const wasFresh=W.sessions.length===0||W.seeded===true;
 if(W.seeded){W.sessions=[];W.cardioLog=[];W.bodyLog=[];W.discomfort=[]}
 const existingMap=new Map(W.sessions.map(s=>[s.id,s]));
@@ -5556,7 +5727,8 @@ const{W,added,replaced,skipped}=mergeImport(D,d);
 D=W;
 if(!save())alert('⚠ Import merged but could not be written to storage (quota?). Export a backup before closing.');
 render();
-alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed session${skipped>1?'s':''} skipped`:''}`)}catch(e){alert('Invalid file — nothing was changed.')}};
+{const dup=sessionDuplicateMap(D.sessions).size;
+alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed session${skipped>1?'s':''} skipped`:''}${dup?` · ${dup} possible duplicate${dup>1?'s':''} flagged in History`:''}`)}}catch(e){alert('Invalid file — nothing was changed.')}};
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════

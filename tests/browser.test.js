@@ -157,18 +157,18 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     T('a far-future ramp is rejected and the offer returns', /days since your last session/.test(t) && !/Return ramp · starts/.test(t));
     await ctx.close() }
 
-  // ── the Express guard must not nag you for following the ramp ──
+  // ── the Essentials guard must not nag you for following the ramp ──
   { const s = baseStore();
     s.comeback = { start:ago(2), end:ahead(17), gap:20 };
     s.sessions = [...s.sessions, ...[0,1].map(i => ({ id:'xp'+i, date:ago(i), day:'A', loc:'home', phase:1, express:true,
       difficulty:2, duration:30, volume:800, warmup:1, notes:'', ex:[{ id:'hex_dl', wt:42, reps:[3,3,2], band:'', notes:'' }] }))];
     const { page, ctx } = await open(s);
-    T('no Express/MEV nag while the ramp prescribes the cut', !/were Express/.test(await text(page)));
+    T('no Essentials/reference nag while the ramp prescribes the cut', !/were Essentials/.test(await text(page)));
     T('...but the guard is still live once the ramp is gone',
       await page.evaluate(() => { D.comeback = null; return expressMEVRisk(7) !== null }));
     await ctx.close() }
 
-  // ── rest adherence: the set clock, read back ──
+  // ── set-completion intervals: the set clock, read back ──
   // ex[].ts was written for months and read by nothing. These assert the readers reach a
   // screen — a number computed and never displayed is what this whole feature is fixing.
   { const s = baseStore();
@@ -182,10 +182,10 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     await page.evaluate(() => { go('stats'); STAT_SEG = 'consistency'; render() });
     await page.waitForTimeout(500);
     const t = await text(page);
-    T('Progress surfaces rest adherence', /Rest between sets/.test(t) && /4:00/.test(t), (t.match(/Rest between sets[\s\S]{0,90}/) || ['MISSING'])[0]);
+    T('Progress surfaces set-completion intervals', /Set-completion interval/.test(t) && /4:00/.test(t), (t.match(/Set-completion interval[\s\S]{0,90}/) || ['MISSING'])[0]);
     T('...naming its own denominator, not implying full coverage', /1 timed session/.test(t));
     T('...and flagging that one session is too few to trust', /too few|gets trustworthy|Only 1 session/.test(t));
-    T('...counting the gaps that ran over', /5 of 5 gaps/.test(t), (t.match(/\d+ of \d+ gaps[^\n]*/) || ['MISSING'])[0]);
+    T('...counting intervals without pretending they are rest', /5 intervals/.test(t) && /not a rest measurement/.test(t));
     // The guarantee: reading the clock must never move a weight.
     T('the set clock does not touch the progression engine',
       await page.evaluate(() => { const ex = getProgram(D.phase,'home').A.find(e => e.id === 'hex_dl');

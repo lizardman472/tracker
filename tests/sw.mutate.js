@@ -86,7 +86,10 @@ const MUTATIONS = [
     s => s.replace('.then(() => self.skipWaiting())', '')],
 
   ['stops evicting caches from previous releases',
-    s => s.replace('ks.filter(k => k !== C)', 'ks.filter(() => false)')],
+    s => s.replace("ks.filter(k => k.startsWith('rft-') && k !== C)", 'ks.filter(() => false)')],
+
+  ['evicts unrelated app caches on the same origin',
+    s => s.replace("k.startsWith('rft-') && k !== C", 'k !== C')],
 
   ['never claims open clients on activate',
     s => s.replace('.then(() => self.clients.claim())', '')],

@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const HISTORY_SEED = require('./fixtures/history-state');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
@@ -26,7 +27,8 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {};
 eval(code);
-const { ALL_EX, SEED, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, DB_BAR, DB_PL_CLASS, RELATED_EX, setD, getD } = global.__X;
+const { ALL_EX, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, DB_BAR, DB_PL_CLASS, RELATED_EX, setD, getD } = global.__X;
+const SEED = HISTORY_SEED;
 
 // Every program day at both venues. Any sweep that means "the whole program" must use this.
 // v19 added an off-rotation day 'X' that had to be included here; v20 dissolved it back into
@@ -192,22 +194,48 @@ T('lm_bstance_squat seeds at 22kg (valid VWL weight)', lbg.type === 'new' && lbg
 // hex deadlift — it no longer sits next to the B-stance RDL (that's straight-bar work now).
 T('lm_bstance_squat opens the Day-A landmine block, right after the hex deadlift', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids[0] === 'hex_dl' && ids[1] === 'lm_bstance_squat' && ids[2] === 'lm_lateral'; })());
 T('Day A pull-ups back at 4 sets (v14 trim reverted)', getProgram(1, 'home').A.find(e => e.id === 'pullup_a').s === 4);
+T('home pull-ups use a comfortable shoulder-width grip rather than forcing wide', (() => {
+  const a = getProgram(1, 'home').A.find(e => e.id === 'pullup_a');
+  const c = getProgram(1, 'home').C.find(e => e.id === 'pullup_c');
+  return /Comfortable Grip/.test(a.nm) && /shoulder-width/.test(a.rl) && /pain-free/.test(a.rl) &&
+    /shoulder-width/.test(c.rl) && !/\(Wide\)/.test(a.nm);
+})());
+T('dip coaching agrees with the 4×8 progression target', (() => {
+  const e = getProgram(1, 'home').B.find(e => e.id === 'dips');
+  return e.s === 4 && e.tg === 8 && /4×8/.test(e.rl) && /4×8/.test(e.note) && !/4(?:x|×)10/i.test(e.note);
+})());
+T('dip range is controlled and pain-free rather than a forced depth target', (() => {
+  const e = getProgram(1, 'home').B.find(e => e.id === 'dips');
+  return /pain-free/.test(e.rl) && /cap, not a depth target/.test(e.rl);
+})());
+T('skullcrusher remains phase-adjusted 3×10-12 but is explicitly optional after compound pressing', (() => {
+  const e = getProgram(1, 'home').B.find(e => e.id === 'bb_skullcr');
+  return e.s === 3 && e.rp === '10-12' && e.tg === 12 && e.optional === true && /skip/.test(e.rl);
+})());
+T('loaded dead bugs and anti-rotation presses are explicitly quality-first', (() => {
+  const a = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
+  const c = getProgram(1, 'home').C.find(e => e.id === 'lm_pallof');
+  return a.qualityLoad === true && c.qualityLoad === true &&
+    /smallest load step/.test(a.rl) && /smallest load step/.test(c.rl) &&
+    !/Confirm/.test(a.rl) && !/Confirm/.test(c.rl);
+})());
 // Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
 const dlm = freshD();
-dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [10, 10, 10], band: '', form: [5, 5, 5] }] }];
+dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [20, 20, 20], band: '', form: [5, 5, 5] }] }];
 lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
-// Volume: landmine lifts have MG maps and count on the bb tonnage path (perSide doubles).
+// Volume: landmine lifts have MG maps and count on the bb tonnage path; the entered
+// per-side value is already the combined total across both sides.
 T('landmine lifts + bb_rear_row have MG maps (incl. retired lm_180 for history)', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row && !!MG.lm_180);
-T('lm_pallof counts toward tonnage (bb, perSide ×2)', calcExVol('lm_pallof', 13, [10, 10, 10]) === 13 * 2 * 30);
+T('lm_pallof counts entered both-side totals once', calcExVol('lm_pallof', 13, [20, 20, 20]) === 13 * 60);
 
 // ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
 let cd = freshD();
-cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
+cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
 let cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('stall at bar-only floor → rebuild hold (not a fake deload)', cdSg.type === 'stay' && cdSg.wt === 11 && !/%/.test(cdSg.detail), JSON.stringify(cdSg));
 // Above the floor, the deload reports the ACTUAL percent cut, not a hardcoded ~10%.
-cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] }));
+cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
 cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('low-weight deload reports honest percent (12→11 ≈ 8%)', cdSg.type === 'dn' && cdSg.wt === 11 && /~8%/.test(cdSg.detail), JSON.stringify(cdSg));
 // A heavier lift still gets a real ~10% deload (regression guard).
@@ -321,7 +349,7 @@ T('calf history still rolls up in the per-session split', (MG.calf_raise || {}).
   const sug = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'ohp'));
   T('an unseeded-before lift now suggests a real starting load', /11/.test(sug.text) || sug.wt === BAR, JSON.stringify(sug));
 }
-T('calf raise history still counts toward tonnage (perSide ×2, not carry-excluded)', calcExVol('calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60 && calcExVol('db_calf_raise', 8, [20, 20, 20]) === 8 * 2 * 60);
+T('calf raise history counts both-side totals once, not carry-excluded', calcExVol('calf_raise', 8, [40, 40, 40]) === 8 * 120 && calcExVol('db_calf_raise', 8, [40, 40, 40]) === 8 * 120);
 // v21: partner dips are ECCENTRIC-ONLY. The v27 slot assumed a band could be anchored under
 // the bars for assisted dips; it cannot, so the slot is bodyweight negatives instead.
 T('partner Day B dips are eccentric-only bodyweight, not band-assisted',
@@ -554,26 +582,31 @@ T('static by design — no PHASES.adj entry at any phase', [1, 2, 3].every(p => 
 // a below-target session reads stay-and-push. The fixtures below deliberately keep day:'X':
 // a store written between v19 and v20 has core sessions logged under that day, and they must
 // keep feeding the suggestion now that the slot lives on a lifting day.
-T('side plank at 3×40s reads progress (from a pre-v20 day-X session)', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
-T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 6, 6], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
-T('pre-v16 bird dog history (logged on Day C) still feeds the slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [8, 8, 8], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
+T('side plank at 3×40s reads progress (from a pre-v20 day-X session)', (() => { const d = freshD(); d.sessions = [{ id: 'sp1', date: '2026-07-10', day: 'X', loc: 'partner', ex: [{ id: 'side_plank', wt: null, reps: [80, 80, 80], band: '' }] }]; const sg = getSmartSugg(partPr.B.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('bird dog history below target reads stay/push', (() => { const d = freshD(); d.sessions = [{ id: 'bd1', date: '2026-07-10', day: 'X', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [16, 12, 12], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'stay'; })());
+T('pre-v16 bird dog history (logged on Day C) still feeds the slot', (() => { const d = freshD(); d.sessions = [{ id: 'bd2', date: '2026-01-10', day: 'C', loc: 'home', ex: [{ id: 'bird_dog', wt: null, reps: [16, 16, 16], band: '' }] }]; const sg = getSmartSugg(homePr.B.find(e => e.id === 'bird_dog')); return sg.type === 'up'; })());
 // v21: side_plank is the cross-venue shared id now (bird_dog went home-only when the
 // partner core slots consolidated). Same property, live id.
-T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp3', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [40, 40, 40], band: '' }] }]; const sg = getSmartSugg(partPr.A.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
+T('cross-venue history is genuinely shared (home session feeds partner suggestion)', (() => { const d = freshD(); d.sessions = [{ id: 'sp3', date: '2026-07-10', day: 'B', loc: 'home', ex: [{ id: 'side_plank', wt: null, reps: [80, 80, 80], band: '' }] }]; const sg = getSmartSugg(partPr.A.find(e => e.id === 'side_plank')); return sg.type === 'up'; })());
 
 // ── v20: every prescribed rest is exactly one minute ──
 // Both fields, not just one: rst is what the slot line PRINTS and rstS is what the timer
 // button STARTS, and they are set independently in the program literal. A pass on rstS alone
 // would let the printed "2:30" survive next to a 60-second timer.
-// v21 narrows this to HOME. The partner venue differentiates again: 1:00 there was
+// v21 narrowed the one-minute policy to HOME; v99 differentiates demanding home compounds
+// again. The partner venue remains shorter: 1:00 there was
 // calibrated for the home barbell, but at 16kg dumbbells it was mostly dead time — 14 sets
 // per cycle of 5kg isolation work were each buying a full minute. Partner compounds rest
 // 0:45, isolation 0:30. The rst/rstS pairing invariant is what actually matters, so it is
 // still asserted at BOTH venues: a printed string that disagrees with the timer is the bug.
 {
   const pr = getProgram(1, 'home');
-  const bad = PROG_DAYS.flatMap(d => pr[d]).filter(e => e.rst !== '1:00' || e.rstS !== 60);
-  T('every home rest is 1:00 / 60s', bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+  const ALLOWED = { '2:00': 120, '1:30': 90, '1:00': 60 };
+  const bad = PROG_DAYS.flatMap(d => pr[d]).filter(e => !(e.rst in ALLOWED) || e.rstS !== ALLOWED[e.rst]);
+  T('every home rest is 2:00, 1:30 or 1:00 with string and timer agreeing', bad.length === 0, bad.map(e => `${e.id} ${e.rst}/${e.rstS}`).join(', '));
+  T('home pillars get 2:00 and accessories remain 1:00',
+    ['hex_dl','hex_squat_b','ohp'].every(id=>PROG_DAYS.flatMap(d=>pr[d]).find(e=>e.id===id).rstS===120)&&
+    pr.A.find(e=>e.id==='bb_curl').rstS===60);
 }
 {
   const pr = getProgram(1, 'partner');

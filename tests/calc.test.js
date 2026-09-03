@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const HISTORY_SEED = require('./fixtures/history-state');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
@@ -18,7 +19,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -34,8 +35,9 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK,
+const { ALL_EX, SEED: APP_SEED, JOINTS, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK,
   RTN_MIN_GAP, RTN_MIN_DAYS, RTN_MAX_DAYS, RTN_STAGE1_SESS } = global.__X;
+const SEED = HISTORY_SEED;
 
 let pass = 0, fail = 0;
 const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAIL:', name, info)); };
@@ -56,20 +58,41 @@ T('carry excluded from tonnage', calcExVol('suitcase_march', 32, [40, 40, 40]) =
 T('legacy carry excluded', calcExVol('carry', 32, [1, 1, 1]) === 0);
 T('bilateral barbell 46×15', calcExVol('deadlift', 46, [5, 5, 5]) === 690);
 T('per_db doubles', calcExVol('db_ohp', 10, [10, 10, 10]) === 600);
-T('perSide doubles', calcExVol('cossack_squat', 21, [8, 8, 8]) === 21 * 2 * 24);
-T('per_db+perSide ×4 (two-DB single-leg RDL)', calcExVol('db_sl_rdl', 10, [8, 8, 8]) === 10 * 4 * 24);
-T('single-arm press not per_db', calcExVol('db_1arm_press', 8, [10, 10, 10]) === 8 * 2 * 30);
-// Goblet / single-DB holds are perSide-only (×2), NOT per_db (×4) — fixed after the audit.
-T('db_bss goblet = perSide only, not per_db', calcExVol('db_bss', 10, [8, 8, 8, 8]) === 10 * 2 * 32);
-T('db_dead_bug single-DB = perSide only, not per_db', calcExVol('db_dead_bug', 5, [8, 8, 8]) === 5 * 2 * 24);
+T('perSide totals are not doubled again', calcExVol('cossack_squat', 21, [16, 16, 16]) === 21 * 48);
+T('per_db+perSide totals only double for the two DBs', calcExVol('db_sl_rdl', 10, [16, 16, 16]) === 10 * 2 * 48);
+T('single-arm press uses the entered both-sides total', calcExVol('db_1arm_press', 8, [20, 20, 20]) === 8 * 60);
+// Goblet / single-DB holds use the entered combined total and are not per_db.
+T('db_bss goblet uses combined totals once', calcExVol('db_bss', 10, [16, 16, 16, 16]) === 10 * 64);
+T('db_dead_bug single-DB uses combined totals once', calcExVol('db_dead_bug', 5, [16, 16, 16]) === 5 * 48);
 
-// ── effectiveReps: per-side convention (no halving) ──
-T('no halving for perSide', JSON.stringify(effectiveReps({ perSide: true }, [8, 8, 8])) === '[8,8,8]');
+// ── effectiveReps: combined-total storage → conservative per-side scoring ──
+T('even perSide totals halve for progression', JSON.stringify(effectiveReps({ perSide: true }, [16, 20, 24])) === '[8,10,12]');
+T('odd perSide totals score the lower side', JSON.stringify(effectiveReps({ perSide: true }, [15, 17])) === '[7,8]');
+T('bilateral reps are unchanged', JSON.stringify(effectiveReps({ perSide: false }, [8, 9])) === '[8,9]');
+
+// ── duplicate-session detection: flag for review, never auto-delete ──
+{
+  const original = { id: 'dup-a', date: '2020-02-03', day: 'C', loc: 'home', duration: 47, difficulty: 2,
+    ex: [{ id: 'pullup_c', wt: null, reps: [7, 6, 6], band: 'Green', notes: 'Synthetic duplicate fixture' },
+         { id: 'rdl', wt: 47, reps: [9, 8, 8], band: '', notes: '' }] };
+  const aliasCopy = { ...structuredClone(original), id: 'dup-b', duration: 48, notes: 'copied later' };
+  aliasCopy.ex[0].band = 'Green (heaviest)';
+  aliasCopy.ex.reverse();
+  const changed = structuredClone(aliasCopy); changed.id = 'not-dup'; changed.ex.find(e => e.id === 'rdl').reps[2] = 7;
+  T('duplicate key ignores ids, metadata, exercise order and equivalent band labels', sessionWorkKey(original) === sessionWorkKey(aliasCopy));
+  T('duplicate key changes when performed work changes', sessionWorkKey(original) !== sessionWorkKey(changed));
+  const dm = sessionDuplicateMap([original, aliasCopy, changed]);
+  T('duplicate map flags only the later matching entry', dm.size === 1 && dm.get('dup-b') === 'dup-a', JSON.stringify([...dm]));
+  T('duplicate detector leaves the supplied history untouched', [original, aliasCopy, changed].length === 3);
+}
 
 // ── e1RM ──
 T('e1rm at 1 rep = weight', e1rm(100, 1) === 100);
 T('e1rm Epley 5 reps', e1rm(60, 5) === Math.round(60 * (1 + 5 / 30) * 10) / 10);
 T('e1rm 0 reps = 0', e1rm(100, 0) === 0);
+T('perSide e1RM scores 16 total as 8 per side', exSetE1RMMax({ tp: 'bb', perSide: true }, { wt: 100, reps: [16] }) === e1rm(100, 8));
+T('perSide e1RM scores odd totals by the lower side', exSetE1RMMax({ tp: 'bb', perSide: true }, { wt: 100, reps: [17] }) === e1rm(100, 8));
+T('bilateral e1RM keeps the entered rep count', exSetE1RMMax({ tp: 'bb' }, { wt: 100, reps: [16] }) === e1rm(100, 16));
 
 // ── rep-range parsing ──
 T('repmin 8-10', getRepMin({ rp: '8-10', tg: 10 }) === 8);
@@ -80,15 +103,103 @@ T('repmin steps/side', getRepMin({ rp: '30-40 steps/side', tg: 40 }) === 30);
 function freshD(over) { setD(structuredClone(SEED)); const d = getD(); d.discomfort = []; d.location = 'home'; d.phase = 1; Object.assign(d, over || {}); return d; }
 
 let d = freshD();
-d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'lm_lateral_squat', wt: 21, reps: [8, 8, 8], band: '' }] }];
+d.sessions = [{ id: 'x1', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'lm_lateral_squat', wt: 21, reps: [16, 16, 16], band: '' }] }];
 let sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_lateral_squat'));
 T('per-side hit-target → up', sg.type === 'up', JSON.stringify(sg));
 
-d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [15, 15], band: 'Purple' }] }];
+// Loaded control work is deliberately not routed through strength-lift overshoot or cluster
+// logic. It still progresses, but only one loadable rung at a time and only while the user
+// can preserve the brace, range and tempo named by the card.
+const deadBugQuality = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
+const pallofQuality = getProgram(1, 'home').C.find(e => e.id === 'lm_pallof');
+T('only the two loaded motor-control slots opt into quality-first loading',
+  deadBugQuality.qualityLoad === true && pallofQuality.qualityLoad === true &&
+  ALL_EX.filter(e => e.qualityLoad).every(e => ['dead_bugs_a', 'lm_pallof'].includes(e.id)));
+d.sessions = [{ id: 'q1', date: '2020-02-04', day: 'A', loc: 'home',
+  ex: [{ id: 'dead_bugs_a', wt: 24, reps: [20, 20, 22], band: '', form: [0, 0, 0] }] }];
+sg = getSmartSugg(deadBugQuality);
+T('dead-bug overshoot advances one smallest rung, not a proportional jump',
+  sg.type === 'up' && sg.wt === nxUp(24, VW) && /smallest load step/.test(sg.detail), JSON.stringify(sg));
+d.sessions = [
+  { id: 'q2', date: '2020-02-07', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 23, reps: [18, 20, 20], band: '', form: [0, 0, 0] }] },
+  { id: 'q3', date: '2020-02-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 23, reps: [14, 16, 14], band: '', form: [0, 0, 0] }] }];
+sg = getSmartSugg(pallofQuality);
+T('two anti-rotation misses hold for control instead of prescribing clusters',
+  sg.type === 'stay' && sg.wt === 23 && !/\(cluster\)/i.test(sg.text) && /clusters are not used/.test(sg.detail), JSON.stringify(sg));
+d.sessions.push({ id: 'q4', date: '2020-02-13', day: 'C', loc: 'home',
+  ex: [{ id: 'lm_pallof', wt: 23, reps: [18, 18, 18], band: '', form: [0, 0, 0] }] });
+sg = getSmartSugg(pallofQuality);
+T('three anti-rotation misses reset load without a cluster intervention',
+  sg.type === 'dn' && sg.wt < 23 && /without clusters/.test(sg.detail), JSON.stringify(sg));
+
+d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [30, 30], band: 'Purple' }] }];
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'band_er'));
 T('per-side band hit-target → up', sg.type === 'up', sg.text);
 
+d = freshD();
+d.sessions = [{ id: 'dip-target', date: daysAgoStr(1), day: 'B', loc: 'home',
+  ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', form: [5, 5, 5, 5] }] }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('a strict dip 4×8 advances to less assistance', sg.type === 'up' && /Hit 4×8/.test(sg.detail), JSON.stringify(sg));
+
 const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
+
+// Recovery gates veto increases without masking the underlying engine's holds/deloads.
+// Warm-up logging is advisory because a session-level checklist is not an exercise-level
+// readiness measure; omission must not erase otherwise-earned progression.
+{
+  const rd = freshD();
+  rd.sessions = [{ id: 'safe-rpe', date: daysAgoStr(1), day: 'B', loc: 'home', difficulty: 5, warmup: 3,
+    ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  let rs = getSmartSugg(ohp);
+  T('effort 5/5 vetoes an otherwise-earned increase', rs.type === 'stay' && /effort was 5\/5/.test(rs.detail), JSON.stringify(rs));
+
+  rd.sessions = [{ id: 'safe-wu', date: daysAgoStr(1), day: 'B', loc: 'home', difficulty: 3, warmup: 0,
+    ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  rs = getSmartSugg(ohp);
+  T('zero warm-up does not veto an otherwise-earned increase', rs.type === 'up' && !/warm-up/.test(rs.detail), JSON.stringify(rs));
+
+  rd.sessions = [
+    { id: 'safe-rep1', date: daysAgoStr(4), day: 'B', loc: 'home', difficulty: 3, warmup: 3, ex: [{ id: 'ohp', wt: 21, reps: [10, 10, 10, 10], band: '' }] },
+    { id: 'safe-rep2', date: daysAgoStr(1), day: 'B', loc: 'home', difficulty: 3, warmup: 3, ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  rs = getSmartSugg(ohp);
+  T('sharp same-load rep drop vetoes an increase', rs.type === 'stay' && /average reps dropped/.test(rs.detail), JSON.stringify(rs));
+
+  rd.sessions = [{ id: 'safe-clear', date: daysAgoStr(1), day: 'B', loc: 'home', difficulty: 3, warmup: 3,
+    ex: [{ id: 'ohp', wt: 21, reps: [7, 7, 7, 7], band: '' }] }];
+  T('normal recovered target hit still progresses', getSmartSugg(ohp).type === 'up', JSON.stringify(getSmartSugg(ohp)));
+}
+
+// Cross-venue lower-body overlap: partner split-squat/lunge work holds a home increase
+// for seven rolling days, then automatically clears.
+{
+  const lower = getProgram(1, 'home').A.find(e => e.id === 'lm_bstance_squat');
+  const rd = freshD();
+  const home = { id: 'leg-home', date: daysAgoStr(2), day: 'A', loc: 'home', warmup: 3,
+    ex: [{ id: lower.id, wt: 21, reps: [20, 20, 20], band: '' }] };
+  rd.sessions = [home, { id: 'leg-partner', date: daysAgoStr(1), day: 'A', loc: 'partner',
+    ex: [{ id: 'db_bss', wt: 12, reps: [16, 16, 16, 16], band: '' }] }];
+  let rs = getSmartSugg(lower);
+  T('recent partner split squats hold home lower-body progression', rs.type === 'stay' && /partner split-squat/.test(rs.detail), JSON.stringify(rs));
+  rd.sessions[1].date = daysAgoStr(8);
+  T('cross-venue lower-body hold clears after seven days', getSmartSugg(lower).type === 'up', JSON.stringify(getSmartSugg(lower)));
+}
+
+// Joint trends aggregate across related movements and cover lower-body joints too.
+{
+  const press = getProgram(1, 'home').C.find(e => e.id === 'lm_press');
+  const rd = freshD({ discomfort: [
+    { date: daysAgoStr(8), exId: 'floor_press', joint: 'Shoulder', level: 'moderate' },
+    { date: daysAgoStr(2), exId: 'ohp', joint: 'Shoulder', level: 'moderate' }] });
+  rd.sessions = [{ id: 'joint-press', date: daysAgoStr(1), day: 'C', loc: 'home', warmup: 3,
+    ex: [{ id: press.id, wt: 21, reps: [12, 12, 12], band: '' }] }];
+  const rs = getSmartSugg(press);
+  T('related pressing flags aggregate into a progression hold', rs.type === 'stay' && /discomfort trend/.test(rs.detail), JSON.stringify(rs));
+  T('lower-body joint choices are supported', ['Lower Back','Hip','Knee','Ankle'].every(j => JOINTS.includes(j)));
+}
+
+setD(d); // restore the shared fixture used by the progression cases below
+
 // 85kg = the straight bar + all plates (37/side). One rung below (84.5) must still climb.
 d.sessions = [{ id: 'x3', date: '2026-06-08', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 85, reps: [7, 7, 7, 7], band: '' }] }];
 sg = getSmartSugg(ohp);
@@ -125,23 +236,23 @@ T('kb hit-target → up (not fallback Continue)', sg.type === 'up' && sg.wt === 
 // ── dead bugs kb→bb conversion (v26): plate-loaded barbell like the other bar lifts ──
 const dbug = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'); // v19 moved it to the core block, v20 put it back on Day A
 T('dead_bugs_a is barbell on the 11kg straight-bar ladder', dbug.tp === 'bb' && dbug.bar === undefined && vwOf(dbug) === VW);
-d.sessions = [{ id: 'k2', date: '2026-06-08', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [8, 8, 8], band: '' }] }];
+d.sessions = [{ id: 'k2', date: '2026-06-08', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 8, reps: [16, 16, 16], band: '' }] }];
 sg = getSmartSugg(dbug);
 T('legacy sub-bar KB load re-anchors to the empty bar', sg.type === 'new' && sg.wt === 11, JSON.stringify(sg));
-d.sessions.push({ id: 'k3', date: '2026-06-10', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [8, 8, 8], band: '' }] });
+d.sessions.push({ id: 'k3', date: '2026-06-10', day: 'X', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [16, 16, 16], band: '' }] });
 sg = getSmartSugg(dbug);
 T('dead bugs progress on the plate ladder once on the bar', sg.type === 'up' && sg.wt > 11 && VW.includes(sg.wt), JSON.stringify(sg));
 
 // ── big rep-target overshoot re-anchors the load (not a +1kg crawl) ──
-// b_stance_rdl target is 8/side; logging 20/side means the load is ~2x too light. The old
+// b_stance_rdl target is 8/side; logging 40 total (20+20) means the load is ~2x too light. The old
 // engine added one micro-rung (+1kg); now it jumps proportionally (capped ~12%).
 d = freshD({ phase: 1, phaseStart: '2026-01-01' });
-d.sessions = [{ id: 'bo1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20], band: '' }] }];
+d.sessions = [{ id: 'bo1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [40, 40, 40], band: '' }] }];
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('big overshoot jumps proportionally, not one micro-rung', sg.type === 'up' && sg.wt >= 35 && sg.wt <= 36, JSON.stringify(sg));
 T('big-overshoot jump is capped (≤ +12%)', sg.wt <= 32 * 1.12 + 0.5, JSON.stringify(sg));
 // modest overshoot (1 over) is unchanged — still the small confirmed step.
-d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [9, 9, 9], band: '' }] }];
+d.sessions = [{ id: 'bo2', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [18, 18, 18], band: '' }] }];
 sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
 T('modest overshoot keeps the small step (no over-jump)', sg.type === 'up' && sg.wt <= 34, JSON.stringify(sg));
 
@@ -240,23 +351,39 @@ d.sessions = flyRun([[6, 6, 6], [8, 8, 8], [10, 10, 10]]);
 sg = getSmartSugg(rearFly());
 T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringify(sg));
 
-// ── EXPRESS DAY: keep every loaded compound, drop the accessory tail ──
-// The trade is coverage-and-load kept, accessory volume spent. These pin the trade so a
-// future program edit cannot quietly turn express into "half a workout".
+// ── ESSENTIALS DAY: keep primary lifts plus targeted joint-control work ──
+// Stored sessions retain the historical `express` field, but the product-facing mode is
+// Essentials. These exact selections pin the audit decision so future edits cannot quietly
+// drop the stability work or let optional redundant work back into the short session.
 d = freshD({ phase: 1, phaseStart: '2026-01-01' });
 d.location = 'home';
+const essentialPlan = {
+  A: { ids:['hex_dl','lm_bstance_squat','b_stance_rdl','floor_press','pullup_a','dead_bugs_a'], sets:20, control:['dead_bugs_a'] },
+  B: { ids:['hex_squat_b','hex_row','ohp','dips','rear_delt','bird_dog'], sets:22, control:['rear_delt','bird_dog'] },
+  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er'], sets:21, control:['lm_pallof','band_er'] }
+};
 for (const day of ['A', 'B', 'C']) {
   const full = dayExs(day, {}, false), xp = dayExs(day, {}, true);
-  T(`express Day ${day} is strictly shorter than the full day`, xp.length < full.length, `${full.length} -> ${xp.length}`);
+  const plan = essentialPlan[day];
+  T(`Essentials Day ${day} is strictly shorter than the full day`, xp.length < full.length, `${full.length} -> ${xp.length}`);
+  T(`Essentials Day ${day} has the audited exercise selection`,
+    JSON.stringify(xp.map(e => e.id)) === JSON.stringify(plan.ids), xp.map(e => e.id).join(','));
+  T(`Essentials Day ${day} has the audited set budget`, xp.reduce((n,e) => n + e.s, 0) === plan.sets,
+    `${xp.reduce((n,e) => n + e.s, 0)} vs ${plan.sets}`);
+  T(`Essentials Day ${day} retains its targeted control work`, plan.control.every(id => xp.some(e => e.id === id)),
+    plan.control.filter(id => !xp.some(e => e.id === id)).join(','));
   const keep = new Set(xp.map(e => e.id));
-  // Every loaded compound survives — nothing carrying a primary muscle at full weight is cut.
+  // Every non-overridden primary lift survives. Day C's optional deficit push-up is the one
+  // deliberate `xp:false` exception because two presses already remain in Essentials.
   const lostCompound = full.filter(e => !keep.has(e.id))
+    .filter(e => e.xp !== false)
     .filter(e => ['chest', 'back', 'quads', 'hams', 'glutes', 'fdelt'].some(k => (global.__X.MG[e.id] || {})[k] >= 1));
-  T(`express Day ${day} drops no primary compound`, lostCompound.length === 0, lostCompound.map(e => e.id).join(','));
-  // Sets and reps are untouched — express cuts exercises, never the prescription on what stays.
+  T(`Essentials Day ${day} drops no non-overridden primary lift`, lostCompound.length === 0, lostCompound.map(e => e.id).join(','));
+  // Sets and reps are untouched — Essentials cuts exercises, never the prescription on what stays.
   const changed = xp.filter(e => { const f = full.find(x => x.id === e.id); return f && (f.s !== e.s || f.tg !== e.tg); });
-  T(`express Day ${day} does not water down what it keeps`, changed.length === 0, changed.map(e => e.id).join(','));
+  T(`Essentials Day ${day} does not water down what it keeps`, changed.length === 0, changed.map(e => e.id).join(','));
 }
+T('Essentials excludes the optional Day C deficit push-up', !dayExs('C', {}, true).some(e => e.id === 'deficit_pushup'));
 // A swapped-in isolation lift must still be dropped — otherwise a swap smuggles the tail back.
 {
   const slot = dayExs('A', {}, false).find(e => e.id === 'floor_press');
@@ -288,15 +415,17 @@ d.sessions = xpSess(3, true);
   T('the warning names which muscles fell short', r && r.short.length > 0 && r.short.every(m => m.have < m.mev && m.nm));
 }
 
-// ── deload trigger uses objective COMPOUND stalls, not just self-rated RPE ──
-// Timer met (10 wks since deload) + low RPE (2/5), so the old RPE-only gate would only
+// ── deload trigger uses objective COMPOUND stalls, not just self-rated effort ──
+// Timer met (10 wks since deload) + low effort (2/5), so the old effort-only gate would only
 // call it "optional". With 2+ COMPOUND lifts stalling it should now be RECOMMENDED.
 d = freshD();
 d.lastDeload = ymd(new Date(Date.now() - 70 * 864e5));
 d.sessions = [{ id: 'dl1', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', difficulty: 2, ex: [{ id: 'hex_dl', wt: 55, reps: [6, 6, 6], band: '' }] }];
-T('timer + 2 compound stalls → deload DUE despite low RPE', getDeload(2).due === true, JSON.stringify(getDeload(2)));
+T('timer + 2 compound stalls → deload DUE despite low effort', getDeload(2).due === true, JSON.stringify(getDeload(2)));
 T('deload reason names the stall signal', /stalling/.test(getDeload(2).reason), getDeload(2).reason);
-T('timer + no stalls + low RPE → optional only (not due)', getDeload(0).due === false && getDeload(0).consider === true);
+T('timer + no stalls + low effort → optional only (not due)', getDeload(0).due === false && getDeload(0).consider === true);
+d.sessions[0].difficulty = null;
+T('an unrated session is reported as missing effort, not invented as 0/5', getDeload(0).ratedN === 0 && getDeload(0).avgDiff === 0, JSON.stringify(getDeload(0)));
 T('one stalling lift is not enough to force a deload', getDeload(1).due === false);
 
 // ── stall classification: isolation dips don't count; compound stalls do ──
@@ -315,6 +444,10 @@ T('compound stall feeds the major-stall deload signal', dlpi.stalledMajor >= 1, 
 d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
 T('phase week derives from phaseStart (~wk5 at 28 days)', getPhaseInfo().wk === 5, getPhaseInfo().wk);
 T('trainingWeek removed from fresh state (derived, not stored)', d.trainingWeek === undefined);
+d = freshD({ phase: 2, phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
+const p2Desc = getPhaseInfo().desc;
+T('Phase 2 describes its real higher-rep, performance-based re-anchor',
+  /Higher-rep/.test(p2Desc) && /recent performance/.test(p2Desc) && !/more volume|\d+%/.test(p2Desc), p2Desc);
 
 // ── v27: cadence-aware phase clock — timerDue fires on 24 sessions even inside the 8-wk window ──
 // Only 3 calendar weeks elapsed (well under the 8-wk timer) but 24 sessions logged in-phase.
@@ -461,7 +594,7 @@ T('genuine below-min stall still deloads', sg.type === 'dn', JSON.stringify(sg))
   // The AMRAP overshoot re-anchor reads the working sets too — a back-off set used to drag
   // minRep under target and silently suppress the proportional jump.
   d = freshD({ phase: 1, phaseStart: '2026-01-01' });
-  d.sessions = [{ id: 'ov_bo', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [20, 20, 20, 5], band: '' }] }];
+  d.sessions = [{ id: 'ov_bo', date: ymd(new Date(Date.now() - 3 * 864e5)), day: 'A', loc: 'home', ex: [{ id: 'b_stance_rdl', wt: 32, reps: [40, 40, 40, 10], band: '' }] }];
   sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'b_stance_rdl'));
   T('a back-off set does not suppress the big-overshoot jump', sg.type === 'up' && sg.wt >= 35, JSON.stringify(sg));
 
@@ -561,8 +694,10 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
   // Partner rests differentiate again (v20 had flattened everything everywhere to 1:00).
   T('partner compounds rest 0:45 and isolation 0:30',
     pA.find(e => e.id === 'db_rdl').rstS === 45 && pA.find(e => e.id === 'db_lateral').rstS === 30);
-  T('home rests are untouched by the partner rest change',
-    getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 60);
+  T('home strength pillar now rests 2:00',
+    getProgram(1, 'home').A.find(e => e.id === 'hex_dl').rstS === 120);
+  T('home accessory rest stays 1:00',
+    getProgram(1, 'home').A.find(e => e.id === 'bb_curl').rstS === 60);
 }
 
 // ── v21.3: the DB farmer's carry loads on the MATCHED spinlock ladder ──
@@ -607,14 +742,14 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
   const armCast = cb[2];
   let d = freshD({ location: 'partner' });
   d.sessions = [{ id: 'c1', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
-    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [10, 10, 10], band: '' }] }];
+    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [20, 20, 20], band: '' }] }];
   let sgc = getSmartSugg(armCast);
   T('clean clubbell session still reads as progress', sgc.type === 'up');
   T('clubbell progress is reps/control, never a heavier club',
     sgc.wt === 8 && !/10kg/.test(sgc.text + sgc.detail) && /reps/.test(sgc.text + sgc.detail), JSON.stringify(sgc));
   // Below target: hold, and quote the club's real weight.
   d.sessions = [{ id: 'c2', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
-    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [7, 6, 6], band: '' }] }];
+    ex: [{ id: 'cb_arm_cast', wt: 8, reps: [14, 12, 12], band: '' }] }];
   sgc = getSmartSugg(armCast);
   T('under-target clubbell holds at the real 8kg, not a phantom 6kg', sgc.wt === 8 && /8kg/.test(sgc.text), JSON.stringify(sgc));
   // No history at all — the seed, not a 6kg default nobody owns.
@@ -625,7 +760,7 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
   T('the +2kg club ladder survives for a hypothetical non-fixed club', (() => {
     const fake = { ...armCast, fixedKg: undefined, id: 'cb_arm_cast' };
     d.sessions = [{ id: 'c3', date: '2026-07-01', day: 'C', loc: 'partner', phase: 1,
-      ex: [{ id: 'cb_arm_cast', wt: 8, reps: [10, 10, 10], band: '' }] }];
+      ex: [{ id: 'cb_arm_cast', wt: 8, reps: [20, 20, 20], band: '' }] }];
     return /10kg/.test(getSmartSugg(fake).text);
   })());
 }
@@ -700,9 +835,12 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
   T('ordinary rep ranges stay Reps',
     ['5', '8-10', '8/side', '8/leg', '12-15', '4-8', '15-20', '10/side', '3-5'].every(rp => repUnit({ rp }) === 'Reps'));
   T('repUnit is total on every ACTIVE slot at both venues', (() => {
-    const want = { hex_carry: 'Steps', db_carry: 'Metres', side_plank: 'Secs' };
+    const want = { hex_carry: 'Steps', db_carry: 'Metres' };
     for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
-      for (const e of getProgram(1, loc)[day]) if (repUnit(e) !== (want[e.id] || 'Reps')) return e.id + '=' + repUnit(e);
+      for (const e of getProgram(1, loc)[day]) {
+        const expected=want[e.id]||(e.perSide?(e.id==='side_plank'?'Total secs':'Total reps'):'Reps');
+        if (repUnit(e) !== expected) return e.id + '=' + repUnit(e);
+      }
     return true;
   })() === true);
   T('repUnit degrades safely on a missing prescription', repUnit({}) === 'Reps' && repUnit(null) === 'Reps');
@@ -834,9 +972,9 @@ T('more reps at same load → e1RM PR badge', checkPR('ohp', 50, [8, 8, 8]).incl
 T('heavier load → WT badge, not double-counted as e1RM', checkPR('ohp', 55, [5, 5, 5]).includes('WT') && !checkPR('ohp', 55, [5, 5, 5]).includes('E1RM'));
 
 // ── migrateData recomputes stored volume ──
-let dd = { sessions: [{ id: 'm1', date: '2026-06-01', day: 'C', loc: 'home', volume: 99999, ex: [{ id: 'cossack_squat', wt: 21, reps: [8, 8, 8], band: '' }, { id: 'suitcase_march', wt: 32, reps: [40, 40, 40], band: '' }] }] };
+let dd = { sessions: [{ id: 'm1', date: '2026-06-01', day: 'C', loc: 'home', volume: 99999, ex: [{ id: 'cossack_squat', wt: 21, reps: [16, 16, 16], band: '' }, { id: 'suitcase_march', wt: 32, reps: [80, 80, 80], band: '' }] }] };
 migrateData(dd);
-T('migrate recomputes volume (perSide×2, carry excluded)', dd.sessions[0].volume === 21 * 2 * 24, dd.sessions[0].volume);
+T('migrate recomputes volume (perSide totals once, carry excluded)', dd.sessions[0].volume === 21 * 48, dd.sessions[0].volume);
 
 // ── week bucketing: zero-fill gaps + partial-week flag ──
 const wk = off => ymd(new Date(Date.now() - off * 864e5));
@@ -931,13 +1069,13 @@ d.cardioLog[0].intensity = 'hard'; const fHard = getFatigue().score;
 T('moderate cardio between easy and hard', fEasy < fMod && fMod < fHard, JSON.stringify({ fEasy, fMod, fHard }));
 
 // ── fatigue calibration: the app's own target cadence must read mid-scale, not red ──
-// 3 sessions/wk at RPE 3 with ~2.9t each is exactly the dashed 3×/week chart target;
+// 3 sessions/wk at effort 3 with ~2.9t each is exactly the dashed 3×/week chart target;
 // the old weights scored it 8.7/10 "Fatigued" — permanently red for normal training.
 const fatSess = (off, diff, wt, reps) => ({ id: 'fg' + off, date: ymd(new Date(Date.now() - off * 864e5)), day: 'A', loc: 'home', difficulty: diff, ex: [{ id: 'deadlift', wt, reps, band: '' }] });
 d = freshD();
 d.sessions = [fatSess(1, 3, 64, [15, 15, 15]), fatSess(3, 3, 64, [15, 15, 15]), fatSess(5, 3, 64, [15, 15, 15])]; d.cardioLog = [];
 let fat = getFatigue();
-T('target cadence (3×/wk RPE3) reads mid-scale, not Fatigued', fat.label !== 'Fatigued' && fat.score >= 3.5 && fat.score <= 6.5, JSON.stringify(fat));
+T('target cadence (3×/wk effort 3) reads mid-scale, not Fatigued', fat.label !== 'Fatigued' && fat.score >= 3.5 && fat.score <= 6.5, JSON.stringify(fat));
 d.sessions = [0, 1, 2, 3, 4].map(off => fatSess(off, off % 2 ? 4 : 5, 70, [17, 17, 16]));
 fat = getFatigue();
 T('a genuinely heavy week (5 hard sessions) still reads Fatigued', fat.label === 'Fatigued' && fat.score >= 7, JSON.stringify(fat));
@@ -957,7 +1095,7 @@ T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
   // Anchor first: the calibration the comment in getFatigue documents must not drift.
   d = freshD(); d.sessions = liftWk(); d.cardioLog = [];
   const anchor = getFatigue();
-  T('calibration anchor: 3 lifts @RPE3 reads Ready', anchor.label === 'Ready' && anchor.score >= 3.5 && anchor.score <= 5, JSON.stringify(anchor));
+  T('calibration anchor: 3 lifts @effort 3 reads Ready', anchor.label === 'Ready' && anchor.score >= 3.5 && anchor.score <= 5, JSON.stringify(anchor));
 
   // Walking only, no lifting: this is not a fatigued athlete.
   d = freshD(); d.sessions = []; d.cardioLog = [1, 2, 3, 4, 5, 6, 7].map(o => walk(o));
@@ -1023,7 +1161,7 @@ T('one light session reads Fresh/Ready', fat.score <= 5, JSON.stringify(fat));
 
     // Calibration must survive the reformulation — these are the three anchors the source
     // comment names, and a uniform week is exactly where peak == mean.
-    T('anchor holds: 3×RPE3 ~2.9t reads Ready ≈5', (() => { const v = mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []); return v >= 4.5 && v <= 5.2 })(), mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []));
+    T('anchor holds: 3×effort 3 ~2.9t reads Ready ≈5', (() => { const v = mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []); return v >= 4.5 && v <= 5.2 })(), mkState([one(3, 2880), one(3, 2880), one(3, 2880)], []));
     T('anchor holds: 5 hard sessions read Fatigued ≥8', mkState([one(5, 4000), one(4, 4000), one(5, 4000), one(4, 4000), one(5, 4000)], []) >= 8);
     T('anchor holds: one light session reads Fresh ≈2', mkState([one(2, 2000)], []) <= 2.5, mkState([one(2, 2000)], []));
     T('a week of easy walks alone still reads Fresh', mkState([], [1, 2, 3, 4, 5, 6, 7].map(() => ({ min: 30, int: 'easy' }))) <= 3);
@@ -1065,15 +1203,30 @@ d.sessions = [
   { id: 'rg2', date: '2026-05-03', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] }];
 T('float-dust does not trigger a phantom "weight dropped" advisory', !/Weight dropped/.test(getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'hex_dl')).regress || ''));
 
-// ── AUDIT FIX C1 follow-up: a floor-stall still registers for phase reassessment ──
-// The new 'stay' rebuild carries stalled:true, so getPhaseInfo's stall counter is unchanged.
+// ── Loaded control work does not drive strength-phase reassessment ──
 d = freshD({ phaseStart: '2026-01-01' });
 d.sessions = [];
-// lm_pallof (Day C) and lm_lateral (Day A/B) both seed at the 11kg bar-only floor.
-for (const id of ['lm_pallof', 'lm_lateral']) for (let i = 1; i <= 3; i++)
+for (let i = 1; i <= 3; i++)
+  d.sessions.push({ id: 'lm_pallof' + i, date: '2026-06-0' + i, day: 'C', loc: 'home',
+    ex: [{ id: 'lm_pallof', wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] });
+let pi = getPhaseInfo();
+T('a floor-stalled control lift does not count as a strength-phase stall',
+  pi.stalledEx === 0 && pi.stallDue === false, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));
+// Isolated accessory stalls should not redirect the entire program while the strength
+// pillars are still moving. They remain visible in stalledEx, but only meaningful compound
+// stalls feed the whole-program phase-change gate.
+d.sessions = [];
+for (const id of ['lm_lateral', 'bb_curl']) for (let i = 1; i <= 3; i++)
   d.sessions.push({ id: id + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id, wt: 11, reps: [3, 3, 3], band: '', form: [5, 5, 5] }] });
-const pi = getPhaseInfo();
-T('two floor-stalled lifts still count toward phase reassessment', pi.stalledEx >= 2 && pi.stallDue === true, JSON.stringify({ stalledEx: pi.stalledEx, stallDue: pi.stallDue }));
+pi = getPhaseInfo();
+T('two stalled accessories do not trigger a whole-program phase change',
+  pi.stalledEx >= 2 && pi.stalledMajor === 0 && pi.stallDue === false,
+  JSON.stringify({ stalledEx: pi.stalledEx, stalledMajor: pi.stalledMajor, stallDue: pi.stallDue }));
+d.sessions = [...stall3('floor_press', 30, [6, 6, 6]), ...stall3('hex_dl', 55, [3, 3, 3])];
+pi = getPhaseInfo();
+T('two compound stalls still trigger phase reassessment',
+  pi.stalledMajor >= 2 && pi.stallDue === true,
+  JSON.stringify({ stalledEx: pi.stalledEx, stalledMajor: pi.stalledMajor, stallDue: pi.stallDue }));
 
 // ═══════════ AUDIT ROUND 2 — regression tests for the comprehensive-audit fixes ═══════════
 
@@ -1161,7 +1314,7 @@ d = freshD();
 d.sessions = [0, 2, 4].map((off, i) => ({ id: 'fc' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'ABC'[i], loc: 'home', difficulty: 3, ex: [{ id: 'ohp', wt: 31, reps: [7, 7, 7, 7], band: '' }] }));
 d.sessions.forEach(s => s.volume = 3000);
 const fN = getFatigue();
-T('3 sessions @RPE3 reads mid-scale, not Fatigued', fN.score <= 7 && fN.label !== 'Fatigued', JSON.stringify(fN));
+T('3 sessions @effort 3 reads mid-scale, not Fatigued', fN.score <= 7 && fN.label !== 'Fatigued', JSON.stringify(fN));
 
 // ── R2: warm-up rungs use no micro plates (coarse ladder) ──
 const wuC = warmupSets(43, 7); // bar=7 routes to the coarse hex ladder internally
@@ -1577,7 +1730,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('periodCompare: current window holds the two recent sessions', pc.cur.sessions === 2 && pc.cur.vol === (60 + 58) * 15, JSON.stringify(pc.cur));
   T('periodCompare: prior window holds the two mid sessions', pc.prev.sessions === 2 && pc.prev.vol === (50 + 48) * 15, JSON.stringify(pc.prev));
   T('periodCompare: 70-day-old session outside both windows', pc.cur.sessions + pc.prev.sessions === 4);
-  T('periodCompare: per-window avg RPE', pc.cur.rpe === 3 && pc.prev.rpe === 4);
+  T('periodCompare: per-window avg effort', pc.cur.rpe === 3 && pc.prev.rpe === 4);
   dp.sessions = [mkS('pc6', 5, 60, 3)];
   T('periodCompare: empty prior window reports zero sessions (render hides strip)', periodCompare(28).prev.sessions === 0);
 }
@@ -1643,18 +1796,19 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('perWk sees a current 2-month layoff (well under 1/wk)', pw < 1, pw);
 }
 
-// ── Ultra audit C8: SEED hygiene — demo bootstrap no longer trips the v12 migration ──
+// ── Empty production bootstrap + migration hygiene ──
 {
-  T('SEED carries programVersion 21', SEED.programVersion === 21);
+  T('production SEED is empty', APP_SEED.sessions.length === 0 && APP_SEED.seeded === undefined);
+  T('production SEED carries programVersion 21', APP_SEED.programVersion === 21);
   // The two must agree. freshState() is written straight to D by resetAll() WITHOUT going
   // through the migration chain (that runs in load()), so a drift leaves a factory-reset
   // device stamped one version behind until its next reload. Two separate literals pinned by
   // two separate assertions is exactly how v21 bumped one and missed the other — this
   // relative check fails on any future drift regardless of what the numbers are.
-  T('freshState programVersion matches SEED', freshState().programVersion === SEED.programVersion,
-    `${freshState().programVersion} vs ${SEED.programVersion}`);
-  T('SEED has no dead confirmed field', SEED.confirmed === undefined);
-  const sClone = structuredClone(SEED);
+  T('freshState programVersion matches production SEED', freshState().programVersion === APP_SEED.programVersion,
+    `${freshState().programVersion} vs ${APP_SEED.programVersion}`);
+  T('production SEED has no dead confirmed field', APP_SEED.confirmed === undefined);
+  const sClone = structuredClone(APP_SEED);
   migrateToV12(sClone);
   migrateToV13(sClone);
   migrateToV14(sClone);
@@ -1665,7 +1819,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   migrateToV19(sClone);
   migrateToV20(sClone);
   migrateToV21(sClone);
-  T('migrateToV12..21 are no-ops on the SEED (phaseStart preserved)', sClone.phaseStart === SEED.phaseStart && sClone.phase === 1);
+  T('migrateToV12..21 are no-ops on the production SEED (phaseStart preserved)', sClone.phaseStart === APP_SEED.phaseStart && sClone.phase === 1);
   const v11 = { sessions: [], phase: 3, phaseStart: '2025-01-01', confirmed: { x: 1 }, dayCFocus: 'y' };
   migrateToV12(v11);
   T('a real pre-v12 store still gets the migration reset', v11.programVersion === 12 && v11.phase === 1 && v11.phaseStart !== '2025-01-01' && v11.confirmed === undefined && v11.dayCFocus === undefined);
@@ -1677,7 +1831,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const st8 = {};
   global.localStorage = { getItem: k => st8[k] ?? null, setItem: (k, v) => { st8[k] = v }, removeItem: k => { delete st8[k] } };
   load();
-  T('fresh install seeds demo with phaseStart = today (no overdue banners)', getD().seeded === true && getD().phaseStart === today(), getD().phaseStart);
+  T('fresh install is empty with a current phase clock', getD().sessions.length === 0 && getD().seeded === undefined && getD().phaseStart === today(), getD().phaseStart);
   global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 }
 
@@ -2114,13 +2268,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('bodyHeatH renders front + back SVGs', (hm.match(/<svg /g) || []).length === 2);
   T('bodyHeatH titles carry sets/wk', /Chest — 9 sets\/wk/.test(hm));
   T('bodyHeatH regions are tappable muscle selectors', /STAT_MG='chest'/.test(hm));
-  T('bodyHeatH renders the legend', /heat-legend/.test(hm) && /under MEV/.test(hm));
+  T('bodyHeatH renders the reference legend', /heat-legend/.test(hm) && /below reference/.test(hm));
   // ── Under-MEV never rests on hue alone (quads 3 vs MEV 8; chest 9 is over its MEV 8) ──
   const quadFill = hm.slice(hm.indexOf('STAT_MG=\'quads\'') - 400, hm.indexOf('STAT_MG=\'quads\'') + 20);
   T('under-MEV region carries the dashed outline', /stroke-dasharray/.test(quadFill), quadFill.slice(-160));
   const chestFill = hm.slice(hm.indexOf('STAT_MG=\'chest\'') - 400, hm.indexOf('STAT_MG=\'chest\'') + 20);
   T('a productive region carries NO outline (the cue means one thing)', !/stroke-dasharray/.test(chestFill));
-  T('under-MEV state is also in the title text, not just the shape', /Quads — 3 sets\/wk · under MEV/.test(hm));
+  T('below-reference state is also in the title text, not just the shape', /Quads — 3 sets\/wk · below reference minimum/.test(hm));
   T('legend explains the outline cue', /heat-legend[\s\S]*dashed/.test(hm));
 }
 
@@ -2255,8 +2409,8 @@ T('with no ramp on record those three light sessions deload', getSmartSugg(dlEx)
 d.comebackLog = [{ start: ago(6), end: ago(2), gap: 19, days: 5, sessions: 2, ended: 'completed' }];
 T('a COMPLETED ramp still mutes its stage 1', getSmartSugg(dlEx).type !== 'dn', JSON.stringify(getSmartSugg(dlEx)));
 
-// ── the bundled demo must not look like a layoff ──
-T('a store still on the SEED demo is never offered a ramp', (() => {
+// ── legacy seeded stores must not look like a layoff ──
+T('a legacy seeded store is never offered a ramp', (() => {
   const dd = freshD({ sessions: preBreak() }); dd.seeded = true; return getBreak() === null })());
 T('...and without that flag the same store is', (() => {
   const dd = freshD({ sessions: preBreak() }); return getBreak() !== null })());
@@ -2404,64 +2558,61 @@ T('...but still merges the ramp history', onBusy.comebackLog.length === 1);
 }
 }
 
-// ── Rest adherence: reading back the set clock ────────────────────────────────────────────
+// ── Set-completion intervals: reading back the set clock ──────────────────────────────────
 // ex[].ts has been written since §24 and read by nothing. These are the readers. The feature
 // is descriptive only — no test here should ever find it changing a load or a suggestion.
 {
 const S = (rows) => ({ ex: rows });
-// A gap is charged to the EARLIER completed set: toggleSetDone starts that exercise's timer.
+// An interval is attributed to the EARLIER completed exercise so slow sections can be located.
 {
-const g = sessionGaps(S([{ id: 'hex_dl', ts: [0, 60, 180] }, { id: 'bb_curl', ts: [400] }]));
-T('sessionGaps pairs consecutive ticked sets', g.length === 2, JSON.stringify(g));
-T('...measuring the gap in seconds', g[0].sec === 120 && g[1].sec === 220);
-T('...and charging each gap to the earlier completed set', g[1].id === 'hex_dl');
-T('...with that set\'s own prescribed rest', g[1].pres === (ALL_EX.find(e => e.id === 'hex_dl').rstS));
-const mixed = sessionGaps(S([{ id: 'db_lateral', ts: [30] }, { id: 'hex_dl', ts: [120] }]));
-T('an exercise transition uses the timer started by the preceding exercise',
-  mixed[0].id === 'db_lateral' && mixed[0].pres === 30, JSON.stringify(mixed));
+const g = sessionIntervals(S([{ id: 'hex_dl', ts: [0, 60, 180] }, { id: 'bb_curl', ts: [400] }]));
+T('sessionIntervals pairs consecutive ticked sets', g.length === 2, JSON.stringify(g));
+T('...measuring the interval in seconds', g[0].sec === 120 && g[1].sec === 220);
+T('...and attributing each interval to the earlier completed exercise', g[1].id === 'hex_dl');
+const mixed = sessionIntervals(S([{ id: 'db_lateral', ts: [30] }, { id: 'hex_dl', ts: [120] }]));
+T('an exercise transition is attributed to the preceding exercise',
+  mixed[0].id === 'db_lateral' && mixed[0].nm === ALL_EX.find(e => e.id === 'db_lateral').nm, JSON.stringify(mixed));
 }
 T('unstamped sets (0) are skipped, not read as t=0',
-  sessionGaps(S([{ id: 'hex_dl', ts: [0, 0, 300] }, { id: 'ohp', ts: [360] }])).length === 1);
-T('a session with no clock yields no gaps', sessionGaps(S([{ id: 'hex_dl', reps: [5, 5] }])).length === 0);
+  sessionIntervals(S([{ id: 'hex_dl', ts: [0, 0, 300] }, { id: 'ohp', ts: [360] }])).length === 1);
+T('a session with no clock yields no intervals', sessionIntervals(S([{ id: 'hex_dl', reps: [5, 5] }])).length === 0);
 
-// restStats
-T('restStats stays quiet under 3 gaps', restStats(sessionGaps(S([{ id: 'hex_dl', ts: [0, 60, 120] }]))) === null);
+// intervalStats
+T('intervalStats stays quiet under 3 intervals', intervalStats(sessionIntervals(S([{ id: 'hex_dl', ts: [0, 60, 120] }]))) === null);
 {
-// Six stamped sets = five gaps of 240s against a 60s prescription — the shape of the
+// Six stamped sets = five completion intervals of 240s.
 // 14 Aug session. NB the stamps start at 30, not 0: `ts[i] === 0` means "this set was
-// never ticked" and is skipped, so a leading 0 would silently cost a gap.
+// never ticked" and is skipped, so a leading 0 would silently cost an interval.
 const ts = [30, 270, 510, 750, 990, 1230];
-const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts }])));
-T('restStats medians the gaps', st.med === 240, JSON.stringify(st));
-T('...counts those over 1.5x prescribed', st.over === 5 && st.n === 5);
-T('...totals prescribed vs actual', st.pres === 300 && st.tot === 1200);
-T('...and reports the excess and ratio', st.excess === 900 && st.ratio === 4);
-T('...naming the worst gap', st.worst.sec === 240 && st.worst.id === 'hex_dl');
+const st = intervalStats(sessionIntervals(S([{ id: 'hex_dl', ts }])));
+T('intervalStats medians the intervals', st.med === 240, JSON.stringify(st));
+T('...counts and totals the measured intervals', st.n === 5 && st.tot === 1200);
+T('...names the longest interval', st.worst.sec === 240 && st.worst.id === 'hex_dl');
+T('...does not fabricate a rest comparison', !('pres' in st) && !('over' in st) && !('excess' in st));
 }
 T('an even-sized median averages the two middle gaps', (() => {
-  const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts: [30, 90, 210, 390, 630] }])));
+  const st = intervalStats(sessionIntervals(S([{ id: 'hex_dl', ts: [30, 90, 210, 390, 630] }])));
   return st.med === 150 })());
-// a gap just past the buzzer is NOT a finding — racking and chalking is real time
-T('a gap inside 1.5x prescribed does not count as over', (() => {
-  const st = restStats(sessionGaps(S([{ id: 'hex_dl', ts: [20, 100, 180, 260] }])));
-  return st.over === 0 && st.n === 3 })());
+T('short completion intervals remain descriptive, not graded against rest', (() => {
+  const st = intervalStats(sessionIntervals(S([{ id: 'hex_dl', ts: [20, 100, 180, 260] }])));
+  return st.med === 80 && st.n === 3 && !('over' in st) })());
 
 // live LOG: epoch ms, and only TICKED sets carry a readable stamp
 {
 const t0 = 1700000000000;
 const log = { hex_dl: { setTs: [t0, t0 + 120000, t0 + 240000], setDone: [true, true, true] } };
-const lg = liveGaps(log);
-T('liveGaps normalises epoch ms to seconds', lg.length === 2 && lg[0].sec === 120, JSON.stringify(lg));
-// un-ticking clears setTs back to 0 (toggleSetDone), so the gap must vanish with it
+const lg = liveIntervals(log);
+T('liveIntervals normalises epoch ms to seconds', lg.length === 2 && lg[0].sec === 120, JSON.stringify(lg));
+// un-ticking clears setTs back to 0 (toggleSetDone), so the interval must vanish with it
 const log2 = { hex_dl: { setTs: [t0, 0, t0 + 240000], setDone: [true, false, true] } };
-T('an un-ticked set leaves no gap behind it', liveGaps(log2).length === 1 && liveGaps(log2)[0].sec === 240);
+T('an un-ticked set leaves no interval behind it', liveIntervals(log2).length === 1 && liveIntervals(log2)[0].sec === 240);
 // interleaved exercises still sort into one time order
 const log3 = { hex_dl: { setTs: [t0 + 300000], setDone: [true] },
                ohp: { setTs: [t0], setDone: [true] } };
-T('liveGaps orders across exercises by time, not by key', liveGaps(log3)[0].sec === 300);
+T('liveIntervals orders across exercises by time, not by key', liveIntervals(log3)[0].sec === 300);
 }
 
-// restHistory counts only sessions that actually carry a clock
+// intervalHistory counts only sessions that actually carry a clock
 {
 const d = freshD();
 const rec = n => { const x = new Date(); x.setDate(x.getDate() - n); return ymd(x) };
@@ -2469,17 +2620,36 @@ d.sessions = [
   { id: 'noclock', date: rec(5), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '' }] },
   { id: 'clock', date: rec(2), day: 'A', loc: 'home',
     ex: [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5, 5], band: '', ts: [30, 270, 510, 750] }] }];
-const rh = restHistory(90);
-T('restHistory reports its own denominator', rh.sessions === 1, JSON.stringify(rh && { s: rh.sessions, n: rh.n }));
-T('...ignoring sessions with no set clock', rh.n === 3);
+const ih = intervalHistory(90);
+T('intervalHistory reports its own denominator', ih.sessions === 1, JSON.stringify(ih && { s: ih.sessions, n: ih.n }));
+T('...ignoring sessions with no set clock', ih.n === 3);
 T('...and a leading 0 stamp is treated as un-ticked, not as t=0',
-  sessionGaps({ ex: [{ id: 'hex_dl', ts: [0, 300, 600] }] }).length === 1);
-T('...and medians across them', rh.med === 240);
-T('restHistory is null when nothing is timed', (() => {
+  sessionIntervals({ ex: [{ id: 'hex_dl', ts: [0, 300, 600] }] }).length === 1);
+T('...and medians across them', ih.med === 240);
+T('intervalHistory is null when nothing is timed', (() => {
   const dd = freshD(); dd.sessions = [{ id: 'x', date: rec(1), day: 'A', loc: 'home',
-    ex: [{ id: 'hex_dl', wt: 50, reps: [5], band: '' }] }]; return restHistory(90) === null })());
+    ex: [{ id: 'hex_dl', wt: 50, reps: [5], band: '' }] }]; return intervalHistory(90) === null })());
 }
 T('fmtMS renders m:ss', fmtMS(240) === '4:00' && fmtMS(65) === '1:05' && fmtMS(0) === '0:00');
+
+// Essentials' 80-minute clock is a display-only pacing budget. Boundary tests matter here:
+// hitting 80:00 exactly is not labelled overtime, and the fill never grows beyond its track.
+{
+const start=1700000000000;
+const fresh=essentialsBudget(start,start);
+const half=essentialsBudget(start,start+40*60*1000);
+const edge=essentialsBudget(start,start+80*60*1000);
+const over=essentialsBudget(start,start+81*60*1000);
+T('Essentials budget starts with the full 80 minutes',
+  fresh.left===4800&&fresh.pct===0&&essentialsBudgetLabel(fresh)==='80:00 left',JSON.stringify(fresh));
+T('Essentials budget reports factual elapsed progress',
+  half.elapsed===2400&&half.left===2400&&half.pct===50&&essentialsBudgetLabel(half)==='40:00 left',JSON.stringify(half));
+T('80:00 exactly reaches the target without claiming overtime',
+  edge.left===0&&!edge.over&&edge.pct===100&&essentialsBudgetLabel(edge)==='0:00 left',JSON.stringify(edge));
+T('Essentials overtime is explicit and its progress fill is capped',
+  over.over&&over.left===-60&&over.pct===100&&essentialsBudgetLabel(over)==='+1:00 over target',JSON.stringify(over));
+T('no active start yields no Essentials budget',essentialsBudget(null,start)===null);
+}
 
 // The guarantee that matters: reading the clock must not move a weight suggestion.
 {
