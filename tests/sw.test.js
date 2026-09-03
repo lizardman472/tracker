@@ -181,13 +181,15 @@ const CACHE = SW_SRC.match(/const C = '([^']+)'/)[1];
   // ── activate ──────────────────────────────────────────────────────────────────────────────
   {
     const sw = loadSW();
-    // Two stale caches from earlier releases plus the current one.
+    // Two stale caches from earlier releases, an unrelated app cache, plus the current one.
     await sw.caches.open('rft-v1').then(c => c.put('./old', new Res('x')));
     await sw.caches.open('rft-v2').then(c => c.put('./old', new Res('x')));
+    await sw.caches.open('another-app-v4').then(c => c.put('./other', new Res('keep')));
     await sw.caches.open(CACHE).then(c => c.put('./index.html', new Res('shell')));
     await sw.lifecycle('activate');
     const names = await sw.caches.keys();
     T('activate deletes caches from previous releases', !names.includes('rft-v1') && !names.includes('rft-v2'), JSON.stringify(names));
+    T('activate preserves unrelated caches on the same origin', names.includes('another-app-v4'), JSON.stringify(names));
     T('activate keeps the current cache', names.includes(CACHE), JSON.stringify(names));
     T('activate claims open clients', sw.state().claimed);
   }

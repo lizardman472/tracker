@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const HISTORY_SEED = require('./fixtures/history-state');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
@@ -65,8 +66,8 @@ function tryRender(label, fn) {
   catch (e) { T(label + ' renders without error', false, e && e.stack || String(e)); return false; }
 }
 
-// Seed state: SEED history (straight-bar legacy) + a logged hex session so Progress has hex data.
-const D = structuredClone(R.SEED);
+// Test-only history + a logged hex session so Progress has hex data.
+const D = structuredClone(HISTORY_SEED);
 D.location = 'home';
 D.sessions.push({ id: 'hxs', date: '2026-06-12', day: 'A', loc: 'home',
   ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '', form: [5, 5, 5] }] });
@@ -77,6 +78,23 @@ R.setD(D);
 // ── Home (home location) ──
 tryRender('home (home)', () => R.go('home'));
 T('home produced non-empty markup', R.getA().length > 200);
+{
+  const home = R.getA();
+  T('focused Essentials session is the primary home action', /Start Essentials/.test(home) && home.indexOf('Start Essentials') < home.indexOf('Full session'), home.slice(home.indexOf('start-hero'), home.indexOf('start-hero') + 500));
+  T('full workout remains one tap away', /Full session/.test(home));
+}
+
+// Essentials gets a visible, non-coercive pacing target. It must not leak into Full, and its
+// copy must not imply that the elapsed-time target overrides recovery needs.
+tryRender('Essentials pacing budget', () => R.beginW('A', true));
+{
+  const work = R.getA();
+  T('Essentials renders its 80-minute budget', /id="xp-pace"/.test(work) && /80-minute pacing target/.test(work) && /80m target/.test(work));
+  T('the pacing target explicitly preserves recovery flexibility', /not a rest cap/.test(work) && /Take longer when form or performance requires it/.test(work));
+}
+tryRender('full workout without pacing budget', () => R.beginW('A', false));
+T('Full does not inherit the Essentials time budget', !/id="xp-pace"/.test(R.getA()) && !/80m target/.test(R.getA()));
+R.go('home');
 
 // ── Home (partner location) ──
 R.getD().location = 'partner';
@@ -202,7 +220,7 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   R.go('home');
 }
 
-// ── Rest adherence reaches the two screens it has to ──
+// ── Set-completion intervals reach the two screens they have to ──
 // The engine is covered in calc.test.js; the point here is that the numbers are DISPLAYED.
 // This whole feature exists because ex[].ts was computed for months and rendered nowhere.
 {
@@ -210,22 +228,22 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   const realS = D4.sessions;
   D4.location = 'home'; D4.nextDay = 'A'; D4.dismissed = {};
   // Summary: build the _S shape finishW produces, with a set clock on it.
-  global.window._S = { day:'A', date:'2026-08-14', dur:132, ts:6, tr:30, tv:9000,
+  global.window._S = { day:'A', date:'2020-03-01', dur:127, ts:6, tr:30, tv:9000,
     warmup:3, discCount:0, notes:'', prs:[], express:false,
     exs:[{ id:'hex_dl', wt:50, reps:[5,5,5,5,5,5], band:'', notes:'', ts:[30,270,510,750,990,1230] }] };
   tryRender('summary (with a set clock)', () => R.go('summary'));
   const summ = R.getA();
-  T('the summary reports where the session went', /Rest between sets/.test(summ) && /4:00/.test(summ),
-    (summ.match(/Rest between sets[\s\S]{0,120}/) || ['MISSING'])[0]);
-  T('...counting the gaps that ran long', /5 of 5 gaps exceeded 1\.5/.test(summ));
+  T('the summary reports the measurable set-completion interval', /Set-completion interval/.test(summ) && /4:00/.test(summ),
+    (summ.match(/Set-completion interval[\s\S]{0,120}/) || ['MISSING'])[0]);
+  T('...counts intervals without calling them measured rest', /5 intervals/.test(summ) && /includes rest/.test(summ));
   T('...and naming the preceding exercise for the worst one', /Longest: 4:00 after Hex Bar Deadlift/.test(summ));
   // A session with no clock must not grow an empty card.
   global.window._S.exs = [{ id:'hex_dl', wt:50, reps:[5,5,5], band:'', notes:'' }];
   R.render();
-  T('no set clock, no rest card', !/Rest between sets/.test(R.getA()));
+  T('no set clock, no interval card', !/Set-completion interval/.test(R.getA()));
   global.window._S = null;
 
-  // Workout: the live strip carries a Rest cell fed by the same reader.
+  // Workout: the live strip carries an interval cell fed by the same reader.
   D4.sessions = realS;
   R.beginW('A');
   const lg = R.getLOG();
@@ -233,11 +251,11 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   const t0 = 1700000000000;
   lg[first].setTs = [t0, t0+240000, t0+480000, t0+720000];
   lg[first].setDone = [true, true, true, true];
-  tryRender('workout (live rest cell)', () => R.render());
+  tryRender('workout (live interval cell)', () => R.render());
   const w4 = R.getA();
-  T('the live strip carries a Set gap cell', /Set gap/.test(w4) && /id="lv-rest"/.test(w4));
-  T('...showing the running median gap', />4:00</.test(w4), (w4.match(/id="lv-rest"[^>]*>[^<]*/) || ['MISSING'])[0]);
-  T('...in amber once it passes 1.5x prescribed', /id="lv-rest"[^>]*var\(--am\)/.test(w4));
+  T('the live strip carries a Set interval cell', /Set interval/.test(w4) && /id="lv-interval"/.test(w4));
+  T('...showing the running median interval', />4:00</.test(w4), (w4.match(/id="lv-interval"[^>]*>[^<]*/) || ['MISSING'])[0]);
+  T('...without grading a completion interval as rest', !/id="lv-interval"[^>]*var\(--am\)/.test(w4));
   R.go('home');
 }
 
@@ -245,6 +263,7 @@ T('partner home produced non-empty markup', R.getA().length > 200);
 R.getD().location = 'home';
 tryRender('workout (Day A, hex_dl current)', () => R.beginW('A'));
 const work = R.getA();
+T('workout presents RIR as a target with a plain-language definition', /Target RIR 2 \(reps left\)/.test(work));
 // Prefill padding: SEED's floor_press history has 3 sets, the current prescription is 4
 // (v21 bump). The unpadded prefill rendered value="undefined" in the 4th set input.
 const fpLog = R.getLOG()['floor_press'];
@@ -295,6 +314,13 @@ R.getLOG()['hex_carry'].wt = 30;
   T('Previous column shows last session sets as a tappable 40×5', /usePrev\('hex_dl',0\)/.test(w2) && />40×5</.test(w2));
   T('Add Set button renders', /addSet\('hex_dl'\)/.test(w2));
   T('remove button hidden at the programmed set count', !/removeSet\('hex_dl'\)/.test(w2));
+  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'lm_bstance_squat'));
+  tryRender('workout (per-side combined-total labels)', () => R.render());
+  const perSide = R.getA();
+  T('per-side set header explicitly asks for total reps', /<span>Total reps<\/span>/.test(perSide));
+  T('per-side input labels explain the both-sides total', /aria-label="Set 1 total reps across both sides"/.test(perSide));
+  R.setCIDX(0);
+  R.render();
   const log = R.getLOG()['hex_dl'];
   // Tick two sets, one with a typed override — liveStats counts CHECKED sets only.
   log.reps[0] = '5'; log.reps[1] = '5'; log.reps[2] = '5';
@@ -322,12 +348,14 @@ R.getLOG()['hex_carry'].wt = 30;
   T('declining the discard-confirm stays on the workout', /set-gr set-hd/.test(R.getA()));
   // Accept path: set 3 gets ticked; other exercises' prefilled reps stay unticked
   // and are dropped from the save (the old phantom-session guard, now via ticks).
-  let confirmMsg = null;
-  global.confirm = m => { confirmMsg = m; return true; };
+  const confirmMsgs = [];
+  global.confirm = m => { confirmMsgs.push(m); return true; };
   toggleSetDone('hex_dl', 2);
   R.finishW();
   delete global.confirm;
-  T('finish confirms before discarding unchecked sets', /checked off/.test(confirmMsg || ''), confirmMsg);
+  T('finish confirms before discarding unchecked sets', confirmMsgs.some(m => /checked off/.test(m)), confirmMsgs.join(' | '));
+  T('loaded finish explicitly confirms a missing activation warm-up', confirmMsgs.some(m => /activation warm-up/.test(m)), confirmMsgs.join(' | '));
+  T('missing warm-up confirmation does not claim progression is frozen', !confirmMsgs.some(m => /increases will be held/.test(m)), confirmMsgs.join(' | '));
   const S = global.window._S;
   T('only ticked exercises reach the save', S.exs.length === 1 && S.exs[0].id === 'hex_dl', JSON.stringify(S.exs.map(e => e.id)));
   const hx = S.exs.find(e => e.id === 'hex_dl');
@@ -422,7 +450,7 @@ R.render();
   T('svgLine pads a micro-range below the data min', ticks.some(t => t < 55.2 && t > 50), JSON.stringify(ticks));
 }
 T('strength card has no retired Zercher/straight-deadlift rows', !/std-lift">Zercher/.test(liftsSeg) && !/std-lift">Deadlift</.test(liftsSeg));
-T('balance muscle card is NOT rendered on the Lifts segment', !/Weekly Volume by Muscle/.test(liftsSeg));
+T('balance muscle card is NOT rendered on the Lifts segment', !/Directional Sets by Muscle/.test(liftsSeg));
 
 // ── Progress tab with a hex lift selected ──
 R.setSTAT('hex_dl');
@@ -545,6 +573,23 @@ if (histOk) {
   T('expanded session shows its muscle split', /Muscle Split/.test(hist) && /msp-row/.test(hist));
 }
 
+// Different ids can still represent the same workout after an import or legacy migration.
+// History flags the later content match but leaves deletion to the user.
+{
+  const a = { id:'dup-a', date:'2026-06-20', day:'C', loc:'home', duration:50,
+    ex:[{ id:'pullup_c', wt:null, reps:[6,6,6], band:'Green', notes:'' }] };
+  const b = { ...structuredClone(a), id:'dup-b', duration:51 };
+  b.ex[0].band = 'Green (heaviest)';
+  R.getD().sessions.push(a, b);
+  tryRender('History (possible duplicate flagged)', () => R.go('history'));
+  T('History reports a possible duplicate without removing it', /1 possible duplicate session/.test(R.getA()) && /possible duplicate/.test(R.getA()));
+  R.setEXP('dup-b'); R.render();
+  T('expanded duplicate asks for comparison before deletion', /Compare both records before deleting one/.test(R.getA()));
+  T('duplicate review keeps both sessions', R.getD().sessions.some(s => s.id === 'dup-a') && R.getD().sessions.some(s => s.id === 'dup-b'));
+  R.getD().sessions = R.getD().sessions.filter(s => !['dup-a','dup-b'].includes(s.id));
+  R.setEXP(null);
+}
+
 // ── History: plate breakdown gated to bar lifts ──
 // A 12kg-per-DB entry exceeds barOf()'s 11kg fallback and used to render a bogus
 // barbell plate strip on a dumbbell lift.
@@ -576,11 +621,12 @@ R.getD().sessions = R.getD().sessions.filter(s => s.id !== 'dbs');
   log.setDone = [true, true, true]; // ticks-required finish: only checked sets save
   tryRender('finishW → summary', () => R.finishW());
   T('AW backup survives finishW (summary not yet saved)', store[R.AW_KEY] != null);
+  T('summary asks for session effort, not a mislabeled five-point RPE', /Session effort \(1–5\)/.test(R.getA()) && !/Difficulty \(RPE\)/.test(R.getA()));
   R.setSDIFF(3);
   tryRender('saveSumm commits the session', () => R.saveSumm());
   T('saveSumm clears the AW backup', store[R.AW_KEY] == null);
   const saved = R.getD().sessions[R.getD().sessions.length - 1];
-  T('session committed with RPE', R.getD().sessions.length === nBefore + 1 && saved.difficulty === 3, JSON.stringify({ n: R.getD().sessions.length, diff: saved && saved.difficulty }));
+  T('session committed with effort rating', R.getD().sessions.length === nBefore + 1 && saved.difficulty === 3, JSON.stringify({ n: R.getD().sessions.length, diff: saved && saved.difficulty }));
   T('dead trainingWeek field no longer written to sessions', saved.trainingWeek === undefined);
   R.getD().sessions = R.getD().sessions.filter(s => s !== saved);
 
@@ -835,19 +881,19 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.load();
   tryRender('home renders after a partial-drop load', () => R.go('home'));
   const partial = R.getA();
-  T('partial drop names the count, not a demo reset', /1 session couldn.{0,6}t be read/.test(partial) && !/fresh\/demo state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
+  T('partial drop names the count, not an empty reset', /1 session couldn.{0,6}t be read/.test(partial) && !/fresh empty state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
   T('partial-drop banner still offers the raw-copy download', /dlCorrupt\(\)/.test(partial));
   // Unparseable store → the original total-loss wording.
   store[R.SK] = '{not json';
   R.load();
   tryRender('home renders after an unparseable load', () => R.go('home'));
   const total = R.getA();
-  T('total loss keeps the fresh/demo wording', /Stored data was corrupted/.test(total) && /fresh\/demo state/.test(total));
+  T('total loss explains the fresh empty fallback', /Stored data was corrupted/.test(total) && /fresh empty state/.test(total));
   // ...and a total loss must clear any partial count left by an earlier rescue, or the
   // banner would under-report a wiped store as "1 session couldn't be read".
   T('total loss clears a stale partial-drop count', store[R.SK + '-corrupt-n'] == null);
   // The rescue copy outlives the boot that made it, so the COUNT has to as well: keying the
-  // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh/demo reset
+  // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh reset
   // to a user whose history had actually loaded fine.
   store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
   R.load();
@@ -940,7 +986,10 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 // Overview screen two lines above it already handles its own empty state; this follows suit.
 {
   const realD = R.getD();
-  R.setD({ ...structuredClone(R.SEED), sessions: [], cardioLog: [], bodyLog: [], discomfort: [], cues: {}, location: 'home' });
+  R.setD({ ...structuredClone(HISTORY_SEED), sessions: [], cardioLog: [], bodyLog: [], discomfort: [], cues: {}, location: 'home' });
+  tryRender('Home renders on a completely empty account', () => R.go('home'));
+  T('empty account explains that no workouts are preloaded', /Fresh start — no workouts preloaded/.test(R.getA()));
+  T('empty account offers backup import and Essentials start', /Import a backup/.test(R.getA()) && /Start Essentials/.test(R.getA()));
   R.setSEG('overview');
   tryRender('Progress renders on a completely empty account', () => R.go('stats'));
   T('no Priority nudge with zero logged sessions', !/Priority:/.test(R.getA()), (R.getA().match(/Priority:[^<]{0,60}/) || [''])[0]);
@@ -1332,8 +1381,10 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
       starts.push(...(R.getA().match(/startTimer\(\d+\)/g) || []));
     }
     R.setCIDX(0); R.render();
-    T('every rest button on the day reads 1:00', labels.length === R.dayExs('B').length && labels.every(l => l === '⏱ 1:00'), `${labels.length} buttons: ${[...new Set(labels)].join(' ')}`);
-    T('every rest timer on the day starts at 60s', starts.length > 0 && starts.every(s => s === 'startTimer(60)'), [...new Set(starts)].join(' '));
+    const expectLabels = R.dayExs('B').map(e => `⏱ ${e.rst}`);
+    const expectStarts = R.dayExs('B').map(e => `startTimer(${e.rstS})`);
+    T('rest buttons show each exercise prescription', JSON.stringify(labels) === JSON.stringify(expectLabels), `${labels.length} buttons: ${[...new Set(labels)].join(' ')}`);
+    T('rest timers use each exercise prescription', JSON.stringify(starts) === JSON.stringify(expectStarts), [...new Set(starts)].join(' '));
   }
 
   // nextDay must still survive a STORED core block arriving by every route.

@@ -39,7 +39,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           # If index.html changed since the base but sw.js's cache name didn't, stale
-          # clients would keep the old shell. Warn loudly (non-blocking for docs-only edits).
+          # clients would keep the old shell. This is a release invariant, so fail the job.
           # Base = PR base for pull_request events, previous head for pushes. A zero/unknown
           # SHA (new branch, force push) falls back to HEAD~1; if even that is missing, skip.
           BASE="$BASE_SHA"
@@ -53,5 +53,6 @@ jobs:
           elif git diff "$BASE" -- sw.js | grep -q "^[+-]const C"; then
             echo "cache version bumped ✓"
           else
-            echo "::warning::index.html changed but sw.js cache version (const C) did not — installed PWAs may serve the stale shell"
+            echo "::error::index.html changed but sw.js cache version (const C) did not — installed PWAs may serve the stale shell"
+            exit 1
           fi

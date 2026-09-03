@@ -13,7 +13,20 @@
 // v90: v21.3 — the partner cards get the bar lifts' hero/plate/warm-up treatment, and three
 // unbuildable prescriptions are corrected (22kg/bell carry, 3.5kg/DB fly, +2kg clubbell). A
 // stale shell would keep prescribing loads the rack cannot build, so the key moves with it.
-const C = 'rft-v98';
+// v99: fresh-state/privacy, recovery gates, truthful metrics and updated home rests.
+// v100: per-side entries are combined totals across both sides; progression, tonnage,
+// e1RM and labels now apply that convention consistently.
+// v101: warm-up logging remains visible but no longer acts as a global progression veto.
+// v102: completion-to-completion timing is labelled as an interval, not measured rest.
+// v103: History flags content-equivalent sessions for safe duplicate review.
+// v104: the focused home workflow is renamed Essentials and retains targeted control work.
+// v105: pull-up, dip, and direct-triceps cues are aligned with joint-aware progression.
+// v106: the 1–5 self-report is labelled session effort and RIR is explicitly a target.
+// v107: loaded motor-control work uses quality-first progression without clusters.
+// v108: Phase 2 describes its actual performance-based re-anchor without a false percentage.
+// v109: Essentials exposes its 80-minute pacing target without changing recovery or work.
+// v110: whole-program phase changes require compound stalls; branch fixtures are synthetic.
+const C = 'rft-v110';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -35,7 +48,8 @@ self.addEventListener('notificationclick', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))
+      // This origin may host other apps. Only evict this app's versioned caches.
+      .then(ks => Promise.all(ks.filter(k => k.startsWith('rft-') && k !== C).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

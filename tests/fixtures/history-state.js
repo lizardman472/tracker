@@ -1,0 +1,12 @@
+// Deliberately synthetic test-only history. Dates, ids and loads are fictitious and exist
+// solely to exercise legacy migrations, charts and related-exercise suggestions.
+module.exports={sessions:[
+{id:'fixture-a1',date:'2020-01-01',day:'A',ex:[{id:'deadlift',wt:43,reps:[8,7,7],band:'',notes:'Synthetic fixture'},{id:'pullup_a',wt:null,reps:[6,5,5,4],band:'Blue',notes:''},{id:'floor_press',wt:24,reps:[8,8,8],band:'',notes:''},{id:'face_pull',wt:null,reps:[18,16,15],band:'Purple',notes:''},{id:'leg_raise',wt:6,reps:[12,10,10],band:'',notes:''}]},
+{id:'fixture-a2',date:'2020-01-04',day:'A',ex:[{id:'deadlift',wt:43,reps:[6,6,6],band:'',notes:''},{id:'pullup_a',wt:null,reps:[5,5,4,4],band:'Green',notes:''},{id:'zercher_a',wt:25,reps:[7,6,6],band:'',notes:''}]},
+{id:'fixture-a3',date:'2020-01-07',day:'A',ex:[{id:'deadlift',wt:43,reps:[1,1,1],band:'',notes:''},{id:'floor_press',wt:24,reps:[8,8,8],band:'',notes:''},{id:'zercher_a',wt:19,reps:[8,7,6],band:'',notes:''}]},
+{id:'fixture-b1',date:'2020-01-10',day:'B',ex:[{id:'zercher_b',wt:25,reps:[6,6,5,5],band:'',notes:''},{id:'ohp',wt:17,reps:[7,6,5],band:'',notes:''}]},
+{id:'fixture-b2',date:'2020-01-13',day:'B',ex:[{id:'zercher_b',wt:32,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:22,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,5,5,4],band:'Purple+Red',notes:''},{id:'bb_row',wt:33,reps:[10,9,8],band:'',notes:''}]},
+{id:'fixture-c1',date:'2020-01-16',day:'C',ex:[{id:'rdl',wt:39,reps:[8,8,8],band:'',notes:''}]},
+{id:'fixture-b3',date:'2020-01-19',day:'B',difficulty:null,duration:40,volume:2800,ex:[{id:'zercher_b',wt:32,reps:[6,6,6,5],band:'',notes:''},{id:'ohp',wt:24,reps:[6,5,5],band:'',notes:''},{id:'dips',wt:null,reps:[6,6,6,6],band:'Purple+Red',notes:''},{id:'bb_row',wt:33,reps:[10,8,8],band:'',notes:''},{id:'kb_swing',wt:30,reps:[12,12,12],band:'',notes:''},{id:'pallof',wt:null,reps:[10,10,10],band:'Purple',notes:''}]},
+{id:'fixture-c2',date:'2020-01-22',day:'C',difficulty:2,duration:56,volume:1900,ex:[{id:'rdl',wt:44,reps:[8,8,8],band:'',notes:''},{id:'split_squat',wt:12,reps:[10,10,10],band:'',notes:''},{id:'pushups',wt:null,reps:[10,10,10,10],band:'',notes:''},{id:'pullup_c',wt:null,reps:[6,6,6],band:'Green',notes:''},{id:'kb_press',wt:13,reps:[10,10,10],band:'',notes:''},{id:'carry',wt:30,reps:[1,1,1],band:'',notes:''},{id:'arms',wt:0,reps:[10,10],band:'',notes:''}]}],
+nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:'2020-01-01',discomfort:[],location:'home',programVersion:21,comeback:null,comebackLog:[]};
