@@ -55,8 +55,8 @@ not appropriate application source.
   are mandatory in CI rather than silently skipping the browser gate.
 
 Full and Essentials exercise prescriptions and phase/deload/progression policies are
-unchanged by this follow-up. Android keyboard continuity and installed-PWA upgrade behavior
-still need a device acceptance pass before release.
+unchanged by this follow-up. Chromium covers narrow layouts and keyboard interaction;
+physical Android keyboard continuity and installed-PWA upgrade behavior remain unverified.
 
 ## Remaining architecture debt
 

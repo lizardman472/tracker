@@ -3,12 +3,15 @@
 module.exports = async function storageBrowser({ browser, origin, T, errors, baseStore }) {
   async function context(store = baseStore()) {
     const ctx = await browser.newContext({ viewport: { width: 414, height: 900 } });
-    await ctx.addInitScript(s => {
+    await ctx.addInitScript(({ store: s, origin: appOrigin }) => {
+      // Context init scripts also run on opaque about:blank documents, where
+      // localStorage is unavailable. Seed only the actual application origin.
+      if (location.origin !== appOrigin) return;
       if (!localStorage.getItem('rft-test-seeded')) {
         localStorage.setItem('rft-v12', JSON.stringify(s));
         localStorage.setItem('rft-test-seeded', '1');
       }
-    }, store);
+    }, { store, origin });
     ctx.on('page', page => {
       page.on('pageerror', e => errors.push('STORAGE PAGEERROR ' + e.message));
       page.on('dialog', dialog => dialog.accept());
