@@ -27,12 +27,11 @@
 <style>
 :root{
 /* Bright light — white cards on a cool near-white base, vivid cyan signature.
-   Every accent is picked to pass BOTH ways on white: ≥4.5:1 as text on the card
-   AND ≥4.5:1 under white --ink when used as a fill (buttons, badges, chips). */
+   Foreground and fill are separate for the light pink Day B badge. */
 --bg:#f4f6fb;--bg2:#eceff7;--cd:#ffffff;--cd2:#f4f7fd;--cb:#dde3f0;--ib:#eef1f8;--ibr:#c3cce0;
---tx:#111527;--mu:#5a6478;--dm:#6f7890;
+--tx:#111527;--mu:#5a6478;--dm:#636d84;
 /* vivid-cyan signature accent (deep enough for white ink on top) */
---prRGB:0,123,168;--pr:#007ba8;--prl:#dcf2fa;--prg:#0069b8;--ink:#ffffff;
+--prRGB:0,114,157;--pr:#00729d;--prl:#dcf2fa;--prg:#0069b8;--ink:#ffffff;
 --gr:#0c8050;--grl:#d9f4e7;--am:#b26102;--aml:#fdf0da;--rd:#d61f5e;--rdl:#fce4ee;
 --pu:#6d47e6;--pul:#ebe6fd;--bl:#1263d6;--bll:#e2edfd;
 /* Day identity (A deep azure / B hot pink / C deep green) — validated categorical
@@ -44,6 +43,7 @@
    users' stores and still render in history and the heat map. Mirror of JS
    DAY_COLORS/DAY_INK. */
 --dayA:#0069b8;--dayAl:#ddedfa;--dayB:#ea62ab;--dayBl:#fce4f1;--dayC:#0b7a3f;--dayCl:#dcf3e5;--dayX:#6b46c8;--dayXl:#e9e3fb;
+--dayB-ink:#ac256a;
 /* plate chips carry white --ink labels — each plate hue clears 4.5:1 under white */
 --p10:#d61f5e;--p5:#1263d6;--p25:#0c8050;--p1:#64748b;--slate:#64748b;
 --sh:0 1px 3px rgba(20,28,50,.08);--shm:0 10px 32px rgba(20,28,50,.14);--sab:env(safe-area-inset-bottom,0px);
@@ -66,11 +66,12 @@
    in applyTheme(), for canvas and string-built SVG that CSS vars cannot reach. ── */
 :root[data-theme=dark]{
 --bg:#0e1220;--bg2:#131829;--cd:#1a2032;--cd2:#202944;--cb:#2a3450;--ib:#222b42;--ibr:#3b4668;
---tx:#e9edf8;--mu:#9aa6c2;--dm:#808ba8;
+--tx:#e9edf8;--mu:#9aa6c2;--dm:#919dbb;
 --prRGB:47,179,232;--pr:#2fb3e8;--prl:#0e3448;--prg:#4aa3e8;--ink:#08101e;
 --gr:#3ecf8e;--grl:#0f3326;--am:#f0a848;--aml:#3a2b10;--rd:#ff5f8d;--rdl:#3d1830;
 --pu:#9b7bff;--pul:#241d4a;--bl:#5b9bf0;--bll:#132a4d;
 --dayA:#4aa3e8;--dayAl:#12314e;--dayB:#f07cc0;--dayBl:#3c1c31;--dayC:#43c07a;--dayCl:#11331f;--dayX:#a98cf0;--dayXl:#241a3d;
+--dayB-ink:var(--dayB);
 --p10:#ff5f8d;--p5:#5b9bf0;--p25:#3ecf8e;--p1:#8a94ad;--slate:#8a94ad;
 --sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
 --hdrbg:rgba(14,18,32,.86);--glow2:rgba(155,123,255,.06)}
@@ -93,12 +94,12 @@ input[type=number]{-moz-appearance:textfield}
 ::selection{background:var(--pr);color:var(--ink)}
 
 /* Layout */
-.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:0;z-index:100}
+.hdr{padding:calc(16px + env(safe-area-inset-top,0px)) 18px 10px;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--cb);position:sticky;top:var(--save-status-height,0px);z-index:100}
 .hdr h1{font-family:var(--disp);font-size:15px;font-weight:900;color:var(--tx);letter-spacing:1.5px;text-transform:uppercase}
 .hdr h1::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--pr);margin-right:9px;vertical-align:middle;box-shadow:0 0 0 3px rgba(var(--prRGB),.18)}
 /* top offset includes the notch inset — .hdr grows by it, so the nav's sticky
    anchor must move with it or the two gap/overlap on notched devices */
-.nav{display:flex;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:calc(48px + env(safe-area-inset-top,0px));z-index:99;border-bottom:1px solid var(--cb)}
+.nav{display:flex;background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:calc(48px + env(safe-area-inset-top,0px) + var(--save-status-height,0px));z-index:99;border-bottom:1px solid var(--cb)}
 .nav button{flex:1;padding:14px 0;font-family:var(--disp);font-size:10px;font-weight:700;border:none;border-bottom:2px solid transparent;background:0;color:var(--mu);cursor:pointer;letter-spacing:.6px;text-transform:uppercase;transition:color .2s}
 .nav button.a{color:var(--pr);border-bottom-color:var(--pr);text-shadow:none}
 .sec{padding:14px 14px;animation:fadeUp .4s ease both}
@@ -127,7 +128,7 @@ input[type=number]{-moz-appearance:textfield}
 /* Day identity: A azure / B hot pink / C neon green — dedicated --day* tokens
    (validated categorical trio, see :root); every colored day surface also carries
    its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
-.bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB)}.bg-c{background:var(--dayCl);color:var(--dayC)}.bg-x{background:var(--dayXl);color:var(--dayX)}
+.bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB-ink)}.bg-c{background:var(--dayCl);color:var(--dayC)}.bg-x{background:var(--dayXl);color:var(--dayX)}
 .sg{font-family:var(--disp);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;display:inline-block;letter-spacing:.3px}
 .sg-up{color:var(--ink);background:var(--pr)}.sg-st{color:var(--am);background:var(--aml)}.sg-nw{color:var(--pr);background:var(--prl)}
 .sg-dn{color:var(--rd);background:var(--rdl)}.sg-cf{color:var(--bl);background:var(--bll)}
@@ -251,10 +252,9 @@ input[type=number]{-moz-appearance:textfield}
 .ex-row{background:var(--cd);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;border:1.5px solid var(--cb);cursor:pointer;transition:border-color .2s,background .2s,transform .1s}
 .ex-row.cur{border-color:var(--pr);box-shadow:var(--shm),0 0 24px rgba(var(--prRGB),.1);cursor:default}
 .ex-row.done-row{border-color:var(--gr);background:linear-gradient(135deg,var(--grl),var(--cd))}
-.ex-row.upcoming{opacity:.55}
-.ex-row.upcoming:active{opacity:.75}
+.ex-row.upcoming:active{background:var(--ib)}
 .ex-row:not(.cur):hover{border-color:var(--ibr)}
-.ex-row.upcoming:hover{opacity:.7}
+.ex-row.upcoming:hover{background:var(--cd2)}
 .ex-expand{padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--cb)}
 
 /* Set tick */
@@ -280,7 +280,7 @@ input[type=number]{-moz-appearance:textfield}
 .set-row.done .set-tick.done{background:var(--gr);border-color:var(--gr)}
 /* Sticky live-session strip (duration / volume / checked sets). Sits BELOW the
    sticky app header (.hdr, z-index 100) — top:0 slid underneath it. */
-.work-sticky{position:sticky;top:calc(47px + env(safe-area-inset-top,0px));z-index:30;display:flex;gap:10px;
+.work-sticky{position:sticky;top:calc(47px + env(safe-area-inset-top,0px) + var(--save-status-height,0px));z-index:30;display:flex;gap:10px;
 background:var(--hdrbg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 padding:8px 6px;margin:0 -2px 8px;border-bottom:1px solid var(--cb);box-shadow:0 4px 14px rgba(20,28,50,.06)}
 .work-sticky>div{flex:1}
@@ -379,7 +379,7 @@ button.set-prev:active{color:var(--pr)}
 .disc-btn{padding:9px 13px;border-radius:8px;border:1px solid var(--ibr);background:var(--ib);font-size:10px;font-weight:700;cursor:pointer;color:var(--mu)}
 .disc-btn.sel-none{border-color:var(--gr);background:var(--grl);color:var(--gr)}
 .disc-btn.sel-mild{border-color:var(--am);background:var(--aml);color:var(--am)}
-.disc-btn.sel-mod{border-color:var(--rd);background:var(--rdl);color:var(--rd)}
+.disc-btn.sel-moderate{border-color:var(--rd);background:var(--rdl);color:var(--rd)}
 .disc-joints{display:flex;gap:5px;justify-content:center;margin-top:5px;flex-wrap:wrap}
 .disc-joint{padding:4px 9px;border-radius:6px;border:1px solid var(--ibr);background:var(--ib);font-size:10px;font-weight:600;cursor:pointer;color:var(--mu)}
 .disc-joint.sel{border-color:var(--rd);background:var(--rdl);color:var(--rd)}
@@ -398,8 +398,8 @@ button.set-prev:active{color:var(--pr)}
 .start-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(80% 100% at 50% 0%,rgba(var(--prRGB),.18),transparent 70%);pointer-events:none}
 .start-hero h3{font-family:var(--disp);font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:.5px;text-transform:uppercase;position:relative}
 .start-hero .meta{font-size:11px;color:var(--mu);margin-bottom:16px;position:relative;letter-spacing:.3px}
-.start-hero button{background:var(--pr);color:var(--ink);border:none;border-radius:var(--rad-sm);padding:14px 40px;font-family:var(--disp);font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 20px rgba(var(--prRGB),.3);position:relative}
-.start-hero button:active{transform:scale(.96)}
+.start-hero .start-primary{background:var(--pr);color:var(--ink);border:none;border-radius:var(--rad-sm);padding:14px 40px;font-family:var(--disp);font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 20px rgba(var(--prRGB),.3);position:relative}
+.start-hero .start-primary:active{transform:scale(.96)}
 .dpick{display:flex;gap:6px;justify-content:center;margin-bottom:14px;position:relative}
 .dpick button{flex:0 0 auto;min-width:54px;padding:8px 0;border-radius:9px;border:1.5px solid var(--cb);background:rgba(17,21,39,.04);color:var(--mu);font-family:var(--disp);font-size:12px;font-weight:800;letter-spacing:.5px;cursor:pointer;transition:.15s}
 .dpick button.on{background:var(--pr);color:var(--ink);border-color:var(--pr);box-shadow:0 2px 14px rgba(var(--prRGB),.3)}
@@ -461,7 +461,7 @@ svg text{font-family:var(--body)}
 /* edge fades signal more chips off-screen in either direction (scrollbar is hidden) */
 -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 20px,#000 calc(100% - 28px),transparent);
 mask-image:linear-gradient(90deg,transparent 0,#000 20px,#000 calc(100% - 28px),transparent);
-padding-left:4px;scroll-padding:24px}
+padding:0 28px 0 20px;scroll-padding:24px}
 .seg-row::-webkit-scrollbar{display:none}
 .seg-chip{flex:0 0 auto;padding:11px 15px;border-radius:20px;border:1px solid var(--cb);background:var(--cd);color:var(--mu);font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;transition:.12s;-webkit-appearance:none;appearance:none}
 .seg-chip.on{background:var(--pr);border-color:var(--pr);color:var(--ink)}
@@ -1190,12 +1190,11 @@ const MG_INFO=[
 // Effective sets per muscle over the last N days, ALL locations — muscle stimulus
 // accumulates regardless of venue, and the A→B→C rotation can span both within a
 // week, so a per-location filter would undercount and raise false below-MEV flags.
-function getWeeklyVolume(days){
-  const cut=new Date();cut.setDate(cut.getDate()-(days||7));
-  const cutS=ymd(cut);
+function getWeeklyVolume(days,now=new Date()){
+  const win=calendarWindow(days||7,0,now);
   const tot={};
   for(const s of D.sessions){
-    if(s.date<cutS)continue;
+    if(!dateInWindow(s.date,win))continue;
     for(const e of s.ex){
       const map=MG[e.id];if(!map)continue;
       const sets=(e.reps||[]).filter(r=>Number(r)>0).length;if(!sets)continue;
@@ -1230,8 +1229,8 @@ function expressMEVRisk(days){
   // is the cheaper error, and the Balance dashboard still shows the real volume throughout.
   if(D.comeback)return null;
   const win=days||7;
-  const cut=new Date();cut.setDate(cut.getDate()-win);const cutS=ymd(cut);
-  const recent=D.sessions.filter(s=>s.date>=cutS);
+  const recentWindow=calendarWindow(win);
+  const recent=D.sessions.filter(s=>dateInWindow(s.date,recentWindow));
   const xp=recent.filter(s=>s.express).length;
   if(xp<2)return null;
   const vol=getWeeklyVolume(win);
@@ -1513,119 +1512,119 @@ return d}
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
-let LOAD_DROPPED=0;
-function load(){LOAD_DROPPED=0;try{let s=localStorage.getItem(SK);
-if(!s){for(const k of OLD_KEYS){s=localStorage.getItem(k);if(s){localStorage.setItem(SK,s);break}}}
-// A fresh device starts empty. `seeded` is still understood by mergeImport for old
-// releases that did ship a demo history, but new stores never create that flag.
-let d;if(s)d=JSON.parse(s);else d=freshState();
-// Guard the load path like import does — drop malformed sessions so a partially corrupted
-// (but still parseable) store can't crash render. Good data passes through unchanged.
-// Losses are COUNTED and the raw store is parked under SK+'-corrupt' first. This used to be
-// silent: the rescue copy was written only from the catch below (which a parseable-but-
-// malformed store never reaches), so dropped sessions vanished and the next save() — any
-// banner dismiss, tick or theme tap — made it permanent with nothing to recover from.
-// Import already reports "N malformed sessions skipped"; the load path now matches it.
-if(Array.isArray(d.sessions)){
-  const kept=d.sessions.map(validSession).filter(Boolean);
-  LOAD_DROPPED=d.sessions.length-kept.length;
-  d.sessions=kept;
-}else{
-  // Not even an array — treat as total loss rather than silently booting an empty log.
-  LOAD_DROPPED=d.sessions==null?0:-1;
-  d.sessions=[];
-}
-// The COUNT is persisted next to the copy: LOAD_DROPPED describes this boot only, and the
-// rescue copy outlives it, so without this the banner reverted to the total-loss wording
-// ('what you see now is a fresh empty state') on every boot after the first — the exact
-// misleading copy this fix set out to remove, shown to a user whose history is fine.
-if(LOAD_DROPPED&&s)try{localStorage.setItem(SK+'-corrupt',s);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED))}catch(_){}
-// Cue KEYS are interpolated into the delete-button onclick, so mergeImport constrains their
-// charset. load() accepted anything, leaving the stored store as an unguarded path to the
-// same sink — guard both ends identically rather than trusting that one entrance is safe.
-if(!d.cues||typeof d.cues!=='object')d.cues={};
-else{const cz={};for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k))cz[k]=v;d.cues=cz}
-if(!d.bodyLog)d.bodyLog=[];if(!d.cardioLog)d.cardioLog=[];
-// Deletion tombstones (see mergeStores). Same charset as a validated session id, so a
-// hand-edited store can't smuggle anything else in; absent on every pre-v79 store.
-d.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)).slice(-TOMB_MAX);
-if(!d.notify)d.notify={enabled:false,rest:true};
-if(!d.phase)d.phase=1;if(!d.phaseStart)d.phaseStart=d.sessions[0]?.date||today();
-if(!d.discomfort)d.discomfort=[];if(!d.location)d.location='home';
-if(d.lastBackup===undefined)d.lastBackup=null;if(d.lastBackupCount===undefined)d.lastBackupCount=0;
-if(!d.dismissed)d.dismissed={};
-// Return-from-break ramp + its archive. Guarded on the load path for the same reason
-// sessions are: both dates drive date math, the render layer and the progression-memory
-// blackout, so a hand-edited or half-written store must not reach any of them. Absent on
-// every store written before this feature, which is why they default rather than migrate.
-d.comeback=validComeback(d.comeback);
-d.comebackLog=validComebackLog(d.comebackLog);
-if(!['auto','light','dark'].includes(d.theme))d.theme='auto';
-d=migrateData(d);
-d=migrateToV12(d);
-d=migrateToV13(d);
-d=migrateToV14(d);
-d=migrateToV15(d);
-d=migrateToV16(d);
-d=migrateToV17(d);
-d=migrateToV18(d);
-d=migrateToV19(d);
-d=migrateToV20(d);
-d=migrateToV21(d);
-// Two-tab guard bookkeeping: adopt the newest generation seen (stored blob vs sidecar).
-d.gen=Math.max(Number(d.gen)||0,Number(localStorage.getItem(SK+'-gen'))||0);
-D=d;
-// One-time hygiene: the old-version key was copied into SK above, so stale copies
-// under rft-v5..v11 are dead weight in the storage quota — clear them.
-try{for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
-}catch(e){try{const raw=localStorage.getItem(SK);if(raw)localStorage.setItem(SK+'-corrupt',raw);
-// Unparseable store = total loss. Clear any partial-drop count from an earlier rescue so
-// the banner doesn't under-report this as 'N sessions couldn't be read'.
-localStorage.removeItem(SK+'-corrupt-n')}catch(_){}D=freshState()}}
-// Returns false on quota/write failure so callers can warn instead of losing data silently.
-// Two-tab guard: D.gen is the generation of the snapshot this tab loaded; a cheap sidecar
-// key mirrors the last-written gen. If another tab wrote since we loaded (sidecar > ours),
-// their store is merged in before writing — a second open tab used to be silently
-// clobbered whole by last-writer-wins. Happy path costs one tiny getItem, no parse.
-function save(){try{
-const sg=Number(localStorage.getItem(SK+'-gen'))||0;
-if(sg>(D.gen||0)){
-  // On any conflict-merge failure we still write OUR state: refusing would certainly
-  // lose this tab's just-logged work to protect a store that didn't parse anyway.
-  try{const theirs=JSON.parse(localStorage.getItem(SK));D=mergeStores(D,theirs)}catch(_){}
-  D.gen=Math.max(D.gen||0,sg)}
-// The generation must only advance for a write that ACTUALLY LANDED. It used to be
-// bumped before the setItem, so a quota-blocked save still incremented it — leaving the
-// tab's in-memory gen ABOVE the sidecar. The conflict guard above then read
-// sg > D.gen as false and skipped the merge, so the next successful save (right after
-// the user frees space, which is exactly what the quota alert tells them to do)
-// clobbered whatever the other tab had written in the meantime. Roll back on failure.
-const prev=D.gen||0;
-D.gen=prev+1;
-try{localStorage.setItem(SK,JSON.stringify(D))}catch(e){D.gen=prev;return false}
-try{localStorage.setItem(SK+'-gen',String(D.gen))}catch(_){}
-return true}catch(e){return false}}
-// A clean empty program state shared by first boot, corruption recovery, and full reset.
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[]}}
-// Full reset also drops the active-workout backup + timer — leaving them meant the
-// home screen offered "Resume Day X?" built from the data that was just wiped.
-// The reset state adopts the current sidecar gen so save()'s two-tab conflict merge
-// can't resurrect the just-wiped sessions into the blank slate.
-function resetAll(){D=freshState();try{D.gen=Number(localStorage.getItem(SK+'-gen'))||0}catch(_){}
-// freshState() resets theme to 'auto', but the palette already painted on the page stays
-// until a manual reload — a factory reset that visibly keeps your old theme looks broken.
-clearAW();clearTimer();applyTheme();save();go('home')}
-// Patch 11: saveAW stores loc, phase, exIds for resume validation.
-// Audit: session notes + warm-up checklist ride along too — they were silently
-// lost on an app kill while every set survived.
-// Returns whether the backup actually reached storage. saveSumm's quota-failure path told the
-// user "your workout is still safe in the resume backup" unconditionally — but a full or
-// blocked localStorage is exactly when this write fails too, so the reassurance was at its
-// least true precisely when it mattered most. Callers must not claim safety without checking.
-function saveAW(){if(!ADAY)return false;try{const exIds=dayExs(ADAY).map(e=>e.id);
-localStorage.setItem(AW_KEY,JSON.stringify({day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,exIds,swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}));return true}catch(e){return false}}
-function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
+let LOAD_DROPPED=0,LOAD_REPAIRED=0,RECOVERY_RAW=null;
+let STORE_COMMITTED=null,STORE_RAW=null,PENDING_SAVE=null,PENDING_AFTER=null,SAVE_ERROR='',AW_ERROR='';
+let WRITER=false,WRITER_READY=false,WRITER_BUSY=false,WRITER_RELEASE=null,WRITER_CHANNEL=null,WANT_WRITER=false;
+let ACTIVE_ID=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
+function canWriteStore(){return WRITER&&WRITER_READY}
+const WRITER_ID='tab-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+function recordId(prefix='s'){return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)}
+function rememberCommitted(raw){STORE_RAW=raw;STORE_COMMITTED=structuredClone(D)}
+function keepRecovery(raw){RECOVERY_RAW=raw;if(!WRITER||!raw)return;
+try{localStorage.setItem(SK+'-corrupt',raw);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED));
+localStorage.setItem(SK+'-corrupt-repaired',String(LOAD_REPAIRED));RECOVERY_RAW=null}catch(_){}}
+function load(){LOAD_DROPPED=0;LOAD_REPAIRED=0;let raw=null,source=null;
+try{raw=localStorage.getItem(SK);source=raw;
+if(!source)for(const k of OLD_KEYS){source=localStorage.getItem(k);if(source)break}
+const parsed=source?JSON.parse(source):freshState();if(!plainObject(parsed))throw Error('Invalid store');
+const normalized=normalizeState(parsed);let d=normalized.W;
+LOAD_DROPPED=normalized.issues.sessions;LOAD_REPAIRED=normalized.issues.dropped-Math.max(0,LOAD_DROPPED)+normalized.issues.repaired;
+if((LOAD_DROPPED||LOAD_REPAIRED)&&source)keepRecovery(source);
+d=migrateData(d);d=migrateToV12(d);d=migrateToV13(d);d=migrateToV14(d);d=migrateToV15(d);
+d=migrateToV16(d);d=migrateToV17(d);d=migrateToV18(d);d=migrateToV19(d);d=migrateToV20(d);d=migrateToV21(d);
+D=d;rememberCommitted(raw);
+}catch(e){LOAD_DROPPED=-1;if(source)keepRecovery(source);D=freshState();rememberCommitted(raw)}
+updateSaveStatus()}
+// A synchronous localStorage write is atomic for ONE key. Web Locks supplies the missing
+// cross-tab exclusion: only its owner may propose a write. The sidecar is retained solely
+// for old readers; it is never consulted as a lock or used to union stale snapshots.
+// D becomes the proposal only after setItem succeeds. A failed proposal is separately
+// recoverable and retryable; no positional rollback can remove another session.
+function save(proposed=D,options={}){const candidate=normalizeState(proposed).W;
+if(!WRITER){if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);
+SAVE_ERROR='This tab is read-only. Use this tab to make changes.';updateSaveStatus();return false}
+if(PENDING_SAVE&&!options.retry){D=structuredClone(STORE_COMMITTED);SAVE_ERROR='A previous change is not saved. Retry or download it before making another change.';updateSaveStatus();return false}
+try{const raw=localStorage.getItem(SK);
+if(raw!==STORE_RAW)throw Error('conflict');
+candidate.gen=Math.max(STORE_COMMITTED?.gen||0,candidate.gen||0)+1;
+const encoded=JSON.stringify(candidate);localStorage.setItem(SK,encoded);
+D=candidate;rememberCommitted(encoded);PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR='';
+try{localStorage.setItem(SK+'-gen',String(D.gen));for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
+if(RECOVERY_RAW)keepRecovery(RECOVERY_RAW);
+updateSaveStatus();
+}catch(e){PENDING_SAVE=candidate;PENDING_AFTER=options.after||PENDING_AFTER;
+if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);
+SAVE_ERROR=e.message==='conflict'?'Saved data changed outside this tab. Download your pending changes, then reload to review both copies.':'Not saved on this device. Keep this tab open, free storage, then retry.';
+updateSaveStatus();return false}
+runSavedCallback(options.after);return true}
+function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERROR='Data was saved, but the screen could not update. Reload to continue.';updateSaveStatus();alert(SAVE_ERROR)}}
+function retrySave(){if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(ADAY)return saveAW();return false}
+function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
+PENDING_SAVE=null;PENDING_AFTER=null;PENDING_ACTIVE=null;SAVE_ERROR='';updateSaveStatus();render()}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],resetEpoch:'0'}}
+function resetAll(){if(!WRITER){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
+return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
+function activeRecord(){if(!ADAY)return null;
+if(!ACTIVE_ID)ACTIVE_ID=recordId();
+return{id:ACTIVE_ID,owner:WRITER_ID,resetEpoch:D.resetEpoch||'0',day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
+loc:D.location,phase:D.phase,exIds:dayExs(ADAY).map(e=>e.id),swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}}
+function saveAW(){if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
+try{localStorage.setItem(AW_KEY,JSON.stringify(activeRecord()));AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();return true}
+catch(e){AW_ERROR='Current workout is not saved on this device. Keep this tab open. Retry or download the workout.';updateSaveStatus();return false}}
+function clearAW(after=null){if(!WRITER){updateSaveStatus();return false}
+try{localStorage.removeItem(AW_KEY)}catch(e){AW_CLEANUP=true;AW_CLEANUP_AFTER=after;AW_ERROR='Could not remove the resume backup. Retry after freeing device storage.';updateSaveStatus();return false}
+AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();runSavedCallback(after);return true}
+function downloadJSON(value,name){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
+a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),10000)}
+function recoveryExportData(){const value=structuredClone(PENDING_SAVE||D);const active=PENDING_ACTIVE||activeRecord();
+if(active&&!value.sessions.some(s=>s.id===active.id))value.activeWorkout=active;return value}
+function exportActiveWorkout(){downloadJSON(recoveryExportData(),`workout-recovery-${today()}.json`)}
+// This region lives outside #app, so set-entry rendering cannot erase a failure warning.
+function updateSaveStatus(){if(typeof document==='undefined'||!document.body)return;
+try{const app=document.getElementById('app');if(app)app.inert=!!PENDING_SAVE;
+let box=document.getElementById('save-status');if(!box){box=document.createElement('div');box.id='save-status';box.setAttribute('role','status');box.setAttribute('aria-live','polite');
+box.style.cssText='position:sticky;top:0;z-index:250;padding:12px 16px;background:var(--cd);color:var(--tx);border-bottom:2px solid var(--am);font-size:14px;line-height:1.45';document.body.prepend(box);
+if(typeof ResizeObserver!=='undefined'){STATUS_OBSERVER=new ResizeObserver(()=>measureSaveStatus());STATUS_OBSERVER.observe(box)}}
+const readonly=!WRITER;
+const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||AW_ERROR;
+box.hidden=!message;measureSaveStatus();if(!message)return;box.replaceChildren();const text=document.createElement('div');text.textContent=message;box.append(text);
+const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='btn-sm btn-wh';b.style.cssText='margin:8px 8px 0 0;min-height:40px';b.textContent=label;b.onclick=fn;box.append(b)};
+if(readonly&&WRITER_READY&&navigator.locks)button('Use this tab',()=>requestWriter(true));
+if(WRITER&&(PENDING_SAVE||AW_ERROR))button('Retry save',retrySave);
+button(ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
+if(WRITER&&PENDING_SAVE)button('Discard pending change',discardPendingSave);
+measureSaveStatus();
+}catch(_){}}
+function measureSaveStatus(){const box=document.getElementById('save-status');if(box&&document.documentElement)document.documentElement.style.setProperty('--save-status-height',box.hidden?'0px':box.getBoundingClientRect().height+'px')}
+async function requestWriter(handover=false){if(WRITER||WRITER_BUSY)return;WANT_WRITER=true;
+if(!navigator.locks?.request){WRITER_READY=true;SAVE_ERROR='Read-only: this browser cannot coordinate safe device saves. Open the app in a current browser over HTTPS. You can export your data here.';updateSaveStatus();return}
+WRITER_BUSY=true;
+try{await navigator.locks.request(SK+'-writer',{ifAvailable:true},async lock=>{
+WRITER_BUSY=false;WRITER_READY=true;
+if(!lock){SAVE_ERROR='Another tab is editing. This tab can browse and export.';updateSaveStatus();
+if(handover&&WRITER_CHANNEL)WRITER_CHANNEL.postMessage({type:'handover',to:WRITER_ID});return}
+// Acquire first, read second: reset, deletion and flag edits cannot be resurrected by
+// the follower's stale snapshot. A crashed/closed tab releases the browser lock itself.
+WRITER=true;WANT_WRITER=false;SAVE_ERROR='';load();applyTheme();render();updateSaveStatus();
+await new Promise(resolve=>{WRITER_RELEASE=resolve});WRITER_RELEASE=null;WRITER=false;
+SAVE_ERROR='Editing moved to another tab. This tab can browse and export.';updateSaveStatus();
+if(WRITER_CHANNEL)WRITER_CHANNEL.postMessage({type:'released'});
+})}catch(e){WRITER_BUSY=false;WRITER_READY=true;WRITER=false;SAVE_ERROR='Read-only: device save access could not be acquired. You can export your data.';updateSaveStatus()}}
+function initStorageOwnership(){
+try{WRITER_CHANNEL=new BroadcastChannel(SK+'-writer');WRITER_CHANNEL.onmessage=event=>{const msg=event.data||{};
+if(msg.type==='handover'&&WRITER){
+if(ADAY||PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||IMPORT_BUSY||['body','cardio','logpast'].includes(VIEW)){WRITER_CHANNEL.postMessage({type:'busy',to:msg.to});return}
+if(WRITER_RELEASE)WRITER_RELEASE();
+}else if(msg.type==='released'&&WANT_WRITER)requestWriter();
+else if(msg.type==='busy'&&msg.to===WRITER_ID){SAVE_ERROR='The other tab has an unfinished workout, open entry form or unsaved change. Finish, save or cancel it there and return Home before switching tabs.';updateSaveStatus()}}}catch(_){}
+window.addEventListener('storage',event=>{if(event.key===SK&&!WRITER&&!PENDING_SAVE){load();applyTheme();render()}else if(event.key===AW_KEY&&!WRITER)render()});
+// Stop known mutation controls before their inline handlers run. The save boundary is
+// still guarded, so a missed control cannot write or keep a misleading local mutation.
+document.addEventListener('click',event=>{if(WRITER)return;const control=event.target.closest?.('[onclick]');if(!control)return;
+if(/\b(save|saveAW|saveSumm|saveCardio|saveBod|savePast|beginW|resumeW|clearAW|discardActiveWorkout|cancelW|resetAll|delS|delBod|delCardio|toggleNoProg|setPhase|advancePhase|setLocation|setLoc|advancePhaseSafe|reqNotify|startComeback|endComeback|dismissBanner|toggleNotify|toggleNotifyRest|toggleWake)\s*\(/.test(control.getAttribute('onclick')||'')){
+event.preventDefault();event.stopImmediatePropagation();updateSaveStatus()}},true);
+window.addEventListener('beforeunload',event=>{if(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||IMPORT_BUSY){event.preventDefault();event.returnValue=''}});
+requestWriter()}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
 // program-drift check) used to destroy real logged sets after any interruption longer
@@ -1636,6 +1635,24 @@ function clearAW(){try{localStorage.removeItem(AW_KEY)}catch(e){}}
 // Does a resume blob carry real logged work? Shared by checkResume (which uses it to decide
 // whether a stale/drifted blob is worth keeping) and pendingAW (which uses it to decide
 // whether Start needs to warn) — one definition so the two can never disagree.
+function normalizeActiveRecord(d,state=D){
+if(!plainObject(d)||!['A','B','C','X'].includes(d.day)||!plainObject(d.log)||!(finiteNumber(d.start)>0)||!(finiteNumber(d.ts)>0)||
+(d.resetEpoch||'0')!==(state.resetEpoch||'0')||(d.id!=null&&!safeId(d.id)))return null;
+const id=d.id||'s'+d.start;if(state.sessions.some(s=>s.id===id))return null;
+const log={};for(const[k,v] of Object.entries(d.log)){
+if(!/^[\w-]{1,100}$/.test(k)||!plainObject(v)||!Array.isArray(v.reps))continue;
+const ex=validSession({id:'active',date:today(),day:d.day,ex:[{...v,id:k}]})?.ex[0];if(!ex)continue;
+const n=ex.reps.length;log[k]={...ex,wts:Array.from({length:n},(_,i)=>finiteNumber(v.wts?.[i])||''),
+setDone:Array.from({length:n},(_,i)=>v.setDone?.[i]===true),setTs:Array.from({length:n},(_,i)=>finiteNumber(v.setTs?.[i])||0),
+form:ex.form||Array(n).fill(0),touched:v.touched===true,pf:v.pf===true,wu:v.wu===true,
+disc:['none','mild','moderate'].includes(v.disc)?v.disc:'none',discJoints:Array.isArray(v.discJoints)?v.discJoints.filter(j=>JOINTS.includes(j)):[]}}
+const swaps={};if(plainObject(d.swaps))for(const[k,v]of Object.entries(d.swaps))if(/^[\w-]{1,100}$/.test(k)&&typeof v==='string'&&/^[\w-]{1,100}$/.test(v))swaps[k]=v;
+const row={id,resetEpoch:state.resetEpoch||'0',day:d.day,log,start:Number(d.start),ts:Number(d.ts),cidx:Math.floor(finiteNumber(d.cidx)||0),
+notes:typeof d.notes==='string'?d.notes:'',wu:Array.from({length:3},(_,i)=>d.wu?.[i]===true),xp:d.xp===true,swaps};
+if(['home','partner'].includes(d.loc))row.loc=d.loc;if([1,2,3].includes(d.phase))row.phase=d.phase;
+if(Array.isArray(d.exIds))row.exIds=d.exIds.filter(x=>typeof x==='string'&&/^[\w-]{1,100}$/.test(x));
+return row}
+function validActiveRecord(d){return normalizeActiveRecord(d)!==null}
 function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0)))}
 // What checkResume would HIDE. checkResume deliberately returns null for a blob whose venue or
 // phase no longer matches while leaving it in storage (hide, don't delete) — but beginW's
@@ -1643,10 +1660,12 @@ function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values
 // run: saveAW then overwrote the blob with no prompt. Log Day A at home, switch venue, tap
 // Start, and 45 minutes of logging was gone silently. This reports the blob's EXISTENCE and
 // why it is hidden, so the guard works when the workout is least recoverable.
-function pendingAW(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+function pendingAW(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=normalizeActiveRecord(JSON.parse(s));
+if(!d)return null;
 if(!awHasReps(d))return null; // nothing logged yet — starting fresh costs the user nothing
 return{day:d.day,hasReps:true,why:d.loc&&d.loc!==D.location?'venue':d.phase&&d.phase!==D.phase?'phase':null,loc:d.loc,phase:d.phase}}catch(e){return null}}
-function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=JSON.parse(s);
+function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=normalizeActiveRecord(JSON.parse(s));
+if(!d)return null;
 const hasReps=awHasReps(d);
 if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
@@ -1675,6 +1694,18 @@ function today(){return ymd(new Date())}
 // setDate() and noon-anchored diffs stay calendar-correct.
 function daysAgoStr(n){const d=new Date();d.setDate(d.getDate()-n);return ymd(d)}
 function dayDiff(a,b){return Math.round((new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/864e5)}
+// Exactly N local calendar dates, including the end date. Adjacent comparisons
+// use offsetDays=N; no timestamp subtraction or future-dated entries are involved.
+// The optional clock keeps boundary and DST behavior reproducible in tests.
+function calendarWindow(days,offsetDays=0,now=new Date()){
+const n=Math.max(1,Math.floor(Number(days)||1));
+const end=new Date(now);end.setHours(12,0,0,0);end.setDate(end.getDate()-offsetDays);
+const start=new Date(end);start.setDate(start.getDate()-(n-1));
+return{start:ymd(start),end:ymd(end),days:n}}
+function dateInWindow(date,win){return typeof date==='string'&&date>=win.start&&date<=win.end}
+// A date's ordinal is independent of the 23/25-hour days around daylight saving.
+function calendarDayNumber(date){const[y,m,d]=date.split('-').map(Number);return Date.UTC(y,m-1,d)/864e5}
+function calendarWindowLabel(win){return `${fmtD(win.start)} – ${fmtD(win.end)}`}
 // Banner dismissal: a banner stays hidden only while its "sig" (situation signature) is unchanged.
 // When the underlying state moves on (more sessions, new week), the sig changes and the banner returns.
 function bannerDismissed(key,sig){return D.dismissed&&D.dismissed[key]===String(sig)}
@@ -2631,7 +2662,7 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // Theme-switchable (applyTheme reassigns): light values are the declared defaults
 // so the Node test harnesses (no matchMedia, no D) always see the light palette.
 let CH_GRID='#dde3f0',CH_TXT='#5a6478',CH_DOT='#ffffff',CH_TARGET='#d61f5e',CH_TITLE='#111527',CH_PR='#b26102';
-let C_PR='#007ba8',C_BL='#1263d6',C_GR='#0c8050'; // chart line/bar fills
+let C_PR='#00729d',C_BL='#1263d6',C_GR='#0c8050'; // chart line/bar fills
 // One switch point for every string-built color (SVG fills + inline hex — CSS vars
 // can't reach them). Mirrors the CSS dark token block; keep the two in sync.
 function isDarkTheme(){const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
@@ -2644,7 +2675,7 @@ DAY_COLORS={A:'#4aa3e8',B:'#f07cc0',C:'#43c07a',X:'#a98cf0',cardio:'#f0a848'};
 DAY_INK={A:'#08101e',B:'#08101e',C:'#08101e',X:'#08101e'};
 FORM_C=['','var(--rd)','#e8703a','var(--am)','#7fb069','var(--gr)'];
 }else{CH_GRID='#dde3f0';CH_TXT='#5a6478';CH_DOT='#ffffff';CH_TARGET='#d61f5e';CH_TITLE='#111527';CH_PR='#b26102';
-C_PR='#007ba8';C_BL='#1263d6';C_GR='#0c8050';
+C_PR='#00729d';C_BL='#1263d6';C_GR='#0c8050';
 DAY_COLORS={A:'#0069b8',B:'#ea62ab',C:'#0b7a3f',X:'#6b46c8',cardio:'#b26102'};
 DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'};
 FORM_C=['','var(--rd)','#c2410c','var(--am)','#4d7c0f','var(--gr)'];}
@@ -2744,9 +2775,8 @@ const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
 const pts=vals.map((v,i)=>`${(2+(i/(vals.length-1))*(w-4)).toFixed(1)},${(h-2-((v-mn)/rng)*(h-4)).toFixed(1)}`).join(' ');
 return`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" style="flex-shrink:0;overflow:visible"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/></svg>`}
 
-function getFatigue(){const now=new Date(),scores=[];
-for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);const ds=ymd(d);
-D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3,load:1})});
+function getFatigue(now=new Date()){const win=calendarWindow(7,0,now),scores=[];
+D.sessions.filter(s=>dateInWindow(s.date,win)).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=calcExVol(e.id,e.wt,e.reps,e.wts)});scores.push({vol,diff:s.difficulty||3,load:1})});
 // Cardio intensity maps onto the effort term too (hard 4 / moderate 3 / easy 2) —
 // a hard 40-min row is real fatigue; flat diff:3 made intensity nearly invisible.
 // `load` is what the entry is worth in the FREQUENCY term. Cardio used to count as a whole
@@ -2755,7 +2785,7 @@ D.sessions.filter(s=>s.date===ds).forEach(s=>{let vol=0;s.ex.forEach(e=>{vol+=ca
 // into Building — and because easy cardio carries diff 2, it simultaneously dragged the
 // effort term down. A hard row is genuine systemic fatigue and still registers; a 30-minute
 // walk is not a squat session.
-D.cardioLog.filter(c=>c.date===ds).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2,load:c.intensity==='hard'?.5:c.intensity==='moderate'?.35:.2}))}
+D.cardioLog.filter(c=>dateInWindow(c.date,win)).forEach(c=>scores.push({vol:c.duration*(c.intensity==='hard'?30:c.intensity==='moderate'?25:20),diff:c.intensity==='hard'?4:c.intensity==='moderate'?3:2,load:c.intensity==='hard'?.5:c.intensity==='moderate'?.35:.2}))
 if(!scores.length)return{score:0,label:'Fresh',color:'var(--gr)'};
 // Calibration (audit fix): the old weights (f*1.2 + ad*0.9 + vol/1200f) pushed a
 // perfectly normal week — 3 sessions, effort 3, ~9t — to 8.8/10 "Fatigued", so the meter
@@ -3087,6 +3117,7 @@ return rec}
 // that something: every screen goes through it, and it is the one place a read is allowed to
 // become a write. Returns whether it changed anything (so callers/tests can assert).
 function comebackTick(){
+if(!WRITER||PENDING_SAVE)return false;
 const c=D.comeback;if(!c)return false;
 const t=today();
 // The runway starts when YOU do. A ramp that burns calendar while no training happens is a
@@ -3103,9 +3134,9 @@ if(t>c.start&&!D.sessions.some(x=>x.date>=c.start&&x.date<=c.end)){
   const gap=last?dayDiff(t,last):c.gap;
   const days=rtnDays(gap);
   D.comeback={start:t,end:rtnEnd(t,days),gap};
-  save();return true}
+  return save()}
 if(t<=c.end)return false;
-archiveComeback('completed');save();return true}
+archiveComeback('completed');return save()}
 
 // Shape guard for a stored ramp. Validated hard — both dates feed date math, the render
 // layer AND the progression-memory blackout, so a malformed one would not merely render
@@ -3113,8 +3144,7 @@ archiveComeback('completed');save();return true}
 function validComeback(c){
 if(!c||typeof c!=='object'||Array.isArray(c))return null;
 const D8=/^\d{4}-\d{2}-\d{2}$/;
-if(typeof c.start!=='string'||!D8.test(c.start))return null;
-if(typeof c.end!=='string'||!D8.test(c.end))return null;
+if(!validISODate(c.start)||!validISODate(c.end))return null;
 if(c.end<c.start)return null;
 // beginComeback refuses a start more than a week out, so one that far ahead came from a
 // hand-edited store or a corrupted backup. Honouring it would park a ramp as permanently
@@ -3234,8 +3264,11 @@ try{document.body.style.paddingBottom=TIMER?'calc(100px + var(--sab))':''}catch(
 if(!TIMER){el.innerHTML='';if(ov)ov.innerHTML='';return}
 const m=Math.floor(Math.abs(TIMER.left)/60),s=Math.abs(TIMER.left)%60,sg=TIMER.left<0?'+':'';
 const clock=`${sg}${m}:${String(s).padStart(2,'0')}`;
-el.innerHTML=`<div class="timer-pill${TIMER.done?' done':''}"><span class="t-time">${clock}</span>
+// Keep the dismiss control mounted while the clock ticks so keyboard focus survives.
+if(!el.firstElementChild)el.innerHTML=`<div class="timer-pill"><span class="t-time"></span>
 <button class="t-x" aria-label="Dismiss rest timer" onclick="clearTimer()">✕</button></div>`;
+const pill=el.querySelector('.timer-pill'),time=el.querySelector('.t-time');
+if(pill)pill.classList.toggle('done',!!TIMER.done);if(time)time.textContent=clock;
 // Full-screen takeover while the alarm is live (finished + not yet dismissed). Build the
 // overlay only on the OFF→ON transition so its CSS flash/pulse animations aren't restarted
 // every 500ms tick; just refresh the overtime clock text in place while it's up.
@@ -3247,7 +3280,30 @@ if(show){const tEl=ov.querySelector('.alarm-time');if(tEl)tEl.textContent=`Overt
 
 // ═══════════════ RENDER ═══════════════
 let CIV=null,LAST_VIEW=null;
+// Same-view updates replace the markup. Match controls by their stable identity,
+// rather than DOM position (extra sets and discomfort fields can change that position).
+// Text/number keystrokes still update in place; this covers the redraws after actions.
+function captureRenderState(){
+const active=document.activeElement;
+const attr=active&&['id','data-focus','oninput','onclick','aria-label'].find(k=>active.getAttribute(k));
+const focus=attr?{tag:active.tagName,attr,value:active.getAttribute(attr),
+ start:active.selectionStart,end:active.selectionEnd,direction:active.selectionDirection,
+ left:active.scrollLeft,top:active.scrollTop}:null;
+return{focus,x:window.scrollX||0,y:window.scrollY||0,
+ exercise:document.getElementById('ex-cur')?.getAttribute('data-exercise'),
+ segmentScroll:document.querySelector('.seg-row')?.scrollLeft||0}}
+function restoreRenderState(state){
+const sameExercise=VIEW!=='workout'||state.exercise===document.getElementById('ex-cur')?.getAttribute('data-exercise');
+if(state.focus&&sameExercise){const f=state.focus;
+ const next=Array.from(document.querySelectorAll('#app button,#app input,#app select,#app textarea,#app [tabindex],#nav button'))
+  .find(e=>e.tagName===f.tag&&e.getAttribute(f.attr)===f.value);
+ if(next&&!next.disabled){next.focus({preventScroll:true});
+  if(typeof f.start==='number'&&typeof next.setSelectionRange==='function')next.setSelectionRange(f.start,f.end,f.direction||'none');
+  next.scrollLeft=f.left;next.scrollTop=f.top}}
+const row=document.querySelector('.seg-row');if(row)row.scrollLeft=state.segmentScroll;
+window.scrollTo(state.x,state.y)}
 function render(){
+const ui=VIEW===LAST_VIEW?captureRenderState():null;
 // A ramp ends on a date, so something has to notice the date rolled over — and every screen
 // comes through here. Runs BEFORE the view is built so the screen that renders is already
 // looking at the post-completion state (the alternative is a home screen that shows a
@@ -3264,6 +3320,8 @@ const fn={home:rHome,workout:rWork,summary:rSumm,history:rHist,stats:rStats,body
 // ticks, form ratings) and replaying the whole-screen fade each time reads as flicker —
 // suppress it when the view hasn't changed.
 if(VIEW===LAST_VIEW){try{a.querySelectorAll('.sec').forEach(e=>e.style.animation='none')}catch(e){}}
+if(ui)restoreRenderState(ui);
+if(VIEW==='stats')revealProgressSegment();
 LAST_VIEW=VIEW;
 if(VIEW==='workout')CIV=setInterval(()=>{const c=document.getElementById('sc');if(c)c.textContent=elapsed();
 updateEssentialsBudget();
@@ -3318,21 +3376,22 @@ h+=`<div class="cd" style="border:2px solid var(--pr)"><div style="font-size:13p
 <div class="dm" style="margin-bottom:8px">Started ${ageLbl} — logged sets are kept until you Resume or Discard.</div>
 ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">⚠ The plan changed since this session started — already-logged exercises still save with it.</div>`:''}
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="resumeW()">Resume</button>
-<button class="btn btn-wh btn-md" style="flex:1" onclick="clearAW();render()">Discard</button></div></div>`}
+<button class="btn btn-wh btn-md" style="flex:1" onclick="discardActiveWorkout()">Discard</button></div></div>`}
 
 // Corrupt-store rescue: load() parked the raw store under SK+'-corrupt' and either fell back
 // to an empty state (unparseable) or dropped the sessions it couldn't validate (parseable but
 // malformed) — but never told the user. Surface it with a way out. The copy outlives the
 // boot that made it, so the drop COUNT is persisted beside it — keying the wording off this
 // boot's LOAD_DROPPED alone meant every boot after the first fell back to the total-loss copy.
-try{if(localStorage.getItem(SK+'-corrupt')){
+try{if(RECOVERY_RAW||localStorage.getItem(SK+'-corrupt')){
 // Prefer this boot's count, fall back to the one stored with the rescue copy.
 const dropN=LOAD_DROPPED>0?LOAD_DROPPED:Number(localStorage.getItem(SK+'-corrupt-n'))||0;
-const partial=dropN>0;
+const repairN=LOAD_REPAIRED||Number(localStorage.getItem(SK+'-corrupt-repaired'))||0;
+const partial=dropN>0||repairN>0;
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
-<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${dropN} session${dropN>1?'s':''} couldn't be read`:'Stored data was corrupted'}</div>
+<div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${Math.max(0,dropN)+repairN} stored record${Math.max(0,dropN)+repairN===1?'':'s'} needed recovery`:'Stored data was corrupted'}</div>
 <div class="dm" style="margin-bottom:8px">${partial
-?`${dropN} stored session${dropN>1?'s were':' was'} malformed and left out — the rest of your history loaded normally. A raw copy of the original was kept. Download it, then import your latest backup to restore what's missing.`
+?`${Math.max(0,dropN)} malformed sessions were left out; ${repairN} other records or fields were repaired or left out. The usable data loaded. Download the original copy to review missing information.`
 :`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh empty state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
@@ -3480,10 +3539,10 @@ if(restDay){
   // venue (already one collapsed full-body session on short rests) and whenever the cut
   // would drop nothing, which would make the button a lie.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const startBtns=xpD&&xpD.drop.length?`<button onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  const startBtns=xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
   <div class="dm" style="margin-top:6px;text-align:center">Essentials keeps the main lifts plus targeted stability work. Full adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
-  :`<button onclick="beginW('${nd}')">Start Workout</button>`;
+  :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
   <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
@@ -3683,6 +3742,7 @@ delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
 SWAP_OPEN=null;saveAW();render()}
 
 function beginW(day,xp){
+if(!WRITER||PENDING_SAVE){updateSaveStatus();return}
 // A pending resumable session dies the moment a new one starts (saveAW overwrites the
 // blob) — one accidental tap on Start used to silently destroy 45 minutes of logging.
 // Guards on pendingAW, NOT checkResume: a blob hidden by a venue/phase switch is still
@@ -3693,7 +3753,7 @@ const pend=pendingAW();
 if(pend&&typeof confirm==='function'){
   const where=pend.why==='venue'?` from a different venue (${pend.loc})`:pend.why==='phase'?` from phase ${pend.phase}`:'';
   if(!confirm(`You have an unfinished workout${where} waiting to resume — starting a new one discards it. Continue?`))return}
-ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
+ACTIVE_ID=recordId();ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 // Set before dayExs — it reads EXPRESS when no explicit flag is passed. Express is
 // home-only, so a venue switch mid-flight can never leave a partner day filtered.
 EXPRESS=!!xp&&expressAvailable();
@@ -3701,7 +3761,7 @@ const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
-function resumeW(){const r=checkResume();if(!r)return;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
+function resumeW(){if(!WRITER||PENDING_SAVE){updateSaveStatus();return}const r=checkResume();if(!r)return;ACTIVE_ID=r.id||'s'+r.start;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
 SNOTES=typeof r.notes==='string'?r.notes:'';
 WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];EXPRESS=!!r.xp;
 // Normalize resumed LOG rows: a blob written by an older build may lack fields newer
@@ -3819,7 +3879,7 @@ if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:va
 
 // Warmup section
 const wuD=WU_CHECKS.filter(Boolean).length;const fIso=exs.find(e=>e.isoWU);
-h+=`<div class="ex-row${wuD>=2?' done-row':''}" onclick="CIDX=-1;render()">
+h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation" onclick="selectExercise(-1)">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700">Activation <span class="dm" style="font-weight:500">· recommended before loaded work</span></span>
 <span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></div>`;
@@ -3839,20 +3899,20 @@ const last=getLast(ex.id),sg=getSmartSugg(ex),cue=D.cues[ex.id];
 
 if(isDone&&!isCur){
 // Done row
-h+=`<div class="ex-row done-row" onclick="CIDX=${idx};saveAW();render()">
+h+=`<div class="ex-row done-row" onclick="selectExercise(${idx})">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
 <span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></div></div>`;
 } else if(!isCur){
 // Upcoming row
-h+=`<div class="ex-row upcoming" onclick="CIDX=${idx};saveAW();render()">
+h+=`<div class="ex-row upcoming" onclick="selectExercise(${idx})">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:600">${esc(ex.nm)} <span class="dm">${ex.s}×${ex.rp}</span></span>
 <span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></div></div>`;
 } else {
 const targetEffort=targetRirLabel(ex);
 // Current — expanded
-h+=`<div class="ex-row cur" id="ex-cur">
+h+=`<div class="ex-row cur" id="ex-cur" data-exercise="${esc(ex.id)}">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}${ex._swapped?' <span class="swap-badge">SWAP</span>':''}</span>
 <span style="display:flex;align-items:center;gap:8px">
@@ -4000,7 +4060,7 @@ h+=`<div style="text-align:center;margin:4px 0">
 // Discomfort — available any time on the active exercise (mid-set flagging for joint safety)
 h+=`<div style="text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--cb)">
 <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Discomfort?${isDone?'':' <span style="opacity:.7">(flag any time)</span>'}</div><div class="disc-row">`;
-for(const lv of['none','mild','moderate'])h+=`<button type="button" class="disc-btn${log.disc===lv?' sel-'+lv:''}" aria-pressed="${log.disc===lv}" onclick="LOG['${ex.id}'].disc='${lv}';${lv==='none'?"LOG['"+ex.id+"'].discJoints=[];":""}saveAW();render()">${lv==='none'?'None ✓':lv[0].toUpperCase()+lv.slice(1)}</button>`;
+for(const lv of['none','mild','moderate'])h+=`<button type="button" class="disc-btn${log.disc===lv?' sel-'+lv:''}" aria-pressed="${log.disc===lv}" onclick="LOG['${ex.id}'].disc='${lv}';${lv==='none'?"LOG['"+ex.id+"'].discJoints=[];":""}saveAW();render()">${lv==='none'?'None':lv[0].toUpperCase()+lv.slice(1)}${log.disc===lv?' ✓':''}</button>`;
 h+=`</div>`;if(log.disc&&log.disc!=='none'){h+=`<div class="disc-joints">`;
 for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoints.includes(j)?' sel':''}" aria-pressed="${log.discJoints.includes(j)}" onclick="toggleJoint('${ex.id}','${j}')">${j}</button>`;
 h+=`</div>`}h+=`</div>`;
@@ -4012,7 +4072,7 @@ h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><butt
 h+=`</div>`; // ex-expand
 
 // Next button
-if(idx<exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:10px;padding:15px;font-size:14px" onclick="CIDX=${idx+1};saveAW();render();setTimeout(()=>document.getElementById('ex-cur')?.scrollIntoView({behavior:'smooth',block:'start'}),80)">Next → ${esc(exs[idx+1].nm)}</button>`;
+if(idx<exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:10px;padding:15px;font-size:14px" onclick="selectExercise(${idx+1})">Next → ${esc(exs[idx+1].nm)}</button>`;
 else h+=`<button class="btn btn-pr" style="margin-top:10px;padding:15px;font-size:14px" onclick="finishW()">Finish ✓</button>`;
 h+=`</div>`; // ex-row cur
 }}
@@ -4021,10 +4081,15 @@ h+=`</div>`; // ex-row cur
 h+=`<div style="margin-top:8px"><label class="lb" for="sess-note">Session Notes</label>
 <textarea class="sess-note" id="sess-note" placeholder="Context..." oninput="SNOTES=this.value" onchange="saveAW()">${esc(SNOTES)}</textarea></div>`;
 if(dC>=exs.length-1)h+=`<button class="btn btn-pr" style="margin-top:8px;font-size:13px" onclick="finishW()">Finish Session ✓</button>`;
-h+=`</div>`;el.innerHTML=h;
-setTimeout(()=>{const c=document.getElementById('ex-cur');if(c&&CIDX>=0)c.scrollIntoView({behavior:'smooth',block:'nearest'})},80)}
+h+=`</div>`;el.innerHTML=h}
 
 // ─── HELPERS ───────────────────────────────────
+// Scrolling belongs to explicit exercise navigation, never ordinary set entry.
+function selectExercise(idx){CIDX=idx;saveAW();render();
+const target=document.getElementById(idx<0?'ex-activation':'ex-cur'),strip=document.querySelector('.work-sticky');
+// Account for the actual sticky strip height, including enlarged text and safe areas.
+if(target){if(strip)target.style.scrollMarginTop=(parseFloat(getComputedStyle(strip).top)+strip.getBoundingClientRect().height+8)+'px';
+target.scrollIntoView({block:'start',behavior:'auto'})}}
 // nxUp/nxDn instead of indexOf±1: an off-ladder value (hand-typed, imported, or from an
 // older plate inventory) used to indexOf(-1) and slam the stepper to BAR-ONLY on one tap.
 function stepWt(id,dir){const ex=ALL_EX.find(e=>e.id===id);
@@ -4082,9 +4147,8 @@ const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===sco
 for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
-function cancelW(){if(CANCEL_ARMED){ADAY=null;LOG={};SS=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearAW();clearTimer();releaseWake();go('home')}
-// Re-render on disarm — without it the button kept saying "Confirm" after the 3s
-// window closed, so the next tap silently re-armed instead of cancelling.
+function discardActiveWorkout(){return clearAW(()=>{ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')})}
+function cancelW(){if(CANCEL_ARMED){discardActiveWorkout()}
 else{CANCEL_ARMED=true;setTimeout(()=>{if(CANCEL_ARMED){CANCEL_ARMED=false;render()}},3000);render()}}
 function editCue(exId){const cur=D.cues[exId]||'';const v=prompt(`Cue for ${ALL_EX.find(e=>e.id===exId)?.nm||exId}:`,cur);
 if(v!==null){if(v.trim())D.cues[exId]=v.trim();else delete D.cues[exId];save();render()}}
@@ -4132,7 +4196,7 @@ let tv=0,ts=0,tr=0;for(const e of logged){const vr=e.reps.filter(r=>r>0);ts+=vr.
 const discCount=Object.values(LOG).filter(v=>v.disc&&v.disc!=='none').length;
 // Session date comes from when the workout STARTED — a post-midnight save used to
 // stamp the wrong day and skew nextDay/streaks/heatmap.
-window._S={exs:logged,prs,tv,ts,tr,dur:SS?Math.round((Date.now()-SS)/6e4):0,day:ADAY,date:ymd(new Date(SS||Date.now())),warmup:WU_CHECKS.filter(Boolean).length,discCount,notes:SNOTES,express:EXPRESS};
+window._S={id:ACTIVE_ID||(ACTIVE_ID=recordId()),exs:logged,prs,tv,ts,tr,dur:SS?Math.round((Date.now()-SS)/6e4):0,day:ADAY,date:ymd(new Date(SS||Date.now())),warmup:WU_CHECKS.filter(Boolean).length,discCount,notes:SNOTES,express:EXPRESS};
 // CRITICAL: the active-workout backup is NOT cleared here. It used to be — so an app
 // kill/reload on the summary screen (before Save) lost the entire workout. The backup
 // now survives until saveSumm() has definitely persisted the session.
@@ -4177,30 +4241,22 @@ h+=`</div></div></div>
 <button class="btn btn-pr" onclick="saveSumm()">Save ✓</button>
 ${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Optional: this self-report feeds the workload estimate and deload timing.</div>`}</div>`;el.innerHTML=h}
 
-function saveSumm(){const S=window._S;if(!S)return;
-// Discomfort rows are written HERE (not at summary-build time) so that going Back to
-// the workout and finishing again can't duplicate them, and an abandoned summary
-// leaves no phantom rows.
-const dN=D.discomfort.length;
-const loggedIds=new Set(S.exs.map(e=>e.id));
+function finishSavedSummary(){clearAW();window._S=null;ADAY=null;ACTIVE_ID=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;EXPRESS=false;clearTimer();releaseWake();go('home')}
+function saveSumm(){const S=window._S;if(!S||!WRITER)return;
+if(!S.id)S.id=ACTIVE_ID||(ACTIVE_ID=recordId());
+const W=structuredClone(D),loggedIds=new Set(S.exs.map(e=>e.id));
 for(const[id,v] of Object.entries(LOG)){if(loggedIds.has(id)&&v.disc&&v.disc!=='none'&&(v.discJoints||[]).length){
-  for(const j of v.discJoints)D.discomfort.push({date:S.date,exId:id,level:v.disc,joint:j})}}
-// `phase` stamps the session with the training phase it belonged to — the re-anchor
-// gate reads it, which survives a same-day phase switch (date comparison alone can't).
-D.sessions.push({id:'s'+Date.now(),date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||'',...(S.express?{express:true}:{})});
-// Off-rotation days (the core block) leave the A→B→C pointer exactly where it was.
-if(isRotDay(S.day))D.nextDay=NEXT_DAY[S.day];
-if(!save()){
-  // Roll back the in-memory pushes so state matches storage; re-stamp the resume
-  // backup so it can't age out of the 2h window while the user frees space.
-  D.sessions.pop();D.discomfort.length=dN;
-  // Only promise the backup if it was actually written — see saveAW.
-  const backed=saveAW();
-  alert(backed
-    ?'⚠ Could not save — storage is full or blocked. Your workout is still safe in the resume backup. Export a backup / free some space, then tap Save again.'
-    :'⚠ Could not save — storage is full or blocked, and the resume backup could not be written either. Do NOT close this screen: free some space (or export a backup from Settings in another tab), then tap Save again. Your workout only exists on this screen right now.');
-  return}
-clearAW();window._S=null;ADAY=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;EXPRESS=false;clearTimer();releaseWake();go('home')}
+for(const j of v.discJoints){const row={date:S.date,exId:id,level:v.disc,joint:j};
+if(!W.discomfort.some(x=>x.date===row.date&&x.exId===id&&x.joint===j))W.discomfort.push(row)}}}
+const session={id:S.id,date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||'',...(S.express?{express:true}:{})};
+const ix=W.sessions.findIndex(s=>s.id===S.id);if(ix<0)W.sessions.push(session);else W.sessions[ix]=session;
+W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+if(isRotDay(S.day))W.nextDay=NEXT_DAY[S.day];
+const retry=!!PENDING_SAVE&&PENDING_SAVE.sessions.some(s=>s.id===S.id);
+if(!save(W,{retry,after:finishSavedSummary})){
+const backed=saveAW();alert(backed
+?'Could not save the finished session. The current workout was saved as a resume backup. Keep this screen open and retry, or download the current workout.'
+:'Could not save the finished session or its resume backup. Keep this screen open. Retry after freeing storage, or download the current workout.');return}}
 
 
 // ─── CARDIO ──────────────────────────────────
@@ -4247,14 +4303,17 @@ h+=`<div class="cd" style="padding:9px 14px"><div style="display:flex;justify-co
 h+=`</div>`;el.innerHTML=h}
 window.delCardio=function(id){if(!confirm('Delete this cardio entry?'))return;
 D.cardioLog=(D.cardioLog||[]).filter(c=>String(c.id)!==String(id));save();render()}
-let CARDIO_T='Rowing';
+let CARDIO_T='Rowing',CARDIO_ID=null;
 // Preserve typed duration/intensity across the selection re-render (inputs are id-bound).
 function setCardioT(t){const dur=document.getElementById('c-dur')?.value,int=document.getElementById('c-int')?.value;
 CARDIO_T=t;render();
 const dEl=document.getElementById('c-dur'),iEl=document.getElementById('c-int');
 if(dEl&&dur)dEl.value=dur;if(iEl&&int)iEl.value=int}
-window.saveCardio=function(){const dur=Number(document.getElementById('c-dur')?.value);if(!dur){alert('Enter duration');return}
-D.cardioLog.push({id:'c'+Date.now(),date:today(),type:CARDIO_T||'Rowing',duration:dur,intensity:document.getElementById('c-int').value});save();CARDIO_T='Rowing';go('home')}
+window.saveCardio=function(){if(!WRITER)return;const dur=finiteNumber(document.getElementById('c-dur')?.value);if(!(dur>0)){alert('Enter a positive duration in minutes');return}
+const W=structuredClone(D);if(!CARDIO_ID)CARDIO_ID=recordId('c');
+W.cardioLog.push({id:CARDIO_ID,date:today(),type:CARDIO_T||'Rowing',duration:dur,intensity:document.getElementById('c-int').value});
+const retry=!!PENDING_SAVE&&PENDING_SAVE.cardioLog.some(c=>c.id===CARDIO_ID);
+save(W,{retry,after:()=>{CARDIO_T='Rowing';CARDIO_ID=null;go('home')}})}
 
 // ─── STATS ───────────────────────────────────
 // ── Stats helpers for the Progress tab ──
@@ -4263,23 +4322,23 @@ function loggedExIds(){const s=new Set();for(const ses of D.sessions)for(const e
 // Current active program exercise IDs (home + partner, all phases) — so newly-added moves show even pre-history
 function programExIds(){const s=new Set();for(const loc of ['home','partner']){const pr=getProgram(D.phase||1,loc,1);for(const d in pr)for(const e of pr[d])s.add(e.id)}return s}
 // Headline numbers
-function statSnapshot(){
+function statSnapshot(now=new Date()){
 const sess=D.sessions;
 let totalVol=0,totalSets=0;
 for(const s of sess)for(const e of s.ex){totalVol+=calcExVol(e.id,e.wt,e.reps,e.wts);totalSets+=(e.reps||[]).filter(r=>Number(r)>0).length}
 // current streak = consecutive weeks with >=1 session, counting back from this week
 const dates=[...new Set(sess.map(s=>s.date))].sort();
 // training days in last 7 / 30
-const now=new Date();const d7=new Date(now);d7.setDate(d7.getDate()-7);const d30=new Date(now);d30.setDate(d30.getDate()-30);
-const last7=dates.filter(d=>new Date(d+'T00:00:00')>=d7).length;
-const last30=dates.filter(d=>new Date(d+'T00:00:00')>=d30).length;
+const recent7=calendarWindow(7,0,now),recent30=calendarWindow(30,0,now);
+const last7=dates.filter(d=>dateInWindow(d,recent7)).length;
+const last30=dates.filter(d=>dateInWindow(d,recent30)).length;
 // week streak — calendar weeks (Mon-anchored, same buckets as the weekly charts).
 // Rolling 7-day windows shifted with the weekday you opened the app and could
 // count one session into two windows. Grace: an empty current week doesn't
 // break the streak — it's still in progress.
 let streak=0;{const wks=new Set(dates.map(weekKey));
 const prevWk=k=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()-7);return ymd(d)};
-let cur=weekKey(today());
+let cur=weekKey(ymd(now));
 if(!wks.has(cur))cur=prevWk(cur);
 while(wks.has(cur)&&streak<520){streak++;cur=prevWk(cur)}}
 const first=dates[0],span=first?Math.round((now-new Date(first+'T00:00:00'))/6048e5):0;
@@ -4287,50 +4346,62 @@ return{sessions:sess.length,days:dates.length,totalVol:Math.round(totalVol),tota
 }
 // Per-exercise quick stats
 // ── e1RM slope (kg/week): least-squares fit over per-session best e1RM ──
-// Needs ≥3 weighted sessions spanning ≥2 weeks; otherwise the fit is noise.
-// e1RM (not raw weight) so rep-target changes and phase re-anchors don't read
-// as strength loss.
-function e1rmSlope(exId,days){
-const def=ALL_EX.find(e=>e.id===exId);
-const cut=daysAgoStr(days||56);
-const pts=[];
-for(const h of getHist(exId,200)){if(h.date<cut)continue;
-const y=exSetE1RMMax(def,h);if(!y)continue;
-pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y})}
+// Three observations over two weeks is a display policy, not validation of the
+// estimate. Effort, technique and rep-range changes still affect these values.
+function fitDateTrend(pts,now=new Date()){
 if(pts.length<3)return null;
-if(pts[pts.length-1].x-pts[0].x<2)return null;
-const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
-let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
+pts=pts.slice().sort((a,b)=>a.date.localeCompare(b.date));
+const start=pts[0].date,end=pts[pts.length-1].date;
+const spanDays=calendarDayNumber(end)-calendarDayNumber(start);if(spanDays<14)return null;
+const values=pts.map(p=>({...p,x:(calendarDayNumber(p.date)-calendarDayNumber(start))/7}));
+const n=values.length,mx=values.reduce((a,p)=>a+p.x,0)/n,my=values.reduce((a,p)=>a+p.y,0)/n;
+let num=0,den=0;for(const p of values){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
 if(!den)return null;
-return{slope:Math.round(num/den*100)/100,n,latest:Math.round(pts[pts.length-1].y*10)/10}}
+return{slope:Math.round(num/den*100)/100,n,latest:values[n-1].y,
+  change:Math.round((values[n-1].y-values[0].y)*10)/10,start,end,spanDays,
+  ageDays:calendarDayNumber(ymd(now))-calendarDayNumber(end),values:values.map(p=>p.y)}}
+function e1rmSlope(exId,days,now=new Date()){
+const def=ALL_EX.find(e=>e.id===exId);
+const win=calendarWindow(days||56,0,now);
+const pts=[];
+for(const h of getHist(exId,Infinity)){if(!dateInWindow(h.date,win))continue;
+const y=exSetE1RMMax(def,h);if(!y)continue;
+pts.push({date:h.date,y})}
+return fitDateTrend(pts,now)}
 // ── Band-lift progression helpers. BANDS (index 0 = heaviest band) is the ladder:
 // for ASSIST lifts a higher index = less assistance = progress; for RESIST lifts a
 // heavier band (lower index) = progress. Combo strings like 'Purple+Red' are their
 // own rung; unknown/legacy strings → -1 (untracked, render as plain label). ──
 function bandRank(band){return BANDS.indexOf(band)}
-// Least-squares slope of per-session TOTAL REPS (reps/week) — the progression axis
-// for band/bodyweight lifts, where e1rmSlope has no weight to fit. Same guards as
-// e1rmSlope: ≥3 sessions spanning ≥2 weeks, else null.
-function repsSlope(exId,days){
-const cut=daysAgoStr(days||56);
-const pts=[];
-for(const h of getHist(exId,200)){if(h.date<cut)continue;
-const tot=(h.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0);
-if(tot>0)pts.push({x:new Date(h.date+'T00:00:00').getTime()/6048e5,y:tot})}
-if(pts.length<3)return null;
-if(pts[pts.length-1].x-pts[0].x<2)return null;
-const n=pts.length,mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
-let num=0,den=0;for(const p of pts){num+=(p.x-mx)*(p.y-my);den+=(p.x-mx)*(p.x-mx)}
-if(!den)return null;
-return{slope:Math.round(num/den*10)/10,n,latest:pts[pts.length-1].y}}
-// ── Momentum board: every logged weighted lift ranked by e1RM kg/week ──
-function strengthMomentum(){
+// Compare only the latest uninterrupted run at the same known band, recorded
+// set slots and completed-set count. A band/set change starts a new series.
+// The log cannot establish equal tempo, range of motion or actual effort.
+function comparableBandHistory(exId,days,now=new Date()){
+const win=calendarWindow(days||56,0,now);
+const hist=getHist(exId,Infinity).filter(h=>dateInWindow(h.date,win)).sort((a,b)=>a.date.localeCompare(b.date));
+const key=h=>{const band=BAND_IDX(h.band),reps=h.reps||[],done=reps.filter(r=>Number(r)>0).length;
+  return band===99||!done?null:`${band}/${reps.length}/${done}/${h.phase||''}`};
+const last=hist[hist.length-1];if(!last||!key(last))return[];
+const target=key(last),out=[];
+for(let i=hist.length-1;i>=0;i--){if(key(hist[i])!==target)break;out.unshift(hist[i])}
+return out}
+function repsSlope(exId,days,now=new Date()){
+const hist=comparableBandHistory(exId,days,now);
+const pts=hist.map(h=>({date:h.date,y:(h.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}));
+const fit=fitDateTrend(pts,now);
+return fit?{...fit,band:hist[hist.length-1].band,sets:hist[hist.length-1].reps.filter(r=>Number(r)>0).length}:null}
+// Momentum is for rep/load lifts. Quality, swing and carry work have other goals.
+// 21 days is an explicit recency display policy, not a recovery or strength rule.
+const MOMENTUM_MAX_AGE_DAYS=21;
+// Retired definitions predate qualityLoad; preserve their history without treating
+// loaded control/ballistic exercises as rep-max tests.
+const NON_STRENGTH_TREND_IDS=new Set(['db_dead_bug','lm_180','kb_swing']);
+function strengthTrendEligible(ex){return !!ex&&!ex.qualityLoad&&!NON_STRENGTH_TREND_IDS.has(ex.id)&&['bb','db','kb'].includes(ex.tp)}
+function strengthMomentum(now=new Date()){
 const logged=loggedExIds();const out=[];
 for(const ex of ALL_EX){if(!logged.has(ex.id))continue;
-// Same gate as PR minting (E1RM_TYPES) — club lifts could set e1RM PRs but never
-// appeared here, so a PR'd lift was invisible to the momentum board.
-if(!E1RM_TYPES.has(ex.tp))continue;
-const s=e1rmSlope(ex.id,56);if(s)out.push({id:ex.id,nm:ex.nm,...s})}
+if(!strengthTrendEligible(ex))continue;
+const s=e1rmSlope(ex.id,56,now);if(s&&s.ageDays<=MOMENTUM_MAX_AGE_DAYS)out.push({id:ex.id,nm:ex.nm,...s})}
 out.sort((a,b)=>b.slope-a.slope);return out}
 // ── Strength standards: bodyweight-relative e1RM thresholds marking the start of
 // each tier. Approximate, calibrated for these specific (often unconventional)
@@ -4347,11 +4418,11 @@ const TIER_BG=['var(--ib)','var(--bll)','var(--grl)','var(--prl)','var(--aml)'];
 // ── Relative strength: best e1RM in the last 60 days ÷ latest logged bodyweight ──
 function relStrength(){
 const bw=[...(D.bodyLog||[])].reverse().find(b=>b.weight)?.weight;if(!bw)return null;
-const cut=daysAgoStr(60);
+const win=calendarWindow(60);
 const lifts=[['hex_dl','Hex Bar Deadlift'],['hex_squat_b','Hex Bar Squat'],['ohp','OHP'],['floor_press','Floor Press']];
 const out=[];
 for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
-for(const h of getHist(id,200)){if(h.date<cut)continue;
+for(const h of getHist(id,200)){if(!dateInWindow(h.date,win))continue;
 const v=exSetE1RMMax(def,h);if(v>best)best=v}
 if(!best)continue;
 const ratio=Math.round(best/bw*100)/100,th=STD[id];
@@ -4375,10 +4446,11 @@ const h=getHist(exId,200);
 let totalVol=0,totalReps=0,sessions=h.length;
 for(const e of h){totalVol+=calcExVol(exId,e.wt,e.reps,e.wts);totalReps+=(e.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}
 const pr=getPRs(exId);const last=h.length?h[h.length-1]:null;
-// trend: e1RM change over the last 8 weeks (slope × 8). First-vs-last weight
-// would read a phase re-anchor (deliberate load drop for a new rep range) as loss.
-let trend=null;const sl=e1rmSlope(exId,56);if(sl)trend=Math.round(sl.slope*8*10)/10;
-return{def,sessions,totalVol:Math.round(totalVol),totalReps,pr,last,trend,history:h};
+// Observed endpoint change within the sampled window; never extrapolate it to
+// an eight-week change when observations cover only a shorter period.
+const sl=strengthTrendEligible(def)?e1rmSlope(exId,56):null;
+const trend=sl?sl.change:null;
+return{def,sessions,totalVol:Math.round(totalVol),totalReps,pr,last,trend,trendInfo:sl,history:h};
 }
 
 // ── ISO-week key (Mon-anchored) for time bucketing ──
@@ -4407,8 +4479,9 @@ lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'sho
 // and its ETA at the current 8-week slope. Null when the trend is flat/negative
 // or the ETA is >12 weeks out — beyond ~3 months a linear extrapolation is fiction. ──
 function e1rmProjection(exId){
+if(!strengthTrendEligible(ALL_EX.find(e=>e.id===exId)))return null;
 const s=e1rmSlope(exId,56);
-if(!s||s.slope<=0)return null;
+if(!s||s.slope<=0||s.ageDays>MOMENTUM_MAX_AGE_DAYS)return null;
 const milestone=Math.floor(s.latest/5)*5+5;
 const wks=(milestone-s.latest)/s.slope;
 if(wks>12)return null;
@@ -4423,9 +4496,9 @@ function big4Weekly(weeks){
 const ids=Object.keys(STD);
 const perWk={};
 for(const id of ids){const def=ALL_EX.find(e=>e.id===id);
-  for(const hh of getHist(id,200)){if(!hh.wt)continue;
-  const eR=effectiveReps(def,hh.reps);if(!eR.length)continue;
-  const wk=weekKey(hh.date),v=e1rm(hh.wt,Math.max(...eR));
+  for(const hh of getHist(id,Infinity)){if(hh.date>today())continue;
+  const v=exSetE1RMMax(def,hh);if(!v)continue;
+  const wk=weekKey(hh.date);
   (perWk[wk]=perWk[wk]||{});if(!perWk[wk][id]||v>perWk[wk][id])perWk[wk][id]=v}}
 if(!Object.keys(perWk).length)return[];
 const disp=new Set(weekKeys(weeks||12));
@@ -4439,27 +4512,26 @@ for(const wk of all){
 return out}
 // ── Last-N-days vs prior-N-days training block comparison (Overview strip).
 // noProg sessions still count — this is analytics, not the progression engine. ──
-function periodCompare(days){
+function periodCompare(days,now=new Date()){
 const n=days||28;
-const cut1=daysAgoStr(n),cut2=daysAgoStr(2*n);
+const windows={cur:calendarWindow(n,0,now),prev:calendarWindow(n,n,now)};
 const mk=()=>({vol:0,sets:0,sessions:0,rpe:[]});
 const cur=mk(),prev=mk();
 for(const s of D.sessions){
-  const b=s.date>=cut1?cur:(s.date>=cut2?prev:null);if(!b)continue;
+  const b=dateInWindow(s.date,windows.cur)?cur:(dateInWindow(s.date,windows.prev)?prev:null);if(!b)continue;
   b.sessions++;if(s.difficulty)b.rpe.push(s.difficulty);
   for(const e of s.ex){b.vol+=calcExVol(e.id,e.wt,e.reps,e.wts);b.sets+=(e.reps||[]).filter(r=>Number(r)>0).length}}
 const fin=b=>({vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions,
   rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null});
-return{cur:fin(cur),prev:fin(prev)}}
+return{cur:fin(cur),prev:fin(prev),windows}}
 // ── Per-muscle effective sets: current n-day window vs the n days before it —
 // the "muscle distribution comparison" card. Muscles untouched in both windows drop out. ──
-function musclePeriodCompare(days){
+function musclePeriodCompare(days,now=new Date()){
 const n=days||28;
-const cut1=daysAgoStr(n),cut2=daysAgoStr(2*n);
+const windows={cur:calendarWindow(n,0,now),prev:calendarWindow(n,n,now)};
 const cur={},prev={};
 for(const s of D.sessions){
-  if(s.date<cut2)continue;
-  const b=s.date>=cut1?cur:prev;
+  const b=dateInWindow(s.date,windows.cur)?cur:(dateInWindow(s.date,windows.prev)?prev:null);if(!b)continue;
   for(const e of s.ex){const map=MG[e.id];if(!map)continue;
     const sets=(e.reps||[]).filter(r=>Number(r)>0).length;if(!sets)continue;
     for(const[m,w] of Object.entries(map))b[m]=(b[m]||0)+sets*w}}
@@ -4524,11 +4596,10 @@ return marks}
 // the complete event list per data generation; save() bumps D.gen on every write.
 let PR_MEMO=null,PR_MEMO_GEN=-1;
 function recentPRs(sinceDays){
+const win=sinceDays?calendarWindow(sinceDays):null;
 const ss=(D&&D.sessions)||[];const key=((D&&D.gen)||0)+'/'+ss.length+'/'+((ss[ss.length-1]||{}).id||'')+'/'+((ss[0]||{}).id||'');
 if(PR_MEMO&&PR_MEMO_GEN===key){const all=PR_MEMO;
-  if(!sinceDays)return all;
-  const cut=daysAgoStr(sinceDays);return all.filter(p=>p.date>=cut)}
-const cut=sinceDays?daysAgoStr(sinceDays):null;
+  return win?all.filter(p=>dateInWindow(p.date,win)):all}
 const prs=[];
 for(const ex of ALL_EX){const h=getHist(ex.id,200);if(h.length<1)continue;
 // The first logged session establishes the baseline — it isn't itself a PR
@@ -4546,9 +4617,9 @@ if(seen){
 if(mw&&mw>bw)bw=mw;
 if(e1>be)be=e1;
 seen=true;
-if(isPR&&(!cut||e.date>=cut))prs.push({id:ex.id,nm:ex.nm,date:e.date,...isPR})}}
+if(isPR&&(!win||dateInWindow(e.date,win)))prs.push({id:ex.id,nm:ex.nm,date:e.date,...isPR})}}
 prs.sort((a,b)=>b.date.localeCompare(a.date));
-if(!cut){const ss2=(D&&D.sessions)||[];PR_MEMO=prs;PR_MEMO_GEN=((D&&D.gen)||0)+'/'+ss2.length+'/'+((ss2[ss2.length-1]||{}).id||'')+'/'+((ss2[0]||{}).id||'')}
+if(!win){const ss2=(D&&D.sessions)||[];PR_MEMO=prs;PR_MEMO_GEN=((D&&D.gen)||0)+'/'+ss2.length+'/'+((ss2[ss2.length-1]||{}).id||'')+'/'+((ss2[0]||{}).id||'')}
 return prs;
 }
 // ── Milestones: cumulative tonnage / session / streak achievements ──
@@ -4603,7 +4674,8 @@ const perWk=Math.round(ss.length/spanWk*10)/10;
 // (empty recent weeks drop it immediately). Histories younger than 8wk use their
 // own span so a strong first fortnight isn't diluted by weeks that never existed.
 const winWk=Math.min(8,spanWk);
-const recentN=ss.filter(s=>s.date>=daysAgoStr(56)).length;
+const recentWindow=calendarWindow(56);
+const recentN=ss.filter(s=>dateInWindow(s.date,recentWindow)).length;
 const perWk8=Math.round(recentN/winWk*10)/10;
 // warmup compliance — null means "not recorded" (retro logs) and stays out of the rate
 const wuSessions=ss.filter(s=>s.warmup!=null);
@@ -4638,10 +4710,10 @@ let h=`<div class="sec"><h2 class="sr-only">Progress</h2>`;
 // momentum, consistency and volume balance into three coloured verdicts so
 // opening the tab answers "how am I doing?" without scrolling. ═══
 {const up=mom.filter(m=>m.slope>0.05).length,dn=mom.filter(m=>m.slope<-0.05).length;
-const strV=!mom.length?{t:'Build data',c:'var(--mu)',s:'track 3+ sessions/lift'}
-  :up/mom.length>=0.5?{t:'Climbing',c:'var(--pr)',s:`${up}/${mom.length} lifts rising`}
+const strV=!mom.length?{t:'Build data',c:'var(--mu)',s:'needs recent rep/load data'}
+  :up/mom.length>=0.5?{t:'Rising estimates',c:'var(--pr)',s:`${up}/${mom.length} eligible lifts`}
   :up>0?{t:'Mixed',c:'var(--am)',s:`${up} up · ${dn} down`}
-  :{t:'Stalled',c:'var(--rd)',s:`${dn||mom.length} not progressing`};
+  :{t:'Flat / lower',c:'var(--mu)',s:`${dn} lower · ${mom.length-dn} flat`};
 // "On track" needs ≥3.0/week: the per-cycle volume that meets MEV only holds as WEEKLY
 // volume if a full A→B→C lands inside 7 days. But the program's own cadence is
 // every-other-day (ceiling 3.5/wk), so 3.0 has zero slack — one extra rest day in a
@@ -4654,9 +4726,8 @@ const conV=con.perWk8>=3?{t:'On track',c:'var(--gr)'}
 let below=0,worst=null,worstGap=0;for(const[k,l,mev] of MG_INFO){if(mev==null)continue;const v=wv[k]||0;if(v<mev){below++;if(mev-v>worstGap){worstGap=mev-v;worst=l}}}
 const noVol=!Object.keys(wv).length;
 const balV=noVol?{t:'No sets',c:'var(--mu)',s:'last 10 days'}
-  :below<=1?{t:'Balanced',c:'var(--gr)',s:'near reference range'}
-  :below<=3?{t:`${below} gaps`,c:'var(--am)',s:worst?`lowest: ${worst}`:''}
-  :{t:`${below} low`,c:'var(--rd)',s:worst?`lowest: ${worst}`:''};
+  :below===0?{t:'At reference',c:'var(--mu)',s:'all at/above lower reference'}
+  :{t:`${below} below`,c:'var(--mu)',s:'app volume reference'};
 h+=`<div class="status-hd">
 <div class="status-cell"><div class="status-k">Strength</div><div class="status-v" style="color:${strV.c}">${strV.t}</div><div class="status-s">${strV.s}</div></div>
 <div class="status-cell"><div class="status-k">Consistency</div><div class="status-v" style="color:${conV.c}">${conV.t}</div><div class="status-s">${con.perWk8}/wk (8wk) · ${snap.streak}wk streak</div></div>
@@ -4670,8 +4741,8 @@ const SEGS=[['overview','Overview'],['lifts','Lifts'],['balance','Balance'],['co
 // have — worse than a plain button, because assistive tech tells the user there is a panel
 // to move to. Each chip now has a stable id and points at the single panel below; the panel
 // names the SELECTED chip back, so the association follows the switch.
-h+=`<div class="seg-row" role="tablist" aria-label="Progress sections">`;
-for(const[k,l] of SEGS)h+=`<button type="button" id="segtab-${k}" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" aria-selected="${STAT_SEG===k}" aria-controls="seg-panel" onclick="STAT_SEG='${k}';render()">${l}</button>`;
+h+=`<div class="seg-row" role="tablist" aria-label="Progress sections" aria-orientation="horizontal" onkeydown="progressTabKey(event)">`;
+for(const[k,l] of SEGS)h+=`<button type="button" id="segtab-${k}" data-segment="${k}" class="seg-chip${STAT_SEG===k?' on':''}" role="tab" tabindex="${STAT_SEG===k?0:-1}" aria-selected="${STAT_SEG===k}" aria-controls="seg-panel" onclick="chooseProgressSegment('${k}')">${l}</button>`;
 h+=`</div>`;
 h+=`<div id="seg-panel" role="tabpanel" aria-labelledby="segtab-${STAT_SEG}" tabindex="0">`;
 
@@ -4697,6 +4768,7 @@ const dPct=(c,p)=>{if(!p)return'';const d=Math.round((c-p)/p*100);
 const dRpe=(c,p)=>{if(c==null||p==null)return'';const d=Math.round((c-p)*10)/10;
   return`<span style="color:var(--mu)">${d===0?'→':d>0?'↑':'↓'}${d?Math.abs(d):''}</span>`};
 h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Last 4 wk vs prior 4 wk</div>
+<div class="dm" style="margin-bottom:8px">${calendarWindowLabel(pc.windows.cur)} vs ${calendarWindowLabel(pc.windows.prev)} · ${pc.windows.cur.days} dates each</div>
 <div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${(pc.cur.vol/1000).toFixed(1)}t</div><div class="estrip-lbl">External load ${dPct(pc.cur.vol,pc.prev.vol)}</div></div>
 <div class="estrip-cell"><div class="estrip-num">${pc.cur.sessions}</div><div class="estrip-lbl">Sessions ${dAbs(pc.cur.sessions,pc.prev.sessions)}</div></div>
@@ -4716,15 +4788,16 @@ if(mom.length){
 const moving=mom.filter(m=>m.slope>0.05).slice(0,3);
 const stalled=mom.filter(m=>m.slope<=0.05).sort((a,b)=>a.slope-b.slope).slice(0,2);
 h+=`<div class="cd"><div class="lb" style="margin-bottom:2px">Strength Momentum</div>
-<div class="dm" style="margin-bottom:5px">e1RM trend over 8 weeks · needs 3+ weighted sessions per lift</div>`;
+<div class="dm" style="margin-bottom:5px">Fitted e1RM rate within the last 56 days. At least 3 observations over 14 days; last exposure within 21 days. These display rules do not establish strength or muscle gain.</div>`;
 // Uniform 1-decimal display (raw slopes carry 2dp rounding — '+2.4' next to '+2.34'
 // read as inconsistent precision); comparisons keep full precision.
 // Each row carries an inline e1RM sparkline (last 8 sessions) so the shape of the
 // trend reads without opening the Lifts detail — the text keeps the exact number.
-const momSpark=(id,color)=>{const def=ALL_EX.find(e=>e.id===id);const vals=getHist(id,8).filter(x=>x.wt&&effectiveReps(def,x.reps).length).map(x=>e1rm(x.wt,Math.max(...effectiveReps(def,x.reps))));return spark(vals,60,16,color)};
-for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,C_GR)}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
-for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}</span>${momSpark(m.id,m.slope<-0.05?CH_PR:CH_TXT)}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
-if(!moving.length&&stalled.length)h+=`<div class="dm" style="margin-top:3px">Nothing trending up — check the stalled lifts' suggestions on workout day.</div>`;
+const momSpark=(m,color)=>spark(m.values,60,16,color);
+const momMeta=m=>`<div class="dm" style="font-weight:400">${m.n} observations · ${fmtD(m.start)} – ${fmtD(m.end)} · last ${m.ageDays}d ago</div>`;
+for(const m of moving)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}${momMeta(m)}</span>${momSpark(m,C_GR)}<span style="color:var(--gr);font-weight:700;white-space:nowrap">↑ +${m.slope.toFixed(1)} kg/wk</span></div>`;
+for(const m of stalled)h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12px"><span style="font-weight:600;flex:1">${esc(m.nm)}${momMeta(m)}</span>${momSpark(m,m.slope<-0.05?CH_PR:CH_TXT)}<span style="color:${m.slope<-0.05?'var(--am)':'var(--mu)'};font-weight:700;white-space:nowrap">${m.slope<-0.05?'↓':'→'} ${m.slope.toFixed(1)} kg/wk</span></div>`;
+h+=`<div class="dm" style="margin-top:5px">Sparkline points are observations, not evenly spaced dates. Technique, effort and rep-range changes can affect estimates. Quality, club, mace and carry work are excluded; older or sparse series are omitted.</div>`;
 h+=`</div>`}
 
 // Big-4 combined e1RM — one line answering "am I getting stronger overall?"
@@ -4733,16 +4806,8 @@ if(b4.length>=2)h+=`<div class="cd">${svgLine(b4.map(w=>({v:w.v,l:w.lbl})),360,1
 <div class="dm" style="text-align:center;margin-top:4px">Hex DL + Hex Squat + OHP + Floor Press · best weekly e1RM each · skipped weeks carry the last known value</div></div>`}
 if(!rprs.length&&!mom.length)h+=`<div class="cd" style="text-align:center;padding:16px"><div class="dm">No trend data yet — PRs and per-lift momentum land here after a few sessions.</div></div>`;
 
-// Priority nudge — the ONE canonical "what to fix" line (it used to be restated
-// three times: here-ish, in the balance card, and in the status cell).
-// Needs history to be meaningful: with nothing logged, EVERY gated muscle sits at 0 and the
-// largest MEV wins by default, so a brand-new account was told "Back/Lats is furthest below
-// MEV — add a set there" before it had seen a single session. Nothing to prioritise yet is
-// not the same as a deficit, and the trend card above already stays quiet on an empty account.
-{let worst=null,worstGap=0;
-if(D.sessions.length)
-for(const[key,label,mev] of MG_INFO){if(mev==null)continue;const v=(wv[key]||0);const gap=mev-v;if(gap>worstGap){worstGap=gap;worst=label}}
-if(worst)h+=`<div class="cd" style="padding:11px 16px"><span style="font-size:12px;color:var(--am)">↑ Priority: <b>${worst}</b> is furthest below the reference minimum — consider a set there first. Details in Balance.</span></div>`;}
+// A population reference gap is descriptive; it cannot prescribe a personal dose.
+if(D.sessions.length)h+=`<div class="cd" style="padding:11px 16px"><div class="dm">Balance compares logged work with app references. Falling below a reference alone does not mean you need more sets; interpret it alongside performance, recovery and available training time.</div></div>`;
 
 }else if(STAT_SEG==='lifts'){
 // ═══ LIFTS — strength level + per-exercise deep-dive ═══
@@ -4790,17 +4855,18 @@ const liftPrs=recentPRs(null).filter(p=>p.id===STAT_EX);
 if(selEx?.tp==='band'){
 // ── Band lifts progress along the band ladder + total reps, not weight — the
 // weight/e1RM charts were permanently dead here ("Need 2+ data points"). ──
-const bHist=es.history||[];
+const bHist=es.history||[],comparable=comparableBandHistory(STAT_EX,56);
 const totReps=x=>(x.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0);
-const bestReps=bHist.length?Math.max(...bHist.map(totReps)):0;
+const bestReps=comparable.length?Math.max(...comparable.map(totReps)):0;
 const rSl=repsSlope(STAT_EX,56);
-const repTrend=rSl?Math.round(rSl.slope*8):null;
+const repTrend=rSl?rSl.change:null;
 if(es.sessions){
 h+=`<div class="estrip">
-<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${bestReps||'—'}</div><div class="estrip-lbl">Best Reps</div></div>
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${bestReps||'—'}</div><div class="estrip-lbl">Best same setup</div></div>
 <div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'—'}</div><div class="estrip-lbl">Band</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:${repTrend>0?'var(--gr)':repTrend<0?'var(--am)':'var(--tx)'}">${repTrend!=null?(repTrend>0?'+':'')+repTrend:'—'}</div><div class="estrip-lbl">Reps · 8wk</div></div></div>`;
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--tx)">${repTrend!=null?(repTrend>0?'+':'')+repTrend:'—'}</div><div class="estrip-lbl">Observed reps Δ</div></div></div>`;
+h+=`<div class="dm" style="margin-bottom:10px">${rSl?`${rSl.n} observations · ${fmtD(rSl.start)} – ${fmtD(rSl.end)} · ${esc(rSl.band)} · ${rSl.sets} completed sets`:'A comparable trend needs 3 observations over 14 days at the same band and set count.'} Band, set-count or recorded phase changes start a new comparison. Tempo and effort may still differ.</div>`;
 }
 // Band ladder — where the current band sits on the progression path. Assist lifts
 // read left→right toward 'None' (less assistance); resist lifts read left→right
@@ -4812,9 +4878,9 @@ const rungs=assist?BANDS:BANDS.slice(0,-1).reverse();
 h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Band Ladder</div><div class="band-lad">`;
 h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">${esc(b.replace(' (heaviest)',''))}</span>`).join(`<span class="dm" style="font-size:9px">→</span>`);
 h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
-if(bHist.length){
-const repD=bHist.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
-h+=`<div class="cd">${svgLine(repD,360,170,C_PR,'Total Reps / Session')}</div>`;
+if(comparable.length){
+const repD=comparable.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
+h+=`<div class="cd">${svgLine(repD,360,170,C_PR,'Reps · Same Band and Set Count')}<div class="dm">Latest comparable run only · points spaced by session</div></div>`;
 }
 }else{
 // stat strip for selected exercise (Change = e1RM delta over 8 weeks, not
@@ -4824,7 +4890,8 @@ h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${es.pr.bestWt?es.pr.bestWt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':'—'}</div><div class="estrip-lbl">Best</div></div>
 <div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.wt?es.last.wt+'<span style=\"font-size:10px;color:var(--mu)\">kg</span>':(es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'BW')}</div><div class="estrip-lbl">Last</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
-<div class="estrip-cell"><div class="estrip-num" style="color:${es.trend>0?'var(--gr)':es.trend<0?'var(--am)':'var(--tx)'}">${es.trend!=null?(es.trend>0?'+':'')+es.trend.toFixed(1)+'kg':'—'}</div><div class="estrip-lbl">e1RM · 8wk</div></div></div>`;
+<div class="estrip-cell"><div class="estrip-num" style="color:var(--tx)">${es.trend!=null?(es.trend>0?'+':'')+es.trend.toFixed(1)+'kg':'—'}</div><div class="estrip-lbl">Observed e1RM Δ</div></div></div>`;
+if(es.trendInfo)h+=`<div class="dm" style="margin-bottom:10px">${es.trendInfo.n} observations · ${fmtD(es.trendInfo.start)} – ${fmtD(es.trendInfo.end)} · last ${es.trendInfo.ageDays}d ago. Endpoint estimate change; technique, effort and rep ranges may differ.</div>`;
 }
 // Projection + PR recency — where this lift is headed and when it last moved.
 if(selEx&&E1RM_TYPES.has(selEx.tp)){
@@ -4882,7 +4949,7 @@ h+=`</div>`}
 // Body heat map first — the same wv numbers as the bars below, but as a shape.
 // Tapping a muscle selects it in the Set Count chart further down.
 h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Heat Map</div>
-<div class="dm" style="margin-bottom:10px">Sets/week (normalized, last 10 days) · tap a muscle for its weekly chart</div>
+<div class="dm" style="margin-bottom:10px">Sets/week (normalized, last 10 days: ${calendarWindowLabel(calendarWindow(10))}) · tap a muscle for its weekly chart</div>
 ${bodyHeatH(wv)}</div>`;
 // Per-muscle MEV/MAV status (10-day window = full A→B→C rotation), merged with
 // each muscle's 8-week history so "where am I now" and "how did I get here"
@@ -4894,9 +4961,9 @@ for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
   let col='var(--mu)',tag='';
   if(mev!=null){
-    if(v<mev){col='var(--am)';tag='below reference — consider a set';}
-    else if(v<mav){col='var(--gr)';tag='productive';}
-    else{col='var(--pr)';tag='high volume';}
+    if(v<mev){col='var(--am)';tag='below reference';}
+    else if(v<mav){col='var(--gr)';tag='within reference';}
+    else{col='var(--pr)';tag='at/above upper reference';}
   }
   const pct=mav?Math.min(100,Math.round(v/mav*100)):(v>0?60:0);
   h+=`<div style="margin-bottom:16px">
@@ -4917,25 +4984,23 @@ for(const[key,label,mev,mav] of MG_INFO){
   h+=`</div>`;
 }
 if(!anyVol)h+=`<div class="dm">No logged sets in the last 10 days.</div>`;
-// (The Priority nudge lives on Overview — one canonical statement, not three.)
-// Push:pull set ratio over the same window. Side delts and legs are excluded by
-// convention; ~1:1 (0.7–1.4) keeps shoulders happy in a pressing-biased program.
+// These overlapping muscle credits describe the accounting, not push/pull
+// strength or a shoulder-health target. No ideal ratio is inferred from them.
 {const push=(wv.chest||0)+(wv.fdelt||0)+(wv.triceps||0),pull=(wv.back||0)+(wv.reardelt||0)+(wv.biceps||0);
 if(push||pull){const ratio=pull?Math.round(push/pull*100)/100:null;
-const ok=ratio!=null&&ratio>=0.7&&ratio<=1.4;
-h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid var(--cb)"><span style="font-weight:600">Push : Pull</span>
-<span style="color:${ok?'var(--gr)':'var(--am)'}">${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})${ok?' ✓':' — aim ~1:1'}`:''}</span></div>`;
+h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;padding-top:7px;border-top:1px solid var(--cb)"><span style="font-weight:600">Push/pull muscle credits</span>
+<span>${Math.round(push*10)/10} : ${Math.round(pull*10)/10}${ratio!=null?` (${ratio})`:''}</span></div>`;
 // Two-segment split bar (cyan push / violet pull, 2px surface gap) — the ratio as
 // a shape, not just a number. Labels live in the row above, never on the bar.
 if(push&&pull)h+=`<div style="display:flex;gap:2px;height:7px;margin-top:6px;border-radius:3px;overflow:hidden">
 <div style="width:${Math.round(push/(push+pull)*100)}%;background:var(--pr);opacity:.85"></div>
 <div style="flex:1;background:var(--pu);opacity:.85"></div></div>`}}
-h+=`<div class="dm" style="margin-top:4px">Tick = app reference minimum; the full bar is the upper reference. Indirect work counts half, so these are directional estimates—not precise dose measurements or universal targets. Mini-bars: one per week, amber = below reference.</div></div>`;
+h+=`<div class="dm" style="margin-top:4px">Tick = lower app reference; the full bar is the upper reference. Sets receive fixed muscle credits, including partial credit for indirect work. These estimates do not measure effort, personal minimum effective volume, or push/pull strength. A reference gap alone does not call for more sets. Mini-bars: one per week, amber = below reference.</div></div>`;
 
 // ── Muscle Trend: this 28-day window vs the 28 days before it, per muscle ──
 {const mpc=musclePeriodCompare(28);
 if(mpc.length){h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Trend</div>
-<div class="dm" style="margin-bottom:12px">Effective sets · last 28 days vs the 28 before (tick = previous period)</div>`;
+<div class="dm" style="margin-bottom:12px">Estimated set credits · ${calendarWindowLabel(calendarWindow(28))} vs ${calendarWindowLabel(calendarWindow(28,28))} (tick = previous period)</div>`;
 const mx=Math.max(...mpc.map(x=>Math.max(x.cur,x.prev)),1);
 for(const x of mpc){const d=Math.round((x.cur-x.prev)*10)/10;
 h+=`<div style="margin-bottom:12px">
@@ -5121,10 +5186,24 @@ if(allPrs.length>8)h+=`<div style="text-align:center;margin-top:4px"><button cla
 h+=`</div>`}
 h+=`<button class="btn btn-wh" style="margin-top:12px;font-size:13px" onclick="go('body')">📏 Body Tracking</button>`;
 }
-h+=`</div></div>`;el.innerHTML=h;  // close #seg-panel, then .sec
-// The chip row scrolls with a hidden scrollbar — keep the active segment visible
-// (Monthly/Lifetime start off-screen on phones). block:'nearest' avoids page jumps.
-setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inline:'center',block:'nearest'})}catch(e){}},60)}
+h+=`</div></div>`;el.innerHTML=h}  // close #seg-panel, then .sec
+// Only move the horizontal chip row. scrollIntoView can also move the whole page.
+function revealProgressSegment(){const row=document.querySelector('.seg-row'),tab=row?.querySelector('.seg-chip.on');
+if(!row||!tab)return;const r=row.getBoundingClientRect(),t=tab.getBoundingClientRect();
+if(t.left<r.left+20)row.scrollLeft+=t.left-r.left-20;
+else if(t.right>r.right-28)row.scrollLeft+=t.right-r.right+28}
+function chooseProgressSegment(seg){STAT_SEG=seg;render();
+document.getElementById('segtab-'+seg)?.focus({preventScroll:true})}
+function progressTabKey(event){
+if(event.altKey||event.ctrlKey||event.metaKey)return;
+const tabs=Array.from(event.currentTarget.querySelectorAll('[role="tab"]'));
+const i=tabs.indexOf(event.target);if(i<0)return;let next;
+if(event.key==='ArrowRight')next=(i+1)%tabs.length;
+else if(event.key==='ArrowLeft')next=(i+tabs.length-1)%tabs.length;
+else if(event.key==='Home')next=0;
+else if(event.key==='End')next=tabs.length-1;
+else return;
+event.preventDefault();chooseProgressSegment(tabs[next].getAttribute('data-segment'))}
 
 // ─── BODY ────────────────────────────────────
 // Body-composition tracking: bodyweight (scale) + circumference sites (tape
@@ -5133,10 +5212,10 @@ setTimeout(()=>{try{document.querySelector('.seg-chip.on')?.scrollIntoView({inli
 // keys are preserved, the rest are additive, so old data renders unchanged.
 // Per-theme metric line colors — applyTheme() rewrites .c from these (SVG fills
 // can't read CSS vars). Order matches BODY_METRICS.
-const BM_C={light:['#007ba8','#6d47e6','#b26102','#0c8050','#d61f5e','#c2410c','#1263d6','#a21caf','#0d9488','#64748b'],
+const BM_C={light:['#00729d','#6d47e6','#b26102','#0c8050','#d61f5e','#c2410c','#1263d6','#a21caf','#0d9488','#64748b'],
 dark:['#2fb3e8','#9b7bff','#f0a848','#3ecf8e','#ff5f8d','#e8703a','#5b9bf0','#d478e0','#2fc4b2','#8a94ad']};
 const BODY_METRICS=[
-  {k:'weight',    lb:'Weight',    u:'kg', c:'#007ba8', step:'0.1'},
+  {k:'weight',    lb:'Weight',    u:'kg', c:'#00729d', step:'0.1'},
   {k:'neck',      lb:'Neck',      u:'cm', c:'#6d47e6', step:'0.5'},
   {k:'shoulders', lb:'Shoulders', u:'cm', c:'#b26102', step:'0.5'},
   {k:'chest',     lb:'Chest',     u:'cm', c:'#0c8050', step:'0.5'},
@@ -5222,6 +5301,7 @@ h+=`<button class="btn btn-wh" style="margin-top:10px;font-size:13px" onclick="g
 h+=`</div>`;el.innerHTML=h}
 window.setBodyMetric=function(k){BODY_METRIC=k;render()}
 window.saveBod=function(){
+if(!WRITER)return;
 const t=today();const ix=D.bodyLog.findIndex(b=>b.date===t);
 // Merge onto today's existing entry so a partial re-log doesn't wipe earlier fields.
 const entry=ix>=0?{...D.bodyLog[ix]}:{date:t};
@@ -5235,16 +5315,17 @@ const entry=ix>=0?{...D.bodyLog[ix]}:{date:t};
 // as {date} and has no key to delete), which is what makes "blank = skip" and
 // "blank = retract" the same line of code rather than two branches.
 for(const m of BODY_METRICS){const el=document.getElementById('bm_'+m.k);if(!el)continue;
-const raw=(el.value==null?'':String(el.value)).trim();const v=parseFloat(raw);
-if(!isNaN(v))entry[m.k]=Math.round(v*100)/100;
+const raw=(el.value==null?'':String(el.value)).trim();const v=finiteNumber(raw);
+if(raw&&!(v>0)){alert(`Enter a positive number for ${m.lb}`);return}
+if(v>0)entry[m.k]=Math.round(v*100)/100;
 else if(raw==='')delete entry[m.k]}
 // Clearing every field is a request to remove the day, not a malformed save — but deleting
 // a log silently on a blank form would be a nasty surprise, so point at the explicit
 // control instead. delBod() is confirm-gated and already does exactly this.
 if(!BODY_METRICS.some(m=>entry[m.k]!=null&&entry[m.k]!=='')){
 alert(ix>=0?'That would clear every measurement for today. Use ✕ on the entry below to delete the whole day.':'Enter at least one measurement');return}
-if(ix>=0)D.bodyLog[ix]=entry;else D.bodyLog.push(entry);
-D.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));save();render()}
+const W=structuredClone(D);if(ix>=0)W.bodyLog[ix]=entry;else W.bodyLog.push(entry);
+W.bodyLog.sort((a,b)=>a.date.localeCompare(b.date));save(W,{after:render})}
 window.delBod=function(date){if(!confirm('Delete this measurement log?'))return;
 D.bodyLog=(D.bodyLog||[]).filter(b=>b.date!==date);save();render()}
 
@@ -5402,14 +5483,17 @@ h+=`<div style="display:flex;gap:8px;margin-top:14px">
 el.innerHTML=h}
 
 function savePast(){
+if(!WRITER)return;
 const pr=getProgram(D.phase,LP.loc);
 const exs=pr[LP.day]||[];const logged=[];
 for(const ex of exs){
 const wEl=document.getElementById(`lp_${ex.id}_wt`);
 const bEl=document.getElementById(`lp_${ex.id}_band`);
 const reps=[];let hasData=false;
-for(let i=0;i<ex.s;i++){const r=document.getElementById(`lp_${ex.id}_r${i}`);const v=r?parseInt(r.value)||0:0;reps.push(v);if(v>0)hasData=true}
-const wt=wEl?parseFloat(wEl.value)||null:null;
+for(let i=0;i<ex.s;i++){const r=document.getElementById(`lp_${ex.id}_r${i}`);const raw=r?.value?.trim()||'';const v=raw===''?0:finiteNumber(raw);
+if(v===null||!Number.isInteger(v)){alert('Enter non-negative whole numbers for completed reps');return}reps.push(v);if(v>0)hasData=true}
+const rawWeight=wEl?.value?.trim()||'',wt=rawWeight===''?null:finiteNumber(rawWeight);
+if(rawWeight&&!(wt>0)){alert('Enter a positive weight');return}
 const band=bEl?bEl.value:'';
 if(wt)hasData=true;if(band)hasData=true;
 if(hasData)logged.push({id:ex.id,wt,reps,band,notes:''})}
@@ -5417,18 +5501,21 @@ if(!logged.length){alert('No data entered');return}
 const dt=LP.date||today();
 // Reject future dates: a future session becomes the "latest" and drives nextDay + the
 // cycle/streak math off today(), yielding negative "days ago" and a wrong next day.
+if(!validISODate(dt)){alert('Enter a valid calendar date.');return}
 if(dt>today()){alert('Cannot log a session dated in the future.');return}
 // Patch 9: Compute volume
 let tv=0;for(const e of logged){tv+=calcExVol(e.id,e.wt,e.reps)}
 // warmup:null (unknown) — retro sessions logged warmup:0 and tripped the red
 // "Warm-ups skipped" banner for workouts whose warm-up simply wasn't recorded.
-D.sessions.push({id:'s'+Date.now(),date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:logged,volume:tv,duration:null,difficulty:null,warmup:null,retro:true});
+const W=structuredClone(D);if(!LP.pendingId)LP.pendingId=recordId();
+W.sessions.push({id:LP.pendingId,date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:logged,volume:tv,duration:null,difficulty:null,warmup:null,retro:true});
 // Sort sessions by date
-D.sessions.sort((a,b)=>a.date.localeCompare(b.date));
+W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 // Update nextDay based on the latest ROTATION session — location aware. A retro-logged core
 // block must not shunt the cycle forward.
-{const last=lastRotSession(D.sessions);if(last)D.nextDay=NEXT_DAY[last.day];}
-save();go('history')}
+{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}
+const retry=!!PENDING_SAVE&&PENDING_SAVE.sessions.some(s=>s.id===LP.pendingId);
+save(W,{retry,after:()=>{delete LP.pendingId;go('history')}})}
 // ─── PLATES ──────────────────────────────────
 function rPlates(el){
   // Render one weight ladder as a labelled section. lm=true → single-end (landmine) plate
@@ -5482,16 +5569,16 @@ else if(perm==='denied'){h+=`<div style="font-size:12px;color:var(--am);margin-b
 else if(!on){h+=`<div style="font-size:12px;margin-bottom:8px">Get a ping when your rest timer finishes while the app is in the background.</div>
 <button class="btn btn-pr btn-md" onclick="reqNotify()">🔔 Enable notifications</button>`;}
 else{h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-<span style="font-size:12px;font-weight:600">Rest-timer alerts</span>
-<button class="toggle${D.notify.rest?' on':''}" onclick="toggleNotifyRest()"><span class="toggle-dot"></span></button></div>
+<span id="rest-alerts-label" style="font-size:12px;font-weight:600">Rest-timer alerts</span>
+<button type="button" class="toggle${D.notify.rest?' on':''}" role="switch" aria-labelledby="rest-alerts-label" aria-checked="${!!D.notify.rest}" onclick="toggleNotifyRest()"><span class="toggle-dot" aria-hidden="true"></span></button></div>
 <button class="btn btn-wh btn-sm" onclick="notifTest('Test ping 🔔','Notifications are working.')">Send test ping</button>
 <div class="dm" style="margin-top:6px">Fires only when the app is backgrounded — on-screen you still get the beep + buzz. Scheduled "train today" reminders aren't possible without a server.</div>`;}
 h+=`</div>`;}
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Screen</div>`;
 if('wakeLock'in navigator){const wkOn=!(D.notify&&D.notify.wake===false);
 h+=`<div class="cd"><div style="display:flex;justify-content:space-between;align-items:center">
-<span style="font-size:12px;font-weight:600">Keep screen awake during workouts</span>
-<button class="toggle${wkOn?' on':''}" aria-pressed="${wkOn}" onclick="toggleWake()"><span class="toggle-dot"></span></button></div>
+<span id="keep-awake-label" style="font-size:12px;font-weight:600">Keep screen awake during workouts</span>
+<button type="button" class="toggle${wkOn?' on':''}" role="switch" aria-labelledby="keep-awake-label" aria-checked="${wkOn}" onclick="toggleWake()"><span class="toggle-dot" aria-hidden="true"></span></button></div>
 <div class="dm" style="margin-top:6px">Stops the screen sleeping mid-workout so the rest alarm always fires on time. Uses a little more battery; only held while a workout is in progress.</div></div>`;}
 else h+=`<div class="cd"><div class="dm">This browser can't keep the screen awake.</div></div>`;
 // Return from break. The home banner is dismissible and only re-arms on the next break, so
@@ -5532,57 +5619,104 @@ h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thicke
 function expD(){const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
 const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.download=`workout-${today()}.json`;a.click();
 setTimeout(()=>{try{URL.revokeObjectURL(u)}catch(e){}},10000);
-D.lastBackup=today();D.lastBackupCount=D.sessions.length;save();render()}
+if(WRITER&&!PENDING_SAVE){const W=structuredClone(D);W.lastBackup=today();W.lastBackupCount=W.sessions.length;save(W)}render()}
 // Download the raw corrupted-store copy (rescued by load()) for offline recovery.
-function dlCorrupt(){try{const raw=localStorage.getItem(SK+'-corrupt');if(!raw)return;
+function dlCorrupt(){try{const raw=RECOVERY_RAW||localStorage.getItem(SK+'-corrupt');if(!raw)return;
 const b=new Blob([raw],{type:'application/json'});
 const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.download=`corrupt-store-${today()}.json`;a.click();
 setTimeout(()=>{try{URL.revokeObjectURL(u)}catch(e){}},10000)}catch(e){}}
 // Schema guard for imports. A malformed backup (sessions without ex arrays,
 // non-numeric reps, garbage dates) used to merge silently and crash renders
 // later. Coerce what's salvageable, return null for what isn't.
+// Shared data boundary. Only supported fields enter trusted state; free text is still
+// escaped by renderers. Historic Core (X) is valid, but unknown days are quarantined.
+function validISODate(v){if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+const d=new Date(v+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===v}
+function finiteNumber(v,min=0){if(v===null||v===''||typeof v==='boolean'||!['number','string'].includes(typeof v))return null;
+const n=Number(v);return Number.isFinite(n)&&n>=min?n:null}
+function safeId(v){return ['number','string'].includes(typeof v)&&/^[\w.-]{1,64}$/.test(String(v))?String(v):null}
+function plainObject(v){return !!v&&typeof v==='object'&&!Array.isArray(v)}
 function validSession(s){
-if(!s||typeof s!=='object'||Array.isArray(s))return null;
-if(s.id==null||(typeof s.id!=='string'&&typeof s.id!=='number'))return null;
-if(typeof s.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s.date))return null;
-if(!Array.isArray(s.ex))return null;
+if(!plainObject(s)||!safeId(s.id)||!validISODate(s.date)||!Array.isArray(s.ex)||!['A','B','C','X'].includes(s.day))return null;
 const ex=[];
 for(const e of s.ex){
-  if(!e||typeof e!=='object'||typeof e.id!=='string')continue;
-  const reps=Array.isArray(e.reps)?e.reps.map(r=>{const n=Number(r);return Number.isFinite(n)&&n>0?n:0}):[];
-  const wt=e.wt==null?null:(Number.isFinite(Number(e.wt))?Number(e.wt):null);
-  // Per-set weight overrides: keep only a well-formed array of positive numbers
-  // (null = inherit wt); anything else — or an all-null array — drops the key so
-  // readers can trust `Array.isArray(e.wts)` implies real overrides.
-  let wts;if(Array.isArray(e.wts)){wts=e.wts.map(w=>{const n=Number(w);return Number.isFinite(n)&&n>0?n:null});
-    if(!wts.some(w=>w!=null))wts=undefined}
-  // Coerce free-text fields to strings — non-string band/notes from a hand-edited
-  // backup used to flow into templates as objects/arrays (escaped at render too).
-  const row={...e,reps,wt,band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
-  if(wts)row.wts=wts;else delete row.wts;
-  // Set clock (seconds from session start, 0 = unstamped): same treatment as wts — keep
-  // only a well-formed array of finite non-negative numbers, and drop the key entirely if
-  // nothing in it is stamped, so `row.ts` existing always means real timing data.
-  let ts;if(Array.isArray(e.ts)){ts=e.ts.map(t=>{const n=Number(t);return Number.isFinite(n)&&n>0?Math.round(n):0});
-    if(!ts.some(t=>t>0))ts=undefined}
-  if(ts)row.ts=ts;else delete row.ts;
+  if(!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id))continue;
+  const reps=Array.isArray(e.reps)?e.reps.map(r=>finiteNumber(r)||0):[];
+  const row={id:e.id,reps,wt:finiteNumber(e.wt),band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
+  if(Array.isArray(e.form))row.form=e.form.map(f=>Number.isInteger(finiteNumber(f))&&finiteNumber(f)<=5?Number(f):0);
+  if(Array.isArray(e.wts)){const wts=e.wts.map(w=>finiteNumber(w)>0?Number(w):null);if(wts.some(w=>w!==null))row.wts=wts}
+  if(Array.isArray(e.ts)){const ts=e.ts.map(t=>Math.round(finiteNumber(t)||0));if(ts.some(t=>t>0))row.ts=ts}
   ex.push(row)}
-// `day` is load-bearing for render (badges, cycle, NEXT_DAY) — every render path calls
-// s.day.toLowerCase(). The program uses A/B/C only; normalize anything else to 'A' so a
-// malformed/hand-edited backup can't crash the Home/History screens it lands on.
-const day=['A','B','C'].includes(s.day)?s.day:'A';
-// Session ids are interpolated into inline onclick handlers (delete/expand) — constrain
-// the charset so a hostile/hand-mangled backup id can't break out of the attribute.
-const id=String(s.id).replace(/[^\w.-]/g,'');
-if(!id)return null;
-return{...s,id,day,ex}}
+const row={id:safeId(s.id),date:s.date,day:s.day,ex,
+  duration:finiteNumber(s.duration),difficulty:[1,2,3,4,5].includes(finiteNumber(s.difficulty))?Number(s.difficulty):null,
+  warmup:[0,1,2,3].includes(finiteNumber(s.warmup))?Number(s.warmup):null,
+  volume:finiteNumber(s.volume),notes:typeof s.notes==='string'?s.notes:''};
+if(['home','partner'].includes(s.loc))row.loc=s.loc;
+if([1,2,3].includes(s.phase))row.phase=s.phase;
+for(const k of ['express','retro','noProg'])if(s[k]===true)row[k]=true;
+for(const k of ['durationSuspicious','warmupRow'])if(typeof s[k]==='boolean')row[k]=s[k];
+if(s.dayCFocus===null||typeof s.dayCFocus==='string')row.dayCFocus=s.dayCFocus;
+if(Number.isInteger(finiteNumber(s.trainingWeek)))row.trainingWeek=Number(s.trainingWeek);
+return row}
+function validBody(b){if(!plainObject(b)||!validISODate(b.date))return null;
+const row={date:b.date};for(const m of BODY_METRICS){const n=finiteNumber(b[m.k]);if(n>0)row[m.k]=Math.round(n*100)/100}
+return Object.keys(row).length>1?row:null}
+function validCardio(c){if(!plainObject(c)||!safeId(c.id)||!validISODate(c.date)||!(finiteNumber(c.duration)>0))return null;
+return{id:safeId(c.id),date:c.date,type:typeof c.type==='string'?c.type:'Other',duration:Number(c.duration),
+intensity:['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy'}}
+function validDiscomfort(x){return plainObject(x)&&validISODate(x.date)&&typeof x.exId==='string'&&/^[\w-]{1,100}$/.test(x.exId)&&
+['mild','moderate','none'].includes(x.level)&&JOINTS.includes(x.joint)?{date:x.date,exId:x.exId,level:x.level,joint:x.joint}:null}
+function normalizeState(source){
+const d=plainObject(source)?source:{},W=freshState(),issues={dropped:0,repaired:0,sessions:0};
+const rows=(key,validate)=>{if(d[key]!=null&&!Array.isArray(d[key])){issues.dropped++;if(key==='sessions')issues.sessions=-1;return[]}
+return(Array.isArray(d[key])?d[key]:[]).map(x=>{const v=validate(x);if(!v){issues.dropped++;if(key==='sessions'&&issues.sessions>=0)issues.sessions++}return v}).filter(Boolean)};
+W.sessions=rows('sessions',validSession);W.bodyLog=rows('bodyLog',validBody);W.cardioLog=rows('cardioLog',validCardio);W.discomfort=rows('discomfort',validDiscomfort);
+// Count malformed scalar fields that were repaired without sacrificing the rest of a row.
+for(const s of (Array.isArray(d.sessions)?d.sessions:[])){if(!validSession(s))continue;
+if(['duration','volume'].some(k=>s[k]!=null&&finiteNumber(s[k])===null)||
+(s.difficulty!=null&&![1,2,3,4,5].includes(finiteNumber(s.difficulty)))||
+(s.warmup!=null&&![0,1,2,3].includes(finiteNumber(s.warmup)))||
+(s.notes!=null&&typeof s.notes!=='string')||
+(s.loc!=null&&!['home','partner'].includes(s.loc))||
+(s.phase!=null&&![1,2,3].includes(s.phase))||
+['express','retro','noProg'].some(k=>s[k]!=null&&typeof s[k]!=='boolean')||
+Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek'].includes(k))||
+s.ex.some(e=>!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id)||
+(e.wt!=null&&finiteNumber(e.wt)===null)||['band','notes'].some(k=>e[k]!=null&&typeof e[k]!=='string')||
+!Array.isArray(e.reps)||e.reps.some(r=>finiteNumber(r)===null)||
+['wts','ts','form'].some(k=>e[k]!=null&&!Array.isArray(e[k]))))issues.repaired++}
+for(const b of (Array.isArray(d.bodyLog)?d.bodyLog:[]))if(validBody(b)&&BODY_METRICS.some(m=>b[m.k]!=null&&!(finiteNumber(b[m.k])>0)))issues.repaired++;
+for(const c of (Array.isArray(d.cardioLog)?d.cardioLog:[]))if(validCardio(c)&&(!['easy','moderate','hard'].includes(c.intensity)||typeof c.type!=='string'))issues.repaired++;
+for(const [key,idKey] of [['sessions','id'],['bodyLog','date'],['cardioLog','id']]){
+const unique=new Map();for(const row of W[key]){if(unique.has(row[idKey]))issues.repaired++;unique.set(row[idKey],row)}
+W[key]=[...unique.values()].sort((a,b)=>a.date.localeCompare(b.date))}
+if(plainObject(d.cues)){for(const[k,v] of Object.entries(d.cues)){
+if(/^[\w-]{1,60}$/.test(k)&&typeof v==='string')W.cues[k]=v;else issues.dropped++}}
+else if(d.cues!=null)issues.dropped++;
+if(plainObject(d.dismissed))for(const[k,v] of Object.entries(d.dismissed))if(/^[\w-]{1,100}$/.test(k)&&['string','number'].includes(typeof v))W.dismissed[k]=String(v);
+for(const k of ['phaseStart','lastDeload','lastBackup'])if(validISODate(d[k]))W[k]=d[k];
+if(!validISODate(d.phaseStart))W.phaseStart=W.sessions[0]?.date||today();
+if([1,2,3].includes(d.phase))W.phase=d.phase;
+if(['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
+if(['home','partner'].includes(d.location))W.location=d.location;
+if(['auto','light','dark'].includes(d.theme))W.theme=d.theme;
+if(plainObject(d.notify)){W.notify={enabled:d.notify.enabled===true,rest:d.notify.rest!==false};if(typeof d.notify.wake==='boolean')W.notify.wake=d.notify.wake}
+W.programVersion=finiteNumber(d.programVersion)||0;W.gen=Math.floor(finiteNumber(d.gen)||0);
+W.lastBackupCount=Math.floor(finiteNumber(d.lastBackupCount)||0);
+if(safeId(d.resetEpoch))W.resetEpoch=String(d.resetEpoch);
+W.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&&safeId(x)).slice(-TOMB_MAX);
+W.comeback=validComeback(d.comeback);W.comebackLog=validComebackLog(d.comebackLog);
+if(d.comeback!=null&&!W.comeback)issues.dropped++;
+if(d.comebackLog!=null&&(!Array.isArray(d.comebackLog)||W.comebackLog.length!==d.comebackLog.length))issues.dropped++;
+if(d.seeded===true)W.seeded=true;
+return{W,issues}}
 // Two-tab conflict merge (pure): union the append-only logs from another tab's store
 // into ours — sessions by id, cardio by id, body by date, discomfort by composite key —
 // while every scalar (phase, location, nextDay, prefs) keeps THIS tab's in-memory value.
 // Their rows pass the same validSession guard as imports so a mangled store can't
 // smuggle malformed sessions past the load-path validation.
-function mergeStores(mine,theirs){const W=structuredClone(mine);
-if(!theirs||typeof theirs!=='object')return W;
+function mergeStores(mine,theirs){const W=normalizeState(mine).W;
+if(!plainObject(theirs))return W;theirs=normalizeState(theirs).W;
 // Deletion is the one thing a pure union cannot express. Deleting a session in this tab and
 // then saving anything at all in the other one — dismissing a banner, tapping a theme, logging
 // cardio — used to union the still-present row straight back in, and the deleted session
@@ -5643,20 +5777,13 @@ return W}
 // without touching D or storage. Throws on unsalvageable input.
 function mergeImport(cur,d){
 if(!d||typeof d!=='object'||!Array.isArray(d.sessions))throw 0;
-let skipped=0;d.sessions=d.sessions.map(validSession).filter(s=>s?true:(skipped++,false));
-if(!d.sessions.length&&skipped)throw 0; // nothing salvageable — reject outright
-if(!d.cues||typeof d.cues!=='object'||Array.isArray(d.cues))d.cues={};
-// Validate the auxiliary logs field-by-field — they render into templates and inline
-// handlers (delBod('${date}')), so imported garbage must be dropped, not adopted.
-d.bodyLog=(Array.isArray(d.bodyLog)?d.bodyLog:[]).filter(b=>b&&typeof b==='object'&&typeof b.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date))
-  .map(b=>{const o={date:b.date};for(const[k,v] of Object.entries(b)){if(k==='date')continue;const n=Number(v);if(Number.isFinite(n))o[k]=Math.round(n*100)/100}return o});
-d.cardioLog=(Array.isArray(d.cardioLog)?d.cardioLog:[]).filter(c=>c&&typeof c==='object'&&typeof c.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(c.date)&&Number.isFinite(Number(c.duration)))
-  .map(c=>({id:String(c.id||'c'+c.date).replace(/[^\w.-]/g,''),date:c.date,type:typeof c.type==='string'?c.type:'Other',duration:Number(c.duration),intensity:['easy','moderate','hard'].includes(c.intensity)?c.intensity:'easy'}));
-d.discomfort=(Array.isArray(d.discomfort)?d.discomfort:[]).filter(x=>x&&typeof x==='object'&&typeof x.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&typeof x.exId==='string'&&/^[\w-]+$/.test(x.exId)&&['mild','moderate','none'].includes(x.level)&&JOINTS.includes(x.joint));
+const normalized=normalizeState(d);const skipped=normalized.issues.dropped+normalized.issues.repaired;
+d=normalized.W;
+if(!d.sessions.length&&normalized.issues.sessions>0)throw 0; // nothing salvageable
 // ATOMIC merge: all work happens on a clone — a throw mid-merge used to leave D
 // partially mutated with the drift persisted by the next save(). D is only replaced
 // once the whole merge succeeded.
-const W=structuredClone(cur);
+const W=normalizeState(cur).W;
 // Fresh device = truly empty OR an old release still carrying the legacy `seeded` flag.
 // On a fresh restore, obsolete demo rows are dropped and phase/venue metadata is adopted
 // from the backup instead of silently keeping defaults.
@@ -5721,18 +5848,27 @@ if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
 migrateData(W);
 delete W.seeded;
 return{W,added,replaced,skipped}}
-function impD(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();
-r.onload=e=>{try{const d=JSON.parse(e.target.result);
-const{W,added,replaced,skipped}=mergeImport(D,d);
-D=W;
-if(!save())alert('⚠ Import merged but could not be written to storage (quota?). Export a backup before closing.');
-render();
-{const dup=sessionDuplicateMap(D.sessions).size;
-alert(`Import: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed session${skipped>1?'s':''} skipped`:''}${dup?` · ${dup} possible duplicate${dup>1?'s':''} flagged in History`:''}`)}}catch(e){alert('Invalid file — nothing was changed.')}};
+function saveImportedActive(){if(!WRITER||!PENDING_ACTIVE)return false;
+try{localStorage.setItem(AW_KEY,JSON.stringify(PENDING_ACTIVE))}
+catch(_){AW_ERROR='The imported unfinished workout is not saved. Retry or download this recovery copy before closing the tab.';updateSaveStatus();return false}
+PENDING_ACTIVE=null;AW_ERROR='';AW_CLEANUP=false;
+ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;updateSaveStatus();runSavedCallback(()=>{clearTimer();render()});return true}
+function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;const r=new FileReader();
+r.onload=e=>{try{const source=JSON.parse(e.target.result);const{W,added,replaced,skipped}=mergeImport(D,source);
+let active=null;if(source.activeWorkout!=null&&!W.sessions.some(s=>s.id===source.activeWorkout.id)){active=normalizeActiveRecord({...source.activeWorkout,resetEpoch:W.resetEpoch},W);
+if(!active)throw Error('Invalid active workout');
+if((ADAY||pendingAW())&&!confirm('This recovery file includes an unfinished workout. Replace the current resume workout with this copy?'))return}
+PENDING_ACTIVE=active;
+const complete=()=>{const activeSaved=active?saveImportedActive():false;
+render();const dup=sessionDuplicateMap(D.sessions).size;
+alert(`Import saved: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed records or fields skipped or repaired`:''}${dup?` · ${dup} possible duplicates flagged in History`:''}${activeSaved?' · unfinished workout available to resume':active?' · unfinished workout NOT saved; keep the recovery file':''}`)};
+if(!save(W,{after:complete}))alert('Import could not be saved. The pending import is available to retry or download; your saved history is unchanged.');
+}catch(e){alert('Invalid file — nothing was changed.')}finally{IMPORT_BUSY=false}};
+r.onerror=()=>{IMPORT_BUSY=false;alert('The file could not be read. Nothing was changed.')};
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════
-load();applyTheme();render();acquireWake();
+load();applyTheme();render();initStorageOwnership();acquireWake();
 // Screen Wake Lock is auto-released when the tab hides/locks — re-acquire it when the user
 // returns to a still-active workout so the rest alarm keeps firing on time.
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&SS!=null)acquireWake()});

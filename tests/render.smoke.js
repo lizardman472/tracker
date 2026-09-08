@@ -10,10 +10,12 @@ const fs = require('fs');
 const path = require('path');
 const HISTORY_SEED = require('./fixtures/history-state');
 
+function memoryStorage(){const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)}}
+
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},NEXT_DAY,isRotDay,lastRotSession,dayBadge,setLP:v=>{LP=v},getLP:()=>LP,setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
+  '\n;global.__R={SEED,AW_KEY,dayExs,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,go,beginW,render,stepWt,finishW,saveSumm,setSDIFF:v=>{SDIFF=v},setCIDX:i=>{CIDX=i},getLOG:()=>LOG,setEXP:v=>{EXP=v},setSTAT:v=>{STAT_EX=v},setPICK:v=>{PICK_DAY=v},NEXT_DAY,isRotDay,lastRotSession,dayBadge,setLP:v=>{LP=v},getLP:()=>LP,setSEG:v=>{STAT_SEG=v},setPRALL:v=>{STAT_PRS_ALL=v},setMONTH:v=>{STAT_MONTH=v},getPal:()=>({grid:CH_GRID,cyan:HEAT_CYAN,bm0:BODY_METRICS[0].c}),getThemeAttr:()=>document.documentElement.dataset.theme,load,SK,getA:()=>document.getElementById("app").innerHTML};';
 
 // ── DOM / browser stubs ──
 // Mirrors what a browser ACTUALLY does when you set textContent and read innerHTML back:
@@ -52,7 +54,7 @@ function setNavigator(v) {
   return v;
 }
 setNavigator({ serviceWorker: { register() { return Promise.resolve(); } } });
-global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+global.localStorage = memoryStorage();
 global.setInterval = () => 0; global.clearInterval = () => {};
 global.Blob = class { constructor(a) { this.size = (a && a[0] && a[0].length) || 0 } };
 
@@ -463,8 +465,8 @@ tryRender('Progress (band lift selected)', () => R.render());
 const bandSeg = R.getA();
 T('band lift shows the band ladder', /Band Ladder/.test(bandSeg));
 T('band ladder highlights the current band (Green in SEED)', /band-chip on">Green</.test(bandSeg), (bandSeg.match(/band-chip[^"]*">Green</) || [])[0]);
-T('band lift shows a total-reps chart, not a dead weight chart', /Total Reps \/ Session/.test(bandSeg) && !/Need 2\+ data points/.test(bandSeg));
-T('band estrip shows Best Reps + Reps · 8wk cells', /Best Reps/.test(bandSeg) && /Reps · 8wk/.test(bandSeg));
+T('band lift shows a comparable series or explains insufficient observations', /Reps · Same Band and Set Count|A comparable trend needs 3 observations/.test(bandSeg) && !/Top-Set Weight/.test(bandSeg));
+T('band estrip shows same-setup best and observed change', /Best same setup/.test(bandSeg) && /Observed reps Δ/.test(bandSeg) && !/Reps · 8wk/.test(bandSeg));
 R.setSTAT('deadlift');
 R.setSEG('overview');
 R.render();
@@ -881,7 +883,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.load();
   tryRender('home renders after a partial-drop load', () => R.go('home'));
   const partial = R.getA();
-  T('partial drop names the count, not an empty reset', /1 session couldn.{0,6}t be read/.test(partial) && !/fresh empty state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
+  T('partial drop names the count, not an empty reset', /1 stored record needed recovery/.test(partial) && !/fresh empty state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
   T('partial-drop banner still offers the raw-copy download', /dlCorrupt\(\)/.test(partial));
   // Unparseable store → the original total-loss wording.
   store[R.SK] = '{not json';
@@ -891,19 +893,19 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('total loss explains the fresh empty fallback', /Stored data was corrupted/.test(total) && /fresh empty state/.test(total));
   // ...and a total loss must clear any partial count left by an earlier rescue, or the
   // banner would under-report a wiped store as "1 session couldn't be read".
-  T('total loss clears a stale partial-drop count', store[R.SK + '-corrupt-n'] == null);
+  T('total loss replaces a stale partial-drop count', Number(store[R.SK + '-corrupt-n']) === -1);
   // The rescue copy outlives the boot that made it, so the COUNT has to as well: keying the
   // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh reset
   // to a user whose history had actually loaded fine.
   store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
   R.load();
   R.go('home');
-  T('boot 1 reports the partial drop', /1 session couldn.{0,6}t be read/.test(R.getA()));
+  T('boot 1 reports the partial drop', /1 stored record needed recovery/.test(R.getA()));
   R.load();          // reboot: data is clean now, but the rescue copy is still parked
   R.go('home');
   const boot2 = R.getA();
   T('boot 2 still reports the partial drop, not a demo reset',
-    /1 session couldn.{0,6}t be read/.test(boot2) && !/fresh\/demo state/.test(boot2),
+    /1 stored record needed recovery/.test(boot2) && !/fresh\/demo state/.test(boot2),
     boot2.slice(boot2.indexOf('\u26a0'), boot2.indexOf('\u26a0') + 150));
   global.localStorage = realLS;
   R.setD(D);
@@ -987,17 +989,19 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 {
   const realD = R.getD();
   R.setD({ ...structuredClone(HISTORY_SEED), sessions: [], cardioLog: [], bodyLog: [], discomfort: [], cues: {}, location: 'home' });
+  localStorage.removeItem(R.AW_KEY); // no unfinished workout belongs to a fresh account
   tryRender('Home renders on a completely empty account', () => R.go('home'));
   T('empty account explains that no workouts are preloaded', /Fresh start — no workouts preloaded/.test(R.getA()));
   T('empty account offers backup import and Essentials start', /Import a backup/.test(R.getA()) && /Start Essentials/.test(R.getA()));
   R.setSEG('overview');
   tryRender('Progress renders on a completely empty account', () => R.go('stats'));
   T('no Priority nudge with zero logged sessions', !/Priority:/.test(R.getA()), (R.getA().match(/Priority:[^<]{0,60}/) || [''])[0]);
-  // ...but the nudge must still appear once there is real history sitting below MEV.
+  // Populated history also cannot turn a population reference gap into an
+  // automatic extra-set recommendation.
   R.setD(realD);
   R.setSEG('overview');
   R.go('stats');
-  T('the Priority nudge still fires when there IS history below MEV', /Priority:/.test(R.getA()), 'nudge missing on a populated account');
+  T('history below a reference gets context rather than an extra-set prescription', !/Priority:|consider a set/.test(R.getA()) && /Falling below a reference alone/.test(R.getA()));
 }
 
 // ── audit fix: every screen has a heading outline ──

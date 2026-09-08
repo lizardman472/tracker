@@ -37,6 +37,27 @@ not appropriate application source.
 - Service-worker activation deletes only `rft-*` caches, and CI blocks application changes
   that omit a service-worker cache-version bump.
 
+## September 2026 follow-up
+
+- Shared validation covers load, import, and legacy merge helpers, including auxiliary logs
+  and historic off-rotation `X` sessions.
+- Device writes use one browser-owned writer and commit a complete state with one main-key
+  write. Failures retain a retryable proposal and show persistent recovery controls.
+- Workout identities survive draft recovery and save retry. Reset epochs prevent a stale
+  draft from becoming resumable after a reset.
+- Recent analytics share inclusive calendar windows. Big-4 and momentum estimates use actual
+  per-set weights; trend displays expose dates and sample counts, and band trends require
+  comparable recorded conditions.
+- Overview and Balance describe muscle-set references without unconditional extra-set advice.
+- Moderate discomfort has a visible selected state, Settings switches have accessible names,
+  Progress tabs stay visible, and ordinary workout redraws restore focus and scroll.
+- Synthetic storage, analytics, and browser regressions are part of CI. Browser dependencies
+  are mandatory in CI rather than silently skipping the browser gate.
+
+Full and Essentials exercise prescriptions and phase/deload/progression policies are
+unchanged by this follow-up. Android keyboard continuity and installed-PWA upgrade behavior
+still need a device acceptance pass before release.
+
 ## Remaining architecture debt
 
 The app is intentionally deployable without a build step, but `index.html` still combines

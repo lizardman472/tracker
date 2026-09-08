@@ -19,6 +19,10 @@ jobs:
         run: node tests/calc.test.js
       - name: Hex-bar / ladder tests
         run: node tests/hex.test.js
+      - name: Storage and recovery regressions
+        run: node tests/storage.test.js
+      - name: Analytics boundary and comparability regressions
+        run: node tests/analytics.test.js
       - name: Render smoke tests
         run: node tests/render.smoke.js
       - name: Service-worker tests

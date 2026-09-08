@@ -12,6 +12,8 @@ const fs = require('fs');
 const path = require('path');
 const HISTORY_SEED = require('./fixtures/history-state');
 
+function memoryStorage(){const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)}}
+
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // Cut before the INIT block, which is the only top-level code that actually runs
@@ -19,9 +21,9 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
-global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+global.localStorage = memoryStorage();
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
 // accessor on globalThis, so the assignment neither takes nor throws. Every harness in this
 // repo used it, which meant the stub was inert and any code reading navigator got Node's
@@ -626,9 +628,10 @@ sg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'floor_press'));
 T('successful deload not flagged as a regression', !/Weight dropped/.test(sg.regress || ''), JSON.stringify(sg.regress));
 
 // ── audit fix: validSession normalizes a missing/invalid day (render-crash chokepoint) ──
-T('validSession defaults a missing day to A', validSession({ id: 'x', date: '2026-06-01', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5] }] }).day === 'A');
+T('validSession quarantines a missing day', validSession({ id: 'x', date: '2026-06-01', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5] }] }) === null);
 T('validSession keeps a valid day', validSession({ id: 'x', date: '2026-06-01', day: 'B', ex: [] }).day === 'B');
-T('validSession coerces a junk day to A', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }).day === 'A');
+T('validSession quarantines an unknown day', validSession({ id: 'x', date: '2026-06-01', day: 'Z', ex: [] }) === null);
+T('validSession preserves historic Core', validSession({ id: 'x', date: '2026-06-01', day: 'X', ex: [] }).day === 'X');
 
 // ── audit fix: Reset writes an already-migrated state (no phase revert on next load) ──
 T('freshState carries programVersion 21 (no migrate re-fire)', freshState().programVersion === 21);
@@ -997,7 +1000,7 @@ const sl = e1rmSlope('ohp', 56);
 T('e1rmSlope fits rising loads', sl && sl.slope > 2 && sl.slope < 2.7, JSON.stringify(sl));
 T('e1rmSlope null with no data', e1rmSlope('deadlift', 56) === null);
 T('momentum board ranks ohp as rising', strengthMomentum().some(m => m.id === 'ohp' && m.slope > 0));
-T('exStats trend is e1RM-based and positive', exStats('ohp').trend > 15, exStats('ohp').trend);
+T('exStats trend is the observed e1RM change over its 21-day sample', exStats('ohp').trend === 7, exStats('ohp').trend);
 
 // ── relative strength (needs bodyweight) ──
 T('relStrength null without bodyweight', relStrength() === null);
@@ -1039,10 +1042,10 @@ T('gap breaks streak', statSnapshot().streak === 0, statSnapshot().streak);
 T('rejects non-object session', validSession('junk') === null);
 T('rejects bad date', validSession({ id: 'x', date: 'tuesday', ex: [] }) === null);
 T('rejects missing ex array', validSession({ id: 'x', date: '2026-06-01' }) === null);
-const vs = validSession({ id: 7, date: '2026-06-01', ex: [{ id: 'deadlift', wt: '60', reps: ['5', 'x', 5] }, { bad: true }, null] });
+const vs = validSession({ id: 7, date: '2026-06-01', day:'A', ex: [{ id: 'deadlift', wt: '60', reps: ['5', 'x', 5] }, { bad: true }, null] });
 T('coerces id/wt/reps and drops bad ex entries', vs && vs.id === '7' && vs.ex.length === 1 && vs.ex[0].wt === 60 && JSON.stringify(vs.ex[0].reps) === '[5,0,5]', JSON.stringify(vs));
 // band is interpolated into markup at several render sites — must be coerced to a string.
-const vb = validSession({ id: 'b', date: '2026-06-01', ex: [{ id: 'pullup_a', wt: null, reps: [5], band: { evil: '<img onerror=x>' } }, { id: 'dips', wt: null, reps: [5], band: 'Green' }] });
+const vb = validSession({ id: 'b', date: '2026-06-01', day:'A', ex: [{ id: 'pullup_a', wt: null, reps: [5], band: { evil: '<img onerror=x>' } }, { id: 'dips', wt: null, reps: [5], band: 'Green' }] });
 T('non-string band coerced to empty, string band kept', vb.ex[0].band === '' && vb.ex[1].band === 'Green', JSON.stringify(vb.ex.map(e => e.band)));
 
 // ── reset gives a clean empty slate, not the bundled demo SEED ──
@@ -1345,7 +1348,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   d = freshD();
   global.__X.setAW && global.__X.setAW(); // no-op guard if helper absent
   // saveAW reads module globals — drive it via the exported hooks instead:
-  T('saveAW payload includes notes+wu fields (source check)', /notes:SNOTES,wu:WU_CHECKS/.test(String(saveAW)), String(saveAW).slice(0, 200));
+  T('saveAW payload includes notes+wu fields (source check)', /notes:SNOTES,wu:WU_CHECKS/.test(String(activeRecord)), String(activeRecord).slice(0, 200));
 }
 
 // ── Ultra audit C1: export→clear→import ROUND-TRIP PROOF ──
@@ -1362,7 +1365,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
     return false;
   };
   const mk = (id, date, day, loc, ex, extra) => {
-    const s = { id, date, day, loc, ex, ...extra };
+    const s = { id, date, day, loc, ex, notes:'', ...extra };
     s.volume = ex.reduce((t, e) => t + calcExVol(e.id, e.wt, e.reps), 0);
     return s;
   };
@@ -1372,15 +1375,15 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
       { id: 'hex_dl', wt: 61, reps: [5, 5, 5], band: '', notes: 'strap cue', form: [5, 5, 4] },
       { id: 'b_stance_rdl', wt: 31, reps: [8, 8, 8], band: '', notes: '' },
       { id: 'pullup_a', wt: null, reps: [6, 5, 5, 4], band: 'Green', notes: '' }],
-      { difficulty: 3, duration: 75, warmup: true, notes: 'good session', phase: 1 }),
+      { difficulty: 3, duration: 75, warmup: 2, notes: 'good session', phase: 1 }),
     mk('rt2', '2026-05-03', 'B', 'home', [
       { id: 'ohp', wt: 26, reps: [7, 6, 6, 5], band: '', notes: '' },
       { id: 'lm_lateral', wt: 12.25, reps: [14, 13, 12, 12], band: '', notes: '' }],
-      { difficulty: 4, duration: 80, warmup: false, phase: 1, customFlag: 'survives-roundtrip' }),
+      { difficulty: 4, duration: 80, warmup: 0, phase: 1, durationSuspicious:true,warmupRow:false,dayCFocus:null,trainingWeek:2 }),
     mk('rt3', '2026-05-05', 'C', 'partner', [
       { id: 'db_sl_rdl', wt: 12, reps: [8, 8, 8, 8], band: '', notes: '' },
       { id: 'db_calf_raise', wt: 14, reps: [18, 16, 15], band: '', notes: '' }],
-      { difficulty: 2, duration: 60, warmup: true, phase: 2, noProg: true })];
+      { difficulty: 2, duration: 60, warmup: 2, phase: 2, noProg: true })];
   fix.bodyLog = [{ date: '2026-05-01', weight: 82.5, waist: 88 }, { date: '2026-05-08', weight: 82.1 }];
   fix.cardioLog = [{ id: 'c2026-05-02', date: '2026-05-02', type: 'Walk', duration: 30, intensity: 'easy' }];
   fix.discomfort = [{ date: '2026-05-03', exId: 'ohp', level: 'mild', joint: 'Shoulder' }];
@@ -1399,7 +1402,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('round-trip: lastDeload restored', rt.W.lastDeload === '2026-04-20');
   T('round-trip: phase/phaseStart/location adopted on fresh device', rt.W.phase === 2 && rt.W.phaseStart === '2026-04-28' && rt.W.location === 'partner');
   T('round-trip: backup nextDay override adopted on fresh device', rt.W.nextDay === 'B');
-  T('round-trip: unknown session fields survive the import guard', rt.W.sessions[1].customFlag === 'survives-roundtrip');
+  T('round-trip: typed legacy session metadata survives', rt.W.sessions[1].durationSuspicious === true && rt.W.sessions[1].warmupRow === false && rt.W.sessions[1].dayCFocus === null && rt.W.sessions[1].trainingWeek === 2);
   T('round-trip: merged state carries no seeded flag', rt.W.seeded === undefined);
 
   // Merge into an EXISTING store: id collisions replace, logs are additive, metadata kept.
@@ -1533,7 +1536,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // Lock in two behaviors the fix depends on (source checks, same style as the saveAW guard):
   T('finishW stamps session date from workout START, not save time', /date:ymd\(new Date\(SS\|\|Date\.now\(\)\)\)/.test(String(finishW)), String(finishW).slice(0, 80));
   T('resumeW clamps CIDX to the current day length', /CIDX=Math\.min\(CIDX/.test(String(resumeW)));
-  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  global.localStorage = memoryStorage();
 }
 
 // ── audit fix: load() never discards sessions silently ──
@@ -1779,13 +1782,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Progress rebuild A7: quirk fixes ──
 {
-  // Club lifts mint e1RM PRs (E1RM_TYPES includes club) — the momentum board now
-  // uses the same gate instead of a hardcoded list that silently excluded them.
+  // Legacy club PR history is retained, but clubs are not rep-max strength
+  // observations and must not vote in the current strength momentum board.
   const d7 = freshD();
   const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
   d7.sessions = [0, 1, 2, 3].map(n => ({ id: 'cm' + n, date: wkAgo(3 - n), day: 'A', loc: 'partner',
     ex: [{ id: 'cb_mills', wt: 4 + n, reps: [8, 8], band: '' }] }));
-  T('club lift appears on the momentum board', strengthMomentum().some(m => m.id === 'cb_mills'), JSON.stringify(strengthMomentum().map(m => m.id)));
+  T('club lift is excluded from rep-max momentum', !strengthMomentum().some(m => m.id === 'cb_mills'), JSON.stringify(strengthMomentum().map(m => m.id)));
 
   // consistency().perWk denominator now runs to TODAY — a layoff after the last
   // session lowers sessions/week instead of freezing it at the old cadence.
@@ -1832,7 +1835,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   global.localStorage = { getItem: k => st8[k] ?? null, setItem: (k, v) => { st8[k] = v }, removeItem: k => { delete st8[k] } };
   load();
   T('fresh install is empty with a current phase clock', getD().sessions.length === 0 && getD().seeded === undefined && getD().phaseStart === today(), getD().phaseStart);
-  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  global.localStorage = memoryStorage();
 }
 
 // ── Ultra audit C6: per-session "ignore for progression" (noProg) ──
@@ -1871,7 +1874,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   dA.gen = 0;
   skReads = 0;
   T('clean save succeeds', save() === true);
-  T('clean save never parses the stored blob (sidecar only)', skReads === 0, `reads=${skReads}`);
+  T('clean save checks the main blob for unexpected external writes', skReads === 1, `reads=${skReads}`);
   T('clean save advances gen + sidecar', JSON.parse(store4['rft-v12']).gen === 1 && store4['rft-v12-gen'] === '1');
 
   // Tab B (simulated) writes a newer generation with an extra session + a body entry.
@@ -1884,13 +1887,10 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
   // Tab A (still holding gen 1 in memory) logs its own session and saves.
   getD().sessions.push(mkSess('tt3', '2026-06-05', 58));
-  T('conflicted save succeeds', save() === true);
+  T('an external write conflict refuses to overwrite saved data', save() === false);
   const fin = JSON.parse(store4['rft-v12']);
-  const finIds = fin.sessions.map(s => s.id);
-  T('conflict merge keeps BOTH tabs’ sessions', ['tt1', 'tt2', 'tt3'].every(id => finIds.includes(id)), JSON.stringify(finIds));
-  T('conflict merge unions the body log', fin.bodyLog.some(x => x.date === '2026-06-03'));
-  T('conflict merge date-sorts sessions', finIds.join() === 'tt1,tt2,tt3');
-  T('gen advances past both writers', fin.gen === 3 && store4['rft-v12-gen'] === '3');
+  T('the external writer remains intact', fin.sessions.map(s=>s.id).join() === 'tt1,tt2');
+  T('the pending local session remains exportable', recoveryExportData().sessions.some(s=>s.id==='tt3'));
 
   // mergeStores is scalar-conservative: the in-memory tab's phase/location/nextDay win.
   const mineS = { ...freshState(), phase: 2, location: 'partner', nextDay: 'C' };
@@ -1967,14 +1967,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
       mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length);
   }
 
-  // resetAll adopts the sidecar gen so the wipe cannot be un-done by the conflict merge.
-  T('resetAll adopts the sidecar gen (source check)', /D=freshState\(\);try\{D\.gen=Number\(localStorage\.getItem\(SK\+'-gen'\)\)/.test(String(resetAll)), String(resetAll));
+  // A fresh owner has read the current main key before it may commit a reset.
   store4['rft-v12-gen'] = '7';
-  setD(Object.assign(freshState(), { gen: 7 })); // what resetAll produces before its save()
+  setD(Object.assign(freshState(), { gen: 7 })); // explicit acquired-owner test snapshot
   T('reset-state save succeeds', save() === true);
   const wiped = JSON.parse(store4['rft-v12']);
   T('a wipe with adopted gen does not resurrect the old sessions', wiped.sessions.length === 0 && wiped.gen === 8, JSON.stringify({ n: wiped.sessions.length, gen: wiped.gen }));
-  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  global.localStorage = memoryStorage();
 }
 
 // ── Audit 6 / F1: a quota-blocked save must NOT advance the write generation ──
@@ -2014,13 +2013,14 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   store5['rft-v12'] = JSON.stringify(other);
   store5['rft-v12-gen'] = '2';
 
-  // The user frees space and taps Save again — the conflict merge must still fire.
+  // A writer outside the lock changed the main key: recovery must keep both copies
+  // available for review, rather than overwrite the external data with a guessed union.
   allow = true;
-  T('quota: the recovery save succeeds', save() === true);
+  T('quota: retry refuses an unexpected external overwrite', retrySave() === false);
   const after = JSON.parse(store5['rft-v12']).sessions.map(s => s.id);
-  T('quota: the other tab’s session survives the recovery save', after.includes('qB'), JSON.stringify(after));
-  T('quota: this tab’s own session is written too', after.includes('qA'), JSON.stringify(after));
-  global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  T('quota: the external session remains stored', after.includes('qB'), JSON.stringify(after));
+  T('quota: this tab’s pending session remains exportable', recoveryExportData().sessions.some(s=>s.id==='qA'));
+  global.localStorage = memoryStorage();
 }
 
 // ── Per-set weight overrides (v15: optional ex.wts[] alongside reps[]) ──
