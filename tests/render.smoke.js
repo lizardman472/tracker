@@ -372,10 +372,10 @@ R.getLOG()['hex_carry'].wt = 30;
 tryRender('Progress (stats, Overview)', () => R.go('stats'));
 const stats = R.getA();
 T('progress produced non-empty markup', stats.length > 200);
-T('segment chip row renders with all five chips', ['Overview', 'Lifts', 'Balance', 'Consistency', 'Lifetime'].every(s => new RegExp(`seg-chip[^>]*>${s}<`).test(stats)));
+T('segment chip row renders with all six chips', ['Overview', 'Exercises', 'Muscle work', 'Training habit', 'Monthly', 'Lifetime'].every(s => new RegExp(`seg-chip[^>]*>${s}<`).test(stats)));
 T('Overview is the active default chip', /seg-chip on[^>]*aria-selected="true"[^>]*>Overview</.test(stats), stats.match(/seg-chip[^>]*Overview</) && stats.match(/seg-chip[^>]*Overview</)[0]);
 T('status header renders on Overview', /status-hd/.test(stats));
-T('consistency verdict discloses its rolling window', /\/wk \(8wk\)/.test(stats));
+T('activity header discloses windows without cadence judgements', /last 7 days/.test(stats) && /last 28 days · includes core/.test(stats) && !/Sparse|On track/.test(stats));
 
 // Each segment renders without error and with real content.
 for (const seg of ['lifts', 'balance', 'consistency', 'lifetime']) {
@@ -435,7 +435,7 @@ R.render();
 const liftsSeg = R.getA();
 T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
 T('strength bars share one ladder scale (ticks at fixed 20/40/60/80)', /std-tick" style="left:20%"/.test(liftsSeg) && /std-tick" style="left:80%"/.test(liftsSeg));
-T('strength rows show current e1RM and next-tier target', /· e1RM [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg e1RM/.test(liftsSeg));
+T('strength rows show current e1RM and next-tier target', /· estimated max [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg estimated max/.test(liftsSeg));
 // Guard the guard: if the rolling-window rows above ever stop landing inside the windows, the
 // three assertions they feed would go quiet again rather than failing loudly. Assert the
 // precondition itself, so the next rot is reported as rot.
@@ -466,7 +466,7 @@ const bandSeg = R.getA();
 T('band lift shows the band ladder', /Band Ladder/.test(bandSeg));
 T('band ladder highlights the current band (Green in SEED)', /band-chip on">Green</.test(bandSeg), (bandSeg.match(/band-chip[^"]*">Green</) || [])[0]);
 T('band lift shows a comparable series or explains insufficient observations', /Reps · Same Band and Set Count|A comparable trend needs 3 observations/.test(bandSeg) && !/Top-Set Weight/.test(bandSeg));
-T('band estrip shows same-setup best and observed change', /Best same setup/.test(bandSeg) && /Observed reps Δ/.test(bandSeg) && !/Reps · 8wk/.test(bandSeg));
+T('band estrip shows same-setup best and observed change', /Best same setup/.test(bandSeg) && /Reps change/.test(bandSeg) && !/Reps · 8wk/.test(bandSeg));
 R.setSTAT('deadlift');
 R.setSEG('overview');
 R.render();
@@ -480,7 +480,7 @@ T('Overview shows the phase context line', /Phase \d · /.test(R.getA()), (R.get
   R.getD().sessions.push(...added);
   R.render();
   const ov = R.getA();
-  T('momentum slopes show exactly one decimal', /[+↓→] ?\+?\d+\.\d kg\/wk/.test(ov), (ov.match(/kg\/wk[^<]*/) || [])[0]);
+  T('momentum explains direction and provides optional methodology', /Trending up/.test(ov) && /How to read these trends/.test(ov));
   T('no 2-decimal slope leaks into the card', !/\d\.\d{2} kg\/wk/.test(ov), (ov.match(/\d\.\d{2} kg\/wk/) || [])[0]);
   R.getD().sessions = R.getD().sessions.filter(s => !added.some(a => a.id === s.id));
 }
@@ -1001,7 +1001,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   R.setD(realD);
   R.setSEG('overview');
   R.go('stats');
-  T('history below a reference gets context rather than an extra-set prescription', !/Priority:|consider a set/.test(R.getA()) && /Falling below a reference alone/.test(R.getA()));
+  T('history below a reference gets context rather than an extra-set prescription', !/Priority:|consider a set/.test(R.getA()) && /Open Muscle work/.test(R.getA()));
 }
 
 // ── audit fix: every screen has a heading outline ──
@@ -1409,6 +1409,30 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('but a stored core block still shows in Recent (it is a real session)', /bg-x/.test(R.getA()));
 
   R.getD().sessions = savedS; R.getD().nextDay = savedNext;
+}
+
+// Progress should describe actual records, including control work and per-set loads.
+{
+  const saved=JSON.parse(JSON.stringify(R.getD()));
+  const date=new Date().toISOString().slice(0,10);
+  R.getD().sessions=[{id:'progress-clarity',date,day:'C',loc:'home',phase:1,ex:[
+    {id:'lm_pallof',wt:31,reps:[16,16],form:[4,4]},
+    {id:'ohp',wt:20,wts:[20,25],reps:[8,8],form:[5,5]},
+    {id:'lm_lateral',wt:15,reps:[15,15],form:[4,4]}
+  ]}];
+  R.setSEG('lifts');R.setSTAT('lm_pallof');R.go('stats');
+  let page=R.getA();
+  T('anti-rotation shows control, total reps and form', /Control comes before heavier plates/.test(page)&&/Total reps/.test(page)&&/Last form rating/.test(page));
+  T('anti-rotation has no maximum-strength chart or projection', !/Estimated strength \(kg\)|Heaviest completed set|straight-line scenario/.test(page));
+  R.setSTAT('ohp');R.render();page=R.getA();
+  T('last load and recent history show completed per-set load range', (page.match(/20–25kg/g)||[]).length===2);
+  T('strength estimates explain their meaning', /it is not a tested maximum/.test(page));
+  T('target marker does not imply missing sets were completed', /logged sets reached the rep target/.test(page)&&!/every set at target/.test(page));
+  R.setSTAT('lm_lateral');R.render();
+  T('lateral exercise history preserves per-side unit', /Reps\/side/.test(R.getA()));
+  R.getD().sessions=[];R.setSEG('overview');R.render();page=R.getA();
+  T('empty progress explains when trends appear without negative verdicts', /at least 3 recent sessions/.test(page)&&!/Sparse|Flat \/ lower|On track/.test(page));
+  R.setD(saved);R.setSEG('overview');R.setSTAT('deadlift');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
