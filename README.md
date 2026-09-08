@@ -73,6 +73,17 @@ installed PWA could continue serving the previous application shell.
 
 ## Interpretation limits
 
+Landmine lateral raises record reps **per side**: entering 15 means 15 on each side.
+Landmine anti-rotation records **combined reps**: entering 16 means 16 across both sides.
+These conventions preserve the original rep entries; historical records are not rewritten.
+
+Anti-rotation uses manual load selection because rep counts alone cannot establish trunk
+control. Choose a lighter setup whenever control breaks down; automatic load jumps and
+miss-count resets do not apply to this exercise. The landmine readout uses bar plus free-end
+plate mass for logging, not measured resistance at the hands. A controlled press and return
+is consistent with [ACE's anti-rotation guidance](https://www.acefitness.org/resources/everyone/exercise-library/332/standing-anti-rotation-press/);
+manual progression is this app's policy, not a validated readiness test.
+
 The tracker provides conservative training suggestions, not medical advice. Estimated 1RM,
 muscle-set credit, workload, relative-strength bands, and body trends are directional tools.
 They are not direct measurements of fatigue, muscle gain, body composition, or injury risk.
