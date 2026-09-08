@@ -26,7 +26,7 @@
 // v108: Phase 2 describes its actual performance-based re-anchor without a false percentage.
 // v109: Essentials exposes its 80-minute pacing target without changing recovery or work.
 // v110: whole-program phase changes require compound stalls; branch fixtures are synthetic.
-const C = 'rft-v110';
+const C = 'rft-v111';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

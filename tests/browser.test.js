@@ -8,8 +8,7 @@
 // person would SEE.
 //
 // Run with:  node tests/browser.test.js
-// Needs playwright + a Chromium build. If neither is present the suite reports SKIPPED and
-// exits 0 — it is an addition to the battery, not a gate the other suites already pass.
+// Needs playwright + a Chromium build. Missing dependencies fail CI; a local run may skip.
 
 const http = require('http');
 const fs = require('fs');
@@ -76,8 +75,9 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
   const pw = loadPlaywright();
   const exe = pw && findChromium(pw);
   if (!pw || !exe) {
-    console.log(`SKIPPED: browser tests need playwright + chromium (playwright:${!!pw} chromium:${!!exe})`);
-    process.exit(0);
+    const required = !!process.env.CI && process.env.CI !== 'false';
+    console.log(`${required ? 'FAILED' : 'SKIPPED'}: browser tests need playwright + chromium (playwright:${!!pw} chromium:${!!exe})`);
+    process.exit(required ? 1 : 0);
   }
   const server = await serve();
   const browser = await pw.chromium.launch({ executablePath: exe, args:['--no-sandbox'] });
@@ -89,6 +89,7 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     page.on('pageerror', e => errors.push('PAGEERROR ' + e.message));
     await page.addInitScript(s => { localStorage.setItem('rft-v12', s); localStorage.setItem('rft-v12-gen','5') }, JSON.stringify(store));
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil:'domcontentloaded' });
+    await page.waitForFunction(() => typeof WRITER_READY === 'undefined' || WRITER_READY);
     await page.waitForTimeout(600);
     return { page, ctx };
   }
@@ -222,6 +223,140 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     T('the ramp survives a reload in dark theme', /Return ramp · day 3 of 20/.test(await text(page)));
     await ctx.close() }
 
+  // ── the home primary action and the secondary full session remain distinct ──
+  { const { page, ctx } = await open(baseStore());
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(t => { D.theme = t; applyTheme(); render() }, theme);
+      const styles = await page.evaluate(() => {
+        const hero = document.querySelector('.start-hero');
+        const primary = hero.querySelector('.start-primary');
+        const secondary = hero.querySelector('.btn-wh');
+        const badge = document.querySelector('.bg-b');
+        const css = el => getComputedStyle(el);
+        const lum = rgb => {
+          const c = rgb.match(/[\d.]+/g).slice(0,3).map(Number).map(v => v/255)
+            .map(v => v <= .04045 ? v/12.92 : ((v+.055)/1.055)**2.4);
+          return c[0]*.2126+c[1]*.7152+c[2]*.0722;
+        };
+        const contrast = (fg,bg) => { const a=lum(fg), b=lum(bg); return (Math.max(a,b)+.05)/(Math.min(a,b)+.05) };
+        // These are actual CSS components and surfaces used for supporting text/chips.
+        const probe = document.createElement('div');
+        probe.className='dm';probe.style.background='var(--ib)';document.body.append(probe);
+        const detailRatio=contrast(css(probe).color,css(probe).backgroundColor);
+        probe.className='sg sg-nw';probe.style.background='';
+        const chipRatio=contrast(css(probe).color,css(probe).backgroundColor);probe.remove();
+        return { different:css(primary).backgroundColor !== css(secondary).backgroundColor,
+          primaryRatio:contrast(css(primary).color,css(primary).backgroundColor),
+          badgeRatio:contrast(css(badge).color,css(badge).backgroundColor), detailRatio, chipRatio };
+      });
+      T(`${theme}: Full session has a different fill from the primary action`, styles.different);
+      for (const key of ['primaryRatio','badgeRatio','detailRatio','chipRatio'])
+        T(`${theme}: ${key} clears normal-text contrast`, styles[key] >= 4.5, styles[key]);
+    }
+    await ctx.close() }
+
+  // ── working controls retain focus and page position after a same-exercise redraw ──
+  { const { page, ctx } = await open(baseStore());
+    await page.evaluate(() => { beginW('A'); CIDX=dayExs(ADAY).findIndex(e=>e.id==='hex_dl'); render() });
+    const up = page.getByRole('button', { name:'Step weight up', exact:true });
+    await up.focus();
+    await page.evaluate(() => window.scrollBy(0, 70));
+    const before = await page.evaluate(() => ({ y:window.scrollY, wt:Number(LOG.hex_dl.wt) }));
+    await up.press('Enter');
+    await page.waitForTimeout(180); // catches the former delayed scrollIntoView
+    T('weight step changes the load and retains keyboard focus', await page.evaluate(w =>
+      Number(LOG.hex_dl.wt)>w && document.activeElement.getAttribute('aria-label')==='Step weight up', before.wt));
+    T('weight step keeps the viewport in place', Math.abs(await page.evaluate(()=>window.scrollY)-before.y)<=1);
+
+    const notes = page.getByRole('textbox', { name:/Notes for .*Deadlift/ });
+    await notes.fill('abcdefghij');
+    const selected = await notes.evaluate(el => {
+      el.focus();el.setSelectionRange(2,7,'backward');const y=window.scrollY;render();
+      return { y, start:document.activeElement.selectionStart, end:document.activeElement.selectionEnd,
+        direction:document.activeElement.selectionDirection, value:document.activeElement.value,
+        label:document.activeElement.getAttribute('aria-label'), afterY:window.scrollY };
+    });
+    T('same-view redraw restores note selection and direction', selected.start===2 && selected.end===7 && selected.direction==='backward' && selected.value==='abcdefghij', selected);
+    T('restoring note focus does not scroll the page', Math.abs(selected.y-selected.afterY)<=1);
+    await notes.press('x');
+    T('typing continues in the restored field and reaches the workout log', await page.evaluate(()=>LOG.hex_dl.notes==='abxhij'));
+
+    const tick = page.getByRole('button', { name:'Set 1 done', exact:true });
+    await tick.focus();const tickY=await page.evaluate(()=>window.scrollY);
+    await tick.press('Enter');await page.waitForTimeout(180);
+    T('set completion keeps its focus and selected state', await tick.evaluate(el=>el===document.activeElement && el.getAttribute('aria-pressed')==='true'));
+    T('set completion does not jump back to the exercise heading', Math.abs(await page.evaluate(()=>window.scrollY)-tickY)<=1);
+
+    const add=page.getByRole('button',{name:'+ Add set',exact:true});
+    const count=await page.locator('.set-row').count();await add.focus();await add.press('Enter');
+    T('adding a set retains the Add set control and adds one row', await page.locator('.set-row').count()===count+1 && await add.evaluate(el=>el===document.activeElement));
+
+    const moderate=page.getByRole('button',{name:/^Moderate/});await moderate.focus();await moderate.press('Enter');
+    const discomfort=await moderate.evaluate(el=>({ selected:el.getAttribute('aria-pressed'),
+      bg:getComputedStyle(el).backgroundColor,check:el.textContent.includes('✓'),focused:document.activeElement===el }));
+    const mildBg=await page.getByRole('button',{name:/^Mild/}).evaluate(el=>getComputedStyle(el).backgroundColor);
+    T('Moderate selection has visible styling, a checkmark, and state', discomfort.selected==='true' && discomfort.check && discomfort.bg!==mildBg, discomfort);
+    T('revealing joint choices retains focus on Moderate', discomfort.focused);
+
+    const dismiss=page.getByRole('button',{name:'Dismiss rest timer',exact:true});await dismiss.focus();
+    await page.waitForTimeout(1100);
+    T('timer ticks retain focus on the dismiss control', await dismiss.evaluate(el=>el===document.activeElement));
+    await dismiss.press('Enter');
+    T('the focused timer dismiss button still works', await dismiss.count()===0);
+    await page.getByRole('button',{name:/^Next →/}).click();
+    T('explicit Next opens the next exercise below the sticky strip',await page.evaluate(()=>{
+      const target=document.getElementById('ex-cur'),strip=document.querySelector('.work-sticky');
+      return target.getAttribute('data-exercise')!=='hex_dl' && target.getBoundingClientRect().top>=strip.getBoundingClientRect().bottom;
+    }));
+    await ctx.close() }
+
+  // ── Progress tabs remain visible on phones and support the complete keyboard path ──
+  { const { page, ctx } = await open(baseStore());
+    for (const width of [360,390,430]) {
+      await page.setViewportSize({width,height:900});
+      await page.evaluate(()=>{STAT_SEG='overview';go('stats')});
+      await page.getByRole('tab',{name:'Overview',exact:true}).focus();
+      await page.evaluate(()=>window.scrollTo(0,50));
+      const y=await page.evaluate(()=>window.scrollY);
+      await page.getByRole('tab',{name:'Overview',exact:true}).press('End');
+      await page.waitForTimeout(180);
+      const state=await page.getByRole('tab',{name:'Lifetime',exact:true}).evaluate(el=>{
+        const r=el.parentElement.getBoundingClientRect(),t=el.getBoundingClientRect();
+        return {visible:t.left>=r.left+19 && t.right<=r.right-27,
+          focused:el===document.activeElement,selected:el.getAttribute('aria-selected'),y:window.scrollY,
+          stops:el.parentElement.querySelectorAll('[tabindex="0"]').length};
+      });
+      T(`${width}px: selected Lifetime tab remains inside the visible chip row`,state.visible,state);
+      T(`${width}px: End selects/focuses Lifetime with one tab stop`,state.focused && state.selected==='true' && state.stops===1,state);
+      T(`${width}px: selecting Progress tabs does not scroll the page`,Math.abs(state.y-y)<=1,state);
+      await page.getByRole('tab',{name:'Lifetime',exact:true}).press('ArrowRight');
+      T(`${width}px: Right wraps to Overview`,await page.getByRole('tab',{name:'Overview',exact:true}).evaluate(el=>el===document.activeElement && el.getAttribute('aria-selected')==='true'));
+      await page.getByRole('tab',{name:'Overview',exact:true}).press('ArrowLeft');
+      T(`${width}px: Left wraps to Lifetime`,await page.getByRole('tab',{name:'Lifetime',exact:true}).evaluate(el=>el===document.activeElement));
+      await page.getByRole('tab',{name:'Lifetime',exact:true}).press('Home');
+      T(`${width}px: Home returns to Overview`,await page.getByRole('tab',{name:'Overview',exact:true}).evaluate(el=>el===document.activeElement));
+    }
+    await ctx.close() }
+
+  // ── Settings switches announce their visible names and persist keyboard changes ──
+  { const { page, ctx } = await open(baseStore());
+    await ctx.grantPermissions(['notifications']);
+    await page.evaluate(()=>{D.notify.enabled=true;go('settings')});
+    const rest=page.getByRole('switch',{name:'Rest-timer alerts',exact:true});
+    T('rest-alert switch announces its current state',await rest.getAttribute('aria-checked')==='true');
+    await rest.focus();await rest.press('Space');
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('rft-v12')).notify.rest===false);
+    T('rest-alert switch retains focus and announces the toggled state',await rest.evaluate(el=>el===document.activeElement && el.getAttribute('aria-checked')==='false'));
+    const wake=page.getByRole('switch',{name:'Keep screen awake during workouts',exact:true});
+    T('screen-awake switch has its visible accessible name',await wake.count()===1);
+    if(await wake.count()){
+      await wake.focus();await wake.press('Space');
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('rft-v12')).notify.wake===false);
+      T('screen-awake switch persists keyboard input and retains focus',await wake.evaluate(el=>el===document.activeElement && el.getAttribute('aria-checked')==='false'));
+    }
+    await ctx.close() }
+
+  await require('./storage.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await browser.close();
   server.close();
   for (const e of errors) T('no page error: ' + e, false);
