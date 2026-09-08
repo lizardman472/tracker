@@ -127,12 +127,35 @@ d.sessions = [
   { id: 'q3', date: '2020-02-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 23, reps: [14, 16, 14], band: '', form: [0, 0, 0] }] }];
 sg = getSmartSugg(pallofQuality);
 T('two anti-rotation misses hold for control instead of prescribing clusters',
-  sg.type === 'stay' && sg.wt === 23 && !/\(cluster\)/i.test(sg.text) && /clusters are not used/.test(sg.detail), JSON.stringify(sg));
+  sg.type === 'stay' && sg.wt === 23 && !/\(cluster\)/i.test(sg.text) && /Choose fewer plates now/.test(sg.detail), JSON.stringify(sg));
 d.sessions.push({ id: 'q4', date: '2020-02-13', day: 'C', loc: 'home',
   ex: [{ id: 'lm_pallof', wt: 23, reps: [18, 18, 18], band: '', form: [0, 0, 0] }] });
 sg = getSmartSugg(pallofQuality);
-T('three anti-rotation misses reset load without a cluster intervention',
-  sg.type === 'dn' && sg.wt < 23 && /without clusters/.test(sg.detail), JSON.stringify(sg));
+T('three anti-rotation misses keep load manual without forced cuts',
+  sg.type === 'stay' && sg.wt === 23 && !sg.stalled && /No automatic load increases/.test(sg.detail), JSON.stringify(sg));
+
+// Explicit lateral convention preserves historical scoring while counting both sides in volume.
+const lateral = getProgram(1, 'home').A.find(e=>e.id==='lm_lateral');
+T('lateral 15 stays 15 per side; anti-rotation 16 scores 8', effectiveReps(lateral,[15])[0]===15 && effectiveReps(pallofQuality,[16])[0]===8);
+T('lateral tonnage includes both sides, including per-set overrides', calcExVol('lm_lateral',11,[15])===330 && calcExVol('lm_lateral',11,[15,15],[null,12])===690);
+T('anti-rotation tonnage uses total once', calcExVol('lm_pallof',31,[16])===496);
+T('logging labels distinguish counting conventions', repInputLabel(lateral)==='reps per side' && repInputLabel(pallofQuality)==='total reps across both sides');
+for(const phase of [1,2,3]) {
+ d.phase=phase;
+ const ex=getProgram(phase,'home').C.find(e=>e.id==='lm_pallof');
+ for(const reps of [[16,16,16],[40,40,40],[0,0,0]]) {
+  d.sessions=[{id:'manual',date:'2020-02-13',phase:phase===1?2:1,day:'C',ex:[{id:ex.id,wt:31,reps,form:[5,5,5]}]}];
+  const before=JSON.stringify(d.sessions), advice=getSmartSugg(ex);
+  T('anti-rotation manual through phase changes, misses, overshoot and weight-only rows',advice.type==='stay' && advice.wt===31 && !advice.stalled && JSON.stringify(d.sessions)===before,JSON.stringify(advice));
+ }
+ d.sessions=[];
+ T('anti-rotation first session has no automatic seed',getSmartSugg(ex).wt===null && getSmartSugg(ex).type==='new');
+}
+d.phase=1;
+d.lastDeload='2020-02-10';
+d.sessions=[{id:'heavy',date:'2020-02-01',day:'C',ex:[{id:'lm_pallof',wt:31,reps:[20,20,20]}]}, {id:'lighter',date:'2020-02-13',day:'C',ex:[{id:'lm_pallof',wt:16,reps:[16,16,16]}]}];
+T('manual anti-rotation keeps deliberately lighter recent setup during deload',getSmartSugg(pallofQuality).wt===16);
+d.lastDeload=null;
 
 d.sessions = [{ id: 'x2', date: '2026-06-08', day: 'C', loc: 'home', ex: [{ id: 'band_er', wt: null, reps: [30, 30], band: 'Purple' }] }];
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'band_er'));
@@ -838,7 +861,7 @@ T('inv_rows_a not in PHASE_ADJ_IDS (bodyweight stays static)', !global.__X.PHASE
   T('ordinary rep ranges stay Reps',
     ['5', '8-10', '8/side', '8/leg', '12-15', '4-8', '15-20', '10/side', '3-5'].every(rp => repUnit({ rp }) === 'Reps'));
   T('repUnit is total on every ACTIVE slot at both venues', (() => {
-    const want = { hex_carry: 'Steps', db_carry: 'Metres' };
+    const want = { hex_carry: 'Steps', db_carry: 'Metres', lm_lateral: 'Reps/side' };
     for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C'])
       for (const e of getProgram(1, loc)[day]) {
         const expected=want[e.id]||(e.perSide?(e.id==='side_plank'?'Total secs':'Total reps'):'Reps');
@@ -1652,8 +1675,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const pMark = marks.find(m => m.label === 'P2');
   const dMark = marks.find(m => m.label === 'DL');
   T('weeklyMarks flags the week the phase change landed', pMark && series[pMark.i] && series[pMark.i].wk === weekKey(wkAgo(3)), JSON.stringify(marks));
-  // Light reskin: CH_TARGET is the light-mode rose #d61f5e.
-  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#d61f5e', JSON.stringify(dMark));
+  // Light reskin: CH_TARGET is the light-mode rose #a53659.
+  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#a53659', JSON.stringify(dMark));
   d3.sessions.forEach(s => delete s.phase);
   T('unstamped history produces no phase marks', weeklyMarks(series).filter(m => m.label.startsWith('P')).length === 0);
   T('empty series → no marks, no throw', weeklyMarks([]).length === 0);
@@ -2214,12 +2237,12 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 // ── Body heat map ──
 {
   T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20) === '');
-  T('heatColor under MEV → solid amber', heatColor(4, 8, 20) === '#b26102');
-  T('heatColor MEV..MAV → solid green', heatColor(12, 8, 20) === '#0c8050');
-  T('heatColor ≥MAV → solid cyan', heatColor(22, 8, 20) === '#007ba8');
+  T('heatColor under MEV → solid amber', heatColor(4, 8, 20) === '#736000');
+  T('heatColor MEV..MAV → solid green', heatColor(12, 8, 20) === '#386b48');
+  T('heatColor ≥MAV → solid cyan', heatColor(22, 8, 20) === '#006b63');
   T('heatColor no-MEV-landmark muscle → muted, not a band it cannot be judged against',
-    heatColor(3, null, null) === '#5a6478');
-  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#0c8050');
+    heatColor(3, null, null) === '#5c625f');
+  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#386b48');
   // The band is a reserved STATE, so it must not vary with magnitude inside the band —
   // that precision lives in the bars below, which carry the exact number and the tag.
   T('heatColor is constant within a band', heatColor(2, 8, 20) === heatColor(7.9, 8, 20));
@@ -2247,7 +2270,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   }
   // The pair the sweep above does NOT cover, and the reason it is pinned rather than fixed:
   // an UNTRAINED region (`none`) against the silhouette it sits on (`base`) measures
-  // 1.09:1 light / 1.14:1 dark. Zero sets is at least as actionable as under-MEV, and it is
+  // 1.15:1 light / 1.21:1 dark with the ivory/graphite palette. Zero sets is at least as actionable as under-MEV, and it is
   // currently the least visible thing on the map. It is not fixed here because `none` is the
   // reference every band above is measured against — moving it re-derives all eight of those
   // ratios, which is a palette pass, not a token tweak. Pinned to the measured values so the
@@ -2255,8 +2278,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   {
     const l = contrast(HEAT_PAL.light.none, HEAT_PAL.light.base);
     const d = contrast(HEAT_PAL.dark.none, HEAT_PAL.dark.base);
-    T('untrained-vs-silhouette contrast is pinned at its known-bad light value', Math.abs(l - 1.09) < 0.01, `${l.toFixed(2)}:1`);
-    T('untrained-vs-silhouette contrast is pinned at its known-bad dark value', Math.abs(d - 1.14) < 0.01, `${d.toFixed(2)}:1`);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad light value', Math.abs(l - 1.15) < 0.01, `${l.toFixed(2)}:1`);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad dark value', Math.abs(d - 1.21) < 0.01, `${d.toFixed(2)}:1`);
   }
   T('heat palette defines the same bands in both themes',
     JSON.stringify(Object.keys(HEAT_PAL.light).sort()) === JSON.stringify(Object.keys(HEAT_PAL.dark).sort()));

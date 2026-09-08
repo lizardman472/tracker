@@ -180,7 +180,7 @@ T('single-end perSide(11.25) impossible symmetric (null)', perSide(11.25, 11, fa
 T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5, 11, true)));
 // Seeding: landmine lifts seed at the 11kg bar-only floor (a valid VWL weight).
 let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
-T('lm_pallof seeds at 11kg bar-only (valid VWL weight)', lsg.type === 'new' && lsg.wt === 11 && VWL.includes(11));
+T('lm_pallof leaves first load to manual control assessment', lsg.type === 'new' && lsg.wt === null && /Choose fewer plates/.test(lsg.detail));
 const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
 T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
 T('lm_squat routes to the VWL ladder', vwOf(ALL_EX.find(e => e.id === 'lm_squat')) === VWL);
@@ -216,14 +216,15 @@ T('loaded dead bugs and anti-rotation presses are explicitly quality-first', (()
   const a = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
   const c = getProgram(1, 'home').C.find(e => e.id === 'lm_pallof');
   return a.qualityLoad === true && c.qualityLoad === true &&
-    /smallest load step/.test(a.rl) && /smallest load step/.test(c.rl) &&
+    /smallest load step/.test(a.rl) && c.manualLoad === true && /Choose load manually/.test(c.rl) &&
     !/Confirm/.test(a.rl) && !/Confirm/.test(c.rl);
 })());
-// Progression: hit target at bar-only 11kg → up ONE fine VWL rung (11.25), a real loadable weight.
+// Anti-rotation never advances automatically, even with a strict target hit.
 const dlm = freshD();
 dlm.sessions = [{ id: 'l1', date: '2026-06-10', day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [20, 20, 20], band: '', form: [5, 5, 5] }] }];
 lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
-T('lm_pallof hit-target at 11 → ↑ to next VWL rung (11.25)', lsg.type === 'up' && lsg.wt === 11.25 && VWL.includes(lsg.wt), JSON.stringify(lsg));
+T('lm_pallof strict hit retains last setup without automatic increase', lsg.type === 'stay' && lsg.wt === 11 && /No automatic load increases/.test(lsg.detail), JSON.stringify(lsg));
+T('manual landmine adjustment still has the fine loadable rung', nxUp(11, VWL) === 11.25);
 // Volume: landmine lifts have MG maps and count on the bb tonnage path; the entered
 // per-side value is already the combined total across both sides.
 T('landmine lifts + bb_rear_row have MG maps (incl. retired lm_180 for history)', lmLifts.every(id => !!MG[id]) && !!MG.bb_rear_row && !!MG.lm_180);
@@ -231,12 +232,12 @@ T('lm_pallof counts entered both-side totals once', calcExVol('lm_pallof', 13, [
 
 // ── AUDIT FIX C1: deload at the bar-only floor is a rebuild hold, not a phantom 0% cut ──
 let cd = freshD();
-cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 11, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
-let cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+cd.sessions = [1, 2, 3].map(i => ({ id: 'cd' + i, date: '2026-06-0' + i, day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 11, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
+let cdSg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'));
 T('stall at bar-only floor → rebuild hold (not a fake deload)', cdSg.type === 'stay' && cdSg.wt === 11 && !/%/.test(cdSg.detail), JSON.stringify(cdSg));
 // Above the floor, the deload reports the ACTUAL percent cut, not a hardcoded ~10%.
-cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'C', loc: 'home', ex: [{ id: 'lm_pallof', wt: 12, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
-cdSg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
+cd.sessions = [1, 2, 3].map(i => ({ id: 'ce' + i, date: '2026-06-0' + i, day: 'A', loc: 'home', ex: [{ id: 'dead_bugs_a', wt: 12, reps: [6, 6, 6], band: '', form: [5, 5, 5] }] }));
+cdSg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a'));
 T('low-weight deload reports honest percent (12→11 ≈ 8%)', cdSg.type === 'dn' && cdSg.wt === 11 && /~8%/.test(cdSg.detail), JSON.stringify(cdSg));
 // A heavier lift still gets a real ~10% deload (regression guard).
 cd = freshD();

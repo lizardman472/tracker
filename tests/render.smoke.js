@@ -774,15 +774,15 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   R.getD().theme = 'dark';
   applyTheme();
   const dk = R.getPal();
-  T('applyTheme(dark) swaps the chart grid color', dk.grid === '#2a3450', dk.grid);
-  T('applyTheme(dark) swaps the heat-map palette', dk.cyan === '#2fb3e8', dk.cyan);
-  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20) === '#2fb3e8', heatColor(22, 8, 20));
-  T('heatColor emits the dark amber under MEV', heatColor(4, 8, 20) === '#f0a848', heatColor(4, 8, 20));
+  T('applyTheme(dark) swaps the chart grid color', dk.grid === '#3b4443', dk.grid);
+  T('applyTheme(dark) swaps the heat-map palette', dk.cyan === '#7fc5b5', dk.cyan);
+  T('heatColor emits the dark cyan at ≥MAV', heatColor(22, 8, 20) === '#7fc5b5', heatColor(22, 8, 20));
+  T('heatColor emits the dark amber under MEV', heatColor(4, 8, 20) === '#d3c26e', heatColor(4, 8, 20));
   // The under-MEV outline flips with the theme — a near-white rule would vanish on the
   // brighter dark-mode amber, so dark uses the near-black --ink partner instead.
   T('the under-MEV outline flips to dark ink in dark mode',
-    /stroke="#08101e"[^>]*stroke-dasharray/.test(bodyHeatH({ quads: 3 })), bodyHeatH({ quads: 3 }).slice(0, 0) || 'no dark outline');
-  T('body-metric line colors switch too', dk.bm0 === '#2fb3e8', dk.bm0);
+    /stroke="#17201e"[^>]*stroke-dasharray/.test(bodyHeatH({ quads: 3 })), bodyHeatH({ quads: 3 }).slice(0, 0) || 'no dark outline');
+  T('body-metric line colors switch too', dk.bm0 === '#7fc5b5', dk.bm0);
   R.setSEG('balance');
   tryRender('Balance renders under the dark palette', () => R.go('stats'));
   tryRender('Body renders under the dark palette', () => R.go('body'));
@@ -800,7 +800,7 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
   applyTheme();
   T('auto on a dark OS resolves data-theme to dark', R.getThemeAttr() === 'dark', R.getThemeAttr());
-  T('auto on a dark OS also swaps the JS palette', R.getPal().grid === '#2a3450', R.getPal().grid);
+  T('auto on a dark OS also swaps the JS palette', R.getPal().grid === '#3b4443', R.getPal().grid);
   R.getD().theme = 'light';
   applyTheme();
   T('an explicit light preference beats a dark OS', R.getThemeAttr() === 'light', R.getThemeAttr());
@@ -832,13 +832,13 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
   R.getD().theme = 'dark';
   applyTheme();
   T('applyTheme removes the pre-JS theme-color pair', removed.length === 2, JSON.stringify(removed));
-  T('applyTheme paints dark chrome for an explicit dark preference', tc === '#0e1220', String(tc));
+  T('applyTheme paints dark chrome for an explicit dark preference', tc === '#191d1e', String(tc));
 
   const realMM = global.window.matchMedia;
   global.window.matchMedia = () => ({ matches: true, addEventListener() {} }); // OS prefers dark
   R.getD().theme = 'light';
   applyTheme();
-  T('an explicit light preference paints light chrome even on a dark OS', tc === '#f4f6fb', String(tc));
+  T('an explicit light preference paints light chrome even on a dark OS', tc === '#f5f2eb', String(tc));
   global.window.matchMedia = realMM;
 
   global.document.querySelectorAll = realQSA;
@@ -853,7 +853,7 @@ T('body derives waist-to-hip ratio', /Waist-to-Hip Ratio/.test(body));
 // dark. Nothing caught that. This is the guard.
 {
   const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
-  const full = (css.match(/--prRGB:47,179,232/g) || []).length;
+  const full = (css.match(/--prRGB:127,197,181/g) || []).length;
   T('the dark token block is declared exactly once', full === 1, `found ${full}`);
   // The surviving media query is the pre-JS paint only — two tokens, not a second palette.
   const mq = css.match(/@media\(prefers-color-scheme:dark\)\{[^}]*\{([^}]*)\}\}/);

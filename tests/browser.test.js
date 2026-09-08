@@ -356,6 +356,27 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     }
     await ctx.close() }
 
+  // Landmine exceptions must be visible at the point of entry, not just in calculations.
+  { const { page, ctx } = await open(baseStore());
+    await page.evaluate(() => { beginW('A'); selectExercise(dayExs(ADAY).findIndex(e => e.id === 'lm_lateral')); });
+    const reps = page.getByRole('spinbutton', { name:'Set 1 reps per side', exact:true });
+    await reps.fill('15');
+    T('lateral raise labels reps per side and retains the entered 15', await page.evaluate(() =>
+      Number(LOG.lm_lateral.reps[0]) === 15 && document.querySelector('.set-hd').textContent.includes('Reps/side')));
+    await ctx.close(); }
+  { const s = baseStore();
+    s.sessions.push({ id:'manual-anti-rotation',date:ago(1),day:'C',loc:'home',phase:1,difficulty:3,
+      duration:20,volume:1860,warmup:2,notes:'Synthetic control-work fixture',
+      ex:[{id:'lm_pallof',wt:31,reps:[20,20,20],band:'',notes:'',form:[5,5,5]}] });
+    const { page, ctx } = await open(s);
+    await page.evaluate(() => { beginW('C'); selectExercise(dayExs(ADAY).findIndex(e => e.id === 'lm_pallof')); });
+    const reps = page.getByRole('spinbutton', { name:'Set 1 total reps across both sides',exact:true });
+    await reps.fill('16');
+    T('anti-rotation keeps 16 as total reps and asks for manual load choice', await page.evaluate(() =>
+      Number(LOG.lm_pallof.reps[0]) === 16 && document.getElementById('ex-cur').textContent.includes('Choose load for control')));
+    T('hitting every anti-rotation rep target does not prefill a heavier load', await page.evaluate(() => Number(LOG.lm_pallof.wt) === 31));
+    await ctx.close(); }
+
   await require('./storage.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await browser.close();
   server.close();
