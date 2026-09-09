@@ -12,9 +12,9 @@
      unmediated #tc below is the fallback. Once applyTheme() runs it REMOVES the pair and
      owns #tc outright -- otherwise an explicit light preference on a dark-OS device would
      stay overridden by the dark media rule. -->
-<meta name="theme-color" content="#f5f2eb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#191d1e" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" id="tc" content="#f5f2eb">
+<meta name="theme-color" content="#f6f9fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#080f1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="tc" content="#f6f9fc">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Rack-Free Tracker</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>">
@@ -26,28 +26,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800;900&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 :root{
-/* Warm ivory surfaces, graphite text, muted teal and soft violet accents.
-   Foreground and fill are separate for the pale violet Day B badge. */
---bg:#f5f2eb;--bg2:#ece8df;--cd:#ffffff;--cd2:#f7f4ee;--cb:#ddd8ce;--ib:#eeebe4;--ibr:#bcb8af;
---tx:#24282a;--mu:#5c625f;--dm:#686b66;
-/* Muted teal signature; the light-theme fill supports white labels. */
---prRGB:0,107,99;--pr:#006b63;--prl:#deeee8;--prg:#006b63;--ink:#ffffff;
---gr:#386b48;--grl:#e1eddf;--am:#736000;--aml:#f2edce;--rd:#a53659;--rdl:#f4e3e9;
---pu:#685487;--pul:#ece5f3;--bl:#45618a;--bll:#e5eaf2;
-/* Day identity (A teal / B pale violet / C sage). Letters provide a redundant cue
-   because hue alone is not sufficient to identify days. B is deliberately lighter
-   than A/C; heatmap letters are white on A/C and dark ink on B.
+/* Crisp cool surfaces, ink text and saturated blue, violet and teal accents. */
+--bg:#f6f9fc;--bg2:#edf2f7;--cd:#ffffff;--cd2:#f8fafc;--cb:#d7e0ea;--ib:#ecf2f8;--ibr:#aab8c7;
+--tx:#101828;--mu:#526174;--dm:#667085;
+/* Saturated blue signature; the fill supports white labels. */
+--prRGB:0,95,204;--pr:#005fcc;--prl:#e8f1ff;--prg:#004aad;--ink:#ffffff;
+--gr:#087f74;--grl:#e5fbf5;--am:#655000;--aml:#fff6c2;--rd:#b4235d;--rdl:#ffe8f0;
+--pu:#6d3cc8;--pul:#f0eaff;--bl:#00738f;--bll:#e0f7ff;
+/* Day identity (A blue / B violet / C teal). Letters provide a redundant cue
+   because hue alone is not sufficient to identify days. All three fills support white ink.
    X (violet) was the v19 off-rotation core
    block — a 4th hue, deliberately outside the A/B/C trio because it was not part of the
    cycle. v20 dissolved that day, but the hue STAYS: sessions logged against it are still in
    users' stores and still render in history and the heat map. Mirror of JS
    DAY_COLORS/DAY_INK. */
---dayA:#006b63;--dayAl:#deeee8;--dayB:#c9bbdc;--dayBl:#ece5f3;--dayC:#386b48;--dayCl:#e1eddf;--dayX:#645886;--dayXl:#ece7f3;
---dayB-ink:#685487;
+--dayA:#005fcc;--dayAl:#e8f1ff;--dayB:#6d3cc8;--dayBl:#f0eaff;--dayC:#087f74;--dayCl:#e5fbf5;--dayX:#a8206a;--dayXl:#ffe8f5;
+--dayB-ink:#ffffff;
 /* plate chips carry white --ink labels — each plate hue clears 4.5:1 under white */
---p10:#a53659;--p5:#45618a;--p25:#386b48;--p1:#626b70;--slate:#626b70;
+--p10:#a8206a;--p5:#005fcc;--p25:#087f74;--p1:#526174;--slate:#526174;
 --sh:0 1px 3px rgba(20,28,50,.08);--shm:0 10px 32px rgba(20,28,50,.14);--sab:env(safe-area-inset-bottom,0px);
---hdrbg:rgba(245,242,235,.90);--glow2:rgba(104,84,135,.06);
+--hdrbg:rgba(246,249,252,.92);--glow2:rgba(109,60,200,.08);
 --rad:16px;--rad-sm:10px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;
 --disp:'Archivo Expanded',-apple-system,system-ui,sans-serif;
 --body:'Archivo',-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
@@ -65,24 +63,24 @@
    Still mirrored by hand, and still the thing to keep in sync: the JS chart/day palette
    in applyTheme(), for canvas and string-built SVG that CSS vars cannot reach. ── */
 :root[data-theme=dark]{
---bg:#191d1e;--bg2:#202526;--cd:#252b2c;--cd2:#2d3435;--cb:#3b4443;--ib:#303738;--ibr:#596463;
---tx:#f0eee7;--mu:#b2bdb7;--dm:#a6b1ab;
---prRGB:127,197,181;--pr:#7fc5b5;--prl:#243e38;--prg:#7fc5b5;--ink:#17201e;
---gr:#a2c79a;--grl:#2c3b2b;--am:#d3c26e;--aml:#3c3823;--rd:#e49eb3;--rdl:#432e37;
---pu:#c0acd8;--pul:#393044;--bl:#a6bbd8;--bll:#2d3745;
---dayA:#7fc5b5;--dayAl:#243e38;--dayB:#c9bbdc;--dayBl:#393044;--dayC:#a2c79a;--dayCl:#2c3b2b;--dayX:#b3add7;--dayXl:#363244;
+--bg:#080f1a;--bg2:#0d1726;--cd:#111c2b;--cd2:#172335;--cb:#28394e;--ib:#1a293c;--ibr:#52657a;
+--tx:#f7faff;--mu:#a9b8ca;--dm:#b8c3d1;
+--prRGB:101,168,255;--pr:#65a8ff;--prl:#132d50;--prg:#8cbdff;--ink:#071321;
+--gr:#5bd6b0;--grl:#15362e;--am:#ffe36d;--aml:#3b330c;--rd:#ff7aa8;--rdl:#42162a;
+--pu:#c19bff;--pul:#2d1d4d;--bl:#61d4ff;--bll:#10344a;
+--dayA:#65a8ff;--dayAl:#132d50;--dayB:#c19bff;--dayBl:#2d1d4d;--dayC:#5bd6b0;--dayCl:#15362e;--dayX:#ff83c7;--dayXl:#431a38;
 --dayB-ink:var(--dayB);
---p10:#e49eb3;--p5:#a6bbd8;--p25:#a2c79a;--p1:#a7b3b5;--slate:#a7b3b5;
+--p10:#ff7aa8;--p5:#65a8ff;--p25:#5bd6b0;--p1:#a9b8ca;--slate:#a9b8ca;
 --sh:0 1px 3px rgba(0,0,0,.35);--shm:0 10px 32px rgba(0,0,0,.5);
---hdrbg:rgba(25,29,30,.90);--glow2:rgba(192,172,216,.05)}
+--hdrbg:rgba(8,15,26,.92);--glow2:rgba(193,155,255,.08)}
 /* Pre-JS paint ONLY: applyTheme() runs at INIT and sets data-theme, but between parse and
    that call a dark-OS device would flash the light background. Two tokens, not forty --
    just enough that the flash is the right colour. Self-disables the moment applyTheme()
    stamps the attribute, whichever way it resolves. */
-@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#191d1e;--tx:#f0eee7}}
+@media(prefers-color-scheme:dark){:root:not([data-theme]){--bg:#080f1a;--tx:#f7faff}}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
-/* Atmospheric backdrop: subtle teal and violet glows. */
+/* Atmospheric backdrop: clean blue and violet glows. */
 body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,var(--glow2),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
@@ -125,7 +123,7 @@ input[type=number]{-moz-appearance:textfield}
 
 /* Badges */
 .bg{display:inline-block;padding:3px 9px;border-radius:6px;font-family:var(--disp);font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
-/* Day identity: A teal / B pale violet / C sage — dedicated --day* tokens
+/* Day identity: A blue / B violet / C teal — dedicated --day* tokens
    (validated categorical trio, see :root); every colored day surface also carries
    its letter as secondary encoding. Keep in sync with JS DAY_COLORS. */
 .bg-a{background:var(--dayAl);color:var(--dayA)}.bg-b{background:var(--dayBl);color:var(--dayB-ink)}.bg-c{background:var(--dayCl);color:var(--dayC)}.bg-x{background:var(--dayXl);color:var(--dayX)}
@@ -1309,10 +1307,10 @@ const BODY_REGIONS_B=[
 // the other. Band fills are SOLID and identical to the --am/--gr/--pr/--mu tokens the
 // "Weekly Volume by Muscle" bars below already use for the same states; literal hex
 // (not CSS vars) because SVG fills are string-built and the tests assert exact values.
-// `flag` is the under-MEV outline — the --ink contrast partner for that theme's amber.
+// `flag` is the under-MEV outline — the --ink contrast partner for that theme's warning color.
 const HEAT_PAL={
-light:{base:'#ebe7de',none:'#ddd8ce',under:'#736000',ok:'#386b48',high:'#006b63',notgt:'#5c625f',flag:'#ffffff'},
-dark: {base:'#303738',none:'#3b4443',under:'#d3c26e',ok:'#a2c79a',high:'#7fc5b5',notgt:'#b2bdb7',flag:'#17201e'}};
+light:{base:'#edf2f7',none:'#d7e0ea',under:'#655000',ok:'#087f74',high:'#005fcc',notgt:'#526174',flag:'#ffffff'},
+dark: {base:'#1a293c',none:'#28394e',under:'#ffe36d',ok:'#5bd6b0',high:'#65a8ff',notgt:'#a9b8ca',flag:'#071321'}};
 let HEAT_BASE,HEAT_NONE,HEAT_AMBER,HEAT_GREEN,HEAT_CYAN,HEAT_MUTE,HEAT_FLAG;
 function setHeatPal(dk){const p=HEAT_PAL[dk?'dark':'light'];
 HEAT_BASE=p.base;HEAT_NONE=p.none;HEAT_AMBER=p.under;HEAT_GREEN=p.ok;HEAT_CYAN=p.high;HEAT_MUTE=p.notgt;HEAT_FLAG=p.flag}
@@ -1320,17 +1318,17 @@ setHeatPal(false); // light defaults; applyTheme() re-runs this on boot and on e
 // Fill for a region at v sets/week — one of three RESERVED STATES (under MEV /
 // productive / at-or-over MAV), not a magnitude ramp.
 //
-// This WAS an alpha ramp (amber .20–.50, green .55–.85, cyan .95) encoding sets/week
-// within each band. At the amber floor that measured 1.26:1 against the untrained fill
+// This WAS an alpha ramp (warning .20–.50, green .55–.85, blue .95) encoding sets/week
+// within each band. At the warning floor that measured 1.26:1 against the untrained fill
 // in light and 1.45:1 in dark — an under-MEV muscle, the one state that asks the user to
-// act, was the hardest to see. The ramp cannot be rescued by raising alpha: solid amber
-// is only 3.55:1 in light, so there is no room below it for a legible gradient AND the
+// act, was the hardest to see. The ramp cannot be rescued by raising alpha: there is
+// no room below a solid state color for a legible gradient AND the
 // 3:1 floor. The magnitude it encoded is not lost — the bars directly below carry the
 // exact number, the tag and a proportional fill, and every region has a <title> with
 // sets/week. So the map keeps the job it is good at (state at a glance) and drops the
 // precision it was rendering illegibly.
 //
-// Gold, sage, teal and muted-text fills clear the 3:1 non-text floor against
+// Yellow, teal, blue and muted-text fills clear the 3:1 non-text floor against
 // the untrained fill in both themes; calc.test.js measures the current palette.
 // Muscles with no MEV landmark (mev null, e.g. rotator cuff) get the muted fill rather
 // than a band they cannot be judged against, mirroring var(--mu) in the bar list.
@@ -1825,7 +1823,7 @@ return (reps||[]).filter(r=>Number(r)>0).map(r=>ex&&ex.perSide?Math.floor(Number
 // if no working set was rated below FORM_MIN. Unrated sets count as clean, so
 // gating is opt-in and historical data is never penalised. ──
 const FORM_LABELS=['','Negatives','Loose','Hybrid','Solid','Strict'];
-let FORM_C=['','var(--rd)','#865274','var(--am)','#526e3c','var(--gr)']; // theme-switched
+let FORM_C=['','var(--rd)','#7347b8','var(--am)','#087f74','var(--gr)']; // theme-switched
 const FORM_MIN=4;
 function sessClean(h){const f=h&&h.form;if(!Array.isArray(f)||!f.length)return true;
 for(let i=0;i<f.length;i++){const r=Number((h.reps||[])[i]);if(r>0&&f[i]>0&&f[i]<FORM_MIN)return false}return true}
@@ -2678,24 +2676,24 @@ return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').
 // CH_TARGET=--rd.
 // Theme-switchable (applyTheme reassigns): light values are the declared defaults
 // so the Node test harnesses (no matchMedia, no D) always see the light palette.
-let CH_GRID='#ddd8ce',CH_TXT='#5c625f',CH_DOT='#ffffff',CH_TARGET='#a53659',CH_TITLE='#24282a',CH_PR='#736000';
-let C_PR='#006b63',C_BL='#45618a',C_GR='#386b48'; // chart line/bar fills
+let CH_GRID='#d7e0ea',CH_TXT='#526174',CH_DOT='#ffffff',CH_TARGET='#b4235d',CH_TITLE='#101828',CH_PR='#655000';
+let C_PR='#005fcc',C_BL='#00738f',C_GR='#087f74'; // chart line/bar fills
 // One switch point for every string-built color (SVG fills + inline hex — CSS vars
 // can't reach them). Mirrors the CSS dark token block; keep the two in sync.
 function isDarkTheme(){const t=(typeof D!=='undefined'&&D&&D.theme)||'auto';
 if(t==='dark')return true;if(t==='light')return false;
 try{return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)}catch(e){return false}}
 function applyTheme(){const dk=isDarkTheme();
-if(dk){CH_GRID='#3b4443';CH_TXT='#b2bdb7';CH_DOT='#252b2c';CH_TARGET='#e49eb3';CH_TITLE='#f0eee7';CH_PR='#d3c26e';
-C_PR='#7fc5b5';C_BL='#a6bbd8';C_GR='#a2c79a';
-DAY_COLORS={A:'#7fc5b5',B:'#c9bbdc',C:'#a2c79a',X:'#b3add7',cardio:'#d3c26e'};
-DAY_INK={A:'#17201e',B:'#17201e',C:'#17201e',X:'#17201e'};
-FORM_C=['','var(--rd)','#c99eba','var(--am)','#b4c08b','var(--gr)'];
-}else{CH_GRID='#ddd8ce';CH_TXT='#5c625f';CH_DOT='#ffffff';CH_TARGET='#a53659';CH_TITLE='#24282a';CH_PR='#736000';
-C_PR='#006b63';C_BL='#45618a';C_GR='#386b48';
-DAY_COLORS={A:'#006b63',B:'#c9bbdc',C:'#386b48',X:'#645886',cardio:'#736000'};
-DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'};
-FORM_C=['','var(--rd)','#865274','var(--am)','#526e3c','var(--gr)'];}
+if(dk){CH_GRID='#28394e';CH_TXT='#a9b8ca';CH_DOT='#111c2b';CH_TARGET='#ff7aa8';CH_TITLE='#f7faff';CH_PR='#ffe36d';
+C_PR='#65a8ff';C_BL='#61d4ff';C_GR='#5bd6b0';
+DAY_COLORS={A:'#65a8ff',B:'#c19bff',C:'#5bd6b0',X:'#ff83c7',cardio:'#ffe36d'};
+DAY_INK={A:'#071321',B:'#071321',C:'#071321',X:'#071321'};
+FORM_C=['','var(--rd)','#c19bff','var(--am)','#5bd6b0','var(--gr)'];
+}else{CH_GRID='#d7e0ea';CH_TXT='#526174';CH_DOT='#ffffff';CH_TARGET='#b4235d';CH_TITLE='#101828';CH_PR='#655000';
+C_PR='#005fcc';C_BL='#00738f';C_GR='#087f74';
+DAY_COLORS={A:'#005fcc',B:'#6d3cc8',C:'#087f74',X:'#a8206a',cardio:'#655000'};
+DAY_INK={A:'#ffffff',B:'#ffffff',C:'#ffffff',X:'#ffffff'};
+FORM_C=['','var(--rd)','#7347b8','var(--am)','#087f74','var(--gr)'];}
 setHeatPal(dk);
 if(typeof BODY_METRICS!=='undefined'&&typeof BM_C!=='undefined')BODY_METRICS.forEach((m,i)=>m.c=BM_C[dk?'dark':'light'][i]);
 // data-theme carries the RESOLVED theme, never the preference: 'auto' on a dark-OS device
@@ -2706,15 +2704,14 @@ try{document.documentElement.dataset.theme=dk?'dark':'light';
 // preference on a dark-OS device would keep losing to the dark media rule.
 document.querySelectorAll('meta[name=theme-color][media]').forEach(m=>m.remove());
 const meta=document.getElementById('tc');
-if(meta)meta.setAttribute('content',dk?'#191d1e':'#f5f2eb')}catch(e){}}
+if(meta)meta.setAttribute('content',dk?'#080f1a':'#f6f9fc')}catch(e){}}
 // Day identity colors (A/B/C + cardio) for string-built markup — mirrors the CSS
 // --dayA/--dayB/--dayC tokens. Trio validated full-strength on white, all pairs
-// (protan ΔE 9.5, normal 21.0); heatmap cells render SOLID with a letter on top —
-// DAY_INK picks the letter ink per day (white on the deep A/C fills, dark ink on
-// the deliberately lighter violet B). Cardio renders as a gold-tint DOT cell
+// heatmap cells render SOLID with a letter on top — DAY_INK picks a high-contrast
+// letter color for every day. Cardio renders as a yellow-tint DOT cell
 // (different mark), outside the letter set.
-let DAY_COLORS={A:'#006b63',B:'#c9bbdc',C:'#386b48',X:'#645886',cardio:'#736000'}; // theme-switched
-let DAY_INK={A:'#ffffff',B:'var(--tx)',C:'#ffffff',X:'#ffffff'}; // theme-switched
+let DAY_COLORS={A:'#005fcc',B:'#6d3cc8',C:'#087f74',X:'#a8206a',cardio:'#655000'}; // theme-switched
+let DAY_INK={A:'#ffffff',B:'#ffffff',C:'#ffffff',X:'#ffffff'}; // theme-switched
 // One place that turns a session into its badge text. 'X' was the v19 off-rotation core
 // block — it has no venue-numbered day name, so "Day X1" would be nonsense on every history
 // row. Nothing writes 'X' since v20, but stored ones still flow through here.
@@ -3273,7 +3270,7 @@ pulse(0,1000);pulse(1,1000);pulse(2,1300)}catch(e){}}
 // data-URI notification icon, so rasterize a small 💪 badge to a PNG once and cache it.
 let NOTIF_ICON=null;
 function notifIcon(){if(NOTIF_ICON!=null)return NOTIF_ICON;try{const c=document.createElement('canvas');c.width=c.height=96;const x=c.getContext('2d');
-x.fillStyle='#386b48';x.fillRect(0,0,96,96);x.font='60px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('💪',48,54);
+x.fillStyle='#005fcc';x.fillRect(0,0,96,96);x.font='60px serif';x.textAlign='center';x.textBaseline='middle';x.fillText('💪',48,54);
 NOTIF_ICON=c.toDataURL('image/png')}catch(e){NOTIF_ICON=''}return NOTIF_ICON}
 function rTimer(){const el=document.getElementById('timer-root'),ov=document.getElementById('alarm-root');
 // While the pill floats, pad the page bottom so it never sits ON the Next/Finish button.
@@ -5040,8 +5037,8 @@ h+=`</div><div class="hm-grid">`;
 const fDow=new Date(hm[0].date+'T00:00:00').getDay(),off=(fDow===0?6:fDow-1);
 for(let i=0;i<off;i++)h+=`<div class="hm-cell" style="box-shadow:none"></div>`;
 // Trained cells render SOLID in the day's validated hue with the day LETTER on
-// top (ink per day via DAY_INK — white on deep A/C, dark on the lighter pink B),
-// so identity never rides on color alone. Cardio = amber TINT + amber dot.
+// top (ink per day via DAY_INK), so identity never rides on color alone.
+// Cardio = yellow tint + yellow dot.
 const tds=today();
 for(const d of hm){let bg='var(--ib)',mark='',ink='';
 if(d.isC){bg='var(--aml)';mark='·';ink='color:var(--am);font-weight:900;'}
@@ -5207,19 +5204,19 @@ event.preventDefault();chooseProgressSegment(tabs[next].getAttribute('data-segme
 // keys are preserved, the rest are additive, so old data renders unchanged.
 // Per-theme metric line colors — applyTheme() rewrites .c from these (SVG fills
 // can't read CSS vars). Order matches BODY_METRICS.
-const BM_C={light:['#006b63','#685487','#736000','#386b48','#a53659','#865274','#45618a','#855b8d','#36756e','#626b70'],
-dark:['#7fc5b5','#c0acd8','#d3c26e','#a2c79a','#e49eb3','#c99eba','#a6bbd8','#c5a3cb','#91c5bf','#a7b3b5']};
+const BM_C={light:['#005fcc','#6d3cc8','#655000','#087f74','#b4235d','#7347b8','#00738f','#a8206a','#087f74','#526174'],
+dark:['#65a8ff','#c19bff','#ffe36d','#5bd6b0','#ff7aa8','#d0b6ff','#61d4ff','#ff83c7','#5bd6b0','#a9b8ca']};
 const BODY_METRICS=[
-  {k:'weight',    lb:'Weight',    u:'kg', c:'#006b63', step:'0.1'},
-  {k:'neck',      lb:'Neck',      u:'cm', c:'#685487', step:'0.5'},
-  {k:'shoulders', lb:'Shoulders', u:'cm', c:'#736000', step:'0.5'},
-  {k:'chest',     lb:'Chest',     u:'cm', c:'#386b48', step:'0.5'},
-  {k:'arms',      lb:'Arms',      u:'cm', c:'#a53659', step:'0.5'},
-  {k:'forearms',  lb:'Forearms',  u:'cm', c:'#865274', step:'0.5'},
-  {k:'waist',     lb:'Waist',     u:'cm', c:'#45618a', step:'0.5'},
-  {k:'hips',      lb:'Hips',      u:'cm', c:'#855b8d', step:'0.5'},
-  {k:'thigh',     lb:'Thigh',     u:'cm', c:'#36756e', step:'0.5'},
-  {k:'calf',      lb:'Calf',      u:'cm', c:'#626b70', step:'0.5'}
+  {k:'weight',    lb:'Weight',    u:'kg', c:'#005fcc', step:'0.1'},
+  {k:'neck',      lb:'Neck',      u:'cm', c:'#6d3cc8', step:'0.5'},
+  {k:'shoulders', lb:'Shoulders', u:'cm', c:'#655000', step:'0.5'},
+  {k:'chest',     lb:'Chest',     u:'cm', c:'#087f74', step:'0.5'},
+  {k:'arms',      lb:'Arms',      u:'cm', c:'#b4235d', step:'0.5'},
+  {k:'forearms',  lb:'Forearms',  u:'cm', c:'#7347b8', step:'0.5'},
+  {k:'waist',     lb:'Waist',     u:'cm', c:'#00738f', step:'0.5'},
+  {k:'hips',      lb:'Hips',      u:'cm', c:'#a8206a', step:'0.5'},
+  {k:'thigh',     lb:'Thigh',     u:'cm', c:'#087f74', step:'0.5'},
+  {k:'calf',      lb:'Calf',      u:'cm', c:'#526174', step:'0.5'}
 ];
 let BODY_METRIC='weight';
 // Ordered {date,v} series for one metric (oldest→newest), only the logs that

@@ -1675,8 +1675,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   const pMark = marks.find(m => m.label === 'P2');
   const dMark = marks.find(m => m.label === 'DL');
   T('weeklyMarks flags the week the phase change landed', pMark && series[pMark.i] && series[pMark.i].wk === weekKey(wkAgo(3)), JSON.stringify(marks));
-  // Light reskin: CH_TARGET is the light-mode rose #a53659.
-  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#a53659', JSON.stringify(dMark));
+  // Light palette: CH_TARGET is the saturated rose #b4235d.
+  T('weeklyMarks flags the deload week with the target color', dMark && series[dMark.i].wk === weekKey(wkAgo(2)) && dMark.color === '#b4235d', JSON.stringify(dMark));
   d3.sessions.forEach(s => delete s.phase);
   T('unstamped history produces no phase marks', weeklyMarks(series).filter(m => m.label.startsWith('P')).length === 0);
   T('empty series → no marks, no throw', weeklyMarks([]).length === 0);
@@ -2237,12 +2237,12 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 // ── Body heat map ──
 {
   T('heatColor 0 sets → empty (base fill)', heatColor(0, 8, 20) === '');
-  T('heatColor under MEV → solid amber', heatColor(4, 8, 20) === '#736000');
-  T('heatColor MEV..MAV → solid green', heatColor(12, 8, 20) === '#386b48');
-  T('heatColor ≥MAV → solid cyan', heatColor(22, 8, 20) === '#006b63');
+  T('heatColor under MEV → solid yellow-brown', heatColor(4, 8, 20) === '#655000');
+  T('heatColor MEV..MAV → solid teal', heatColor(12, 8, 20) === '#087f74');
+  T('heatColor ≥MAV → solid blue', heatColor(22, 8, 20) === '#005fcc');
   T('heatColor no-MEV-landmark muscle → muted, not a band it cannot be judged against',
-    heatColor(3, null, null) === '#5c625f');
-  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#386b48');
+    heatColor(3, null, null) === '#526174');
+  T('heatColor mev=0 (front delts) never divides by zero', heatColor(3, 0, 12) === '#087f74');
   // The band is a reserved STATE, so it must not vary with magnitude inside the band —
   // that precision lives in the bars below, which carry the exact number and the tag.
   T('heatColor is constant within a band', heatColor(2, 8, 20) === heatColor(7.9, 8, 20));
@@ -2270,7 +2270,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   }
   // The pair the sweep above does NOT cover, and the reason it is pinned rather than fixed:
   // an UNTRAINED region (`none`) against the silhouette it sits on (`base`) measures
-  // 1.15:1 light / 1.21:1 dark with the ivory/graphite palette. Zero sets is at least as actionable as under-MEV, and it is
+  // Low silhouette separation remains deliberate. Zero sets is at least as actionable as under-MEV, and it is
   // currently the least visible thing on the map. It is not fixed here because `none` is the
   // reference every band above is measured against — moving it re-derives all eight of those
   // ratios, which is a palette pass, not a token tweak. Pinned to the measured values so the
@@ -2278,8 +2278,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   {
     const l = contrast(HEAT_PAL.light.none, HEAT_PAL.light.base);
     const d = contrast(HEAT_PAL.dark.none, HEAT_PAL.dark.base);
-    T('untrained-vs-silhouette contrast is pinned at its known-bad light value', Math.abs(l - 1.15) < 0.01, `${l.toFixed(2)}:1`);
-    T('untrained-vs-silhouette contrast is pinned at its known-bad dark value', Math.abs(d - 1.21) < 0.01, `${d.toFixed(2)}:1`);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad light value', Math.abs(l - 1.18) < 0.01, `${l.toFixed(2)}:1`);
+    T('untrained-vs-silhouette contrast is pinned at its known-bad dark value', Math.abs(d - 1.25) < 0.01, `${d.toFixed(2)}:1`);
   }
   T('heat palette defines the same bands in both themes',
     JSON.stringify(Object.keys(HEAT_PAL.light).sort()) === JSON.stringify(Object.keys(HEAT_PAL.dark).sort()));
