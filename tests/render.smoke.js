@@ -316,7 +316,7 @@ R.getLOG()['hex_carry'].wt = 30;
   T('Previous column shows last session sets as a tappable 40×5', /usePrev\('hex_dl',0\)/.test(w2) && />40×5</.test(w2));
   T('Add Set button renders', /addSet\('hex_dl'\)/.test(w2));
   T('remove button hidden at the programmed set count', !/removeSet\('hex_dl'\)/.test(w2));
-  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'lm_bstance_squat'));
+  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'b_stance_rdl'));
   tryRender('workout (per-side combined-total labels)', () => R.render());
   const perSide = R.getA();
   T('per-side set header explicitly asks for total reps', /<span>Total reps<\/span>/.test(perSide));
@@ -1371,7 +1371,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   const bw = R.getA();
   T('Day B carries the rollout and the bird dog', /Barbell Rollout/.test(bw) && /Bird Dog/.test(bw));
   T('Day B still reads as a rotation day, not a core block', /Day B1/.test(bw) && !/Core Block/.test(bw));
-  T('home day sizes match the re-absorbed program', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 10);
+  T('home day sizes match the re-absorbed program', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 11);
   T('no day X left to render', R.dayExs('X').length === 0);
 
   // Every rest button on a rendered day is the one-minute timer. Only the CURRENT card

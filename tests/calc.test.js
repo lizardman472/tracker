@@ -198,7 +198,7 @@ const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
 // Cross-venue lower-body overlap: partner split-squat/lunge work holds a home increase
 // for seven rolling days, then automatically clears.
 {
-  const lower = getProgram(1, 'home').A.find(e => e.id === 'lm_bstance_squat');
+  const lower = getProgram(1, 'home').A.find(e => e.id === 'lm_squat');
   const rd = freshD();
   const home = { id: 'leg-home', date: daysAgoStr(2), day: 'A', loc: 'home', warmup: 3,
     ex: [{ id: lower.id, wt: 21, reps: [20, 20, 20], band: '' }] };
@@ -383,9 +383,9 @@ T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringi
 d = freshD({ phase: 1, phaseStart: '2026-01-01' });
 d.location = 'home';
 const essentialPlan = {
-  A: { ids:['hex_dl','lm_bstance_squat','b_stance_rdl','floor_press','pullup_a','dead_bugs_a'], sets:20, control:['dead_bugs_a'] },
-  B: { ids:['hex_squat_b','hex_row','ohp','dips','rear_delt','bird_dog'], sets:22, control:['rear_delt','bird_dog'] },
-  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er'], sets:21, control:['lm_pallof','band_er'] }
+  A: { ids:['hex_dl','lm_squat','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:22, control:['dead_bugs_a'] },
+  B: { ids:['hex_squat_b','hex_row','ohp','dips','rear_delt','band_leg_curl','bird_dog'], sets:24, control:['rear_delt','bird_dog'] },
+  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','bb_skullcr'], sets:23, control:['lm_pallof','band_er'] }
 };
 for (const day of ['A', 'B', 'C']) {
   const full = dayExs(day, {}, false), xp = dayExs(day, {}, true);
@@ -413,7 +413,7 @@ T('Essentials excludes the optional Day C deficit push-up', !dayExs('C', {}, tru
 {
   const slot = dayExs('A', {}, false).find(e => e.id === 'floor_press');
   T('express reads the RESOLVED movement, so a swap cannot smuggle the tail back in',
-    slot && !dayExs('A', { floor_press: 'bb_curl' }, true).some(e => e.id === 'bb_curl'));
+    slot && !dayExs('A', { floor_press: 'bb_rear_row' }, true).some(e => e.id === 'bb_rear_row'));
 }
 // Partner venue is already one collapsed short session — express must not apply there.
 d.location = 'partner';

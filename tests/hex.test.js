@@ -92,7 +92,7 @@ T('hex_row carries bar:7', B.find(e => e.id === 'hex_row').bar === 7);
 T('curl swap lands on Day A as straight bar; hex_curl retired everywhere', A.some(e => e.id === 'bb_curl') && A.find(e => e.id === 'bb_curl').bar === undefined && !A.some(e => e.id === 'hex_curl') && !B.some(e => e.id === 'hex_curl'));
 // v13 swapped the lying extension out for the overhead one; v18 swapped it back to the
 // floor. Same slot, same straight bar, both directions.
-T('Day B keeps direct triceps (bb_skullcr, straight bar), curl moved off', B.some(e => e.id === 'bb_skullcr') && B.find(e => e.id === 'bb_skullcr').bar === undefined && !B.some(e => e.id === 'bb_curl') && !B.some(e => e.id === 'oh_triceps_ext'));
+T('Day C keeps direct triceps (bb_skullcr, straight bar), curl moved off', C.some(e => e.id === 'bb_skullcr') && C.find(e => e.id === 'bb_skullcr').bar === undefined && !B.some(e => e.id === 'bb_curl') && !B.some(e => e.id === 'oh_triceps_ext'));
 T('oh_triceps_ext legacy stub resolves (v18 swap-back to bb_skullcr)', !!ALL_EX.find(e => e.id === 'oh_triceps_ext'));
 T('v18 lying extension carries load forward from the overhead slot', !!RELATED_EX.bb_skullcr && RELATED_EX.bb_skullcr.id === 'oh_triceps_ext' && RELATED_EX.bb_skullcr.mult === 1.1);
 
@@ -188,11 +188,11 @@ T('lm_squat routes to the VWL ladder', vwOf(ALL_EX.find(e => e.id === 'lm_squat'
 const lpg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_press'));
 T('lm_press seeds at 26kg on a fresh device (valid VWL weight)', lpg.type === 'new' && lpg.wt === 26 && VWL.includes(26), JSON.stringify(lpg));
 // v14: unilateral landmine B-stance squat seeds at a fixed 22kg (11 bar + 11 one end).
-const lbg = getSmartSugg(getProgram(1, 'home').A.find(e => e.id === 'lm_bstance_squat'));
+const lbg = getSmartSugg(ALL_EX.find(e => e.id === 'lm_bstance_squat'));
 T('lm_bstance_squat seeds at 22kg (valid VWL weight)', lbg.type === 'new' && lbg.wt === 22 && VWL.includes(22), JSON.stringify(lbg));
 // v20 re-sort: the unilateral quad slot leads the Day-A landmine block, straight after the
 // hex deadlift — it no longer sits next to the B-stance RDL (that's straight-bar work now).
-T('lm_bstance_squat opens the Day-A landmine block, right after the hex deadlift', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids[0] === 'hex_dl' && ids[1] === 'lm_bstance_squat' && ids[2] === 'lm_lateral'; })());
+T('lm_squat opens the Day-A landmine block, right after the hex deadlift', (() => { const ids = getProgram(1, 'home').A.map(e => e.id); return ids[0] === 'hex_dl' && ids[1] === 'lm_squat' && ids[2] === 'lm_lateral'; })());
 T('Day A pull-ups back at 4 sets (v14 trim reverted)', getProgram(1, 'home').A.find(e => e.id === 'pullup_a').s === 4);
 T('home pull-ups use a comfortable shoulder-width grip rather than forcing wide', (() => {
   const a = getProgram(1, 'home').A.find(e => e.id === 'pullup_a');
@@ -208,9 +208,9 @@ T('dip range is controlled and pain-free rather than a forced depth target', (()
   const e = getProgram(1, 'home').B.find(e => e.id === 'dips');
   return /pain-free/.test(e.rl) && /cap, not a depth target/.test(e.rl);
 })());
-T('skullcrusher remains phase-adjusted 3×10-12 but is explicitly optional after compound pressing', (() => {
-  const e = getProgram(1, 'home').B.find(e => e.id === 'bb_skullcr');
-  return e.s === 3 && e.rp === '10-12' && e.tg === 12 && e.optional === true && /skip/.test(e.rl);
+T('Day C extensions are 2×8-12 and retained in Essentials', (() => {
+  const e = getProgram(1, 'home').C.find(e => e.id === 'bb_skullcr');
+  return e.s === 2 && e.rp === '8-12' && e.tg === 12 && e.xp === true && /skip/.test(e.rl);
 })());
 T('loaded dead bugs and anti-rotation presses are explicitly quality-first', (() => {
   const a = getProgram(1, 'home').A.find(e => e.id === 'dead_bugs_a');
@@ -270,9 +270,9 @@ for (const day of PROG_DAYS) for (const ex of homePr[day]) { const m = MG[ex.id]
 const mevOf = key => (MG_INFO.find(r => r[0] === key) || [])[2];
 T('chest weekly volume ≥ MEV', wkVol.chest >= mevOf('chest'), `${wkVol.chest} vs ${mevOf('chest')}`);
 T('rear delts weekly volume ≥ MEV (restored on Day B)', wkVol.reardelt >= mevOf('reardelt'), `${wkVol.reardelt} vs ${mevOf('reardelt')}`);
-T('biceps weekly volume ≥ MEV (direct curl restored)', wkVol.biceps >= mevOf('biceps'), `${wkVol.biceps} vs ${mevOf('biceps')}`);
+T('biceps volume reflects the agreed two-set curl dose', wkVol.biceps === 7.5, `${wkVol.biceps} vs ${mevOf('biceps')}`);
 T('triceps weekly volume ≥ MEV (direct extension added Day B)', wkVol.triceps >= mevOf('triceps'), `${wkVol.triceps} vs ${mevOf('triceps')}`);
-T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || (wkVol[k] || 0) >= mev), JSON.stringify(wkVol));
+T('reference check permits the agreed biceps starting dose', MG_INFO.every(([k, , mev]) => mev == null || (k === 'biceps' ? wkVol[k] === 7.5 : (wkVol[k] || 0) >= mev)), JSON.stringify(wkVol));
 
 // ── MAV ceilings ──
 // §7 claimed "back ≤ MAV. Exact-value tests added so drift fails loud." No MAV assertion
@@ -281,7 +281,7 @@ T('no home muscle sits under MEV', MG_INFO.every(([k, , mev]) => mev == null || 
 // deliberate — MAV is a guideline ceiling, not a cap — so they are pinned at their accepted
 // values rather than merely allowed to exceed. A change either way fails here.
 const mavOf = key => (MG_INFO.find(r => r[0] === key) || [])[3];
-const ACCEPTED_OVER_MAV = { glutes: 16, back: 22.5, triceps: 15 };
+const ACCEPTED_OVER_MAV = { glutes: 16, back: 22.5 };
 for (const [k, v] of Object.entries(ACCEPTED_OVER_MAV)) {
   T(`home ${k} holds at its accepted ${v}/wk (MAV ${mavOf(k)})`, wkVol[k] === v, `${wkVol[k]} vs accepted ${v}`);
 }
@@ -538,7 +538,7 @@ T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'd
 T('partner core is one slot on every day (side_plank in the shared base)',
   PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')) &&
   !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'db_dead_bug' || e.id === 'bird_dog')));
-T('home days grow to A=9, B=9, C=10 (core slots re-absorbed)', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 10 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home days grow to A=9, B=9, C=11 (core slots re-absorbed)', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 11 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 // v21 day counts: 7 shared base movements + a rotating finisher (A gets a superset pair,
 // B and C get one each) + one optional clubbell per day.
 T('partner days are A=10, B=9, C=9 (7 shared base + finisher + optional clubbell)',
@@ -630,11 +630,11 @@ T('cross-venue history is genuinely shared (home session feeds partner suggestio
 const impl = e => e.bar === 7 ? 'hex' : e.lm ? 'lm' : e.tp === 'bb' ? 'bar' : e.tp === 'db' || e.tp === 'carry' ? 'db' : e.tp === 'club' ? 'club' : 'free';
 const loadedSeq = exs => exs.map(impl).filter(k => k !== 'free').join(',');
 T('home A: hex bar → landmine → straight bar, one setup each', loadedSeq(homePr.A) === 'hex,lm,lm,bar,bar,bar,bar,bar', loadedSeq(homePr.A));
-T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(homePr.B) === 'hex,hex,bar,bar,lm', loadedSeq(homePr.B));
+T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(homePr.B) === 'hex,hex,bar,lm', loadedSeq(homePr.B));
 // Home C is the ONE documented exception: it returns to the hex bar for the farmer's carry
 // after the landmine block. Bought deliberately — the carry is a finisher, and running it
 // before a 4-set landmine squat would tax the trunk and grip that squat needs.
-T('home C: hex → landmine → hex, the carry finisher being the one re-rig', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex', loadedSeq(homePr.C));
+T('home C: hex → landmine → hex, the carry finisher being the one re-rig', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex,bar', loadedSeq(homePr.C));
 // v21: the shared base is 5 dumbbell lifts with two zero-setup bodyweight slots interleaved
 // (inv_rows_a, side_plank) — 'free' is filtered out above precisely because those cost no
 // re-rig. Every day still ends on its clubbell, which is the only implement change.
