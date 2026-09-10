@@ -383,8 +383,8 @@ T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringi
 d = freshD({ phase: 1, phaseStart: '2026-01-01' });
 d.location = 'home';
 const essentialPlan = {
-  A: { ids:['hex_dl','lm_squat','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:22, control:['dead_bugs_a'] },
-  B: { ids:['hex_squat_b','hex_row','ohp','dips','rear_delt','band_leg_curl','bird_dog'], sets:24, control:['rear_delt','bird_dog'] },
+  A: { ids:['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:24, control:['dead_bugs_a'] },
+  B: { ids:['hex_squat_b','hex_row','ohp','dips','lm_lateral','rear_delt','band_leg_curl','bird_dog'], sets:26, control:['rear_delt','bird_dog'] },
   C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','bb_skullcr'], sets:23, control:['lm_pallof','band_er'] }
 };
 for (const day of ['A', 'B', 'C']) {
@@ -405,8 +405,8 @@ for (const day of ['A', 'B', 'C']) {
     .filter(e => ['chest', 'back', 'quads', 'hams', 'glutes', 'fdelt'].some(k => (global.__X.MG[e.id] || {})[k] >= 1));
   T(`Essentials Day ${day} drops no non-overridden primary lift`, lostCompound.length === 0, lostCompound.map(e => e.id).join(','));
   // Sets and reps are untouched — Essentials cuts exercises, never the prescription on what stays.
-  const changed = xp.filter(e => { const f = full.find(x => x.id === e.id); return f && (f.s !== e.s || f.tg !== e.tg); });
-  T(`Essentials Day ${day} does not water down what it keeps`, changed.length === 0, changed.map(e => e.id).join(','));
+  const changed = xp.filter(e => { const f = full.find(x => x.id === e.id); return f && ((e.id === 'lm_lateral' ? e.s !== 2 || f.s !== 4 : f.s !== e.s) || f.tg !== e.tg); });
+  T(`Essentials Day ${day} preserves prescriptions except the agreed two-set lateral raise`, changed.length === 0, changed.map(e => e.id).join(','));
 }
 T('Essentials excludes the optional Day C deficit push-up', !dayExs('C', {}, true).some(e => e.id === 'deficit_pushup'));
 // A swapped-in isolation lift must still be dropped — otherwise a swap smuggles the tail back.
