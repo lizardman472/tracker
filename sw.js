@@ -26,7 +26,10 @@
 // v108: Phase 2 describes its actual performance-based re-anchor without a false percentage.
 // v109: Essentials exposes its 80-minute pacing target without changing recovery or work.
 // v110: whole-program phase changes require compound stalls; branch fixtures are synthetic.
-const C = 'rft-v117';
+// v118: partner/home recovery holds are symmetric; partner DB ceiling progression is emitted
+// by the engine; partner Essentials keeps the shared seven-lift base; and first-session DB
+// floor-press loading now transfers directly from the home floor press.
+const C = 'rft-v118';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

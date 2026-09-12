@@ -496,12 +496,16 @@ T('dbPlateH empty at/below the bare bell', dbPlateH(2, true) === '' && dbPlateH(
   const dX = freshD({ location: 'partner' });
   dX.sessions = [
     { id: 'x1', date: '2026-07-01', day: 'C', loc: 'home', ex: [{ id: 'hex_rdl', wt: 46, reps: [9, 9, 9], band: '' }] },
-    { id: 'x2', date: '2026-07-02', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 26, reps: [6, 6, 6, 6], band: '' }] }];
+    { id: 'x2', date: '2026-07-02', day: 'B', loc: 'home', ex: [{ id: 'ohp', wt: 26, reps: [6, 6, 6, 6], band: '' }] },
+    { id: 'x3', date: '2026-07-03', day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 40, reps: [10, 10, 10, 10], band: '' }] }];
   const sgRdl = getSmartSugg(pr2.A.find(e => e.id === 'db_rdl'));
   T('db_rdl computes from home hex RDL (46×0.35 → snapped 16)', sgRdl.type === 'new' && sgRdl.wt === 16, JSON.stringify(sgRdl));
   const sgOhp = getSmartSugg(pr2.B.find(e => e.id === 'db_ohp'));
   T('db_ohp computes from home barbell OHP (26×0.32 → snapped 8.5)', sgOhp.type === 'new' && sgOhp.wt === 8.5, JSON.stringify(sgOhp));
   T('cross-location suggestion names its source lift', /Barbell OHP/.test(sgOhp.detail || ''), sgOhp.detail);
+  const sgPress = getSmartSugg(pr2.A.find(e => e.id === 'db_floor_press'));
+  T('db_floor_press computes directly from home floor press (40×0.32 → snapped 13)',
+    sgPress.type === 'new' && sgPress.wt === 13 && /Based on Floor Press/.test(sgPress.detail || ''), JSON.stringify(sgPress));
 }
 
 // ── Ultra audit C5: MG attribution consistency (exact values, so silent drift fails loud) ──

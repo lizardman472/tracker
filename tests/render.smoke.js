@@ -102,6 +102,12 @@ R.go('home');
 R.getD().location = 'partner';
 tryRender('home (partner)', () => R.go('home'));
 T('partner home produced non-empty markup', R.getA().length > 200);
+{
+  const partnerHome=R.getA(),day=R.getD().nextDay||'A';
+  T('Partner Essentials is the primary action',/Start Essentials · 7 lifts/.test(partnerHome)&&partnerHome.indexOf('Start Essentials')<partnerHome.indexOf('Full session'),partnerHome.slice(partnerHome.indexOf('start-hero'),partnerHome.indexOf('start-hero')+600));
+  T('partner Full remains one tap away',/Full session/.test(partnerHome));
+  T('partner preview is the seven-lift Essentials base',R.dayExs(day,{},true).length===7,`${day}: ${R.dayExs(day,{},true).map(e=>e.id).join(',')}`);
+}
 
 // ── Repeat-day override hint (ultra audit C11) ──
 // The fixture's last logged session is 'hxs' (Day A). With the rotation suggesting B,

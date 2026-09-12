@@ -1987,7 +1987,7 @@ const RELATED_EX={
   // First-session loads are deliberately conservative: session one is for finding the
   // groove; the AMRAP overshoot re-anchor corrects upward fast.
   'db_rdl':         {id:'hex_rdl',          mult:0.35, seedWt:12, note:'≈35% of your hex RDL per DB (two held). Estimate — first session is for finding the groove.'},
-  'db_floor_press': {id:'db_floor_press_v', mult:1.0, addKg:0.5, seedWt:8, note:'heavy slot, +0.5kg over volume slot'},
+  'db_floor_press': {id:'floor_press',      mult:0.32, seedWt:8, note:'≈32% of your home barbell floor press per DB. Conservative equipment-transfer estimate — confirm it with the first partner session.'},
   'db_floor_press_v':{id:'floor_press',     mult:0.32, seedWt:8, note:'≈32% of your barbell floor press per DB (two held, higher reps). Estimate — adjust on feel.'},
   'db_ohp':         {id:'ohp',              mult:0.32, seedWt:5,  note:'≈32% of your barbell OHP per DB — DBs demand more stabilisation. Soft lockout, shoulders packed.'},
   'db_lateral':     {id:null,               seedWt:3,  note:'NEW — strict DB laterals start tiny on purpose (hypermobile shoulders): 3kg bells, no swing.'},
@@ -2395,7 +2395,12 @@ if((ex.tp==='bb'||ex.tp==='mace'||ex.tp==='db'||ex.tp==='kb')&&lastLoad){
       const steps=over>=3?2:1;
       const nxt=nxUpN(lastLoad,steps,dbwOf(ex));
       if(nxt<=lastLoad){
-        return{text:`🔒 MAX — push reps`,type:'st',wt:lastLoad,traj,detail:`Top of the DB rack. Expand rep range or add tempo.`,regress,maxed:true}}
+        const ceilingPlan={
+          db_rdl:`Keep ${ex.s}×${ex.tg} at 18.5kg/DB with a strict 4-second lower and 1-second pause at mid-shin. Tempo is not logged as a progression stage, so repeat this until every set is controlled; use the home hex RDL for measurable load progression.`,
+          db_floor_press:`Keep ${ex.s}×${ex.tg} at 18.5kg/DB with a controlled 2-second floor pause. Tempo is not logged as a progression stage, so repeat this until every set is clean; use the home barbell floor press for measurable load progression.`,
+        }[ex.id];
+        return{text:ceilingPlan?'🔒 MAX — progress tempo':'🔒 MAX — push reps',type:'st',wt:lastLoad,traj,
+          detail:ceilingPlan||'Top of the DB rack. Expand rep range or add tempo.',regress,maxed:true}}
       const jump=Math.round((nxt-lastLoad)*10)/10;
       return{text:`↑ ${nxt}kg${u}`,type:'up',wt:nxt,traj,detail:(over>=3?`Hit ${lastSets}×${ex.tg}+${over} — strong, +${jump}kg`:`Hit ${lastSets}×${ex.tg} — +${jump}kg`)+topNote,regress}}
     // KB / mace: micro-load. AMRAP scales how many 0.5kg steps (1 normally, 2 if ≥3 over).
@@ -2554,8 +2559,18 @@ if(ex.tp==='band'){
 
 // ─── CARRY exercises ───
 if(ex.tp==='carry'||(ex.tp==='db'&&ex.id.includes('carry'))){
-  const lastWt=last.wt||0;
-  return{text:lastWt?`${lastWt}kg`:'Log weight',type:'stay',wt:lastWt,traj:[],detail:'↑ load or distance when comfortable',regress:discWarn}}
+  const lastWt=Number(last.wt)||0,reps=effectiveReps(ex,last.reps),allHit=reps.length>=ex.s&&reps.slice(0,ex.s).every(r=>r>=ex.tg);
+  if(ex.id==='db_carry'&&lastWt&&allHit){
+    if(!sessClean(last))return{text:`→ ${lastWt}kg/hand (clean up)`,type:'stay',wt:lastWt,traj:[],detail:`Distance target met, but form slipped (${FORM_LABELS[sessForm(last)]||'breakdown'}) — keep the load and earn every metre with tall posture and a stable carry.`,regress:discWarn};
+    if(modDisc>=2)return{text:`→ ${lastWt}kg/hand (hold)`,type:'stay',wt:lastWt,traj:[],detail:'Holding due to discomfort trend',regress:discWarn};
+    const nxt=nxUp(lastWt,dbwOf(ex));
+    if(nxt>lastWt)return{text:`↑ ${nxt}kg/hand`,type:'up',wt:nxt,traj:[],detail:`Completed ${ex.s}×${ex.tg}m — move one loadable matched-pair rung (+${Math.round((nxt-lastWt)*10)/10}kg/hand).`,regress:discWarn};
+    const distance=Math.min(...reps);
+    const nextDistance=distance<50?50:distance<60?60:null;
+    return{text:nextDistance?`🔒 18.5kg/hand — ${nextDistance}m`:'🔒 18.5kg/hand — extend time',type:'st',wt:lastWt,traj:[],maxed:true,
+      detail:nextDistance?`At the matched-pair ceiling. Keep the load and progress every set from ${distance}m to ${nextDistance}m.`:'At the matched-pair ceiling with 60m achieved. Keep the load and progress total time under tension, posture and walking control.',regress:discWarn};
+  }
+  return{text:lastWt?`${lastWt}kg`:'Log weight',type:'stay',wt:lastWt,traj:[],detail:`Build every set to ${ex.s}×${ex.tg}m before increasing load or distance.`,regress:discWarn}}
 
 // ─── BODYWEIGHT (push-ups, inverted rows, dead bugs, dand-baithak) — perSide-aware ───
 if(ex.tp==='bw'){
@@ -2583,11 +2598,15 @@ return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],det
 // prescribed hold or load reduction. Warm-up completion stays advisory: the session-level
 // checklist is neither exercise-specific nor proof of readiness, so it cannot scientifically
 // justify overriding otherwise-earned progression. Missing historical metadata is neutral.
-const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat','band_leg_curl']);
-const PARTNER_SPLIT_SQUAT_IDS=new Set(['db_bss','db_lunge']);
-function recentPartnerLegWork(){const cut=daysAgoStr(6),now=today();
-  return D.sessions.some(s=>(s.loc||'home')==='partner'&&s.date>=cut&&s.date<=now&&
-    (s.ex||[]).some(e=>PARTNER_SPLIT_SQUAT_IDS.has(e.id)&&effectiveReps(ALL_EX.find(x=>x.id===e.id)||{},e.reps).length>=3))}
+const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat']);
+const PARTNER_LOWER_IDS=new Set(['db_bss','db_lunge','db_rdl','db_sl_rdl']);
+const HOME_PRESS_IDS=new Set(['floor_press','hex_floor_press','ohp','lm_press','dips']);
+const PARTNER_PRESS_IDS=new Set(['db_floor_press','db_floor_press_v','db_1arm_press','db_ohp','pb_dips']);
+function recentOtherVenueWork(ex,ids,loc,label){
+  const own=safetyHist(ex),lastOwn=own.length?own[own.length-1].date:'';
+  const cut=daysAgoStr(6),now=today();
+  return D.sessions.some(s=>(s.loc||'home')===loc&&s.date>=cut&&s.date<=now&&(!lastOwn||s.date>=lastOwn)&&
+    (s.ex||[]).some(e=>ids.has(e.id)&&effectiveReps(ALL_EX.find(x=>x.id===e.id)||{},e.reps).length>=3))?label:''}
 function safetyHist(ex){let h=getHist(ex.id,8).filter(x=>!x.noProg&&effectiveReps(ex,x.reps).length>0);
   if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const end=ymd(de);
     const f=h.filter(x=>x.date<D.lastDeload||x.date>end);if(f.length)h=f}
@@ -2607,7 +2626,10 @@ function getSmartSugg(ex){
     if(sameLever&&pr.length&&cr.length){const pt=pr.reduce((a,b)=>a+b,0),ct=cr.reduce((a,b)=>a+b,0);
       const pa=pt/pr.length,ca=ct/cr.length;
       if(ct<pt-3&&ca<=pa-2)reasons.push(`average reps dropped ${pa.toFixed(1)}→${ca.toFixed(1)}`)}}
-  if(HOME_LOWER_IDS.has(ex.id)&&recentPartnerLegWork())reasons.push('partner split-squat/lunge work was logged in the last 7 days');
+  if(HOME_LOWER_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,PARTNER_LOWER_IDS,'partner','partner lower-body work was logged after this lift');if(r)reasons.push(r)}
+  if(PARTNER_LOWER_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,HOME_LOWER_IDS,'home','home lower-body work was logged after this lift');if(r)reasons.push(r)}
+  if(HOME_PRESS_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,PARTNER_PRESS_IDS,'partner','partner pressing work was logged after this lift');if(r)reasons.push(r)}
+  if(PARTNER_PRESS_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,HOME_PRESS_IDS,'home','home pressing work was logged after this lift');if(r)reasons.push(r)}
   if(!reasons.length)return base;
   const lastLoad=last?sessLoad(last,Math.min(ex.s,(last.reps||[]).length||ex.s)):0;
   const unit=ex.loadUnit==='per_db'?'/DB':'';
@@ -3551,10 +3573,9 @@ if(restDay){
   </div>
   </div>`;
 }else{
-  // ESSENTIALS — the focused home session is the everyday default; the complete accessory-inclusive
-  // session remains one tap away. Hidden at the partner
-  // venue (already one collapsed full-body session on short rests) and whenever the cut
-  // would drop nothing, which would make the button a lie.
+  // ESSENTIALS — the focused session is the everyday default; the complete accessory-inclusive
+  // session remains one tap away. At home the audited primary/control filter applies; at the
+  // partner venue the seven-movement shared full-body base remains and rotating additions drop.
   const xpD=expressAvailable()?expressDiff(nd):null;
   const startBtns=xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
@@ -3584,8 +3605,8 @@ h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d bet
 }else{h+=`<div class="dm" style="margin-top:2px">No sessions yet — Day A kicks off your first A→B→C cycle.</div>`}
 h+=`</div>`;}
 
-// Preview mirrors the primary action: Essentials on an ordinary home day, full session at the
-// partner venue or when deliberately lifting through a recommended rest day.
+// Preview mirrors the primary action: Essentials on an ordinary training day, or the full
+// session when deliberately lifting through a recommended rest day.
 const previewExs=!restDay&&expressAvailable()?dayExs(nd,{},true):exs;
 h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${previewExs.length}${previewExs!==exs?' · Essentials':''}</div>`;
 const tpIcon={bb:'🏋',db:'💪',band:'🎗',bw:'🤸',kb:'🔔',carry:'🧳',club:'🪈',mace:'⚔'};
@@ -3705,10 +3726,13 @@ function isExpressKeep(ex){
   const m=MG[ex.id];if(!m)return false;
   return XP_PRIMARY.some(k=>(m[k]||0)>=1);
 }
-// Express is HOME-only by request. The partner venue is already one collapsed full-body
-// session on 0:45/0:30 rests (v21) — cutting it further would leave a session that trains
-// almost nothing, and its lifts are mostly at the rack ceiling anyway.
-function expressAvailable(){return D.location!=='partner'}
+// Partner Essentials is the seven-movement full-body base: 21 sets spanning hinge, squat,
+// horizontal push/pull, overhead press, side delts and trunk. Full adds only the rotating
+// day-specific work (A curls/rear delts, B dip negatives, C carry) plus the optional club.
+// Keep partner slots by their ORIGINAL slot id so a deliberate in-session substitution for
+// a base movement remains in Essentials instead of silently disappearing.
+const PARTNER_ESSENTIAL_IDS=new Set(PARTNER_BASE.map(e=>e.id));
+function expressAvailable(){return true}
 function dayExs(day,sw,xp){sw=sw||SWAP;
 if(xp===undefined)xp=EXPRESS;
 const rows=(getCurPR()[day]||[]);
@@ -3721,7 +3745,7 @@ const id=sw[ex.id],alt=id&&ALL_EX.find(e=>e.id===id);
 // def carries base (phase-1) rp/tg, which silently un-periodized any swap.
 const adj=alt&&(PHASES[D.phase]||PHASES[1]).adj[id];
 return alt?{...alt,...(adj?{rp:adj.rp,tg:adj.tg}:{}),_slot:ex.id,_swapped:true}:{...ex,_slot:ex.id}})
-  .filter(e=>!xp||isExpressKeep(e))
+  .filter(e=>!xp||(D.location==='partner'?PARTNER_ESSENTIAL_IDS.has(e._slot):isExpressKeep(e)))
   .map(e=>xp&&e.xpSets?{...e,s:Math.min(e.s,e.xpSets)}:e)}
 // What an express run of `day` would drop, for the confirmation UI. Reads the same path as
 // dayExs so the preview can never disagree with what actually starts.

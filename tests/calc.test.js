@@ -205,9 +205,74 @@ const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
   rd.sessions = [home, { id: 'leg-partner', date: daysAgoStr(1), day: 'A', loc: 'partner',
     ex: [{ id: 'db_bss', wt: 12, reps: [16, 16, 16, 16], band: '' }] }];
   let rs = getSmartSugg(lower);
-  T('recent partner split squats hold home lower-body progression', rs.type === 'stay' && /partner split-squat/.test(rs.detail), JSON.stringify(rs));
+  T('recent partner lower-body work holds home lower-body progression', rs.type === 'stay' && /partner lower-body/.test(rs.detail), JSON.stringify(rs));
   rd.sessions[1].date = daysAgoStr(8);
   T('cross-venue lower-body hold clears after seven days', getSmartSugg(lower).type === 'up', JSON.stringify(getSmartSugg(lower)));
+}
+
+// Cross-venue recovery is symmetric and chronological: work at the other venue holds an
+// increase only when it occurred after the current lift's latest exposure.
+{
+  const rd = freshD();
+  const bss = getProgram(1, 'partner').A.find(e => e.id === 'db_bss');
+  rd.sessions = [
+    { id: 'bss-hit', date: daysAgoStr(3), day: 'A', loc: 'partner', ex: [{ id: 'db_bss', wt: 12, reps: [16, 16, 16], band: '' }] },
+    { id: 'home-after', date: daysAgoStr(1), day: 'A', loc: 'home', ex: [{ id: 'lm_squat', wt: 21, reps: [20, 20, 20], band: '' }] }];
+  let rs = getSmartSugg(bss);
+  T('recent home lower-body work holds partner split-squat progression', rs.type === 'stay' && /home lower-body/.test(rs.detail), JSON.stringify(rs));
+  rd.sessions[1].date = daysAgoStr(5);
+  rd.sessions[0].date = daysAgoStr(1);
+  T('older home work does not hold a later partner exposure', getSmartSugg(bss).type === 'up', JSON.stringify(getSmartSugg(bss)));
+
+  const dbPress = getProgram(1, 'partner').A.find(e => e.id === 'db_floor_press');
+  rd.sessions = [
+    { id: 'dbp-hit', date: daysAgoStr(3), day: 'A', loc: 'partner', ex: [{ id: 'db_floor_press', wt: 17, reps: [10, 10, 10], band: '' }] },
+    { id: 'home-press-after', date: daysAgoStr(1), day: 'A', loc: 'home', ex: [{ id: 'floor_press', wt: 40, reps: [10, 10, 10, 10], band: '' }] }];
+  rs = getSmartSugg(dbPress);
+  T('recent home pressing holds partner pressing progression', rs.type === 'stay' && /home pressing/.test(rs.detail), JSON.stringify(rs));
+}
+
+// Partner equipment ceilings produce the actual next progression lever in the suggestion.
+{
+  const rd = freshD();
+  const rdl = getProgram(1, 'partner').A.find(e => e.id === 'db_rdl');
+  const press = getProgram(1, 'partner').A.find(e => e.id === 'db_floor_press');
+  const carry = getProgram(1, 'partner').C.find(e => e.id === 'db_carry');
+  rd.sessions = [{ id: 'rdl-max', date: daysAgoStr(1), day: 'A', loc: 'partner', ex: [{ id: rdl.id, wt: 18.5, reps: [10, 10, 10], band: '' }] }];
+  let rs = getSmartSugg(rdl);
+  T('DB RDL ceiling prescribes its tempo progression', rs.maxed && /4-second lower/.test(rs.detail), JSON.stringify(rs));
+  rd.sessions = [{ id: 'press-max', date: daysAgoStr(1), day: 'A', loc: 'partner', ex: [{ id: press.id, wt: 18.5, reps: [10, 10, 10], band: '' }] }];
+  rs = getSmartSugg(press);
+  T('DB floor-press ceiling prescribes its pause progression', rs.maxed && /2-second floor pause/.test(rs.detail), JSON.stringify(rs));
+  rd.sessions = [{ id: 'carry-load', date: daysAgoStr(1), day: 'C', loc: 'partner', ex: [{ id: carry.id, wt: 18, reps: [40, 40, 40], band: '' }] }];
+  rs = getSmartSugg(carry);
+  T('DB carry advances through the matched-pair ladder below ceiling', rs.type === 'up' && rs.wt === 18.5, JSON.stringify(rs));
+  rd.sessions = [{ id: 'carry-distance', date: daysAgoStr(1), day: 'C', loc: 'partner', ex: [{ id: carry.id, wt: 18.5, reps: [40, 40, 40], band: '' }] }];
+  rs = getSmartSugg(carry);
+  T('DB carry advances distance at the matched-pair ceiling', rs.maxed && /50m/.test(rs.text), JSON.stringify(rs));
+
+  rd.phase=2;rd.phaseStart=daysAgoStr(10);
+  rd.sessions = [{ id: 'rdl-max-p2', date: daysAgoStr(1), day: 'A', loc: 'partner', phase:2, ex: [{ id: rdl.id, wt: 18.5, reps: [12, 12, 12], band: '' }] }];
+  rs=getSmartSugg(getProgram(2,'partner').A.find(e=>e.id==='db_rdl'));
+  T('DB RDL ceiling message follows the Phase-2 target',rs.maxed&&/3×12/.test(rs.detail)&&!/3×10/.test(rs.detail),JSON.stringify(rs));
+  rd.phase=3;rd.phaseStart=daysAgoStr(10);
+  rd.sessions = [{ id: 'press-max-p3', date: daysAgoStr(1), day: 'A', loc: 'partner', phase:3, ex: [{ id: press.id, wt: 18.5, reps: [8, 8, 8], band: '' }] }];
+  rs=getSmartSugg(getProgram(3,'partner').A.find(e=>e.id==='db_floor_press'));
+  T('DB floor-press ceiling message follows the Phase-3 target',rs.maxed&&/3×8/.test(rs.detail)&&!/3×10/.test(rs.detail),JSON.stringify(rs));
+
+  rd.phase=1;rd.phaseStart=daysAgoStr(10);
+  rd.sessions = [{ id: 'carry-form', date: daysAgoStr(1), day: 'C', loc: 'partner', phase:1, ex: [{ id: carry.id, wt: 18, reps: [40, 40, 40], band: '', form:[3,3,3] }] }];
+  rs=getSmartSugg(carry);
+  T('DB carry does not add load after a poor-form target hit',rs.type==='stay'&&/clean up/.test(rs.text),JSON.stringify(rs));
+  rd.sessions = [{ id: 'carry-effort', date: daysAgoStr(1), day: 'C', loc: 'partner', phase:1, difficulty:5, ex: [{ id: carry.id, wt: 18, reps: [40, 40, 40], band: '', form:[5,5,5] }] }];
+  rs=getSmartSugg(carry);
+  T('DB carry obeys the 5/5 session-effort recovery hold',rs.type==='stay'&&/effort was 5\/5/.test(rs.detail),JSON.stringify(rs));
+  rd.discomfort=[
+    {date:daysAgoStr(3),exId:carry.id,joint:'Shoulder',level:'moderate'},
+    {date:daysAgoStr(1),exId:carry.id,joint:'Shoulder',level:'moderate'}];
+  rd.sessions = [{ id: 'carry-discomfort', date: daysAgoStr(1), day: 'C', loc: 'partner', phase:1, difficulty:3, ex: [{ id: carry.id, wt: 18, reps: [40, 40, 40], band: '', form:[5,5,5] }] }];
+  rs=getSmartSugg(carry);
+  T('DB carry holds after repeated moderate discomfort',rs.type==='stay'&&/discomfort trend/.test(rs.detail),JSON.stringify(rs));
 }
 
 // Joint trends aggregate across related movements and cover lower-body joints too.
@@ -415,9 +480,19 @@ T('Essentials excludes the optional Day C deficit push-up', !dayExs('C', {}, tru
   T('express reads the RESOLVED movement, so a swap cannot smuggle the tail back in',
     slot && !dayExs('A', { floor_press: 'bb_rear_row' }, true).some(e => e.id === 'bb_rear_row'));
 }
-// Partner venue is already one collapsed short session — express must not apply there.
+// Partner Essentials is the shared seven-movement base. Full retains the rotating additions.
 d.location = 'partner';
-T('express is unavailable at the partner venue', expressAvailable() === false);
+const partnerBaseIds=['db_rdl','db_bss','db_floor_press','inv_rows_a','db_ohp','db_lateral','side_plank'];
+for(const day of ['A','B','C']){
+  const full=dayExs(day,{},false),xp=dayExs(day,{},true);
+  T(`Partner Essentials Day ${day} is the seven-movement shared base`,
+    JSON.stringify(xp.map(e=>e.id))===JSON.stringify(partnerBaseIds),xp.map(e=>e.id).join(','));
+  T(`Partner Essentials Day ${day} is 21 prescribed sets`,xp.reduce((n,e)=>n+e.s,0)===21,`${xp.reduce((n,e)=>n+e.s,0)}`);
+  T(`Partner Essentials Day ${day} is shorter than Full`,xp.length<full.length,`${full.length} -> ${xp.length}`);
+}
+T('express is available at the partner venue', expressAvailable() === true);
+T('a swapped partner base slot stays in Essentials',
+  dayExs('A',{db_rdl:'db_sl_rdl'},true).some(e=>e.id==='db_sl_rdl'));
 d.location = 'home';
 T('express is available at home', expressAvailable() === true);
 

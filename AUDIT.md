@@ -8,8 +8,10 @@ not appropriate application source.
 
 - Fresh installs start empty; deterministic historical data lives under `tests/fixtures/` only.
 - Progression increases are held after a 5/5 session, a sharp same-load rep drop, repeated
-  related-joint discomfort, or recent partner split-squat/lunge work before a home lower-body
-  increase. A zero-warm-up entry remains an adherence warning, not a progression veto.
+  related-joint discomfort, or newer overlapping lower-body/pressing work at the other venue.
+  Cross-venue holds work in both directions and clear once the current lift is trained again
+  or the seven-day window expires. A zero-warm-up entry remains an adherence warning, not a
+  progression veto.
 - Shoulder, elbow, wrist, lower-back, hip, knee, and ankle flags are available. Related-lift
   flags aggregate by upper/lower movement family.
 - Home strength pillars rest 2:00, other demanding compounds 1:30, and accessories 1:00.
@@ -18,7 +20,8 @@ not appropriate application source.
 - History flags same-date sessions with matching exercises, loads and reps for manual review;
   it never deletes a possible duplicate automatically.
 - The focused Essentials session keeps the main lifts plus targeted stability work; the full
-  accessory-inclusive session remains available.
+  accessory-inclusive session remains available. At the partner venue, Essentials is the
+  shared seven-movement full-body base (21 sets); Full adds the rotating day-specific work.
 - Essentials shows an 80-minute pacing budget without shortening prescribed rests, removing
   work at the deadline, or changing progression. A measured A/B/C Essentials cycle is still
   required before making any further time-driven program change.
@@ -28,6 +31,12 @@ not appropriate application source.
   self-report is labelled session effort rather than inaccurately calling it RPE.
 - Loaded dead bugs and anti-rotation presses use quality-first progression: one smallest-step
   increase, no cluster prescriptions, and no influence on strength-phase reassessment.
+- Partner DB RDL and floor-press suggestions prescribe their tempo/pause progression at the
+  matched-pair ceiling. Partner farmer's carries climb the real matched-pair ladder, then
+  progress 40→50→60 metres before shifting to time under tension and walking quality.
+- First partner loads are conservative transfers from the closest home lift and snap to the
+  buildable dumbbell ladder. Once the partner movement has history, its own observed
+  performance supersedes the cross-equipment estimate.
 - Whole-program phase changes require at least two genuinely stalled compound lifts. Isolated
   accessory stalls remain visible but cannot redirect the program while key lifts are moving.
 - Phase 2 is accurately described as a higher-rep emphasis with performance-based load
