@@ -134,7 +134,7 @@ try {
   const overview = renderSegment('overview'), balance = renderSegment('balance');
   ok(!/consider a set|Priority:|not progressing/.test(overview), 'Overview does not prescribe from a reference gap');
   ok(!/consider a set|productive|aim ~1:1/.test(balance), 'Balance avoids prescriptions and productivity/ratio claims');
-  ok(/reference gap alone does not call for more sets/.test(balance), 'Balance explains uncertainty');
+  ok(/not a deficit or an instruction to expand Essentials/.test(balance), 'Balance explains uncertainty');
   ok(/29 Aug/.test(balance) && /7 Sep/.test(balance), 'Balance displays actual inclusive dates');
 } finally {
   if (originalTZ == null) delete process.env.TZ; else process.env.TZ = originalTZ;

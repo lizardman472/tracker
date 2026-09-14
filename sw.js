@@ -29,7 +29,9 @@
 // v118: partner/home recovery holds are symmetric; partner DB ceiling progression is emitted
 // by the engine; partner Essentials keeps the shared seven-lift base; and first-session DB
 // floor-press loading now transfers directly from the home floor press.
-const C = 'rft-v118';
+// v119: Essentials is the complete default; below-reference set estimates stay descriptive
+// in Progress and no longer generate a corrective home-screen warning.
+const C = 'rft-v119';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

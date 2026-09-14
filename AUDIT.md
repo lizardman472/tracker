@@ -19,9 +19,11 @@ not appropriate application source.
   those intervals as measured rest because setup and the following set's work are included.
 - History flags same-date sessions with matching exercises, loads and reps for manual review;
   it never deletes a possible duplicate automatically.
-- The focused Essentials session keeps the main lifts plus targeted stability work; the full
-  accessory-inclusive session remains available. At the partner venue, Essentials is the
-  shared seven-movement full-body base (21 sets); Full adds the rotating day-specific work.
+- The focused Essentials session is the complete everyday prescription: it keeps the main
+  lifts, targeted stability work, and agreed arm/hamstring accessories. Full remains an
+  optional higher-volume variant, not a correction Essentials periodically requires. At the
+  partner venue, Essentials is the shared seven-movement full-body base (21 sets); Full adds
+  the rotating day-specific work.
 - Essentials shows an 80-minute pacing budget without shortening prescribed rests, removing
   work at the deadline, or changing progression. A measured A/B/C Essentials cycle is still
   required before making any further time-driven program change.
@@ -58,13 +60,21 @@ not appropriate application source.
   per-set weights; trend displays expose dates and sample counts, and band trends require
   comparable recorded conditions.
 - Overview and Balance describe muscle-set references without unconditional extra-set advice.
+- Essentials never turns a below-reference set estimate into a corrective warning or directs
+  the user to run Full. Balance labels these as general comparisons rather than Essentials
+  targets, and its gold state explicitly does not imply a deficit.
+- Choosing to lift through a suggested rest day still defaults to Essentials and preserves
+  Full as a separate explicit option.
+- Return-ramp guidance modifies effort within Essentials and explicitly excludes Full-only
+  additions during stage 1; stage 2 returns to the normal Essentials prescription. It no
+  longer describes Essentials itself as an accessory cut or uses “full volume” ambiguously.
 - Moderate discomfort has a visible selected state, Settings switches have accessible names,
   Progress tabs stay visible, and ordinary workout redraws restore focus and scroll.
 - Synthetic storage, analytics, and browser regressions are part of CI. Browser dependencies
   are mandatory in CI rather than silently skipping the browser gate.
 
 Full and Essentials exercise prescriptions and phase/deload/progression policies are
-unchanged by this follow-up. Chromium covers narrow layouts and keyboard interaction;
+unchanged by the analytics follow-up above. Chromium covers narrow layouts and keyboard interaction;
 physical Android keyboard continuity and installed-PWA upgrade behavior remain unverified.
 
 ## Remaining architecture debt

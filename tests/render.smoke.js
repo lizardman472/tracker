@@ -84,6 +84,7 @@ T('home produced non-empty markup', R.getA().length > 200);
   const home = R.getA();
   T('focused Essentials session is the primary home action', /Start Essentials/.test(home) && home.indexOf('Start Essentials') < home.indexOf('Full session'), home.slice(home.indexOf('start-hero'), home.indexOf('start-hero') + 500));
   T('full workout remains one tap away', /Full session/.test(home));
+  T('home copy describes Full as optional', /Full optionally adds/.test(home));
 }
 
 // Essentials gets a visible, non-coercive pacing target. It must not leak into Full, and its
@@ -155,8 +156,10 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   T('picking a day on a rest day moves the selection', /class="on"[^>]*onclick="PICK_DAY='C'/.test(picked));
   // The point of the picker is that the button it sits above follows it. Without this the
   // picker could render and change nothing — which is how it would break in practice.
-  T('...and retargets the "anyway" button', /beginW\('C'\)"[^>]*>Day C1 anyway/.test(picked),
-    (picked.match(/beginW\('.'\)"[^>]*>Day .1 anyway/) || [''])[0]);
+  T('...and keeps Essentials as the default lifting action', /beginW\('C',true\)"[^>]*>Day C1 Essentials anyway/.test(picked),
+    (picked.match(/beginW\('.',true\)"[^>]*>Day .1 Essentials anyway/) || [''])[0]);
+  T('...while keeping Full an explicit option', /beginW\('C'\)"[^>]*>Day C1 Full anyway/.test(picked));
+  T('...and previews the default Essentials exercise list', /Exercises · \d+ · Essentials/.test(picked));
   R.setPICK('A');
   R.render();
   T('the rotation warning reaches the rest-day card too', /was your last session/.test(R.getA()));

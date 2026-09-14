@@ -95,4 +95,6 @@ Strength momentum uses per-set estimated 1RM, requires at least three observatio
 14 days, and shows only lifts last recorded within 21 days. Those are display policies, not
 readiness thresholds. Cards expose the sample dates and observed change. Band rep trends
 restart when the recorded band, set conditions, or phase changes. Muscle-set references do
-not automatically prescribe extra work.
+not automatically prescribe extra work or generate an Essentials warning. They remain neutral
+context in Progress because fixed set credits and population-level reference ranges cannot
+establish an individual's minimum effective volume.

@@ -1204,42 +1204,6 @@ function getWeeklyVolume(days,now=new Date()){
   return tot;
 }
 
-// ── Express MEV guard ─────────────────────────────────────────────────────────────────
-// Express trades accessory VOLUME for time, and that trade is only safe while the week as a
-// whole still clears MEV — which is exactly what getWeeklyVolume measures, across sessions
-// and venues. So the guard is not "you used express N times", it is "the volume actually
-// landed short, and express is why".
-//
-// Both halves are required before it speaks. Under-MEV alone is not an express problem (a
-// missed week, a holiday and a deload all do it, and the Balance dashboard already shows
-// it); express usage alone is not a problem either, which is the entire point of the
-// feature. Only the conjunction is a signal the lifter can act on.
-//
-// Rolling 7 days, and it names the muscles rather than scolding — the actionable fact is
-// WHICH tail got cut too often, because that tells you which accessory to put back first.
-function expressMEVRisk(days){
-  // A return ramp PRESCRIBES the cut this guard exists to flag: stage 1 is literally "drop the
-  // accessory tail", which is what Express does. Both halves of the conjunction below then hold
-  // by construction, so the banner would fire at a lifter for doing exactly what the app just
-  // told them to do — the app arguing with itself.
-  //
-  // Suppressed for the WHOLE ramp, not only stage 1: the guard reads a rolling 7-day window, so
-  // for days after stage 1 ends that window still contains the stage-1 sessions and any warning
-  // built from it would be part false. Missing a genuinely-earned nag inside a <=21-day window
-  // is the cheaper error, and the Balance dashboard still shows the real volume throughout.
-  if(D.comeback)return null;
-  const win=days||7;
-  const recentWindow=calendarWindow(win);
-  const recent=D.sessions.filter(s=>dateInWindow(s.date,recentWindow));
-  const xp=recent.filter(s=>s.express).length;
-  if(xp<2)return null;
-  const vol=getWeeklyVolume(win);
-  const short=MG_INFO.filter(([k,,mev])=>mev!=null&&(vol[k]||0)<mev)
-    .map(([k,nm,mev])=>({k,nm,have:Math.round((vol[k]||0)*10)/10,mev}));
-  if(!short.length)return null;
-  return{xp,total:recent.length,short};
-}
-
 // ── Per-session muscle split (Hevy-style): MG contributions × completed sets,
 // rolled up to display groups and normalized to % of the session's stimulus. ──
 const SPLIT_GROUPS={chest:'Chest',back:'Back',fdelt:'Shoulders',sidedelt:'Shoulders',reardelt:'Shoulders',
@@ -1309,7 +1273,7 @@ const BODY_REGIONS_B=[
 // the other. Band fills are SOLID and identical to the --am/--gr/--pr/--mu tokens the
 // "Weekly Volume by Muscle" bars below already use for the same states; literal hex
 // (not CSS vars) because SVG fills are string-built and the tests assert exact values.
-// `flag` is the under-MEV outline — the --ink contrast partner for that theme's warning color.
+// `flag` is the below-reference outline — the --ink contrast partner for that theme's gold.
 const HEAT_PAL={
 light:{base:'#edf2f7',none:'#d7e0ea',under:'#655000',ok:'#087f74',high:'#005fcc',notgt:'#526174',flag:'#ffffff'},
 dark: {base:'#1a293c',none:'#28394e',under:'#ffe36d',ok:'#5bd6b0',high:'#65a8ff',notgt:'#a9b8ca',flag:'#071321'}};
@@ -1317,13 +1281,13 @@ let HEAT_BASE,HEAT_NONE,HEAT_AMBER,HEAT_GREEN,HEAT_CYAN,HEAT_MUTE,HEAT_FLAG;
 function setHeatPal(dk){const p=HEAT_PAL[dk?'dark':'light'];
 HEAT_BASE=p.base;HEAT_NONE=p.none;HEAT_AMBER=p.under;HEAT_GREEN=p.ok;HEAT_CYAN=p.high;HEAT_MUTE=p.notgt;HEAT_FLAG=p.flag}
 setHeatPal(false); // light defaults; applyTheme() re-runs this on boot and on every theme change
-// Fill for a region at v sets/week — one of three RESERVED STATES (under MEV /
-// productive / at-or-over MAV), not a magnitude ramp.
+// Fill for a region at v sets/week — one of three RESERVED COMPARISON STATES (below /
+// within / at-or-over the general app range), not a magnitude ramp or prescription.
 //
 // This WAS an alpha ramp (warning .20–.50, green .55–.85, blue .95) encoding sets/week
 // within each band. At the warning floor that measured 1.26:1 against the untrained fill
-// in light and 1.45:1 in dark — an under-MEV muscle, the one state that asks the user to
-// act, was the hardest to see. The ramp cannot be rescued by raising alpha: there is
+// in light and 1.45:1 in dark — a below-reference muscle, the comparison state most likely
+// to be misread, was the hardest to see. The ramp cannot be rescued by raising alpha: there is
 // no room below a solid state color for a legible gradient AND the
 // 3:1 floor. The magnitude it encoded is not lost — the bars directly below carry the
 // exact number, the tag and a proportional fill, and every region has a <title> with
@@ -1340,9 +1304,10 @@ if(mev==null)return HEAT_MUTE;
 if(v<mev)return HEAT_AMBER;
 if(mav&&v<mav)return HEAT_GREEN;
 return HEAT_CYAN}
-// Under MEV is the only state that asks for action, so it never rests on hue alone —
-// the region also carries a dashed outline (§7 set this precedent with the day letters
-// on the heatmap cells). Shape survives colorblindness, forced-colors and print.
+// Below-reference never rests on hue alone — the region also carries a dashed outline (§7
+// set this precedent with the day letters on the heatmap cells). The outline distinguishes a
+// comparison state; it does not prescribe more work. Shape survives colorblindness,
+// forced-colors and print.
 // Dash geometry was picked by rendering, not by taste: on the narrow quad/ham ellipses
 // a 2.5/1.5 dash crenellates into what reads as a rendering artifact, and a solid ring
 // reads as gloss on the light amber. 4/2.5 at width 1 is legible as a deliberate mark
@@ -1359,7 +1324,7 @@ for(const sh of BODY_SIL)s+=sh.c?`<circle cx="${sh.c[0]}" cy="${sh.c[1]}" r="${s
 for(const rg of regions){const mi=MG_INFO.find(x=>x[0]===rg.m);const v=Math.round((wv[rg.m]||0)*10)/10;
 const fill=heatColor(v,mi?mi[2]:null,mi?mi[3]:null)||HEAT_NONE;
 const und=heatUnder(v,mi?mi[2]:null);
-const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · below reference minimum':''}</title>`;
+const t=`<title>${mi?mi[1]:rg.m} — ${v} sets/wk${und?' · below general reference':''}</title>`;
 const attrs=`fill="${fill}"${und?` stroke="${HEAT_FLAG}" stroke-width="1" stroke-dasharray="4 2.5"`:''} style="cursor:pointer" onclick="STAT_MG='${rg.m}';render()"`;
 if(rg.d)s+=`<path d="${rg.d}" ${attrs}>${t}</path>`;
 if(rg.r)s+=`<rect x="${rg.r[0]}" y="${rg.r[1]}" width="${rg.r[2]}" height="${rg.r[3]}" rx="${rg.r[4]}" ${attrs}>${t}</rect>`;
@@ -1368,7 +1333,7 @@ return s+`</svg>`};
 return`<div style="display:flex;gap:14px;justify-content:center">
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_F,'Front')}<div class="dm" style="margin-top:2px">Front</div></div>
 <div style="flex:1;max-width:168px;text-align:center">${draw(BODY_REGIONS_B,'Back')}<div class="dm" style="margin-top:2px">Back</div></div></div>
-<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>below reference</span><span><i style="background:${HEAT_GREEN}"></i>reference range</span><span><i style="background:${HEAT_CYAN}"></i>high</span><span><i style="background:${HEAT_MUTE}"></i>no reference</span></div>`}
+<div class="heat-legend"><span><i style="background:${HEAT_NONE}"></i>none</span><span><i style="background:${HEAT_AMBER};outline:1.5px dashed ${HEAT_FLAG};outline-offset:-2px"></i>below general reference</span><span><i style="background:${HEAT_GREEN}"></i>general reference range</span><span><i style="background:${HEAT_CYAN}"></i>above range</span><span><i style="background:${HEAT_MUTE}"></i>no reference</span></div>`}
 
 // Empty production template. Historical regression data belongs in tests/fixtures only;
 // shipping it here made a fresh install look like a real, stale training history.
@@ -3095,9 +3060,9 @@ return{start:c.start,end:c.end,gap:c.gap,days,day,sess,
 function rtnAdvice(r){
 return r.stage===1
 ?{cue:`🔄 Return · day ${r.day}/${r.days} — ~90% of pre-break load, stop 3+ reps shy`,
-  detail:`<b>Stage 1 · re-introduce</b> — first ${RTN_STAGE1_SESS} sessions back. Roughly 90% of the load you were using before the break, and cut the accessory tail (Essentials does exactly that). Stop 3+ reps shy on every set. The target is about half your normal training load, and you get there by dropping SETS, not by grinding out lighter ones.`}
-:{cue:`🔄 Return · day ${r.day}/${r.days} — pre-break loads, full volume, stop 2 reps shy`,
-  detail:`<b>Stage 2 · rebuild</b> — loads back to where they were before the break, full session, still stopping ~2 reps shy. Volume first, intensity second: connective tissue re-adapts slower than muscle, so this is not the week to test a max.`}}
+  detail:`<b>Stage 1 · re-introduce</b> — first ${RTN_STAGE1_SESS} sessions back. Start with Essentials at roughly 90% of the load you were using before the break, stop 3+ reps shy on every set, and do not add Full-only exercises or extra sets. This makes the return session conservative without redefining Essentials as incomplete.`}
+:{cue:`🔄 Return · day ${r.day}/${r.days} — pre-break loads, normal Essentials prescription, stop 2 reps shy`,
+  detail:`<b>Stage 2 · rebuild</b> — return to pre-break loads and the normal Essentials prescription, still stopping ~2 reps shy. Full remains optional extra volume. This is not the week to test a max.`}}
 
 // Every window the progression engine must treat as deliberately submaximal: the live ramp
 // plus the most recent completed ones. Completed ramps still count because getHist looks 8
@@ -3118,9 +3083,10 @@ return w}
 // only shows up years later with a long log.
 function rampOf(date,ws){for(const c of(ws||rampWindows(Infinity)))if(date>=c.start&&date<=c.end)return c;return null}
 // The session DATES the progression engine must not see. Only STAGE 1 is muted — the first
-// RTN_STAGE1_SESS sessions of each ramp, which are the ones deliberately run at ~90% with the
-// accessory tail cut. Stage 2 is explicitly "back to pre-break loads, full volume", so it is
-// honest progression data and has to reach the engine: muting a whole 21-day ramp would blind
+// RTN_STAGE1_SESS sessions of each ramp, which are deliberately run at ~90% without Full-only
+// additions or extra sets. Stage 2 returns to pre-break loads and the normal Essentials
+// prescription, so it is honest progression data and has to reach the engine: muting a whole
+// 21-day ramp would blind
 // it to three weeks of real training and leave every suggestion anchored on a pre-break load
 // that is no longer true. Muting stage 1 is what stops the phantom deload; muting more than
 // that would trade one wrong answer for another.
@@ -3434,18 +3400,6 @@ h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
 :`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh empty state. Download the raw copy (for recovery), then import your latest backup.`}</div>
 <div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
-// Express MEV guard — express trades accessory volume for time, and this is where the week
-// says the trade went too far. Speaks only when BOTH halves hold (2+ express sessions AND a
-// muscle actually under MEV), and names the muscles, because which tail got cut is the part
-// that tells you what to put back. Dismissible per muscle-set so it does not nag once read.
-{const xr=expressMEVRisk(7);
-if(xr){const sig=xr.short.map(m=>m.k).join(',');
-if(!bannerDismissed('xpmev',sig)){
-h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
-<button onclick="dismissBanner('xpmev','${sig}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
-<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${xr.xp} of your last ${xr.total} sessions were Essentials</div>
-<div class="dm">Essentials prioritises the main lifts and targeted stability work. This week's directional set estimate fell below its reference minimum: ${xr.short.map(m=>`<b>${esc(m.nm)}</b> ${m.have}/${m.mev}`).join(' · ')}. Run a full day next, or put those slots back.</div></div>`}}}
-
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
@@ -3569,8 +3523,9 @@ if(restDay){
   ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}')">Day ${nd}${ls} anyway</button>
+    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} Essentials anyway</button>
   </div>
+  <button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>
   </div>`;
 }else{
   // ESSENTIALS — the focused session is the everyday default; the complete accessory-inclusive
@@ -3579,7 +3534,7 @@ if(restDay){
   const xpD=expressAvailable()?expressDiff(nd):null;
   const startBtns=xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
-  <div class="dm" style="margin-top:6px;text-align:center">Essentials keeps the main lifts plus targeted stability work. Full adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
+  <div class="dm" style="margin-top:6px;text-align:center">Essentials is the complete session: main lifts, targeted stability work, and selected accessories. Full optionally adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
   :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
   <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
@@ -3605,9 +3560,9 @@ h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d bet
 }else{h+=`<div class="dm" style="margin-top:2px">No sessions yet — Day A kicks off your first A→B→C cycle.</div>`}
 h+=`</div>`;}
 
-// Preview mirrors the primary action: Essentials on an ordinary training day, or the full
-// session when deliberately lifting through a recommended rest day.
-const previewExs=!restDay&&expressAvailable()?dayExs(nd,{},true):exs;
+// Preview mirrors the default lifting action: Essentials remains the complete default even
+// when the user deliberately trains through a recommended rest day. Full is always explicit.
+const previewExs=expressAvailable()?dayExs(nd,{},true):exs;
 h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${previewExs.length}${previewExs!==exs?' · Essentials':''}</div>`;
 const tpIcon={bb:'🏋',db:'💪',band:'🎗',bw:'🤸',kb:'🔔',carry:'🧳',club:'🪈',mace:'⚔'};
 // 'stay' was MISSING from this map entirely (only 'st' existed), so every hold row fell
@@ -3714,10 +3669,11 @@ setTs:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],
 // algorithm believes quads are handled. Coverage-at-any-weight is the wrong objective for a
 // program whose point is loaded progression.
 //
-// This is a VOLUME trade, not a free lunch: main patterns and selected control work survive;
-// some accessory volume does not. It is safe while weekly volume remains adequate because
-// MEV is a WEEKLY landmark and getWeeklyVolume
-// counts across sessions and venues — lean on it and expressMEVRisk() below says so.
+// Essentials is the complete everyday prescription: main patterns, the selected control work,
+// and the agreed arm/hamstring accessories survive. Full is an optional higher-volume variant,
+// not a correction that Essentials periodically requires. The Balance view may still compare
+// directional set credits with generic app references, but those estimates are descriptive and
+// never auto-prescribe restoring the removed accessory tail.
 // `xp` on an exercise def overrides the rule outright (true = always keep, false = always
 // drop) for cases the muscle map cannot express.
 const XP_PRIMARY=['chest','back','quads','hams','glutes','fdelt'];
@@ -3918,7 +3874,7 @@ h+=`</div><div style="text-align:right;font-size:10px;color:var(--mu);margin-bot
 // and a prescription you see on one card out of nine is a prescription you will not follow.
 // Stated once, at the top, where it cannot be missed.
 {const rw=getComeback();
-if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:var(--prl);border-color:var(--pr);color:var(--pr);font-size:11px;margin-bottom:6px">🔄 Return ramp · day ${rw.day}/${rw.days} · session ${rw.sess+1} back — ${rw.stage===1?`stage 1: ~90% of pre-break loads, stop 3+ reps shy, cut the accessory tail`:`stage 2: pre-break loads, full volume, stop ~2 reps shy`}</div>`}
+if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:var(--prl);border-color:var(--pr);color:var(--pr);font-size:11px;margin-bottom:6px">🔄 Return ramp · day ${rw.day}/${rw.days} · session ${rw.sess+1} back — ${rw.stage===1?`stage 1: ~90% of pre-break loads, stop 3+ reps shy, use Essentials without Full additions or extra sets`:`stage 2: pre-break loads, normal Essentials prescription, stop ~2 reps shy`}</div>`}
 
 // Warmup section
 const wuD=WU_CHECKS.filter(Boolean).length;const fIso=exs.find(e=>e.isoWU);
@@ -4969,21 +4925,21 @@ h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best estimated one-rep 
 // Body heat map first — the same wv numbers as the bars below, but as a shape.
 // Tapping a muscle selects it in the Set Count chart further down.
 h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Muscle Heat Map</div>
-<div class="dm" style="margin-bottom:10px">Sets/week (normalized, last 10 days: ${calendarWindowLabel(calendarWindow(10))}) · tap a muscle for its weekly chart</div>
+<div class="dm" style="margin-bottom:10px">Directional set credits/week (normalized, last 10 days: ${calendarWindowLabel(calendarWindow(10))}) · general comparison, not an Essentials target · tap a muscle for its weekly chart</div>
 ${bodyHeatH(wv)}</div>`;
 // Per-muscle MEV/MAV status (10-day window = full A→B→C rotation), merged with
 // each muscle's 8-week history so "where am I now" and "how did I get here"
 // read as one section instead of two separately-computed ones.
 h+=`<div class="cd"><div style="font-size:12px;font-weight:600;margin-bottom:2px">Weekly work by muscle</div>
-<div class="dm" style="margin-bottom:14px">Estimated sets/week, normalized from the last 10 days · all locations · compared with app reference minimum/range · 8-wk history</div>`;
+<div class="dm" style="margin-bottom:14px">Estimated set credits/week, normalized from the last 10 days · all locations · compared with a general app reference range, not an Essentials target · 8-wk history</div>`;
 let anyVol=false;
 for(const[key,label,mev,mav] of MG_INFO){
   const v=Math.round((wv[key]||0)*10)/10;if(v>0)anyVol=true;
   let col='var(--mu)',tag='';
   if(mev!=null){
-    if(v<mev){col='var(--am)';tag='below reference';}
-    else if(v<mav){col='var(--gr)';tag='within reference';}
-    else{col='var(--pr)';tag='at/above upper reference';}
+    if(v<mev){col='var(--am)';tag='below general reference';}
+    else if(v<mav){col='var(--gr)';tag='within general reference';}
+    else{col='var(--pr)';tag='above general range';}
   }
   const pct=mav?Math.min(100,Math.round(v/mav*100)):(v>0?60:0);
   h+=`<div style="margin-bottom:16px">
@@ -5015,7 +4971,7 @@ h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin
 if(push&&pull)h+=`<div style="display:flex;gap:2px;height:7px;margin-top:6px;border-radius:3px;overflow:hidden">
 <div style="width:${Math.round(push/(push+pull)*100)}%;background:var(--pr);opacity:.85"></div>
 <div style="flex:1;background:var(--pu);opacity:.85"></div></div>`}}
-h+=`<div class="dm" style="margin-top:4px">Tick = lower app reference; the full bar is the upper reference. Sets receive fixed muscle credits, including partial credit for indirect work. These estimates do not measure effort, personal minimum effective volume, or push/pull strength. A reference gap alone does not call for more sets. Mini-bars: one per week, gold = below reference.</div></div>`;
+h+=`<div class="dm" style="margin-top:4px">Tick = lower general reference; the full bar is the upper reference. Sets receive fixed muscle credits, including partial credit for indirect work. These estimates do not measure effort, personal minimum effective volume, or push/pull strength. Gold is comparison context, not a deficit or an instruction to expand Essentials. Mini-bars: one per week.</div></div>`;
 
 // ── Muscle Trend: this 28-day window vs the 28 days before it, per muscle ──
 {const mpc=musclePeriodCompare(28);
@@ -5041,7 +4997,7 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Set Count per Musc
 for(const[k,l] of MG_INFO)h+=`<option value="${k}"${k===STAT_MG?' selected':''}>${l}</option>`;
 h+=`</select>`;
 h+=svgBars(series,360,150,C_PR,`${mi[1]} sets/week`,{target:mi[2]||undefined});
-h+=`<div class="dm" style="margin-top:4px">Actual sets per calendar week${mi[2]?' · dashed line = app reference minimum':''}. Unlike the normalized rate above, partial weeks show as-is.</div></div>`}
+h+=`<div class="dm" style="margin-top:4px">Actual set credits per calendar week${mi[2]?' · dashed line = general app lower reference':''}. Unlike the normalized rate above, partial weeks show as-is; the line is not an Essentials target.</div></div>`}
 // Whole-body joint flags, last 30 days (the per-exercise history sits in the
 // Lifts detail card; this is the overview that should inform deload decisions)
 {const dcut=daysAgoStr(30);

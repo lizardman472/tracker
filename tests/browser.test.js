@@ -123,6 +123,7 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     // never reaches the per-lift advisory.
     T('the workout screen states the ramp at the top', /Return ramp · day 3\/20 · session 2 back/.test(w), (w.match(/Return ramp[^\n]*/) || ['MISSING'])[0]);
     T('...with the prescription, not just a day count', /stage 1: ~90% of pre-break loads/.test(w));
+    T('...without treating Essentials as a temporary volume cut', /use Essentials without Full additions or extra sets/.test(w));
     T('...and the first lift really does take the no-history path (or this proves nothing)',
       await page.evaluate(() => getSmartSugg(dayExs(ADAY)[0]).type === 'new'));
     await ctx.close() }
@@ -158,15 +159,14 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     T('a far-future ramp is rejected and the offer returns', /days since your last session/.test(t) && !/Return ramp · starts/.test(t));
     await ctx.close() }
 
-  // ── the Essentials guard must not nag you for following the ramp ──
+  // ── Essentials is complete: generic set references never turn into a corrective nag ──
   { const s = baseStore();
-    s.comeback = { start:ago(2), end:ahead(17), gap:20 };
     s.sessions = [...s.sessions, ...[0,1].map(i => ({ id:'xp'+i, date:ago(i), day:'A', loc:'home', phase:1, express:true,
       difficulty:2, duration:30, volume:800, warmup:1, notes:'', ex:[{ id:'hex_dl', wt:42, reps:[3,3,2], band:'', notes:'' }] }))];
     const { page, ctx } = await open(s);
-    T('no Essentials/reference nag while the ramp prescribes the cut', !/were Essentials/.test(await text(page)));
-    T('...but the guard is still live once the ramp is gone',
-      await page.evaluate(() => { D.comeback = null; return expressMEVRisk(7) !== null }));
+    const t = await text(page);
+    T('repeated Essentials sessions do not trigger a below-reference correction',
+      !/were Essentials|Run a full day next|put those slots back/.test(t));
     await ctx.close() }
 
   // ── set-completion intervals: the set clock, read back ──

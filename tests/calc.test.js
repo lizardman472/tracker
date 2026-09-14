@@ -495,25 +495,10 @@ T('a swapped partner base slot stays in Essentials',
   dayExs('A',{db_rdl:'db_sl_rdl'},true).some(e=>e.id==='db_sl_rdl'));
 d.location = 'home';
 T('express is available at home', expressAvailable() === true);
-
-// ── Express MEV guard: BOTH halves required ──
-// Under-MEV alone is not an express problem (a missed week or a deload does it), and heavy
-// express use with the volume still landing is exactly what the feature is for. Only the
-// conjunction is actionable.
-const xpSess = (n, express) => Array.from({ length: n }, (_, i) => ({
-  id: 'xm' + i + (express ? 'e' : 'f'), date: ymd(new Date(Date.now() - (i + 1) * 864e5)),
-  day: 'A', loc: 'home', express, ex: [{ id: 'hex_dl', wt: 56, reps: [6, 6, 6], band: '' }] }));
-d = freshD(); d.location = 'home';
-d.sessions = xpSess(3, false);
-T('under MEV but no express sessions → silent', expressMEVRisk(7) === null);
-d.sessions = xpSess(1, true);
-T('a single express session → silent (that is the feature working)', expressMEVRisk(7) === null);
-d.sessions = xpSess(3, true);
-{
-  const r = expressMEVRisk(7);
-  T('2+ express sessions AND a muscle under MEV → warns', r !== null && r.xp === 3, JSON.stringify(r && { xp: r.xp, n: r.short.length }));
-  T('the warning names which muscles fell short', r && r.short.length > 0 && r.short.every(m => m.have < m.mev && m.nm));
-}
+T('Essentials never emits a corrective volume nag',
+  !/expressMEVRisk|Run a full day next|put those slots back/.test(html));
+T('muscle references remain descriptive in Progress',
+  /comparison context, not a deficit or an instruction to expand Essentials/.test(html));
 
 // ── deload trigger uses objective COMPOUND stalls, not just self-rated effort ──
 // Timer met (10 wks since deload) + low effort (2/5), so the old effort-only gate would only
@@ -2325,8 +2310,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('heatColor changes state exactly at MAV', heatColor(19.9, 8, 20) !== heatColor(20, 8, 20));
 
   // ── Contrast: the defect this replaced ──
-  // The old alpha ramp put the under-MEV floor at 1.26:1 (light) / 1.45:1 (dark) against
-  // the untrained fill — the one state that asks the user to act was the least visible.
+  // The old alpha ramp put the below-reference floor at 1.26:1 (light) / 1.45:1 (dark)
+  // against the untrained fill — the comparison most likely to be misread was least visible.
   // Every band must now clear the 3:1 non-text floor in BOTH themes. Measured off
   // HEAT_PAL directly so a retune in one theme cannot silently skip the other.
   const srgb = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) };
@@ -2366,13 +2351,13 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('bodyHeatH renders front + back SVGs', (hm.match(/<svg /g) || []).length === 2);
   T('bodyHeatH titles carry sets/wk', /Chest — 9 sets\/wk/.test(hm));
   T('bodyHeatH regions are tappable muscle selectors', /STAT_MG='chest'/.test(hm));
-  T('bodyHeatH renders the reference legend', /heat-legend/.test(hm) && /below reference/.test(hm));
+  T('bodyHeatH renders the general-reference legend', /heat-legend/.test(hm) && /below general reference/.test(hm));
   // ── Under-MEV never rests on hue alone (quads 3 vs MEV 8; chest 9 is over its MEV 8) ──
   const quadFill = hm.slice(hm.indexOf('STAT_MG=\'quads\'') - 400, hm.indexOf('STAT_MG=\'quads\'') + 20);
   T('under-MEV region carries the dashed outline', /stroke-dasharray/.test(quadFill), quadFill.slice(-160));
   const chestFill = hm.slice(hm.indexOf('STAT_MG=\'chest\'') - 400, hm.indexOf('STAT_MG=\'chest\'') + 20);
   T('a productive region carries NO outline (the cue means one thing)', !/stroke-dasharray/.test(chestFill));
-  T('below-reference state is also in the title text, not just the shape', /Quads — 3 sets\/wk · below reference minimum/.test(hm));
+  T('below-reference state is also in the title text, not just the shape', /Quads — 3 sets\/wk · below general reference/.test(hm));
   T('legend explains the outline cue', /heat-legend[\s\S]*dashed/.test(hm));
 }
 
@@ -2489,7 +2474,7 @@ d.sessions = [...preBreak(), light('rr0', ago(2)), light('rr1', ago(1)), light('
 d.comeback = null;
 T('the same sessions with no ramp open DO deload (the mute is load-bearing)', getSmartSugg(dlEx).type === 'dn', JSON.stringify(getSmartSugg(dlEx)));
 
-// Stage 2 is explicitly "back to pre-break loads, full volume", so it is honest data and MUST
+// Stage 2 returns to pre-break loads and the normal Essentials prescription, so it is honest data and MUST
 // reach the engine — muting a whole 21-day ramp would blind it to three weeks of real training.
 d = freshD({ sessions: preBreak() });
 d.comeback = { start: ago(3), end: ahead(15), gap: 19 };
@@ -2517,8 +2502,13 @@ T('...and without that flag the same store is', (() => {
 d = freshD({ sessions: preBreak() });
 beginComeback(today());
 T('stage 1 advisory names the load and the reps in reserve', /90%/.test(rtnAdvice(getComeback()).cue) && /3\+ reps shy/.test(rtnAdvice(getComeback()).cue));
+T('stage 1 keeps Essentials complete while excluding optional additions',
+  /Start with Essentials/.test(rtnAdvice(getComeback()).detail) && /do not add Full-only exercises or extra sets/.test(rtnAdvice(getComeback()).detail) &&
+  !/Essentials does exactly|half your normal training load/.test(rtnAdvice(getComeback()).detail));
 d.sessions = [...preBreak(), ...rampSess(2)];
 T('stage 2 advisory sends the load back to pre-break', /pre-break/.test(rtnAdvice(getComeback()).cue));
+T('stage 2 returns to normal Essentials rather than requiring Full',
+  /normal Essentials prescription/.test(rtnAdvice(getComeback()).detail) && /Full remains optional extra volume/.test(rtnAdvice(getComeback()).detail));
 T('the advisory reaches the lift suggestion', /Return · day/.test(getSmartSugg(dlEx).regress || ''), JSON.stringify(getSmartSugg(dlEx).regress));
 
 // ── the deload banner must not talk over the ramp ──
@@ -2596,20 +2586,6 @@ T('a scheduled ramp does not roll before its start date', comebackTick() === fal
 T('validComeback rejects a start more than a week out', validComeback({ start: ahead(30), end: ahead(40), gap: 9 }) === null);
 T('...but accepts one inside the window beginComeback allows', validComeback({ start: ahead(1), end: ahead(9), gap: 9 }) !== null);
 T('...and accepts an archived row starting in the past', validComeback({ start: ago(30), end: ago(24), gap: 9 }) !== null);
-
-// ── the Express guard must not nag you for following the ramp ──
-// Stage 1 is "drop the accessory tail", which is what Express does; without this the app
-// warns the lifter for doing exactly what it just told them to do.
-{
-const expressD = () => { const dd = freshD({ sessions: [] });
-  dd.sessions = [0, 1, 2].map(i => ({ id: 'xp' + i, date: ago(i), day: 'A', loc: 'home', phase: 1, express: true,
-    ex: [{ id: 'hex_dl', wt: 47, reps: [5, 5, 5], band: '' }] })); return dd };
-const noRamp = expressD();
-T('express + under-MEV normally warns', expressMEVRisk(7) !== null);
-const onRamp = expressD();
-onRamp.comeback = { start: ago(3), end: ahead(15), gap: 19 };
-T('...but is silent while a ramp is running', expressMEVRisk(7) === null);
-}
 
 // ── history badging ──
 d = freshD({ sessions: preBreak() });
