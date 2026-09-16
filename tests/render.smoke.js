@@ -1380,7 +1380,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   const bw = R.getA();
   T('Day B carries the rollout and the bird dog', /Barbell Rollout/.test(bw) && /Bird Dog/.test(bw));
   T('Day B still reads as a rotation day, not a core block', /Day B1/.test(bw) && !/Core Block/.test(bw));
-  T('home day sizes match the re-absorbed program', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 11);
+  T('home day sizes include the Day-C floor glute bridge', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 12);
   T('no day X left to render', R.dayExs('X').length === 0);
 
   // Every rest button on a rendered day is the one-minute timer. Only the CURRENT card

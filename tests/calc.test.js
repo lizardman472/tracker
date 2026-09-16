@@ -450,7 +450,7 @@ d.location = 'home';
 const essentialPlan = {
   A: { ids:['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:24, control:['dead_bugs_a'] },
   B: { ids:['hex_squat_b','hex_row','ohp','dips','lm_lateral','rear_delt','band_leg_curl','bird_dog'], sets:26, control:['rear_delt','bird_dog'] },
-  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','bb_skullcr'], sets:23, control:['lm_pallof','band_er'] }
+  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','floor_glute_bridge','bb_skullcr'], sets:25, control:['lm_pallof','band_er'] }
 };
 for (const day of ['A', 'B', 'C']) {
   const full = dayExs(day, {}, false), xp = dayExs(day, {}, true);

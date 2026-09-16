@@ -31,7 +31,8 @@
 // floor-press loading now transfers directly from the home floor press.
 // v119: Essentials is the complete default; below-reference set estimates stay descriptive
 // in Progress and no longer generate a corrective home-screen warning.
-const C = 'rft-v119';
+// v120: Day C adds the two-set floor glute bridge with a conservative 31kg first-session estimate.
+const C = 'rft-v120';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

@@ -81,6 +81,7 @@ T('Day C: hex_carry replaces suitcase_march', C.some(e => e.id === 'hex_carry') 
 T('Day C: lm_squat (landmine) replaces Zercher Moderate', C.some(e => e.id === 'lm_squat') && C.find(e => e.id === 'lm_squat').lm === true && !C.some(e => e.id === 'zercher_a'));
 T('Day C: hex_rdl replaces straight RDL', C.some(e => e.id === 'hex_rdl') && C.find(e => e.id === 'hex_rdl').bar === 7 && !C.some(e => e.id === 'rdl'));
 T('Day C: hex_floor_press replaces push-ups', C.some(e => e.id === 'hex_floor_press') && C.find(e => e.id === 'hex_floor_press').bar === 7 && !C.some(e => e.id === 'pushups'));
+T('Day C adds the floor glute bridge at 2×10-20', (() => { const e = C.find(e => e.id === 'floor_glute_bridge'); return e && e.s === 2 && e.rp === '10-20' && e.tg === 20 && e.rir === '2'; })());
 T('Day C squat went to the landmine, not a hex squat variant', !ALL_EX.some(e => e.id === 'hex_squat_c') && !C.some(e => /^hex_squat/.test(e.id)));
 T('hex_dl carries bar:7', A.find(e => e.id === 'hex_dl').bar === 7);
 T('hex_squat_b carries bar:7', B.find(e => e.id === 'hex_squat_b').bar === 7);
@@ -112,6 +113,8 @@ sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_rdl'));
 T('hex_rdl seeds at 43kg (valid hex weight)', sg.type === 'new' && sg.wt === 43 && VWH.includes(43));
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_floor_press'));
 T('hex_floor_press seeds at 28kg (valid hex weight)', sg.type === 'new' && sg.wt === 28 && VWH.includes(28));
+sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'floor_glute_bridge'));
+T('floor glute bridge seeds at a buildable 31kg', sg.type === 'new' && sg.wt === 31 && VW.includes(31), JSON.stringify(sg));
 
 // ── progression resolves the 7kg ladder ──
 const dd = freshD();
@@ -281,7 +284,7 @@ T('reference check permits the agreed biceps starting dose', MG_INFO.every(([k, 
 // deliberate — MAV is a guideline ceiling, not a cap — so they are pinned at their accepted
 // values rather than merely allowed to exceed. A change either way fails here.
 const mavOf = key => (MG_INFO.find(r => r[0] === key) || [])[3];
-const ACCEPTED_OVER_MAV = { glutes: 16, back: 22.5 };
+const ACCEPTED_OVER_MAV = { glutes: 18, back: 22.5 };
 for (const [k, v] of Object.entries(ACCEPTED_OVER_MAV)) {
   T(`home ${k} holds at its accepted ${v}/wk (MAV ${mavOf(k)})`, wkVol[k] === v, `${wkVol[k]} vs accepted ${v}`);
 }
@@ -542,7 +545,7 @@ T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'd
 T('partner core is one slot on every day (side_plank in the shared base)',
   PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')) &&
   !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'db_dead_bug' || e.id === 'bird_dog')));
-T('home days grow to A=9, B=9, C=11 (core slots re-absorbed)', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 11 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home days are A=9, B=9, C=12 after the Day-C glute bridge addition', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 // v21 day counts: 7 shared base movements + a rotating finisher (A gets a superset pair,
 // B and C get one each) + one optional clubbell per day.
 T('partner days are A=10, B=9, C=9 (7 shared base + finisher + optional clubbell)',
@@ -637,8 +640,9 @@ T('home A: hex bar → landmine → straight bar, one setup each', loadedSeq(hom
 T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(homePr.B) === 'hex,hex,bar,lm', loadedSeq(homePr.B));
 // Home C is the ONE documented exception: it returns to the hex bar for the farmer's carry
 // after the landmine block. Bought deliberately — the carry is a finisher, and running it
-// before a 4-set landmine squat would tax the trunk and grip that squat needs.
-T('home C: hex → landmine → hex, the carry finisher being the one re-rig', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex,bar', loadedSeq(homePr.C));
+// before a 4-set landmine squat would tax the trunk and grip that squat needs. The two
+// straight-bar floor accessories then share the final bar setup.
+T('home C: hex → landmine → hex → one straight-bar block', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex,bar,bar', loadedSeq(homePr.C));
 // v21: the shared base is 5 dumbbell lifts with two zero-setup bodyweight slots interleaved
 // (inv_rows_a, side_plank) — 'free' is filtered out above precisely because those cost no
 // re-rig. Every day still ends on its clubbell, which is the only implement change.

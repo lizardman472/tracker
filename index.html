@@ -715,6 +715,7 @@ C:[
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Log TOTAL reps across both sides: 16 means 8 each side. Choose load manually for a stable torso and controlled tempo; reduce plates now if control is difficult.',note:'Two 10kg plates are 20kg on the free end. The app includes the 11kg bar (31kg displayed); this is inventory mass, not resistance at your hands. Use fewer plates if needed. Only consider a small manual increase after repeated controlled sessions; rep counts alone do not establish control.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true,xp:true,qualityLoad:true,manualLoad:true},
 {id:'hex_carry',nm:'Hex Bar Farmer\'s Carry',s:3,rp:'30-40 steps',rst:'1:00',rir:'controlled',tp:'carry',bar:7,rl:'Hex bar, dual handles, centered load. ⚠ Bar is 7kg — load accordingly. Slow march, no trunk shift. Push toward 40. ANTI-LATERAL CORE: run the last set single-side (suitcase — hold a KB / one plate at one side only), brace hard against the lean, switch sides.',tg:40,rstS:60,tempo:'controlled',perSide:false},
 {id:'band_er',nm:'Band External Rotation',s:2,rp:'15/side',rst:'1:00',rir:'2-3',tp:'band',rl:'Finisher. Elbow tucked at side. Light band, slow control. Cuff health.',tg:15,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:true,xp:true},
+{id:'floor_glute_bridge',nm:'Barbell Floor Glute Bridge',s:2,rp:'10-20',rst:'1:00',rir:'2',tp:'bb',rl:'Glute accessory on the shortest Essentials day. Upper back and feet stay on the floor; tuck the pelvis slightly, drive through the whole foot, and pause for 1 second at the top without arching the lower back. Start around 31kg and treat the first session as calibration. Reach 2×20 with about 2 reps in reserve and clean pauses before adding the smallest buildable load.',note:'First-session estimate: 31kg total (11kg bar + 10kg/side), based conservatively on your hex-RDL work. Use the foam pad over the hips. If 10 reps are not controlled, reduce the load; if 20 reps leave more than 2 reps in reserve, increase it next time.',tg:20,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'bb_skullcr',nm:'Lying Barbell Triceps Extension (floor)',s:2,rp:'8-12',rst:'1:00',rir:'2',tp:'bb',rl:'Day C direct-triceps accessory. Lie on the floor with the bar over the chest, elbows tucked and pointing up. Lower toward the forehead/just behind the head, then extend without flaring. Keep the range pain-free; skip it if the elbow is irritated. Confirm → ↑ weight.',note:'Two working sets on Day C. Use a controlled, pain-free range and do not progress through elbow discomfort. Elbows stay pointing up; stop the set when they drift or the joint, rather than the triceps, becomes the limiter.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,xp:true},
 {id:'deficit_pushup',nm:'Deficit Push-ups',s:2,rp:'12-15',rst:'1:00',rir:'1-2',tp:'bw',rl:'Optional finisher (v13) — extra chest volume on the historical push-up day. Hands on plates/low blocks, chest below hand level at the bottom for the deep stretch, body in one line. Skip freely on tight days.',note:'Bodyweight. Hands on 5 kg plates or DB handles for a ~5-8 cm deficit. Controlled, pain-free depth with a brief pause at the bottom. Progress: if 2x15 is easy with a full pause, add a 3s eccentric, then load (plate on back / backpack) — not more depth.',tg:15,rstS:60,tempo:'3-1-2-0',perSide:false,optional:true,xp:false}]};
 
@@ -1133,6 +1134,7 @@ const MG={
   lm_bstance_squat:{quads:1,glutes:0.5,back:0.5}, // v14 — front-loaded like lm_squat, unilateral
   lm_lateral_squat:{quads:0.5,glutes:0.5}, // v17 — frontal-plane, replaces cossack_squat (same credit)
   cossack_squat:{quads:0.5,glutes:0.5}, // legacy stub — kept so historical volume resolves
+  floor_glute_bridge:{glutes:1},
   floor_press:{chest:1,triceps:0.5}, hex_floor_press:{chest:1,triceps:0.5},
   ohp:{sidedelt:0.5,fdelt:1,triceps:0.5}, lm_press:{sidedelt:0.5,fdelt:1,triceps:0.5},
   // dips keep FULL triceps credit deliberately (deep elbow flexion under load — the
@@ -1909,6 +1911,7 @@ const RELATED_EX={
   'hex_carry':      {id:null,               seedWt:30, note:'NEW — hex farmer carry on the 7kg bar (30kg total). Push distance, then load.'},
   'hex_rdl':        {id:null,               seedWt:43, note:'NEW — hex-bar RDL. Seeded ≈ your straight-bar RDL (~43.5kg); the lighter 7kg bar lands the total here. Feel-out set first, then build.'},
   'hex_floor_press':{id:null,               seedWt:28, note:'NEW — neutral-grip hex floor press (3rd weekly chest slot). Seeded just below your straight floor press (~32kg) since the bar is awkward to load — feel-out, set up carefully, build up.'},
+  'floor_glute_bridge':{id:'hex_rdl',       mult:0.6,  seedWt:31, note:'Start around 31kg total (11kg bar + 10kg/side), about 60% of your recent hex RDL. First session is calibration: keep the 1-second top pause and about 2 reps in reserve.'},
   'lm_squat':       {id:null,               seedWt:38, note:'NEW — landmine front squat (replaces the Zercher, ~33.5kg). Seeded a touch higher because leverage makes it feel lighter than the number — expect to climb fast. Feel-out set first.'},
   // Landmine / barbell accessory swaps (NEW — loads do NOT carry from the band lifts they replace).
   // Landmine lifts load ONE end of the 11kg bar, so 11kg (bar only) is the floor — seed there
@@ -2563,7 +2566,7 @@ return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],det
 // prescribed hold or load reduction. Warm-up completion stays advisory: the session-level
 // checklist is neither exercise-specific nor proof of readiness, so it cannot scientifically
 // justify overriding otherwise-earned progression. Missing historical metadata is neutral.
-const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat']);
+const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat','floor_glute_bridge']);
 const PARTNER_LOWER_IDS=new Set(['db_bss','db_lunge','db_rdl','db_sl_rdl']);
 const HOME_PRESS_IDS=new Set(['floor_press','hex_floor_press','ohp','lm_press','dips']);
 const PARTNER_PRESS_IDS=new Set(['db_floor_press','db_floor_press_v','db_1arm_press','db_ohp','pb_dips']);

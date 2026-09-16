@@ -20,7 +20,8 @@ not appropriate application source.
 - History flags same-date sessions with matching exercises, loads and reps for manual review;
   it never deletes a possible duplicate automatically.
 - The focused Essentials session is the complete everyday prescription: it keeps the main
-  lifts, targeted stability work, and agreed arm/hamstring accessories. Full remains an
+  lifts, targeted stability work, and agreed arm/hamstring/glute accessories. Day C includes
+  a two-set barbell floor glute bridge at 10–20 reps, initially estimated at 31 kg. Full remains an
   optional higher-volume variant, not a correction Essentials periodically requires. At the
   partner venue, Essentials is the shared seven-movement full-body base (21 sets); Full adds
   the rotating day-specific work.
