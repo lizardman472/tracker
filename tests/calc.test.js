@@ -86,6 +86,10 @@ T('bilateral reps are unchanged', JSON.stringify(effectiveReps({ perSide: false 
   const dm = sessionDuplicateMap([original, aliasCopy, changed]);
   T('duplicate map flags only the later matching entry', dm.size === 1 && dm.get('dup-b') === 'dup-a', JSON.stringify([...dm]));
   T('duplicate detector leaves the supplied history untouched', [original, aliasCopy, changed].length === 3);
+  const mixedA = { ...structuredClone(original), id: 'mixed-a' };
+  mixedA.ex.find(e => e.id === 'pullup_c').bands = ['Purple', 'Green', 'Green'];
+  const mixedB = structuredClone(mixedA); mixedB.id = 'mixed-b'; mixedB.ex.find(e => e.id === 'pullup_c').bands = ['Green', 'Purple', 'Green'];
+  T('duplicate key distinguishes different per-set band patterns', sessionWorkKey(mixedA) !== sessionWorkKey(mixedB));
 }
 
 // ── e1RM ──
@@ -165,7 +169,31 @@ d = freshD();
 d.sessions = [{ id: 'dip-target', date: daysAgoStr(1), day: 'B', loc: 'home',
   ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', form: [5, 5, 5, 5] }] }];
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
-T('a strict dip 4×8 advances to less assistance', sg.type === 'up' && /Hit 4×8/.test(sg.detail), JSON.stringify(sg));
+T('a strict dip 4×8 starts a one-set lower-assistance bridge',
+  sg.type === 'up' && sg.band === 'Purple' && JSON.stringify(sg.bands) === '["Red","Purple","Purple","Purple"]', JSON.stringify(sg));
+
+// Assisted bodyweight work needs explicit technique data before counts can prescribe a
+// harder band. Once bridging starts, each set retains its own band and the progression
+// moves only one additional set at a time.
+d = freshD();
+d.sessions = [{ id: 'dip-unrated', date: daysAgoStr(1), day: 'B', loc: 'home',
+  ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple' }] }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('unrated assisted reps hold instead of silently prescribing a band drop', sg.type === 'stay' && /rate form/i.test(sg.text), JSON.stringify(sg));
+
+d.sessions = [{ id: 'dip-bridge', date: daysAgoStr(1), day: 'B', loc: 'home',
+  ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', bands: ['Red', '', '', ''], form: [5, 5, 5, 5] }] }];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('a clean completed bridge advances one more set to the harder band',
+  sg.type === 'up' && JSON.stringify(sg.bands) === '["Red","Red","Purple","Purple"]', JSON.stringify(sg));
+T('per-set band resolver falls back to the exercise band',
+  bandAt(d.sessions[0].ex[0], 0) === 'Red' && bandAt(d.sessions[0].ex[0], 1) === 'Purple');
+T('mixed-band setup label reports set counts', bandSetupLabel(d.sessions[0].ex[0]) === '1× Red → 3× Purple', bandSetupLabel(d.sessions[0].ex[0]));
+
+d.sessions[0].ex[0].reps = [5, 8, 8, 8];
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('an unfinished bridge repeats the same per-set bands',
+  sg.type === 'stay' && JSON.stringify(sg.bands) === '["Red","Purple","Purple","Purple"]', JSON.stringify(sg));
 
 const ohp = getProgram(1, 'home').B.find(e => e.id === 'ohp'); // OHP is 4 sets
 
@@ -1130,6 +1158,13 @@ T('coerces id/wt/reps and drops bad ex entries', vs && vs.id === '7' && vs.ex.le
 // band is interpolated into markup at several render sites — must be coerced to a string.
 const vb = validSession({ id: 'b', date: '2026-06-01', day:'A', ex: [{ id: 'pullup_a', wt: null, reps: [5], band: { evil: '<img onerror=x>' } }, { id: 'dips', wt: null, reps: [5], band: 'Green' }] });
 T('non-string band coerced to empty, string band kept', vb.ex[0].band === '' && vb.ex[1].band === 'Green', JSON.stringify(vb.ex.map(e => e.band)));
+const vm = validSession({ id: 'mixed-band', date: '2026-06-01', day:'B', ex: [
+  { id: 'dips', wt: null, reps: [5, 8, 8, 0], band: 'Purple', bands: ['Red', '', 'Purple', 'Blue<script>'] }] });
+T('validSession preserves known per-set bands and rejects unknown strings',
+  JSON.stringify(vm.ex[0].bands) === '["Red","","Purple",""]', JSON.stringify(vm.ex[0]));
+const vu = validSession({ id: 'uniform-band', date: '2026-06-01', day:'B', ex: [
+  { id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', bands: ['Purple', '', '', ''] }] });
+T('validSession omits redundant per-set band arrays', vu.ex[0].bands === undefined, JSON.stringify(vu.ex[0]));
 
 // ── reset gives a clean empty slate, not the bundled demo SEED ──
 const empty = freshState();

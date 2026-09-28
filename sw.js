@@ -32,7 +32,8 @@
 // v119: Essentials is the complete default; below-reference set estimates stay descriptive
 // in Progress and no longer generate a corrective home-screen warning.
 // v120: Day C adds the two-set floor glute bridge with a conservative 31kg first-session estimate.
-const C = 'rft-v120';
+// v121: assisted dips and pull-ups can bridge bands set by set, with form-gated progression.
+const C = 'rft-v121';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

@@ -273,6 +273,8 @@ input[type=number]{-moz-appearance:textfield}
 .swi{width:100%;height:44px;font-family:var(--disp);font-size:16px;font-weight:800;background:var(--ib);border:2px solid var(--ibr);border-radius:var(--rad-sm);color:var(--tx);text-align:center;outline:none;font-variant-numeric:tabular-nums}
 .swi::placeholder{color:var(--dm);font-weight:600}
 .swi:focus{border-color:var(--pr);background:var(--cd2)}
+.set-band{width:100%;height:44px;padding:3px 2px;font-size:9px;font-weight:700;text-align:center;text-align-last:center;background:var(--ib);border:2px solid var(--ibr);border-radius:var(--rad-sm);color:var(--tx);outline:none}
+.set-band:focus{border-color:var(--pr);background:var(--cd2)}
 .set-row .ri{width:100%;height:44px;font-size:17px}
 .set-row .set-tick{width:38px;height:38px;margin:0 auto;font-size:14px}
 .set-row.done .set-tick.done{background:var(--gr);border-color:var(--gr)}
@@ -1821,6 +1823,16 @@ return wt*mult*vr.reduce((a,b)=>a+b,0)}
 // Per-set weight resolution for a logged entry {wt,reps,wts?}: override if present, else wt.
 function setWt(e,i){const w=Array.isArray(e.wts)?Number(e.wts[i]):NaN;
 return Number.isFinite(w)&&w>0?w:(Number(e.wt)>0?Number(e.wt):null)}
+// Per-set band resolution mirrors setWt: a non-empty override wins, otherwise the
+// exercise-level band is the back-off/default setup. This keeps every historical row
+// valid while allowing assisted pull-ups/dips to bridge bands within one session.
+function bandAt(e,i){const b=Array.isArray(e&&e.bands)&&typeof e.bands[i]==='string'?e.bands[i]:'';
+return b||(e&&typeof e.band==='string'?e.band:'')}
+function bandPattern(e){const rr=e&&e.reps||[],out=[];
+for(let i=0;i<rr.length;i++)if(Number(rr[i])>0)out.push(bandAt(e,i));return out}
+function bandSetupLabel(e){const p=bandPattern(e).filter(Boolean),u=[...new Set(p)];
+if(!u.length)return e&&e.band||'';if(u.length===1)return u[0];
+return u.map(b=>`${p.filter(x=>x===b).length}× ${b.replace(' (heaviest)','')}`).join(' → ')}
 // Heaviest weight actually lifted in an entry (only sets with positive reps count) — the
 // weight-PR basis once per-set overrides exist. No-wts entries resolve to plain e.wt;
 // WITH overrides the working weight is NOT seeded in — if every set was overridden
@@ -1864,11 +1876,15 @@ return{sets,vol:Math.round(vol)}}
 // "Previous" column label for set i of the last session's entry (Hevy-style).
 function prevSetLbl(last,i){if(!last)return'—';
 const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
-const w=setWt(last,i);return w?`${w}×${r}`:`×${r}`}
+const w=setWt(last,i),b=bandAt(last,i);
+return w?`${w}×${r}`:b?`${b.replace(' (heaviest)','')} ×${r}`:`×${r}`}
 // Compact per-set line for a saved entry: uniform-weight sessions keep the old
 // "46kg [8,8,8]" shape; per-set overrides expand to "46×8, 50×6, 40×10".
 function fmtSets(e){const vr=(e.reps||[]).map(Number);
 const def=ALL_EX.find(x=>x.id===e.id),unit=def&&def.repsPerSide?' reps/side':e.id==='lm_pallof'?' total reps':'';
+if(def&&def.tp==='band'&&Array.isArray(e.bands)&&e.bands.some((b,i)=>b&&vr[i]>0&&b!==e.band)){
+  const parts=[];for(let i=0;i<vr.length;i++)if(vr[i]>0)parts.push(`${bandAt(e,i).replace(' (heaviest)','')}×${vr[i]}`);
+  return parts.join(', ')+unit}
 if(Array.isArray(e.wts)&&e.wts.some(w=>Number(w)>0)){
   const parts=[];for(let i=0;i<vr.length;i++){if(!(vr[i]>0))continue;
     const w=setWt(e,i);parts.push(w?`${w}×${vr[i]}`:`×${vr[i]}`)}
@@ -2488,6 +2504,24 @@ if(ex.tp==='band'){
   const reps=effectiveReps(ex,last.reps);
   const hitTop=reps.length>=ex.s&&reps.slice(0,ex.s).every(r=>r>=ex.tg);
   const mnB=getRepMin(ex);
+  const performedBandPattern=bandPattern(last).filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
+  // Assisted transitions can use a harder band for the first sets and the familiar
+  // band for back-offs. A mixed session is its own comparable setup: do not call it a
+  // stall on the default band, and do not jump another rung until this exact bridge is
+  // clean. When every set reaches the top target, move one more set to the harder band.
+  if(!isResist&&uniqueBandPattern.filter(b=>BAND_IDX(b)!==99).length>1){
+    const known=uniqueBandPattern.filter(b=>BAND_IDX(b)!==99);
+    const hard=known.reduce((a,b)=>BAND_IDX(b)>BAND_IDX(a)?b:a,known[0]);
+    const back=known.reduce((a,b)=>BAND_IDX(b)<BAND_IDX(a)?b:a,known[0]);
+    const hardN=performedBandPattern.filter(b=>b===hard).length;
+    const label=bandSetupLabel(last);
+    if(!sessClean(last))return{text:`Repeat bridge · ${label}`,type:'stay',wt:null,band:back,traj,
+      detail:`Mixed-band session: keep ${label} and make every set solid before shifting another set to ${hard.replace(' (heaviest)','')}.`,regress:discWarn};
+    if(hitTop&&hardN<ex.s){const nextN=hardN+1,plan=Array.from({length:ex.s},(_,i)=>i<nextN?hard:back);
+      return{text:`Bridge: ${nextN}× ${hard.replace(' (heaviest)','')} → ${ex.s-nextN}× ${back.replace(' (heaviest)','')}`,type:'up',wt:null,band:back,bands:plan,traj,
+        detail:`All ${ex.s} sets reached ${ex.tg} cleanly on ${label}. Move one more opening set to the lower-assistance band; keep the remaining sets as back-offs.`,regress:discWarn}}
+    return{text:`Repeat bridge · ${label}`,type:'stay',wt:null,band:back,bands:Array.from({length:ex.s},(_,i)=>performedBandPattern[i]||back),traj,
+      detail:`Build this exact mixed-band setup to ${ex.s}×${ex.tg} with solid form before shifting another set.`,regress:discWarn}}
   // Band stall signal — bands used to be invisible to the phase-change/deload stall
   // counters because this branch never set `stalled`. Count consecutive sessions on the
   // SAME band with performed sets below the rep minimum, same shape as the weight path.
@@ -2519,8 +2553,15 @@ if(ex.tp==='band'){
     // dead-end. Progress by reps, pauses or external load instead.
     if(!last.band||last.band==='None'||curIdx>=BANDS.length-1)return{text:'Unassisted ✓ — add reps or load',type:'up',wt:null,traj,
       detail:`Hit ${ex.s}×${ex.tg} with no band — extend the rep range, add a pause, or add load (belt/vest).`,regress};
-    return{text:'↑ Less assistance (thinner)',type:'up',wt:null,traj,
-      detail:`Hit ${ex.s}×${ex.tg} — reduce band help`,regress}}
+    // Rep totals alone cannot establish a clean assisted-bodyweight progression. An
+    // explicit Solid/Strict rating unlocks a one-set bridge; unrated history remains
+    // valid but cannot silently prescribe the very band jump the rating is meant to gate.
+    const fs=sessForm(last);
+    if(!fs)return{text:`Stay on ${last.band} · rate form`,type:'stay',wt:null,band:last.band,traj,
+      detail:`Hit ${ex.s}×${ex.tg}, but assisted reps cannot be judged from counts alone. Rate the sets Solid or Strict next time to unlock a mixed-band bridge.`,regress};
+    const next=BANDS[curIdx+1],plan=Array.from({length:ex.s},(_,i)=>i===0?next:last.band);
+    return{text:`Bridge: 1× ${next.replace(' (heaviest)','')} → ${ex.s-1}× ${last.band.replace(' (heaviest)','')}`,type:'up',wt:null,band:last.band,bands:plan,traj,
+      detail:`Hit ${ex.s}×${ex.tg} with ${FORM_LABELS[fs].toLowerCase()} form. Use the lower-assistance band for the first set, then back off; earn the top target before moving a second set.`,regress}}
   if(stallsB>=3)return{text:last.band||'Check band',type:'stay',wt:null,traj,stalled:true,
     detail:`${stallsB} sessions below ${ex.s}×${mnB} on ${last.band||'this band'} — step back a band rung for a session and rebuild`,regress};
   return{text:last.band||'Check band',type:'stay',wt:null,traj,detail:`Stay on ${last.band||'current'}`,regress}}
@@ -3645,6 +3686,7 @@ const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
 reps:Array.from({length:ex.s},(_,i)=>{const r=last?last.reps[i]:null;return r>0?String(r):''}),
 wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
+bands:Array.from({length:ex.s},(_,i)=>Array.isArray(sg.bands)?sg.bands[i]||'':last&&Array.isArray(last.bands)?last.bands[i]||'':''),
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),
 // Wall-clock (epoch ms) at which each set was ticked off, 0 = not yet. Saved as
 // SECONDS FROM SESSION START on the finished session (see the `ts` row below), which is
@@ -4015,23 +4057,29 @@ const nSets=Math.max(ex.s,log.reps.length);
 if(!log.setDone)log.setDone=Array(nSets).fill(false);
 if(!Array.isArray(log.setTs))log.setTs=Array(nSets).fill(0);
 if(!Array.isArray(log.wts))log.wts=[];
+if(!Array.isArray(log.bands))log.bands=[];
 while(log.wts.length<nSets)log.wts.push('');
+while(log.bands.length<nSets)log.bands.push('');
 while(log.setDone.length<nSets)log.setDone.push(false);
 while(log.setTs.length<nSets)log.setTs.push(0);
-const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp);
+const weighted=['bb','db','kb','club','mace','carry'].includes(ex.tp),banded=ex.tp==='band'&&ex.bandMode==='assist';
 h+=`<div class="set-tbl">
-<div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':''}</span><span>${repUnit(ex)}</span><span></span></div>`;
+<div class="set-gr set-hd"><span>Set</span><span>Previous</span><span>${weighted?'Kg':banded?'Band':''}</span><span>${repUnit(ex)}</span><span></span></div>`;
 for(let i=0;i<nSets;i++){const v=log.reps[i]??'',dn=log.setDone[i];
 const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
 ${pl==='—'?`<span class="set-prev">—</span>`
 :`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
-${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`:`<span class="dm" style="text-align:center">—</span>`}
+${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`
+:banded?`<select class="set-band" aria-label="Set ${i+1} band" onchange="setSetBand('${ex.id}',${i},this.value)"><option value="">${esc((log.band||'Default').replace(' (heaviest)',''))}</option>${BANDS.map(b=>`<option value="${esc(b)}"${log.bands[i]===b?' selected':''}>${esc(b.replace(' (heaviest)',''))}</option>`).join('')}</select>`
+:`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} ${repInputLabel(ex)}"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
 <button type="button" class="set-tick${dn?' done':''}" aria-label="Set ${i+1} done" aria-pressed="${!!dn}" onclick="toggleSetDone('${ex.id}',${i})">${dn?'✓':''}</button></div>`}
-h+=`</div>
+h+=`</div>`;
+if(banded)h+=`<div class="dm" style="font-size:9px;margin:2px 2px 6px">Each set inherits ${esc((log.band||'the default band').replace(' (heaviest)',''))}. Change only the opening transition sets; keep later sets as back-offs.</div>`;
+h+=`
 <div style="display:flex;gap:6px;margin:6px 0 2px">
 <button type="button" class="add-set" onclick="addSet('${ex.id}')">+ Add set</button>
 ${log.reps.length>ex.s?`<button type="button" class="add-set rm" aria-label="Remove last set" onclick="removeSet('${ex.id}')">−</button>`:''}</div>`;
@@ -4118,6 +4166,7 @@ saveAW();render()}
 // Per-set weight override — no re-render on keystroke (matches setRep/setL); the
 // sticky header's interval picks the new volume up within a second.
 function setSetWt(id,i,v){if(!Array.isArray(LOG[id].wts))LOG[id].wts=[];LOG[id].wts[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW()}
+function setSetBand(id,i,v){if(!Array.isArray(LOG[id].bands))LOG[id].bands=[];LOG[id].bands[i]=v;LOG[id].pf=false;LOG[id].touched=true;saveAW()}
 // Tap the Previous cell to copy last session's weight+reps into that set (Hevy
 // behavior). A previous weight equal to today's working weight stays an implicit
 // inherit ('' override) so the lean no-wts save shape is preserved.
@@ -4126,18 +4175,20 @@ const r=Number((last.reps||[])[i]);if(!(r>0))return;
 LOG[id].reps[i]=String(r);
 const w=setWt(last,i);
 if(w!=null&&Array.isArray(LOG[id].wts)){const cur=Number(LOG[id].wt);LOG[id].wts[i]=cur&&wEq(w,cur)?'':String(w)}
+const b=bandAt(last,i);if(b&&Array.isArray(LOG[id].bands))LOG[id].bands[i]=b===LOG[id].band?'':b;
 LOG[id].pf=false;LOG[id].touched=true;saveAW();render()}
 // Extra sets beyond the programmed count — Hevy-style "Add Set". Remove only ever
 // pops EXTRA sets (never below ex.s), matching the button's visibility.
 function addSet(id){const l=LOG[id];if(!l)return;l.reps.push('');
 if(!Array.isArray(l.wts))l.wts=[];l.wts.push('');
+if(!Array.isArray(l.bands))l.bands=[];l.bands.push('');
 if(!Array.isArray(l.setDone))l.setDone=[];l.setDone.push(false);
 if(!Array.isArray(l.setTs))l.setTs=[];l.setTs.push(0);
 if(!Array.isArray(l.form))l.form=[];l.form.push(0);
 l.touched=true;saveAW();render()}
 function removeSet(id){const l=LOG[id];const ex=ALL_EX.find(e=>e.id===id);
 if(!l||l.reps.length<=(ex?ex.s:1))return;l.reps.pop();
-if(Array.isArray(l.wts))l.wts.pop();if(Array.isArray(l.setDone))l.setDone.pop();
+if(Array.isArray(l.wts))l.wts.pop();if(Array.isArray(l.bands))l.bands.pop();if(Array.isArray(l.setDone))l.setDone.pop();
 if(Array.isArray(l.setTs))l.setTs.pop();if(Array.isArray(l.form))l.form.pop();
 l.touched=true;saveAW();render()}
 function toggleJoint(exId,joint){const j=LOG[exId].discJoints;const idx=j.indexOf(joint);
@@ -4179,6 +4230,13 @@ const logged=Object.entries(LOG).map(([id,v])=>{
   if(!reps.some(r=>r>0))return null;
   const wt=v.wt?Number(v.wt):null;
   const row={id,wt,reps,band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes};
+  // Band exercises may bridge assistance within the session (for example Red top
+  // sets followed by Purple back-offs). A uniform override becomes the new default;
+  // a genuinely mixed setup stays aligned to reps in `bands`, like `wts` for load.
+  const usedBands=reps.map((r,i)=>r>0?(v.bands?.[i]||v.band||''):'');
+  const performedBands=usedBands.filter(Boolean),uniqueBands=[...new Set(performedBands)];
+  if(uniqueBands.length===1&&performedBands.length)row.band=uniqueBands[0];
+  else if(uniqueBands.length>1)row.bands=usedBands;
   // SET CLOCK — seconds from session start at which each counted set was ticked off.
   // `duration` is start-to-save wall clock and decomposes into nothing, which is why the
   // 13 Aug export could show 58 min/session of unaccounted time (§24) without being able
@@ -4381,8 +4439,9 @@ function bandRank(band){return BANDS.indexOf(band)}
 function comparableBandHistory(exId,days,now=new Date()){
 const win=calendarWindow(days||56,0,now);
 const hist=getHist(exId,Infinity).filter(h=>dateInWindow(h.date,win)).sort((a,b)=>a.date.localeCompare(b.date));
-const key=h=>{const band=BAND_IDX(h.band),reps=h.reps||[],done=reps.filter(r=>Number(r)>0).length;
-  return band===99||!done?null:`${band}/${reps.length}/${done}/${h.phase||''}`};
+const key=h=>{const reps=h.reps||[],done=reps.filter(r=>Number(r)>0).length;
+  const pattern=reps.map((r,i)=>Number(r)>0?BAND_IDX(bandAt(h,i)):'-').join(',');
+  return !done||pattern.includes('99')?null:`${pattern}/${reps.length}/${done}/${h.phase||''}`};
 const last=hist[hist.length-1];if(!last||!key(last))return[];
 const target=key(last),out=[];
 for(let i=hist.length-1;i>=0;i--){if(key(hist[i])!==target)break;out.unshift(hist[i])}
@@ -4391,7 +4450,7 @@ function repsSlope(exId,days,now=new Date()){
 const hist=comparableBandHistory(exId,days,now);
 const pts=hist.map(h=>({date:h.date,y:(h.reps||[]).filter(r=>Number(r)>0).reduce((a,b)=>a+Number(b),0)}));
 const fit=fitDateTrend(pts,now);
-return fit?{...fit,band:hist[hist.length-1].band,sets:hist[hist.length-1].reps.filter(r=>Number(r)>0).length}:null}
+return fit?{...fit,band:bandSetupLabel(hist[hist.length-1]),sets:hist[hist.length-1].reps.filter(r=>Number(r)>0).length}:null}
 // Momentum is for rep/load lifts. Quality, swing and carry work have other goals.
 // 21 days is an explicit recency display policy, not a recovery or strength rule.
 const MOMENTUM_MAX_AGE_DAYS=21;
@@ -4799,7 +4858,7 @@ if(!pickIds.includes(STAT_EX))pickIds.unshift(STAT_EX);
 const selEx=ALL_EX.find(e=>e.id===STAT_EX);
 const es=exStats(STAT_EX);
 const showStrength=strengthTrendEligible(selEx);
-const loggedLoad=e=>{if(!e)return'—';const loads=(e.reps||[]).map((r,i)=>Number(r)>0?setWt(e,i):null).filter(w=>w>0);const lo=loads.length?Math.min(...loads):0,hi=loads.length?Math.max(...loads):0;return hi?(lo===hi?hi:lo+'–'+hi)+'kg':(e.band?esc(e.band.replace(' (heaviest)','')):'Bodyweight')};
+const loggedLoad=e=>{if(!e)return'—';const loads=(e.reps||[]).map((r,i)=>Number(r)>0?setWt(e,i):null).filter(w=>w>0);const lo=loads.length?Math.min(...loads):0,hi=loads.length?Math.max(...loads):0;return hi?(lo===hi?hi:lo+'–'+hi)+'kg':(bandSetupLabel(e)?esc(bandSetupLabel(e)):'Bodyweight')};
 // Top-set weight (exMaxWt) — plotting the working weight alone hid heavier
 // per-set overrides from the chart entirely.
 const wtD=hist.map(h=>({v:exMaxWt(h),l:new Date(h.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})})).filter(d=>d.v>0);
@@ -4833,7 +4892,7 @@ const repTrend=rSl?rSl.change:null;
 if(es.sessions){
 h+=`<div class="estrip">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${bestReps||'—'}</div><div class="estrip-lbl">Best same setup</div></div>
-<div class="estrip-cell"><div class="estrip-num">${es.last&&es.last.band?esc(es.last.band.replace(' (heaviest)','')):'—'}</div><div class="estrip-lbl">Band</div></div>
+<div class="estrip-cell"><div class="estrip-num">${es.last&&bandSetupLabel(es.last)?esc(bandSetupLabel(es.last)):'—'}</div><div class="estrip-lbl">Band setup</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${es.sessions}</div><div class="estrip-lbl">Sessions</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--tx)">${repTrend!=null?(repTrend>0?'+':'')+repTrend:'—'}</div><div class="estrip-lbl">Reps change</div></div></div>`;
 h+=`<div class="dm" style="margin-bottom:10px">${rSl?`${rSl.n} observations · ${fmtD(rSl.start)} – ${fmtD(rSl.end)} · ${esc(rSl.band)} · ${rSl.sets} completed sets`:'A comparable trend needs 3 observations over 14 days at the same band and set count.'} Band, set-count or recorded phase changes start a new comparison. Tempo and effort may still differ.</div>`;
@@ -4841,12 +4900,12 @@ h+=`<div class="dm" style="margin-bottom:10px">${rSl?`${rSl.n} observations · $
 // Band ladder — where the current band sits on the progression path. Assist lifts
 // read left→right toward 'None' (less assistance); resist lifts read left→right
 // toward the heaviest band. Combo rungs (Purple+Red) are real rungs.
-{const used=new Set(bHist.map(x=>x.band).filter(Boolean));
-const cur=es.last&&es.last.band;
+{const used=new Set(bHist.flatMap(x=>bandPattern(x)).filter(Boolean));
+const cur=new Set(es.last?bandPattern(es.last).filter(Boolean):[]);
 const assist=selEx.bandMode!=='resist';
 const rungs=assist?BANDS:BANDS.slice(0,-1).reverse();
 h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Band Ladder</div><div class="band-lad">`;
-h+=rungs.map(b=>`<span class="band-chip${cur===b?' on':used.has(b)?' used':''}">${esc(b.replace(' (heaviest)',''))}</span>`).join(`<span class="dm" style="font-size:9px">→</span>`);
+h+=rungs.map(b=>`<span class="band-chip${cur.has(b)?' on':used.has(b)?' used':''}">${esc(b.replace(' (heaviest)',''))}</span>`).join(`<span class="dm" style="font-size:9px">→</span>`);
 h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
 if(comparable.length){
 const repD=comparable.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
@@ -5320,9 +5379,9 @@ function sessionWorkKey(s){
 if(!s||!Array.isArray(s.ex)||!s.date)return'';
 const rows=s.ex.map(e=>{const reps=(e.reps||[]).map(r=>Number(r)||0);
   const weights=reps.map((_,i)=>{const w=Array.isArray(e.wts)&&Number(e.wts[i])>0?e.wts[i]:e.wt;return Number(w)||0});
-  const bi=BAND_IDX(String(e.band||''));
-  const band=bi<99?'#'+bi:String(e.band||'').toLowerCase().replace(/\s*\(heaviest\)\s*/g,'').trim();
-  return[e.id||'',weights,reps,band]})
+  const bands=reps.map((_,i)=>{const raw=String(bandAt(e,i)||''),bi=BAND_IDX(raw);
+    return bi<99?'#'+bi:raw.toLowerCase().replace(/\s*\(heaviest\)\s*/g,'').trim()});
+  return[e.id||'',weights,reps,bands]})
   .sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
 return JSON.stringify([s.date,s.day,s.loc||'home',rows])}
 function sessionDuplicateMap(sessions){const seen=new Map(),dups=new Map();
@@ -5369,7 +5428,7 @@ ${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);
 <span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
-<div class="mu" style="font-size:11px">${fmtSets(e)}${e.band?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
+<div class="mu" style="font-size:11px">${fmtSets(e)}${e.band&&!Array.isArray(e.bands)?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
 // Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
 if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);
@@ -5624,6 +5683,8 @@ for(const e of s.ex){
   if(!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id))continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>finiteNumber(r)||0):[];
   const row={id:e.id,reps,wt:finiteNumber(e.wt),band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
+  if(Array.isArray(e.bands)){const bands=e.bands.map(b=>typeof b==='string'&&BANDS.includes(b)?b:'');
+    if(bands.some((b,i)=>b&&b!==row.band&&reps[i]>0))row.bands=bands}
   if(Array.isArray(e.form))row.form=e.form.map(f=>Number.isInteger(finiteNumber(f))&&finiteNumber(f)<=5?Number(f):0);
   if(Array.isArray(e.wts)){const wts=e.wts.map(w=>finiteNumber(w)>0?Number(w):null);if(wts.some(w=>w!==null))row.wts=wts}
   if(Array.isArray(e.ts)){const ts=e.ts.map(t=>Math.round(finiteNumber(t)||0));if(ts.some(t=>t>0))row.ts=ts}
