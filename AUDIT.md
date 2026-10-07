@@ -74,6 +74,23 @@ not appropriate application source.
 - Synthetic storage, analytics, and browser regressions are part of CI. Browser dependencies
   are mandatory in CI rather than silently skipping the browser gate.
 
+## October 2026: assisted-lift bridging
+
+- Assisted pull-ups, dips, and their negatives offer each band in two placements. A band
+  under the foot gives more help than the same band under the knee. A plain band name is the
+  foot setup, so every earlier entry keeps its meaning. The knee is a half-step:
+  Green → Green · knee → Purple+Red … → Red · knee → None. One-set bridges, stall counts,
+  and comparable band trends all use this ladder. Resist bands have no placement.
+- Day A adds pull-up negatives after the pull-ups and Day B adds dip negatives after the
+  dips, both in Essentials: 2×2–3 eccentric-only reps with a 5 s lower, one rung lighter than
+  the working setup. They progress down the same assist ladder with the same form gate. Once
+  unassisted, they progress by a slower lower. Each set counts as half a set for its prime
+  movers. That takes back to 23.5 and triceps to 15 weekly sets, which is accepted and
+  pinned in the MAV tests.
+- The landmine squat is held by the loaded sleeve, so it loads with 10/5/2.5 kg plates only.
+  That keeps the plate count low (for example 41 kg is three 10 kg plates) and makes each
+  jump 2.5 kg. Its coach note covers the grip and keeping the normal stance.
+
 Full and Essentials exercise prescriptions and phase/deload/progression policies are
 unchanged by the analytics follow-up above. Chromium covers narrow layouts and keyboard interaction;
 physical Android keyboard continuity and installed-PWA upgrade behavior remain unverified.

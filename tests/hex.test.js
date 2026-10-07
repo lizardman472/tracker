@@ -14,7 +14,7 @@ const HISTORY_SEED = require('./fixtures/history-state');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,DB_BAR,DB_PL_CLASS,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
+  '\n;global.__X={ALL_EX,SEED,MG,MG_INFO,VW,VWH,VWL,VWL_BIG,BAR,HEXBAR,DBW_PAIR,DBW_SINGLE,DB_BAR,DB_PL_CLASS,RELATED_EX,setD:d=>{D=d},getD:()=>D};';
 
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ (navigator is a getter-only
@@ -27,7 +27,7 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {};
 eval(code);
-const { ALL_EX, MG, MG_INFO, VW, VWH, VWL, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, DB_BAR, DB_PL_CLASS, RELATED_EX, setD, getD } = global.__X;
+const { ALL_EX, MG, MG_INFO, VW, VWH, VWL, VWL_BIG, BAR, HEXBAR, DBW_PAIR, DBW_SINGLE, DB_BAR, DB_PL_CLASS, RELATED_EX, setD, getD } = global.__X;
 const SEED = HISTORY_SEED;
 
 // Every program day at both venues. Any sweep that means "the whole program" must use this.
@@ -185,8 +185,16 @@ T('landmine plateH renders plate markup at 11.5', /class="pl /.test(plateH(11.5,
 let lsg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_pallof'));
 T('lm_pallof leaves first load to manual control assessment', lsg.type === 'new' && lsg.wt === null && /Choose fewer plates/.test(lsg.detail));
 const sqg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_squat'));
-T('lm_squat seeds at 38kg (valid VWL weight)', sqg.type === 'new' && sqg.wt === 38 && VWL.includes(38));
-T('lm_squat routes to the VWL ladder', vwOf(ALL_EX.find(e => e.id === 'lm_squat')) === VWL);
+T('lm_squat seeds at 36kg (10+10+5 — a valid big-plate weight)', sqg.type === 'new' && sqg.wt === 36 && VWL_BIG.includes(36), JSON.stringify(sqg));
+// The landmine squat is held BY the loaded sleeve, so it rides the big-plate ladder:
+// 10/5/2.5kg plates only, 2.5kg apart, never a micro plate eating the hand room.
+T('lm_squat routes to the big-plate landmine ladder on both days',
+  ['A', 'C'].every(d => vwOf(getProgram(1, 'home')[d].find(e => e.id === 'lm_squat')) === VWL_BIG));
+T('big-plate ladder steps 2.5kg from the bar and is a subset of VWL',
+  VWL_BIG[0] === 11 && VWL_BIG.every((w, i) => !i || Math.abs(w - VWL_BIG[i - 1] - 2.5) < 1e-9) && VWL_BIG.every(w => VWL.includes(w)), VWL_BIG.join(','));
+T('big-plate ladder: 38 is off it, 38.5 and 41 are on it', !VWL_BIG.includes(38) && VWL_BIG.includes(38.5) && VWL_BIG.includes(41));
+T('41kg loads as three 10kg plates on the sleeve', fmtPl(41, 11, true) === '3×10kg', fmtPl(41, 11, true));
+T('the other landmine lifts keep the fine VWL ladder', ['lm_press', 'lm_lateral', 'lm_pallof'].every(id => vwOf(ALL_EX.find(e => e.id === id)) === VWL));
 // v13 addendum: two-hand landmine press seeds at OHP load — 26kg fresh (11 bar + 15 one end).
 const lpg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'lm_press'));
 T('lm_press seeds at 26kg on a fresh device (valid VWL weight)', lpg.type === 'new' && lpg.wt === 26 && VWL.includes(26), JSON.stringify(lpg));
@@ -284,7 +292,10 @@ T('reference check permits the agreed biceps starting dose', MG_INFO.every(([k, 
 // deliberate — MAV is a guideline ceiling, not a cap — so they are pinned at their accepted
 // values rather than merely allowed to exceed. A change either way fails here.
 const mavOf = key => (MG_INFO.find(r => r[0] === key) || [])[3];
-const ACCEPTED_OVER_MAV = { glutes: 18, back: 22.5 };
+// Oct 2026: the pull-up and dip negatives (half credit — 2×2-3 eccentric-only reps) take
+// back to 23.5 and triceps to 15 against MAV 14. Accepted: they are the bridge to the next
+// assist band, and the extra dose is a few slow reps, not working sets.
+const ACCEPTED_OVER_MAV = { glutes: 18, back: 23.5, triceps: 15 };
 for (const [k, v] of Object.entries(ACCEPTED_OVER_MAV)) {
   T(`home ${k} holds at its accepted ${v}/wk (MAV ${mavOf(k)})`, wkVol[k] === v, `${wkVol[k]} vs accepted ${v}`);
 }
@@ -545,7 +556,7 @@ T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'd
 T('partner core is one slot on every day (side_plank in the shared base)',
   PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')) &&
   !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'db_dead_bug' || e.id === 'bird_dog')));
-T('home days are A=9, B=9, C=12 after the Day-C glute bridge addition', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home days are A=10, B=10, C=12 after the pull-up/dip negatives', homePr.A.length === 10 && homePr.B.length === 10 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
 // v21 day counts: 7 shared base movements + a rotating finisher (A gets a superset pair,
 // B and C get one each) + one optional clubbell per day.
 T('partner days are A=10, B=9, C=9 (7 shared base + finisher + optional clubbell)',

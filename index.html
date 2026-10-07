@@ -520,18 +520,23 @@ const VW_C=buildVW(BAR,PL_COARSE),VWH_C=buildVW(HEXBAR,PL_COARSE);
 // are NOT mirrored: each plate type can fill the single sleeve up to its FULL owned count,
 // and total = bar + that single-side load. This is a finer ladder than the symmetric one
 // (a lone 0.25kg micro plate → 11.25kg, which mirrored pairs can't make). Bar is still 11kg.
-function buildVWL(barW){
+function buildVWL(barW,plates=PL){
   let combos=[0];
-  for(const p of PL){const next=[];for(const base of combos)for(let c=0;c<=p.q;c++)next.push(base+c*p.w);combos=[...new Set(next)]}
+  for(const p of plates){const next=[];for(const base of combos)for(let c=0;c<=p.q;c++)next.push(base+c*p.w);combos=[...new Set(next)]}
   const set=new Set([barW]);
   for(const side of combos){const t=Math.round((barW+side)*100)/100;if(t<=MAX_BB)set.add(t)}
   return [...set].sort((a,b)=>a-b);
 }
 const VWL=buildVWL(BAR);    // 11kg straight bar, single-end (landmine) loading
+// Big-plate landmine ladder (bigPlates:true): 10/5/2.5kg plates only, so every load is
+// 2.5kg apart and needs the fewest plates. For a lift held BY the loaded sleeve (landmine
+// squat), five or six thin plates eat the room the hands need — 38kg is 10+10+5+1+1, while
+// 38.5 is 10+10+5+2.5 and 41 is three 10s. Reps fill the gap between plate jumps.
+const VWL_BIG=buildVWL(BAR,PL.filter(p=>p.w>=2.5));
 // Resolve the bar weight + valid-weight ladder an exercise loads on (hex lifts carry bar:7,
 // landmine lifts carry lm:true and load one end on the 11kg bar's single-sided ladder).
 function barOf(ex){return ex&&ex.bar?ex.bar:BAR}
-function vwOf(ex){return ex&&ex.lm?VWL:ex&&ex.bar===HEXBAR?VWH:VW}
+function vwOf(ex){return ex&&ex.lm?(ex.bigPlates?VWL_BIG:VWL):ex&&ex.bar===HEXBAR?VWH:VW}
 // Plate breakdown. lm=true → single loaded end (no ÷2, plates available up to full count);
 // otherwise symmetric per-side (÷2, capped at half the owned pairs).
 function perSide(t,bar=BAR,lm=false){let r=lm?(t-bar):(t-bar)/2;if(r<0)return null;const o=[];for(const p of PL){const m=lm?p.q:p.q/2;let c=Math.min(Math.floor(r/p.w),m);if(c>0){o.push({w:p.w,c});r-=c*p.w}}return Math.abs(r)<.01?o:null}
@@ -686,14 +691,23 @@ const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confir
 //     EXCEPT band_er, which keeps a small rep-range wave (15→15-20→15) across phases
 //     because cuff work periodizes by reps, not band thickness.
 const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj)));
+// Assisted-lift bridging (Oct 2026). Whole-band drops were too big to earn: dips sat at
+// 4×10 Purple from June to October because Red was a cliff, and pull-ups lost their band
+// after the grip correction. Three changes give the band lifts smaller steps:
+//   • ASSIST_BANDS adds a knee placement to every band (foot = more help, the plain name).
+//   • pullup_neg (A) and dip_neg (B): 2×2-3 five-second eccentrics one rung lighter than the
+//     working setup, kept in Essentials (xp:true), progressed down the same assist ladder.
+//   • lm_squat loads on VWL_BIG (bigPlates) — the sleeve is also the handle, and micro
+//     plates were filling it.
 
 const BASE_PR={A:[
 {id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',note:'Confirm lift — default +0.5kg by design. If your top set hits 9-10+, the load is too light: take a bigger manual jump (+2-3kg) and do hard 5s. Micro-jumps are for grinding near your limit, not when you have reps in reserve.',tg:5,rstS:60,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
-{id:'lm_squat',nm:'Landmine Squat',s:3,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
+{id:'lm_squat',nm:'Landmine Squat',s:3,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',note:'Loads step in 10/5/2.5kg plates only — fewest plates on the sleeve, more room for your hands — so each jump is 2.5kg and reps fill the gap. Grip: interlock your fingers around the shaft just under the plates, or hook a close-grip V-handle under the sleeve. Keep your normal stance; if the hold forces your feet wider, the load has outrun the hold — stay there and add reps or a 2s bottom pause instead.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',bigPlates:true,perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
 {id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
-{id:'pullup_a',nm:'Pull-ups (Comfortable Grip)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Use a shoulder-width or slightly wider overhand grip; choose the pain-free width. Control the bottom — no dead hang or forced end range.',note:'Step down ONE band rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Earn a clean 4×8 (the programmed target) before dropping assistance. Keep every rep strict; if the bottom position loses control, use more assistance or shorten to the controlled range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_a',nm:'Pull-ups (Comfortable Grip)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Use a shoulder-width or slightly wider overhand grip; choose the pain-free width. Control the bottom — no dead hang or forced end range.',note:'Step down ONE rung at a time — the knee is the half-step: Green (foot) → Green · knee → Purple+Red (foot). Earn a clean 4×8 (the programmed target) before dropping assistance. Keep every rep strict; if the bottom position loses control, use more assistance or shorten to the controlled range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_neg',nm:'Pull-up Negatives',s:2,rp:'2-3',rst:'1:00',rir:'—',tp:'band',bandMode:'assist',ecc:true,xp:true,rl:'ECCENTRIC ONLY, straight after your pull-ups. Step or jump to chin-over-bar, then lower for a slow 5-count to a controlled bottom — no dead hang, no drop. Step down and reset; do NOT pull back up. Use one rung less help than your working pull-up setup (foot → knee, or knee → the next band). 2×3 clean 5 s lowers → less assistance.',note:'This is how you earn the next band without grinding full reps on it — the lowering is stronger than the pull, so it rehearses the lighter setup safely. Rate a set Solid or Strict when every lower is a steady 5 s (the Negatives form score is for cheated reps on the main lift and holds progression here). If you cannot control the full 5 s, use more help; a fast drop trains nothing. Once unassisted, lengthen the lower to 6–8 s.',tg:3,rstS:60,tempo:'5-0-0-0',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:2,rp:'8-12',rst:'1:00',rir:'2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,xp:true},
 {id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Own every rep → add the smallest load step.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true,xp:true,qualityLoad:true}],
@@ -701,7 +715,8 @@ B:[
 {id:'hex_squat_b',nm:'Hex Bar Squat (High Handle)',s:4,rp:'5-6',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'PILLAR. High handles, centered load. ⚠ Hex bar is 7kg (light). Confirm → ↑ weight.',tg:6,rstS:60,tempo:'3-1-2-0',isoWU:'Hex hold at 90° 2×10s',perSide:false},
 {id:'hex_row',nm:'Hex Bar Row',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Bent-over hinge, flat back. Stand inside the hex bar, neutral grip on the handles, row to the lower ribs and squeeze the lats — elbows back, don\'t shrug. ⚠ Hex bar is 7kg (lighter than a straight bar). Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'1:00',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:60,tempo:'3-1-2-0',perSide:false},
-{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Lower only to the deepest pain-free, controlled position; upper-arm parallel is a cap, not a depth target.',note:'Strict only — a clean 6 beats a bouncy 10. Earn a clean 4×8 (the programmed target) before reducing the band. No bounce. If elbow or front-shoulder discomfort rises during a set, stop and use more assistance or less range on the next set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Lower only to the deepest pain-free, controlled position; upper-arm parallel is a cap, not a depth target.',note:'Strict only — a clean 6 beats a bouncy 10. Earn a clean 4×8 (the programmed target) before reducing the band — and reduce it one rung: same band under the knee before the next band under the foot (Purple → Purple · knee → Red). No bounce. If elbow or front-shoulder discomfort rises during a set, stop and use more assistance or less range on the next set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'dip_neg',nm:'Dip Negatives',s:2,rp:'2-3',rst:'1:00',rir:'—',tp:'band',bandMode:'assist',ecc:true,xp:true,rl:'ECCENTRIC ONLY, straight after your dips. Step up to the top with arms locked, then lower for a slow 5-count to your deepest pain-free position — upper-arm parallel is a cap, not a target. Step out and reset; do NOT press back up. Use one rung less help than your working dip setup (foot → knee, or knee → the next band). 2×3 clean 5 s lowers → less assistance.',note:'Builds the strength for the next band without needing full reps on it. Rate a set Solid or Strict when every lower is a steady 5 s (the Negatives form score is for cheated reps on the main lift and holds progression here). Stop the set if the elbow or front of the shoulder complains, and use more help or a shorter range next set. Once unassisted, lengthen the lower to 6–8 s.',tg:3,rstS:60,tempo:'5-0-0-0',perSide:false},
 {id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:60,tempo:'2-1-2-0',perSide:false},
 {id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 2 sets in Essentials, 4 in Full. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
 {id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false,xp:true},
@@ -710,8 +725,8 @@ B:[
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'3-1-1-0',perSide:false},
-{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. Use the same shoulder-width or slightly wider pain-free overhand grip as Day A. 3×10 strict → less assistance. Control the bottom; no dead hang.',note:'Volume slot — strict reps drive it. Build 3×10 clean before dropping a band; never kip or force a wider grip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
-{id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
+{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. Use the same shoulder-width or slightly wider pain-free overhand grip as Day A. 3×10 strict → less assistance. Control the bottom; no dead hang.',note:'Volume slot — strict reps drive it. Build 3×10 clean before dropping a rung (foot → knee on the same band comes first); never kip or force a wider grip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',note:'Loads step in 10/5/2.5kg plates only — fewest plates on the sleeve, more room for your hands — so each jump is 2.5kg and reps fill the gap. Grip: interlock your fingers around the shaft just under the plates, or hook a close-grip V-handle under the sleeve. Keep your normal stance; if the hold forces your feet wider, the load has outrun the hold — stay there and add reps or a 2s bottom pause instead.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',bigPlates:true,perSide:false},
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:00',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
 {id:'lm_pallof',nm:'Landmine Anti-Rotation',s:3,rp:'10/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Finisher. Face the bar, both hands on the end. Press out and resist the rotation — brace hard, no trunk twist. Slow, controlled, both sides. Load plates on the FREE end only. Log TOTAL reps across both sides: 16 means 8 each side. Choose load manually for a stable torso and controlled tempo; reduce plates now if control is difficult.',note:'Two 10kg plates are 20kg on the free end. The app includes the 11kg bar (31kg displayed); this is inventory mass, not resistance at your hands. Use fewer plates if needed. Only consider a small manual increase after repeated controlled sessions; rep counts alone do not establish control.',tg:10,rstS:60,tempo:'2-0-1-2',perSide:true,xp:true,qualityLoad:true,manualLoad:true},
@@ -1110,7 +1125,31 @@ const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
 // stats picker don't double-count or render duplicates.
 const ALL_EX=(()=>{const seen=new Set();return ALL_EX_RAW.filter(e=>!seen.has(e.id)&&seen.add(e.id))})();
 const BANDS=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
-const BAND_IDX=b=>{if(!b)return 99;const n=b.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===b||x===n||x.replace(/ \(heaviest\)/,'')==n);return i>=0?i:99};
+// Assisted pull-ups/dips can sit in each band two ways. Under the FOOT the band stretches
+// further than under the KNEE, so it helps more. A plain band name IS the foot setup —
+// every entry logged before placement existed was foot-assisted, so history keeps its
+// meaning untouched — and '<band> · knee' is its own rung half a step toward the next
+// thinner band. That doubles the assist rungs without a single new band. Resist exercises
+// (face pulls, curls, ER) have no placement and stay on BANDS.
+const KNEE=' · knee';
+const ASSIST_BANDS=BANDS.flatMap(b=>b==='None'?[b]:[b,b.replace(' (heaviest)','')+KNEE]);
+const BAND_VALUES=new Set([...BANDS,...ASSIST_BANDS]);
+// Rank on one scale for both ladders: BANDS index, +0.5 for the knee variant, 99 unknown.
+// Every caller only compares ranks, so the half-steps slot in without touching them.
+const BAND_IDX=b=>{if(!b)return 99;const s=String(b),knee=s.endsWith(KNEE),base=knee?s.slice(0,-KNEE.length):s;
+const n=base.replace(/ \(heaviest\)/,'');const i=BANDS.findIndex(x=>x===base||x===n||x.replace(/ \(heaviest\)/,'')==n);
+return i<0||(knee&&BANDS[i]==='None')?99:knee?i+0.5:i};
+const isAssistBand=ex=>!!ex&&ex.tp==='band'&&ex.bandMode!=='resist';
+function bandLadder(ex){return isAssistBand(ex)?ASSIST_BANDS:BANDS}
+// `step` rungs toward less assistance on the assist ladder; null past 'None' or for an
+// unrecognised band string.
+function nextAssistBand(b,step=1){const r=BAND_IDX(b);if(r===99)return null;
+const at=ASSIST_BANDS.findIndex(x=>BAND_IDX(x)===r),j=at+step;return at<0||j>=ASSIST_BANDS.length?null:ASSIST_BANDS[j]}
+// Compact label for tight spots (per-set column, Previous, ladder chips).
+function bandShort(b){const s=String(b||'').replace(' (heaviest)','');
+return s.endsWith(KNEE)?s.slice(0,-KNEE.length).replace('Purple+Red','P+Red')+' knee':s}
+// Dropdown label. On an assist lift the plain name is spelled out as the foot setup.
+function bandOptLabel(b,assist){return assist&&b!=='None'&&!b.endsWith(KNEE)?`${b} · foot`:b}
 const JOINTS=['Shoulder','Elbow','Wrist','Lower Back','Hip','Knee','Ankle'];
 
 // ═══════════════ MUSCLE-GROUP VOLUME TRACKING ═══════════════
@@ -1143,6 +1182,10 @@ const MG={
   // program's heaviest direct triceps stimulus), unlike the 0.5 on ordinary presses.
   dips:{chest:1,triceps:1}, pushups:{chest:1,triceps:0.5},
   pullup_a:{back:1,biceps:0.5}, pullup_c:{back:1,biceps:0.5},
+  // Home negatives are 2×2-3 eccentric-only reps — a fraction of a working set's dose — so
+  // they earn half credit on the prime movers only (partner pb_dips stays at full credit:
+  // there it IS the dip slot, 3×3-5).
+  pullup_neg:{back:0.5}, dip_neg:{chest:0.5,triceps:0.5},
   bb_row:{back:1,biceps:0.5}, hex_row:{back:1,biceps:0.5},
   face_pull:{reardelt:1,cuff:0.5}, band_er:{cuff:1}, rear_delt:{reardelt:1},
   bb_rear_row:{reardelt:1,back:0.5}, lm_row:{reardelt:1,back:0.5}, lm_lateral:{sidedelt:1},
@@ -1708,8 +1751,9 @@ let stalledEx=0,stalledMajor=0,totalEx=0,progressingEx=0;
 // Loaded motor-control slots still receive conservative load suggestions, but they are not
 // phase-performance tests. A dead bug or anti-rotation press can be limited by brace, tempo,
 // or usable range; treating that as a strength-block stall can recommend a phase change for
-// exactly the quality constraint the exercise is meant to train.
-for(const ex of uniqEx){if(ex.qualityLoad||ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
+// exactly the quality constraint the exercise is meant to train. Eccentric-only negatives
+// (ecc) are likewise a bridge to the next assist band, not a strength-block test.
+for(const ex of uniqEx){if(ex.qualityLoad||ex.ecc||ex.tp==='bw'||ex.tp==='carry'||ex.tp==='club'||ex.tp==='mace')continue;
   const sg=getSmartSugg(ex);totalEx++;
   if(sg.type==='dn'||sg.stalled)stalledEx++;
   // Deload-grade stall (stricter than the phase-change signal): a REAL repeated stall
@@ -1877,7 +1921,7 @@ return{sets,vol:Math.round(vol)}}
 function prevSetLbl(last,i){if(!last)return'—';
 const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
 const w=setWt(last,i),b=bandAt(last,i);
-return w?`${w}×${r}`:b?`${b.replace(' (heaviest)','')} ×${r}`:`×${r}`}
+return w?`${w}×${r}`:b?`${bandShort(b)} ×${r}`:`×${r}`}
 // Compact per-set line for a saved entry: uniform-weight sessions keep the old
 // "46kg [8,8,8]" shape; per-set overrides expand to "46×8, 50×6, 40×10".
 function fmtSets(e){const vr=(e.reps||[]).map(Number);
@@ -1919,6 +1963,11 @@ const RELATED_EX={
   'pullup_a':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue) and reduce assistance as strict reps come. Use a comfortable shoulder-width or slightly wider grip and control the bottom.'},
   'pullup_c':       {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — volume slot, so start on the heaviest assist band (Blue) and drop a band once you clear the target with the same controlled, comfortable grip.'},
   'dips':           {id:null,               seedBand:'Blue (heaviest)', note:'First logged session — start on the heaviest assist band (Blue). Use the deepest pain-free controlled range; upper-arm parallel is a cap, not a target.'},
+  // Negatives start ONE assist rung lighter than the working setup of their parent lift
+  // (Green → Green · knee → Purple+Red …): eccentric strength runs ahead of concentric, and
+  // the point of the slot is to rehearse the next rung. seedBand covers a fresh device.
+  'pullup_neg':     {id:'pullup_a', bandStep:1, seedBand:'Blue · knee', note:'One rung less help than your pull-ups'},
+  'dip_neg':        {id:'dips',     bandStep:1, seedBand:'Blue · knee', note:'One rung less help than your dips'},
   // Home program new exercises
   // Hex-bar lifts (NEW pattern — loads do NOT carry from straight DL / Zercher). Seed low on the
   // 7kg bar and let the engine progress from a feel-out set. All seeds are valid VWH (7kg) weights.
@@ -1928,7 +1977,7 @@ const RELATED_EX={
   'hex_rdl':        {id:null,               seedWt:43, note:'NEW — hex-bar RDL. Seeded ≈ your straight-bar RDL (~43.5kg); the lighter 7kg bar lands the total here. Feel-out set first, then build.'},
   'hex_floor_press':{id:null,               seedWt:28, note:'NEW — neutral-grip hex floor press (3rd weekly chest slot). Seeded just below your straight floor press (~32kg) since the bar is awkward to load — feel-out, set up carefully, build up.'},
   'floor_glute_bridge':{id:'hex_rdl',       mult:0.6,  seedWt:31, note:'Start around 31kg total (11kg bar + 10kg/side), about 60% of your recent hex RDL. First session is calibration: keep the 1-second top pause and about 2 reps in reserve.'},
-  'lm_squat':       {id:null,               seedWt:38, note:'NEW — landmine front squat (replaces the Zercher, ~33.5kg). Seeded a touch higher because leverage makes it feel lighter than the number — expect to climb fast. Feel-out set first.'},
+  'lm_squat':       {id:null,               seedWt:36, note:'NEW — landmine front squat (replaces the Zercher, ~33.5kg). 36kg is 10+10+5 on the sleeve — the big-plate ladder keeps room for your hands, and leverage makes it feel lighter than the number, so expect to climb. Feel-out set first.'},
   // Landmine / barbell accessory swaps (NEW — loads do NOT carry from the band lifts they replace).
   // Landmine lifts load ONE end of the 11kg bar, so 11kg (bar only) is the floor — seed there
   // and add plates to the free end up the single-sided ladder. bb_rear_row is a true two-handed
@@ -2010,12 +2059,15 @@ function getRelatedSuggestion(ex){
   const relLast=relHist.length?relHist[relHist.length-1]:null;
   // Peer lift has no history — fall back to seed if one is provided
   if(!relLast){
+    if(rel.seedBand)return{wt:null,band:rel.seedBand,note:rel.note,relName:'starting load'};
     if(rel.seedWt!=null)return{wt:rel.seedWt,band:'',note:rel.note,relName:'starting load'};
     return null;
   }
-  // Band exercises: copy band setting
+  // Band exercises: copy band setting (bandStep moves that many assist rungs lighter;
+  // an unassisted parent stays unassisted)
   if(ex.tp==='band'&&relLast.band){
-    return{wt:null,band:relLast.band,note:`${rel.note} (${relLast.band})`,relName:(ALL_EX.find(e=>e.id===rel.id)||{}).nm||rel.id};
+    const band=rel.bandStep?(nextAssistBand(relLast.band,rel.bandStep)||relLast.band):relLast.band;
+    return{wt:null,band,note:`${rel.note} (${relLast.band})`,relName:(ALL_EX.find(e=>e.id===rel.id)||{}).nm||rel.id};
   }
   // BW exercises with no weight: use rep total as reference
   if(ex.tp==='bw'&&(!relLast.wt||relLast.wt===0)){
@@ -2551,7 +2603,10 @@ if(ex.tp==='band'){
     const curIdx=BAND_IDX(last.band);
     // At 'None' (or no band logged) you're ALREADY unassisted — "try unassisted" was a
     // dead-end. Progress by reps, pauses or external load instead.
-    if(!last.band||last.band==='None'||curIdx>=BANDS.length-1)return{text:'Unassisted ✓ — add reps or load',type:'up',wt:null,traj,
+    if(!last.band||last.band==='None'||curIdx>=BANDS.length-1)return ex.ecc
+      ?{text:'Unassisted ✓ — slow the lowers',type:'up',wt:null,traj,
+        detail:`Hit ${ex.s}×${ex.tg} unassisted negatives — lengthen each lower to 6–8 s, then add a 2 s pause halfway down.`,regress}
+      :{text:'Unassisted ✓ — add reps or load',type:'up',wt:null,traj,
       detail:`Hit ${ex.s}×${ex.tg} with no band — extend the rep range, add a pause, or add load (belt/vest).`,regress};
     // Rep totals alone cannot establish a clean assisted-bodyweight progression. An
     // explicit Solid/Strict rating unlocks a one-set bridge; unrated history remains
@@ -2559,7 +2614,8 @@ if(ex.tp==='band'){
     const fs=sessForm(last);
     if(!fs)return{text:`Stay on ${last.band} · rate form`,type:'stay',wt:null,band:last.band,traj,
       detail:`Hit ${ex.s}×${ex.tg}, but assisted reps cannot be judged from counts alone. Rate the sets Solid or Strict next time to unlock a mixed-band bridge.`,regress};
-    const next=BANDS[curIdx+1],plan=Array.from({length:ex.s},(_,i)=>i===0?next:last.band);
+    // Next rung on the assist ladder — foot → knee on the same band, then the next band.
+    const next=nextAssistBand(last.band),plan=Array.from({length:ex.s},(_,i)=>i===0?next:last.band);
     return{text:`Bridge: 1× ${next.replace(' (heaviest)','')} → ${ex.s-1}× ${last.band.replace(' (heaviest)','')}`,type:'up',wt:null,band:last.band,bands:plan,traj,
       detail:`Hit ${ex.s}×${ex.tg} with ${FORM_LABELS[fs].toLowerCase()} form. Use the lower-assistance band for the first set, then back off; earn the top target before moving a second set.`,regress}}
   if(stallsB>=3)return{text:last.band||'Check band',type:'stay',wt:null,traj,stalled:true,
@@ -2609,7 +2665,7 @@ return{text:last.wt?`${last.wt}kg`:'Continue',type:'stay',wt:last.wt,traj:[],det
 // justify overriding otherwise-earned progression. Missing historical metadata is neutral.
 const HOME_LOWER_IDS=new Set(['hex_dl','lm_bstance_squat','b_stance_rdl','hex_squat_b','hex_rdl','lm_squat','lm_lateral_squat','floor_glute_bridge']);
 const PARTNER_LOWER_IDS=new Set(['db_bss','db_lunge','db_rdl','db_sl_rdl']);
-const HOME_PRESS_IDS=new Set(['floor_press','hex_floor_press','ohp','lm_press','dips']);
+const HOME_PRESS_IDS=new Set(['floor_press','hex_floor_press','ohp','lm_press','dips','dip_neg']);
 const PARTNER_PRESS_IDS=new Set(['db_floor_press','db_floor_press_v','db_1arm_press','db_ohp','pb_dips']);
 function recentOtherVenueWork(ex,ids,loc,label){
   const own=safetyHist(ex),lastOwn=own.length?own[own.length-1].date:'';
@@ -4031,7 +4087,7 @@ for(const s of wu)h+=`<div class="warmup-set"><span>${s.wt}${esc(unit)} × ${s.r
 h+=`<div style="text-align:center;margin-bottom:4px"><button class="btn-ghost" style="font-size:10px" onclick="LOG['${ex.id}'].wu=!LOG['${ex.id}'].wu;saveAW();render()">${log.wu?'Hide':'Show'} warm-up</button></div>`}}
 } else if(ex.tp==='band'){
 h+=`<div style="margin-bottom:6px;text-align:center"><select class="bs" style="width:auto;text-align:center;font-size:12px" aria-label="Band for ${esc(ex.nm)}" onchange="setL('${ex.id}','band',this.value);saveAW()"><option value="">Band...</option>
-${BANDS.map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(b)}</option>`).join('')}</select></div>`
+${bandLadder(ex).map(b=>`<option value="${esc(b)}"${log.band===b?' selected':''}>${esc(bandOptLabel(b,isAssistBand(ex)))}</option>`).join('')}</select></div>`
 } else if(ex.tp==='carry'&&ex.bar){
 // Bar-loaded carries (the 7kg hex bar) log like the other bar lifts: same +/− ladder
 // stepper + plate diagram. Only the set targets differ (steps, not reps).
@@ -4072,7 +4128,7 @@ h+=`<div class="set-gr set-row${dn?' done':''}">
 ${pl==='—'?`<span class="set-prev">—</span>`
 :`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`
-:banded?`<select class="set-band" aria-label="Set ${i+1} band" onchange="setSetBand('${ex.id}',${i},this.value)"><option value="">${esc((log.band||'Default').replace(' (heaviest)',''))}</option>${BANDS.map(b=>`<option value="${esc(b)}"${log.bands[i]===b?' selected':''}>${esc(b.replace(' (heaviest)',''))}</option>`).join('')}</select>`
+:banded?`<select class="set-band" aria-label="Set ${i+1} band" onchange="setSetBand('${ex.id}',${i},this.value)"><option value="">${esc(log.band?bandShort(log.band):'Default')}</option>${ASSIST_BANDS.map(b=>`<option value="${esc(b)}"${log.bands[i]===b?' selected':''}>${esc(bandShort(b))}</option>`).join('')}</select>`
 :`<span class="dm" style="text-align:center">—</span>`}
 <input type="number" class="ri${dn?' done':log.pf&&v?' pf':''}" value="${v}" placeholder="—" aria-label="Set ${i+1} ${repInputLabel(ex)}"
 onfocus="this.classList.remove('pf')" oninput="setRep('${ex.id}',${i},this.value)" inputmode="numeric">
@@ -4900,13 +4956,14 @@ h+=`<div class="dm" style="margin-bottom:10px">${rSl?`${rSl.n} observations · $
 // Band ladder — where the current band sits on the progression path. Assist lifts
 // read left→right toward 'None' (less assistance); resist lifts read left→right
 // toward the heaviest band. Combo rungs (Purple+Red) are real rungs.
-{const used=new Set(bHist.flatMap(x=>bandPattern(x)).filter(Boolean));
-const cur=new Set(es.last?bandPattern(es.last).filter(Boolean):[]);
+// Matched by rank, so a legacy bare 'Blue' still lights the 'Blue (heaviest)' chip.
+{const used=new Set(bHist.flatMap(x=>bandPattern(x)).filter(Boolean).map(BAND_IDX));
+const cur=new Set(es.last?bandPattern(es.last).filter(Boolean).map(BAND_IDX):[]);
 const assist=selEx.bandMode!=='resist';
-const rungs=assist?BANDS:BANDS.slice(0,-1).reverse();
+const rungs=assist?ASSIST_BANDS:BANDS.slice(0,-1).reverse();
 h+=`<div class="cd"><div class="lb" style="margin-bottom:8px">Band Ladder</div><div class="band-lad">`;
-h+=rungs.map(b=>`<span class="band-chip${cur.has(b)?' on':used.has(b)?' used':''}">${esc(b.replace(' (heaviest)',''))}</span>`).join(`<span class="dm" style="font-size:9px">→</span>`);
-h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
+h+=rungs.map(b=>{const r=BAND_IDX(b);return`<span class="band-chip${cur.has(r)?' on':used.has(r)?' used':''}">${esc(bandShort(b))}</span>`}).join(`<span class="dm" style="font-size:9px">→</span>`);
+h+=`</div><div class="dm" style="margin-top:7px">${assist?'Progress = rightward, toward less assistance. A plain band name is the band under your foot; “knee” is the same band under your knee — less help, the half-step before the next band. Highlighted = current band; solid text = bands you’ve logged.':'Progress = rightward, toward a heavier band. Highlighted = current band; solid text = bands you’ve logged.'}</div></div>`}
 if(comparable.length){
 const repD=comparable.slice(-15).map(x=>({v:totReps(x),l:new Date(x.date+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}));
 h+=`<div class="cd">${svgLine(repD,360,170,C_PR,'Reps · Same Band and Set Count')}<div class="dm">Latest comparable run only · points spaced by session</div></div>`;
@@ -5510,7 +5567,7 @@ h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
 // Band input
 if(ex.tp==='band')
 h+=`<div style="margin-bottom:4px"><select class="bs" style="width:auto" id="${inputId}_band" aria-label="Band for ${esc(ex.nm)}"><option value="">Band...</option>
-${BANDS.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('')}</select></div>`;
+${bandLadder(ex).map(b=>`<option value="${esc(b)}">${esc(bandOptLabel(b,isAssistBand(ex)))}</option>`).join('')}</select></div>`;
 // Rep inputs
 if(ex.repsPerSide||ex.perSide)h+=`<div class="dm" style="font-size:11px;margin-bottom:4px">Enter ${repInputLabel(ex)}${ex.repsPerSide?' (15 = 15 each side)':ex.id==='lm_pallof'?' (16 = 8 each side)':''}</div>`;
 h+=`<div style="display:flex;gap:6px">`;
@@ -5576,6 +5633,7 @@ function rPlates(el){
   h+=ladder('Straight Bar (11kg)','Plates mirror on both ends, per side.',VW,false,BAR);
   h+=ladder('Hex Bar (7kg)','Hex deadlift / squat / row / RDL / floor press / carry all load on this ladder — the lighter bar shifts every total down 4kg vs the straight bar.',VWH,false,HEXBAR);
   h+=ladder('Landmine — load 1 end (11kg bar)','One end pivots on the floor; plates go on the free sleeve only — finer steps than the straight bar (a lone 0.25kg → 11.25kg). Feels lighter than the number due to leverage.',VWL,true,BAR);
+  h+=ladder('Landmine squat — big plates only','10/5/2.5kg plates only, so the sleeve you hold carries the fewest plates. Every step is 2.5kg; add reps between steps.',VWL_BIG,true,BAR);
   h+=ladder('Dumbbells — matched pair (2kg bars)',"Partner's spinlock sets: per-bell weights buildable as TWO identical bells (per-DB lifts). Breakdown shows one end.",DBW_PAIR,false,null,w=>w<=DB_BAR?'Bare bell':fmtDbEnd(w,true)+' /end');
   h+=ladder('Dumbbell — single bell',"One bell with the whole plate pool (single-implement lifts).",DBW_SINGLE,false,null,w=>w<=DB_BAR?'Bare bell':fmtDbEnd(w,false)+' /end');
   h+=`</div>`;el.innerHTML=h;
@@ -5651,7 +5709,7 @@ h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-b
 <button class="btn-sm btn-rd" aria-label="Delete cue for ${esc(ex?.nm||k)}" onclick="delete D.cues['${k}'];save();render()">✕</button></div>`}}
 else h+=emptyH('💡','No cues yet','Add one from any exercise during a workout — it pins your own reminder to that lift.');
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Band order (thickest → thinnest)</div>
-<div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips): band helps you. Thinner = harder = progress. Move right.</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>
+<div class="cd" style="font-size:11px;color:var(--mu);line-height:1.9">${BANDS.join(' → ')}<div class="dm" style="margin-top:6px"><b>Assist</b> (pull-ups, dips, negatives): band helps you. Thinner = harder = progress. Move right. Each band has two spots: under the <b>foot</b> (more help, the plain band name) and under the <b>knee</b> (less help). Knee is the half-step before the next band: Green → Green · knee → Purple+Red …</div><div class="dm" style="margin-top:4px"><b>Resist</b> (lateral raise, face pull, Pallof, ext rot): band is the load. Thicker = harder = progress. Move left.</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Danger Zone</div>
 <button class="btn btn-rd" id="resetBtn" onclick="if(this.dataset.armed==='1'){this.dataset.armed='0';resetAll()}else{this.dataset.armed='1';this.textContent='Tap again to confirm reset';setTimeout(()=>{this.dataset.armed='0';this.textContent='Reset All Data'},3000)}">Reset All Data</button>
 </div>`;el.innerHTML=h}
@@ -5683,7 +5741,7 @@ for(const e of s.ex){
   if(!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id))continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>finiteNumber(r)||0):[];
   const row={id:e.id,reps,wt:finiteNumber(e.wt),band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
-  if(Array.isArray(e.bands)){const bands=e.bands.map(b=>typeof b==='string'&&BANDS.includes(b)?b:'');
+  if(Array.isArray(e.bands)){const bands=e.bands.map(b=>typeof b==='string'&&BAND_VALUES.has(b)?b:'');
     if(bands.some((b,i)=>b&&b!==row.band&&reps[i]>0))row.bands=bands}
   if(Array.isArray(e.form))row.form=e.form.map(f=>Number.isInteger(finiteNumber(f))&&finiteNumber(f)<=5?Number(f):0);
   if(Array.isArray(e.wts)){const wts=e.wts.map(w=>finiteNumber(w)>0?Number(w):null);if(wts.some(w=>w!==null))row.wts=wts}

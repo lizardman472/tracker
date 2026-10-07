@@ -330,6 +330,20 @@ R.getLOG()['hex_carry'].wt = 30;
   const perSide = R.getA();
   T('per-side set header explicitly asks for total reps', /<span>Total reps<\/span>/.test(perSide));
   T('per-side input labels explain the both-sides total', /aria-label="Set 1 total reps across both sides"/.test(perSide));
+  // Assisted lifts offer each band under the foot (plain name) or the knee.
+  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'pullup_a'));
+  tryRender('workout (assisted pull-up band placement)', () => R.render());
+  const pu = R.getA();
+  T('assisted band dropdown labels the plain band as the foot setup', /<option value="Green"[^>]*>Green · foot<\/option>/.test(pu));
+  T('assisted band dropdown offers the knee rung', /<option value="Green · knee"[^>]*>Green · knee<\/option>/.test(pu));
+  T('per-set band column offers compact knee rungs', /class="set-band"[\s\S]*?<option value="Purple\+Red · knee"[^>]*>P\+Red knee<\/option>/.test(pu));
+  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'pullup_neg'));
+  tryRender('workout (pull-up negatives)', () => R.render());
+  const pn = R.getA();
+  T('pull-up negatives render with an assist band picker and per-set bands', /Pull-up Negatives/.test(pn) && /aria-label="Band for Pull-up Negatives"/.test(pn) && /setSetBand\('pullup_neg',0,/.test(pn));
+  R.setCIDX(R.dayExs('A').findIndex(e => e.id === 'lm_squat'));
+  tryRender('workout (landmine squat big plates)', () => R.render());
+  T('landmine squat coach note explains the big-plate loading', /10\/5\/2\.5kg plates only/.test(R.getA()));
   R.setCIDX(0);
   R.render();
   const log = R.getLOG()['hex_dl'];
@@ -474,6 +488,7 @@ tryRender('Progress (band lift selected)', () => R.render());
 const bandSeg = R.getA();
 T('band lift shows the band ladder', /Band Ladder/.test(bandSeg));
 T('band ladder highlights the current band (Green in SEED)', /band-chip on">Green</.test(bandSeg), (bandSeg.match(/band-chip[^"]*">Green</) || [])[0]);
+T('assist band ladder shows the knee half-steps', /band-chip[^"]*">Green knee</.test(bandSeg) && /band-chip[^"]*">Red knee</.test(bandSeg) && /under your knee/.test(bandSeg));
 T('band lift shows a comparable series or explains insufficient observations', /Reps · Same Band and Set Count|A comparable trend needs 3 observations/.test(bandSeg) && !/Top-Set Weight/.test(bandSeg));
 T('band estrip shows same-setup best and observed change', /Best same setup/.test(bandSeg) && /Reps change/.test(bandSeg) && !/Reps · 8wk/.test(bandSeg));
 R.setSTAT('deadlift');
@@ -1380,7 +1395,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   const bw = R.getA();
   T('Day B carries the rollout and the bird dog', /Barbell Rollout/.test(bw) && /Bird Dog/.test(bw));
   T('Day B still reads as a rotation day, not a core block', /Day B1/.test(bw) && !/Core Block/.test(bw));
-  T('home day sizes include the Day-C floor glute bridge', R.dayExs('A').length === 9 && R.dayExs('B').length === 9 && R.dayExs('C').length === 12);
+  T('home day sizes include the pull-up/dip negatives and the Day-C floor glute bridge', R.dayExs('A').length === 10 && R.dayExs('B').length === 10 && R.dayExs('C').length === 12);
   T('no day X left to render', R.dayExs('X').length === 0);
 
   // Every rest button on a rendered day is the one-minute timer. Only the CURRENT card

@@ -21,7 +21,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SEED,JOINTS,BANDS,ASSIST_BANDS,BAND_IDX,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = memoryStorage();
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -37,7 +37,7 @@ function setNavigator(v) {
 setNavigator({});
 global.window = {}; // satisfies top-level `window.saveCardio = …` style handler assignments
 eval(code);
-const { ALL_EX, SEED: APP_SEED, JOINTS, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK,
+const { ALL_EX, SEED: APP_SEED, JOINTS, BANDS, ASSIST_BANDS, BAND_IDX, VW, MG_INFO, BODY_REGIONS_F, BODY_REGIONS_B, HEAT_PAL, setD, getD, getDropped, setADAY, SK,
   RTN_MIN_GAP, RTN_MIN_DAYS, RTN_MAX_DAYS, RTN_STAGE1_SESS } = global.__X;
 const SEED = HISTORY_SEED;
 
@@ -169,8 +169,63 @@ d = freshD();
 d.sessions = [{ id: 'dip-target', date: daysAgoStr(1), day: 'B', loc: 'home',
   ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', form: [5, 5, 5, 5] }] }];
 sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
-T('a strict dip 4×8 starts a one-set lower-assistance bridge',
-  sg.type === 'up' && sg.band === 'Purple' && JSON.stringify(sg.bands) === '["Red","Purple","Purple","Purple"]', JSON.stringify(sg));
+// The first rung below a foot-assisted band is the SAME band under the knee, not the next band.
+T('a strict dip 4×8 starts a one-set bridge to the same band under the knee',
+  sg.type === 'up' && sg.band === 'Purple' && JSON.stringify(sg.bands) === '["Purple · knee","Purple","Purple","Purple"]', JSON.stringify(sg));
+d.sessions[0].ex[0].band = 'Purple · knee';
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('a strict 4×8 under the knee bridges to the next band under the foot',
+  sg.type === 'up' && sg.band === 'Purple · knee' && JSON.stringify(sg.bands) === '["Red","Purple · knee","Purple · knee","Purple · knee"]', JSON.stringify(sg));
+d.sessions[0].ex[0] = { id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'Purple', bands: ['Purple · knee', '', '', ''], form: [5, 5, 5, 5] };
+sg = getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dips'));
+T('a clean foot/knee bridge moves one more set to the knee',
+  sg.type === 'up' && JSON.stringify(sg.bands) === '["Purple · knee","Purple · knee","Purple","Purple"]', JSON.stringify(sg));
+
+// ── Foot/knee placement ladder ──
+// Plain band = foot (all pre-placement history), '· knee' = half a rung toward the next band.
+T('assist ladder interleaves foot and knee on every band, ending unassisted',
+  JSON.stringify(ASSIST_BANDS) === JSON.stringify(['Blue (heaviest)','Blue · knee','Green','Green · knee','Purple+Red','Purple+Red · knee','Purple','Purple · knee','Red','Red · knee','None']), JSON.stringify(ASSIST_BANDS));
+T('knee ranks half a rung past its foot band', BAND_IDX('Green · knee') === 1.5 && BAND_IDX('Blue · knee') === 0.5 && BAND_IDX('Blue (heaviest) · knee') === 0.5);
+T('plain and legacy band names keep their original ranks', BAND_IDX('Green') === 1 && BAND_IDX('Blue') === 0 && BAND_IDX('None') === 5 && BAND_IDX('Orange') === 99 && BAND_IDX('') === 99);
+T('"None · knee" is not a rung', BAND_IDX('None · knee') === 99);
+T('ranks are strictly ordered along the assist ladder', ASSIST_BANDS.every((b, i) => !i || BAND_IDX(b) > BAND_IDX(ASSIST_BANDS[i - 1])));
+T('nextAssistBand steps foot → knee → next band → … → None',
+  nextAssistBand('Green') === 'Green · knee' && nextAssistBand('Green · knee') === 'Purple+Red' && nextAssistBand('Blue') === 'Blue · knee' &&
+  nextAssistBand('Red · knee') === 'None' && nextAssistBand('None') === null && nextAssistBand('Orange') === null && nextAssistBand('Green', 2) === 'Purple+Red');
+T('resist band lifts keep the placement-free ladder', bandLadder(ALL_EX.find(e => e.id === 'rear_delt')) === BANDS && bandLadder(ALL_EX.find(e => e.id === 'band_er')) === BANDS);
+T('assist lifts offer the foot/knee ladder', ['pullup_a', 'pullup_c', 'dips', 'pullup_neg', 'dip_neg'].every(id => bandLadder(ALL_EX.find(e => e.id === id)) === ASSIST_BANDS));
+T('assist dropdowns spell out the foot setup', bandOptLabel('Green', true) === 'Green · foot' && bandOptLabel('Green · knee', true) === 'Green · knee' && bandOptLabel('None', true) === 'None' && bandOptLabel('Green', false) === 'Green');
+T('compact band labels fit the per-set column', bandShort('Blue (heaviest)') === 'Blue' && bandShort('Green · knee') === 'Green knee' && bandShort('Purple+Red · knee') === 'P+Red knee');
+{
+  const vs = validSession({ id: 'knee-import', date: '2026-10-01', day: 'B', ex: [{ id: 'dips', reps: [6, 8, 8, 8], band: 'Purple', bands: ['Purple · knee', 'Bogus · knee', '', ''] }] });
+  T('import keeps knee per-set bands and drops unknown ones', vs && JSON.stringify(vs.ex[0].bands) === '["Purple · knee","","",""]', JSON.stringify(vs && vs.ex[0]));
+}
+
+// ── Negatives (pull-ups Day A, dips Day B) ──
+{
+  const homeA = getProgram(1, 'home').A, homeB = getProgram(1, 'home').B;
+  const pn = homeA.find(e => e.id === 'pullup_neg'), dn = homeB.find(e => e.id === 'dip_neg');
+  T('pull-up negatives follow the pull-ups on Day A', homeA.findIndex(e => e.id === 'pullup_neg') === homeA.findIndex(e => e.id === 'pullup_a') + 1);
+  T('dip negatives follow the dips on Day B', homeB.findIndex(e => e.id === 'dip_neg') === homeB.findIndex(e => e.id === 'dips') + 1);
+  T('negatives are 2×2-3 eccentric-only assisted band work',
+    [pn, dn].every(e => e && e.s === 2 && e.tg === 3 && e.tp === 'band' && e.bandMode === 'assist' && e.ecc === true && e.tempo === '5-0-0-0'));
+  const nd = freshD();
+  nd.sessions = [{ id: 'parent', date: daysAgoStr(2), day: 'A', loc: 'home', ex: [{ id: 'pullup_a', wt: null, reps: [8, 8, 8, 8], band: 'Green' }] }];
+  let ns = getSmartSugg(pn);
+  T('first pull-up negatives start one rung lighter than the pull-ups', ns.type === 'new' && ns.band === 'Green · knee', JSON.stringify(ns));
+  nd.sessions = [{ id: 'parent-none', date: daysAgoStr(2), day: 'B', loc: 'home', ex: [{ id: 'dips', wt: null, reps: [8, 8, 8, 8], band: 'None' }] }];
+  ns = getSmartSugg(dn);
+  T('an unassisted parent keeps the negatives unassisted', ns.type === 'new' && ns.band === 'None', JSON.stringify(ns));
+  nd.sessions = [];
+  ns = getSmartSugg(pn);
+  T('fresh-device negatives seed on Blue under the knee', ns.type === 'new' && ns.band === 'Blue · knee', JSON.stringify(ns));
+  nd.sessions = [{ id: 'neg-done', date: daysAgoStr(1), day: 'A', loc: 'home', ex: [{ id: 'pullup_neg', wt: null, reps: [3, 3], band: 'Green · knee', form: [5, 5] }] }];
+  ns = getSmartSugg(pn);
+  T('clean 2×3 negatives bridge to the next rung', ns.type === 'up' && JSON.stringify(ns.bands) === '["Purple+Red","Green · knee"]', JSON.stringify(ns));
+  nd.sessions = [{ id: 'neg-bw', date: daysAgoStr(1), day: 'A', loc: 'home', ex: [{ id: 'pullup_neg', wt: null, reps: [3, 3], band: 'None', form: [5, 5] }] }];
+  ns = getSmartSugg(pn);
+  T('unassisted negatives progress by a slower lower, not load', ns.type === 'up' && /slow the lowers/.test(ns.text) && /6–8 s/.test(ns.detail), JSON.stringify(ns));
+}
 
 // Assisted bodyweight work needs explicit technique data before counts can prescribe a
 // harder band. Once bridging starts, each set retains its own band and the progression
@@ -476,8 +531,8 @@ T('climbing from far below the floor still cuts', sg.type === 'dn', JSON.stringi
 d = freshD({ phase: 1, phaseStart: '2026-01-01' });
 d.location = 'home';
 const essentialPlan = {
-  A: { ids:['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:24, control:['dead_bugs_a'] },
-  B: { ids:['hex_squat_b','hex_row','ohp','dips','lm_lateral','rear_delt','band_leg_curl','bird_dog'], sets:26, control:['rear_delt','bird_dog'] },
+  A: { ids:['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_press','pullup_a','pullup_neg','bb_curl','dead_bugs_a'], sets:26, control:['dead_bugs_a'] },
+  B: { ids:['hex_squat_b','hex_row','ohp','dips','dip_neg','lm_lateral','rear_delt','band_leg_curl','bird_dog'], sets:28, control:['rear_delt','bird_dog'] },
   C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','floor_glute_bridge','bb_skullcr'], sets:25, control:['lm_pallof','band_er'] }
 };
 for (const day of ['A', 'B', 'C']) {
@@ -552,6 +607,13 @@ T('isolation stall does NOT feed the compound/deload signal', dlpi.stalledMajor 
 d = freshD(); d.sessions = stall3('floor_press', 30, [6, 6, 6]); // compound (chest+triceps), stalled 3x
 dlpi = getPhaseInfo();
 T('compound stall feeds the major-stall deload signal', dlpi.stalledMajor >= 1, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
+// Dip negatives recruit chest + triceps, but they are a bridge to the next band, not a
+// strength-block test: three short sessions on them must not push a phase change.
+d = freshD();
+d.sessions = [22, 19, 16].map((off, i) => ({ id: 'st_neg' + i, date: ymd(new Date(Date.now() - off * 864e5)), day: 'B', loc: 'home', ex: [{ id: 'dip_neg', wt: null, reps: [1, 1], band: 'Purple · knee' }] }));
+T('the dip negatives stall really is a band stall', getSmartSugg(getProgram(1, 'home').B.find(e => e.id === 'dip_neg')).stalled === true);
+dlpi = getPhaseInfo();
+T('eccentric negatives never feed the phase/deload stall signal', dlpi.stalledEx === 0 && dlpi.stalledMajor === 0, JSON.stringify({ ex: dlpi.stalledEx, major: dlpi.stalledMajor }));
 
 // ── phase week is DERIVED from phaseStart (no stored counter to drift) ──
 d = freshD({ phaseStart: ymd(new Date(Date.now() - 28 * 864e5)) });
