@@ -56,6 +56,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('ready check activates a held-load two-set return week',await page.evaluate(()=>D.trainingPlan.stage==='return'&&dayExs('A').reduce((n,e)=>n+e.s,0)===10));
   await page.evaluate(()=>{D.trainingPlan.stageStart=dayAfter(today(),-7);delete D.trainingPlan.reviewAfter;save();render()});
   await page.getByLabel('Training phase after recovery',{exact:true}).selectOption('2');
+  await screenshot(page,'phase-choice-after-recovery-phone');
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();
   T('second ready check activates eleven-set ongoing days',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&['A','B','C'].every(d=>dayExs(d).reduce((n,e)=>n+e.s,0)===11)));
   T('shorter default panel stays compact with no horizontal overflow',await page.locator('#training-plan').evaluate(e=>
