@@ -49,6 +49,7 @@ The deterministic Node suites have no package dependencies:
 node tests/calc.test.js
 node tests/hex.test.js
 node tests/storage.test.js
+node tests/recovery.test.js
 node tests/analytics.test.js
 node tests/render.smoke.js
 node tests/sw.test.js
@@ -72,6 +73,36 @@ Any change to `index.html` must bump `const C` in `sw.js`. CI fails otherwise, b
 installed PWA could continue serving the previous application shell.
 
 ## Interpretation limits
+
+### Deload and shorter A/B/C
+
+Choose **Start deload today** or **Start deload tomorrow** on Today or in Settings.
+This is an opt-in home routine; the original programme and Partner routine remain available.
+The app captures starting loads from your own history, never from sample workouts.
+
+- **Deload:** seven calendar days, at most three sessions on nonconsecutive days, six
+  working sets per session, approximately 82% of the earlier load and 4–5 clean reps left.
+  Missing a session does not require making it up. Rest instead if an easy session feels draining.
+- **Check-in:** the app does not advance automatically. At the displayed review date,
+  choose **I feel ready** only when easy sessions feel manageable and recovery between
+  sessions feels normal, or choose **Still tired** for two more rest days.
+- **Easy return:** another seven calendar days, five exercises with two sets each,
+  approximately 90% of the earlier load and about three clean reps left. Loads stay held.
+- **Shorter routine:** about 11 working sets per home day, 2–3 clean reps left, and
+  rep-first progression. Two comparable sessions on different dates must reach every
+  target with Solid/Strict ratings and at least two self-reported reps left before an increase.
+  Missed sets, unknown ratings and deliberate light sessions do not earn increases.
+
+The percentages, stage lengths and progression rules are practical app policies, not
+validated individual readiness thresholds. Deload and return sessions stay in History
+and analytics but are excluded from weight progression. The plan survives export/import
+to a fresh device; importing into a device with existing training does not replace its plan.
+Plan changes are blocked while an unfinished workout is waiting to resume.
+
+Stop a set when control breaks down or discomfort rises. Save only work actually performed.
+Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
+Session time targets are planning aids and never shorten necessary rests.
+
 
 Landmine lateral raises record reps **per side**: entering 15 means 15 on each side.
 Landmine anti-rotation records **combined reps**: entering 16 means 16 across both sides.

@@ -21,6 +21,8 @@ jobs:
         run: node tests/hex.test.js
       - name: Storage and recovery regressions
         run: node tests/storage.test.js
+      - name: Deload and shorter routine regressions
+        run: node tests/recovery.test.js
       - name: Analytics boundary and comparability regressions
         run: node tests/analytics.test.js
       - name: Render smoke tests

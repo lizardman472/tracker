@@ -78,6 +78,25 @@ Full and Essentials exercise prescriptions and phase/deload/progression policies
 unchanged by the analytics follow-up above. Chromium covers narrow layouts and keyboard interaction;
 physical Android keyboard continuity and installed-PWA upgrade behavior remain unverified.
 
+## October 2026: optional shorter home plan
+
+An explicit user-selected deload/return/shorter A/B/C plan now overrides the original home
+exercise list. Its calendar dates are review points; readiness confirmation is required before
+advancing. Extra rest postpones the review without silently restoring loads. The original
+programme and Partner prescription remain available.
+
+Easy-stage sessions carry their own stage/start markers and stay excluded from progression
+after reload or import. They do not erase older same-date training from progression memory.
+Self-reported reps left are stored separately from the prescribed RIR target. The shorter
+routine uses two comparable rated exposures before a small increase; the full original
+progression engine continues to serve the original programme.
+
+Synthetic unit and browser coverage includes date boundaries, readiness, extra rest, reduced
+set counts, unfinished-workout protection, storage round-trips and progression gates. The
+specific reduction percentages and progression gates are app policies rather than validated
+individual readiness thresholds. Physical installed-PWA behavior still requires device testing.
+
+
 ## Remaining architecture debt
 
 The app is intentionally deployable without a build step, but `index.html` still combines

@@ -378,6 +378,7 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     await ctx.close(); }
 
   await require('./storage.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
+  await require('./recovery.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await browser.close();
   server.close();
   for (const e of errors) T('no page error: ' + e, false);
