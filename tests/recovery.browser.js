@@ -2,7 +2,7 @@
 module.exports=async function({browser,origin,T,baseStore}){
  const fs=require('fs'),path=require('path'),shots=path.join(__dirname,'..','test-results','recovery-layout');
  fs.mkdirSync(shots,{recursive:true});
- const screenshot=(page,name)=>page.screenshot({path:path.join(shots,name+'.png')});
+ const screenshot=async(page,name)=>{await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:path.join(shots,name+'.png')});};
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
  async function open(store){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
@@ -20,6 +20,7 @@ module.exports=async function({browser,origin,T,baseStore}){
    /seven planned days/.test(e.textContent)&&/6 working sets/.test(e.textContent)&&/4–5/.test(e.textContent)&&/does not automatically/.test(e.textContent)));
   T('recovery controls are collapsed and compact at phone width',await page.locator('#training-plan').evaluate(e=>
    !e.querySelector('details').open&&e.getBoundingClientRect().height<180));
+  T('routine controls share the existing workout-start panel',await page.locator('#training-plan').evaluate(e=>!!e.closest('.start-hero')));
   await screenshot(page,'deload-phone');
   T('deload previews exactly the shortened A day',await page.evaluate(()=>dayExs('A').length===4&&dayExs('A').reduce((n,e)=>n+e.s,0)===6));
   await page.getByRole('button',{name:'Start Deload week · Day A',exact:true}).click();

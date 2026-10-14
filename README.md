@@ -127,7 +127,8 @@ when they remain below earlier loads. Early steps are excluded from progression;
 non-fatigue final practice records are retained as the new anchors. **Keep shorter routine
 (default)** remains available throughout this optional return.
 
-Today shows one compact routine panel with guidance and choices collapsed. Workouts show
+Today embeds compact routine controls in the workout-start panel with guidance and choices
+collapsed. Workouts show
 only the current prescription; Settings exposes the full controls. Saved history, current
 phase and next A/B/C day are preserved throughout routine changes.
 
