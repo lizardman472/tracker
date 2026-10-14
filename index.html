@@ -1771,8 +1771,8 @@ function shortSuggestion(ex){
  const p=D.trainingPlan;if(!ex._short||!p)return null;
  const st=trainingPlanStatus(),early=p.stage!=='progress',seed=p.loads[ex.id];
  const hist=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&!s.noProg&&(s.loc||'home')==='home')
-  .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty}:null}).filter(Boolean).slice(-2);
- const last=hist.at(-1),rated=e=>e&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
+  .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty,complete:s.trainingComplete===true,finishReason:s.finishReason}:null}).filter(Boolean).slice(-2);
+ const last=hist.at(-1),rated=e=>e&&e.complete&&!['fatigue','discomfort'].includes(e.finishReason)&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
   e.form?.length>=ex.s&&e.reps.every((r,i)=>!(r>0)||e.form[i]>=4)&&Number(e.difficulty||0)<4;
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.level==='moderate');
  const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
@@ -4401,7 +4401,7 @@ if(!S){go('home');return}
 let h=`<div class="sec">
 <div style="margin-bottom:4px"><button class="btn-ghost" style="font-size:12px;padding-left:0" onclick="VIEW='workout';render();window.scrollTo(0,0)">← Back to workout</button></div>
 <div class="summary-card">
-<div style="font-family:var(--disp);font-size:20px;font-weight:900;margin-bottom:6px;letter-spacing:.5px">Session Complete ✓</div>
+<div style="font-family:var(--disp);font-size:20px;font-weight:900;margin-bottom:6px;letter-spacing:.5px">${shortHomePlan()&&!shortWorkComplete(S)?'Workout ended early':'Session Complete ✓'}</div>
 <span class="bg bg-${S.day.toLowerCase()}">Day ${S.day}</span>
 <div style="display:flex;justify-content:center;gap:16px;margin:14px 0">
 <div><div class="summary-num">${S.dur}</div><div class="summary-label">min</div></div>
@@ -4432,10 +4432,13 @@ for(let i=1;i<=5;i++)h+=`<button type="button" class="diff-pick" aria-pressed="$
 <div class="diff-btn${SDIFF===i?' sel':''}" style="margin:0 auto;${SDIFF===i?'border-color:'+EFFORT_COLORS[i-1]+';background:'+EFFORT_COLORS[i-1]+'18;color:'+EFFORT_COLORS[i-1]:''}">${i}</div>
 <div style="font-size:8px;color:${SDIFF===i?EFFORT_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${EFFORT_LABELS[i-1]}</div></button>`;
 h+=`</div></div></div>
+${shortHomePlan()?`<div class="cd"><label class="lb" for="finish-reason">Why did you finish?</label><select class="bs" id="finish-reason" onchange="window._S.finishReason=this.value"><option value="">Choose (optional)</option>${[['complete','Planned work finished'],['fatigue','Too tired'],['time','Ran out of time'],['discomfort','Discomfort'],['other','Other']].map(([v,l])=>`<option value="${v}"${S.finishReason===v?' selected':''}>${l}</option>`).join('')}</select><p class="dm">Saving an unfinished session is fine. It stays in History and does not earn a load increase.</p></div>`:''}
 <button class="btn btn-pr" onclick="saveSumm()">Save ✓</button>
 ${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Optional: this self-report feeds the workload estimate and deload timing.</div>`}</div>`;el.innerHTML=h}
 
 function finishSavedSummary(){clearAW();window._S=null;ADAY=null;ACTIVE_ID=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;EXPRESS=false;clearTimer();releaseWake();go('home')}
+function shortWorkComplete(S){const exs=dayExs(S.day);return exs.length>0&&exs.every(ex=>{
+ const e=S.exs.find(e=>e.id===ex.id);return e&&e.reps.filter(r=>r>0).length>=ex.s;});}
 function saveSumm(){const S=window._S;if(!S||!WRITER)return;
 if(!S.id)S.id=ACTIVE_ID||(ACTIVE_ID=recordId());
 const W=structuredClone(D),loggedIds=new Set(S.exs.map(e=>e.id));
@@ -4444,6 +4447,8 @@ for(const j of v.discJoints){const row={date:S.date,exId:id,level:v.disc,joint:j
 if(!W.discomfort.some(x=>x.date===row.date&&x.exId===id&&x.joint===j))W.discomfort.push(row)}}}
 const session={id:S.id,date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||'',...(S.express?{express:true}:{})};
 if(shortHomePlan()){session.trainingStage=D.trainingPlan.stage;session.trainingPlanStart=D.trainingPlan.start;
+ session.trainingComplete=shortWorkComplete(S);
+ session.finishReason=['complete','fatigue','time','discomfort','other'].includes(S.finishReason)?S.finishReason:session.trainingComplete?'complete':'unspecified';
  if(D.trainingPlan.stage!=='progress')session.noProg=true;
  if(D.trainingPlan.stage==='deload')W.lastDeload=D.trainingPlan.start;}
 const ix=W.sessions.findIndex(s=>s.id===S.id);if(ix<0)W.sessions.push(session);else W.sessions[ix]=session;
@@ -5834,6 +5839,8 @@ const row={id:safeId(s.id),date:s.date,day:s.day,ex,
   volume:finiteNumber(s.volume),notes:typeof s.notes==='string'?s.notes:''};
 if(['deload','return','progress'].includes(s.trainingStage)&&validISODate(s.trainingPlanStart)){
  row.trainingStage=s.trainingStage;row.trainingPlanStart=s.trainingPlanStart;
+ row.trainingComplete=s.trainingComplete===true;
+ if(['complete','fatigue','time','discomfort','other','unspecified'].includes(s.finishReason))row.finishReason=s.finishReason;
  if(s.trainingStage!=='progress')row.noProg=true;}
 if(['home','partner'].includes(s.loc))row.loc=s.loc;
 if([1,2,3].includes(s.phase))row.phase=s.phase;
@@ -5864,7 +5871,7 @@ if(['duration','volume'].some(k=>s[k]!=null&&finiteNumber(s[k])===null)||
 (s.loc!=null&&!['home','partner'].includes(s.loc))||
 (s.phase!=null&&![1,2,3].includes(s.phase))||
 ['express','retro','noProg'].some(k=>s[k]!=null&&typeof s[k]!=='boolean')||
-Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek','trainingStage','trainingPlanStart'].includes(k))||
+Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek','trainingStage','trainingPlanStart','trainingComplete','finishReason'].includes(k))||
 s.ex.some(e=>!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id)||
 (e.wt!=null&&finiteNumber(e.wt)===null)||['band','notes'].some(k=>e[k]!=null&&typeof e[k]!=='string')||
 !Array.isArray(e.reps)||e.reps.some(r=>finiteNumber(r)===null)||

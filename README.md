@@ -92,6 +92,8 @@ The app captures starting loads from your own history, never from sample workout
   rep-first progression. Two comparable sessions on different dates must reach every
   target with Solid/Strict ratings and at least two self-reported reps left before an increase.
   Missed sets, unknown ratings and deliberate light sessions do not earn increases.
+  The save screen records why a workout ended; an unfinished session or a fatigue/discomfort
+  ending does not count as a confirmation even when one lift reached its rep target.
 
 The percentages, stage lengths and progression rules are practical app policies, not
 validated individual readiness thresholds. Deload and return sessions stay in History

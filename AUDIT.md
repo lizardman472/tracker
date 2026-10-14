@@ -90,6 +90,9 @@ after reload or import. They do not erase older same-date training from progress
 Self-reported reps left are stored separately from the prescribed RIR target. The shorter
 routine uses two comparable rated exposures before a small increase; the full original
 progression engine continues to serve the original programme.
+The save screen distinguishes completed work from an early ending and records fatigue,
+time or discomfort when selected. Unfinished and fatigue/discomfort-ended sessions cannot
+confirm a load increase.
 
 Synthetic unit and browser coverage includes date boundaries, readiness, extra rest, reduced
 set counts, unfinished-workout protection, storage round-trips and progression gates. The

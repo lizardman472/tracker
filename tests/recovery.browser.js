@@ -21,6 +21,12 @@ module.exports=async function({browser,origin,T,baseStore}){
   await rir.selectOption('4');
   T('reported reps-left value is stored in the recoverable draft',await page.evaluate(()=>JSON.parse(localStorage.getItem(AW_KEY)).log.hex_dl.rir==='4'));
   T('short routine does not prefill old hard-workout rep targets',await page.evaluate(()=>LOG.hex_dl.reps.every(r=>r==='')));
+  await page.evaluate(()=>{LOG.hex_dl.reps=['5','5'];LOG.hex_dl.setDone=[true,true];finishW()});
+  T('an unfinished deload has a clear early-ending summary',/Workout ended early/.test(await page.locator('#app').innerText()));
+  await page.getByLabel('Why did you finish?',{exact:true}).selectOption('fatigue');
+  await page.getByRole('button',{name:'Save ✓',exact:true}).click();
+  T('fatigue reason, RIR and light-stage exclusion survive the real save path',await page.evaluate(()=>{
+   const s=D.sessions.at(-1);return s.trainingStage==='deload'&&s.noProg&&s.trainingComplete===false&&s.finishReason==='fatigue'&&s.ex[0].rir===4;}));
   T('deload workout has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
  {

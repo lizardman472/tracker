@@ -71,7 +71,7 @@ test('easy-stage suggestions hold lighter loads without old rep prefill',()=>{
  R.setD(state('deload',R.today()));const ex=R.dayExs('A')[0],s=R.shortSuggestion(ex);assert(s.wt<=80*.82);assert.equal(s.type,'stay');R.ensureLog(ex);
  assert(R.getLOG().hex_dl.reps.every(r=>r===''));assert.equal(Number(R.getLOG().hex_dl.wt),s.wt);
 });
-function progressRows(over={}){return ['2020-02-10','2020-02-13'].map((date,i)=>({id:'p'+i,date,day:'A',loc:'home',difficulty:2,trainingStage:'progress',trainingPlanStart:'2020-02-01',
+function progressRows(over={}){return ['2020-02-10','2020-02-13'].map((date,i)=>({id:'p'+i,date,day:'A',loc:'home',difficulty:2,trainingStage:'progress',trainingPlanStart:'2020-02-01',trainingComplete:true,finishReason:'complete',
  ex:[{id:'hex_dl',wt:72,reps:[8,8],form:[5,5],rir:2,band:'',...over}]}));}
 test('two rated comparable sessions earn one small buildable increase',()=>{
  const d=state('progress');d.sessions=progressRows();R.setD(d);const s=R.shortSuggestion(R.dayExs('A')[0]);assert.equal(s.type,'up');assert(s.wt>72&&s.wt<=73);
@@ -98,5 +98,10 @@ test('mixed-band progression repeats the bridge and advances only one further se
 });
 test('different per-set loads cannot masquerade as two uniform-load confirmations',()=>{
  const d=state('progress');d.sessions=progressRows({wts:[74,72]});R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).type,'stay');
+});
+test('unfinished and fatigue-ended sessions cannot confirm a load increase',()=>{
+ for(const over of [{trainingComplete:false},{finishReason:'fatigue'},{finishReason:'discomfort'}]){
+  const d=state('progress');d.sessions=progressRows().map(s=>({...s,...over}));R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).type,'stay');
+ }
 });
 console.log(`\n${passed} recovery tests passed`);
