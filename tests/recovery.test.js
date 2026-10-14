@@ -11,7 +11,7 @@ context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,dayAfter,today,dayExs,startTrainingPlan,
- advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
+ advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -131,7 +131,7 @@ test('finishing original practice restores Essentials only after a fresh complet
  for(const day of ['A','B','C'])assert(!R.dayExs(day).some(e=>e._short));
 });
 test('default shorter routine is preserved and optional original return can be abandoned safely',()=>{
- R.setD(state('return'));assert(R.advanceTrainingPlan());assert.equal(R.getD().trainingPlan.stage,'progress');
+ R.setD(state('return'));assert(R.advanceTrainingPlan(1));assert.equal(R.getD().trainingPlan.stage,'progress');
  assert(R.stopTrainingPlan());assert(R.keepShorterRoutine());assert.equal(R.getD().trainingPlan.stage,'progress');
  for(const day of ['A','B','C'])assert.equal(R.dayExs(day).reduce((n,e)=>n+e.s,0),11);
  R.setD(state('deload'));assert.equal(R.stopTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'deload');
@@ -175,6 +175,55 @@ test('choosing shorter again keeps lower practice weights and requires fresh con
  R.setD(d);assert(R.keepShorterRoutine());const ex=R.dayExs('A')[0],s=R.getSmartSugg(ex);
  assert.equal(s.type,'stay');assert.equal(s.wt,50);
  const other=state('progress');other.location='partner';R.setD(other);assert(R.trainingPlanCard().includes('Home routine · Shorter A/B/C'));
+});
+test('recovery requires an explicit regular phase and keeps the shorter workload',()=>{
+ R.setD(state('return'));assert.equal(R.advanceTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'return');
+ for(const phase of [1,2]){
+  R.setD(state('return'));assert(R.advanceTrainingPlan(phase));assert.equal(R.getD().phase,phase);assert.equal(R.getD().trainingPlan.phase,phase);
+  assert.equal(R.getD().trainingPlan.phaseStart,R.today());assert.equal(R.dayExs('A')[0].tg,phase===1?5:8);
+  for(const day of ['A','B','C'])assert.equal(R.dayExs(day).reduce((n,e)=>n+e.s,0),11);
+ }
+});
+test('phase switches change rep targets without restoring old weights or old confirmations',()=>{
+ const d=state('progress');d.trainingPlan.phase=1;d.sessions=progressRows({reps:[5,5]}).map(s=>({...s,phase:1}));R.setD(d);const history=json(R.getD().sessions);
+ R.setConfirm(false);assert.equal(R.setShorterPhase(2),false);assert.equal(R.getD().phase,1);R.setConfirm(true);
+ assert(R.setShorterPhase(2));assert.equal(R.dayExs('A')[0].tg,8);const s=R.getSmartSugg(R.dayExs('A')[0]);assert.equal(s.type,'stay');assert(s.wt<=72);
+ assert.deepEqual(json(R.getD().sessions),history);assert.equal(R.getD().phase,2);
+ assert.equal(R.setShorterPhase(2),false);R.setActive('A');assert.equal(R.setShorterPhase(1),false);R.setActive(null);
+});
+test('Linear and Hypertrophy original returns hold their chosen phase and reduce higher-rep loads',()=>{
+ for(const phase of [1,2]){
+  const d=state('progress');d.sessions=[{id:'old',date:'2020-01-01',day:'A',loc:'home',phase:1,ex:[{id:'hex_dl',wt:80,reps:[5,5,5],form:[5,5,5]}]}];
+  R.setD(d);assert(R.stopTrainingPlan(phase));assert.equal(R.getD().phase,phase);assert.equal(R.dayExs('A')[0].tg,phase===1?5:8);
+  assert(R.dayExs('A').every(e=>e.s<=2));assert(R.getSmartSugg(R.dayExs('A')[0]).wt<=72);
+  if(phase===2)assert(R.getD().trainingPlan.phaseLoads.hex_dl<80);
+  assert.equal(R.setPhase(phase===1?2:1),false);
+ }
+});
+test('selected phases and adjusted loads survive fresh import; recovery discards active phase fields',()=>{
+ R.setD(state('return'));assert(R.advanceTrainingPlan(2));const d=json(R.getD()),w=R.mergeImport(R.freshState(),d).W;
+ assert.equal(w.phase,2);assert.equal(w.trainingPlan.phase,2);assert.deepEqual(json(w.trainingPlan.progressLoads),d.trainingPlan.progressLoads);
+ const recovery=state();recovery.trainingPlan.phase=2;recovery.trainingPlan.progressLoads={hex_dl:999};
+ const p=R.validTrainingPlan(recovery.trainingPlan);assert.equal(p.phase,undefined);assert.equal(p.progressLoads,undefined);
+});
+test('current phase context explains each stage and does not call recovery Linear',()=>{
+ R.setD(state('deload'));const ctx=R.trainingPhaseContext();assert(ctx.label.includes('Recovery'));assert.equal(ctx.next,'Easy return week');
+ R.setD(state('return'));assert(R.trainingPhaseContext().next.includes('choose Linear or Hypertrophy'));
+ R.setD(state('progress'));assert(R.trainingPhaseContext().label.includes('Mixed reps'));
+ assert(R.setShorterPhase(2));assert(R.trainingPhaseContext().label.includes('Hypertrophy'));assert(R.trainingPhaseContext().when.includes('Review from'));
+});
+test('unknown or different-phase records cannot confirm an increase in a chosen phase',()=>{
+ for(const oldPhase of [1,undefined]){
+  const d=state('progress');d.trainingPlan.phase=2;d.sessions=progressRows().map((s,i)=>({...s,phase:i===0?oldPhase:2}));R.setD(d);
+  assert.equal(R.getSmartSugg(R.dayExs('A')[0]).type,'stay');
+ }
+});
+test('future sessions do not trigger the original 24-session phase review',()=>{
+ const d=json(R.freshState());d.phaseStart=R.dayAfter(R.today(),-20);
+ d.sessions=Array.from({length:24},(_,i)=>({id:'future'+i,date:R.dayAfter(R.today(),10),day:'A',phase:1,ex:[]}));
+ R.setD(d);assert.equal(R.getPhaseInfo().sess,0);assert.equal(R.getPhaseInfo().timerDue,false);
+ d.sessions=d.sessions.map(s=>({...s,date:R.today()}));R.setD(d);assert.equal(R.getPhaseInfo().timerDue,true);
+ R.setActive('A');assert.equal(R.setPhase(2),false);assert.equal(R.getD().phase,1);R.setActive(null);
 });
 test('mixed-band progression repeats the bridge and advances only one further set',()=>{
  const d=state('progress');d.sessions=progressRows();
