@@ -41,6 +41,12 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.evaluate(()=>{D.trainingPlan.stageStart=dayAfter(today(),-7);delete D.trainingPlan.reviewAfter;save();render()});
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();
   T('second ready check activates eleven-set ongoing days',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&['A','B','C'].every(d=>dayExs(d).reduce((n,e)=>n+e.s,0)===11)));
+  const before=await page.evaluate(()=>({history:JSON.stringify(D.sessions),phase:D.phase,nextDay:D.nextDay}));
+  await page.getByRole('button',{name:'Return to normal routine',exact:true}).click();
+  T('return button restores original A/B/C and preserves history and schedule',await page.evaluate(b=>
+   D.trainingPlan===null&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay&&
+   ['A','B','C'].every(d=>!dayExs(d).some(e=>e._short)),before));
+  T('return button disappears once the normal routine is restored',await page.getByRole('button',{name:'Return to normal routine',exact:true}).count()===0);
   T('readiness flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
 };
