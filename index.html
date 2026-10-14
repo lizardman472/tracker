@@ -1025,6 +1025,7 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
 // already logged against day 'X' keep resolving for exactly that reason.)
 const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
 ...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
+{id:'dead_bug_unloaded',nm:'Dead Bug (unloaded)',s:2,rp:'6-8/side',tg:8,tp:'bw',perSide:true,rst:'1:30',rstS:90,rir:'controlled',tempo:'slow',rl:'Keep the ribs down and move only as far as you can without arching the lower back. Log combined reps: 12 means 6 each side. No added weight.'},
 {id:'lm_bstance_squat',nm:'Landmine B-Stance Squat (weak side leads)',s:3,rp:'8-10/leg',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Legacy — replaced on Day A by regular landmine squat. Unilateral quad slot (v14) — the imbalance work the bilateral squats can\'t do. Front-rack the bar end at the shoulder or hold it in the crook of the arm, B-stance kickstand (front foot 70%), sit straight down, drive up tall. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session. Front-rack the landmine or hold in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). If 10/leg with 2-3 in reserve on the weak side, add load next session.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:true},
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
 {id:'band_pushdown',nm:'Band Triceps Pushdown',s:3,rp:'10-12',tg:12,rstS:50,tp:'band',rl:'Legacy (Day D retired)',bandMode:'resist',perSide:false},
@@ -1153,7 +1154,7 @@ const MG={
   kb_swing:{glutes:0.5,hams:0.5},
   // Core / carries / clubs — the program is deliberately core-heavy (anti-extension,
   // anti-rotation, anti-lateral-flexion), so the balance dashboard must see it.
-  dead_bugs_a:{core:1}, dead_bugs:{core:1}, dead_bugs_b:{core:1},
+  dead_bugs_a:{core:1}, dead_bugs:{core:1}, dead_bugs_b:{core:1}, dead_bug_unloaded:{core:1},
   // v28: side plank (anti-lateral hold) + bird dog (extensor endurance) — bodyweight,
   // identical at both venues, so one id/entry each covers home AND partner. Bird dog's
   // erector load is deliberately sub-threshold (like db_sl_rdl) — core only, no back credit.
@@ -1530,7 +1531,7 @@ function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERRO
 function retrySave(){if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(ADAY)return saveAW();return false}
 function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
 PENDING_SAVE=null;PENDING_AFTER=null;PENDING_ACTIVE=null;SAVE_ERROR='';updateSaveStatus();render()}
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],resetEpoch:'0'}}
+function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,resetEpoch:'0'}}
 function resetAll(){if(!WRITER){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
 return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
 function activeRecord(){if(!ADAY)return null;
@@ -1682,7 +1683,126 @@ function dismissBanner(key,sig){if(!D.dismissed)D.dismissed={};D.dismissed[key]=
 function fmtD(d){return new Date(d+'T00:00:00').toLocaleDateString('en-NZ',{weekday:'short',day:'numeric',month:'short'})}
 function dAgo(d){const x=dayDiff(today(),d);return x===0?'Today':x===1?'Yesterday':`${x}d ago`}
 function elapsed(){if(!SS)return'';const s=Math.floor((Date.now()-SS)/1000),m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`}
-function getCurPR(){return getProgram(D.phase,D.location)}
+// Opt-in home plan. Dates are review points, never automatic clearance to train harder.
+const SHORT_ABC={
+ A:[['hex_dl',2,'5-8',8],['lm_squat',2,'8-10',10],['floor_press',3,'8-12',12],['pullup_a',2,'6-10',10],['lm_lateral',2,'12-15/side',15]],
+ B:[['hex_squat_b',2,'6-8',8],['hex_row',3,'8-12',12],['ohp',2,'6-10',10],['rear_delt',2,'15-20',20],['band_leg_curl',2,'10-15',15]],
+ C:[['hex_rdl',2,'8-12',12],['hex_floor_press',3,'8-12',12],['pullup_c',2,'6-10',10],['lm_squat',2,'8-10',10],['dead_bug_unloaded',2,'6-8/side',8]]};
+const SHORT_DELOAD_REPS={hex_dl:5,lm_squat:6,floor_press:8,pullup_a:6,hex_squat_b:6,hex_row:8,ohp:6,rear_delt:12,hex_rdl:8,hex_floor_press:8,pullup_c:6};
+function validTrainingPlan(v){
+ if(!plainObject(v)||!['deload','return','progress'].includes(v.stage)||!validISODate(v.start)||!validISODate(v.stageStart))return null;
+ const out={stage:v.stage,start:v.start,stageStart:v.stageStart,loads:{},bands:{}};
+ if(v.stageStart<v.start)return null;
+ if(validISODate(v.reviewAfter)&&v.reviewAfter>=v.stageStart)out.reviewAfter=v.reviewAfter;
+ const ids=new Set(Object.values(SHORT_ABC).flat().map(e=>e[0]));
+ for(const[id,kg]of Object.entries(plainObject(v.loads)?v.loads:{}))if(ids.has(id)&&finiteNumber(kg)>0&&Number(kg)<=1000)out.loads[id]=Number(kg);
+ for(const[id,b]of Object.entries(plainObject(v.bands)?v.bands:{}))if(ids.has(id)&&BANDS.includes(b))out.bands[id]=b;
+ return out;
+}
+function trainingPlanStatus(now=today()){
+ const p=D.trainingPlan;if(!p)return null;
+ const end=dayAfter(p.stageStart,6),review=p.reviewAfter||dayAfter(end);
+ return{...p,end,review,pending:now<p.stageStart,resting:!!p.reviewAfter&&now<p.reviewAfter,due:p.stage!=='progress'&&now>=review,
+  day:Math.max(1,dayDiff(now,p.stageStart)+1),label:p.stage==='deload'?'Deload week':p.stage==='return'?'Easy return week':'Shorter muscle-building routine'};
+}
+function shortHomePlan(){return !!D.trainingPlan&&D.location==='home'}
+function shortProgram(){
+ const p=trainingPlanStatus(),pr={};
+ for(const[day,rows]of Object.entries(SHORT_ABC))pr[day]=rows.filter((_,i)=>p.stage!=='deload'||i<4).map(([id,s,rp,tg],i)=>{
+  const base=ALL_EX.find(e=>e.id===id);const sets=p.stage==='deload'?(i<2?2:1):p.stage==='return'?2:s;
+  const rest=['lm_lateral','rear_delt','band_leg_curl','dead_bug_unloaded'].includes(id)?90:150;
+  return{...base,s:sets,rp:p.stage==='deload'?String(SHORT_DELOAD_REPS[id]):rp,
+   tg:p.stage==='deload'?SHORT_DELOAD_REPS[id]:tg,rstS:rest,rst:rest===150?'2:30':'1:30',rir:p.stage==='deload'?'4-5':p.stage==='return'?'3':'2-3',
+   note:'This shorter plan replaces the usual exercise list. Stop before grinding. No extra finishers are required.',_short:true};
+ });
+ return pr;
+}
+function changeTrainingPlanAllowed(){
+ if(!WRITER||PENDING_SAVE){updateSaveStatus();return false}
+ if(ADAY||pendingAW()){alert('Finish or discard the current workout before changing this plan. Your logged sets are kept.');return false}
+ return true;
+}
+function startTrainingPlan(start=today()){
+ if(!changeTrainingPlanAllowed()||!validISODate(start)||start<today())return false;
+ if(D.comeback){alert('Finish or cancel the existing return-from-break ramp in Settings before starting this plan.');return false}
+ const W=structuredClone(D),loads={},bands={};
+ for(const id of new Set(Object.values(SHORT_ABC).flat().map(e=>e[0]))){
+  const rows=W.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home'&&!s.noProg&&s.ex.some(e=>e.id===id&&e.reps.some(r=>r>0)));
+  const e=rows.at(-1)?.ex.find(e=>e.id===id);
+  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
+ }
+ W.trainingPlan={stage:'deload',start,stageStart:start,loads,bands};W.nextDay='A';
+ return save(W,{after:()=>render()});
+}
+function advanceTrainingPlan(){
+ if(!changeTrainingPlanAllowed())return false;const st=trainingPlanStatus();
+ if(!st||!st.due)return false;
+ if(!confirm('Are the easy sessions manageable, are you recovering normally between sessions, and do you feel ready? If you are still drained, cancel and choose more rest.'))return false;
+ const W=structuredClone(D);W.trainingPlan.stage=st.stage==='deload'?'return':'progress';
+ W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;
+ return save(W,{after:()=>render()});
+}
+function restTrainingPlan(){
+ if(!changeTrainingPlanAllowed()||!D.trainingPlan)return false;
+ const W=structuredClone(D);W.trainingPlan.reviewAfter=dayAfter(today(),2);
+ return save(W,{after:()=>render()});
+}
+function stopTrainingPlan(){
+ if(!changeTrainingPlanAllowed()||!confirm('Return to the original programme? Saved workouts and recovery-stage records will stay in History.'))return false;
+ const W=structuredClone(D);W.trainingPlan=null;return save(W,{after:()=>render()});
+}
+function trainingPlanCard(){
+ const st=trainingPlanStatus();let h='<div class="cd" id="training-plan"><div class="lb">Deload and shorter A/B/C</div>';
+ if(!st)return h+`<p>One easy week, then an easy return week, then a shorter home routine. This is a practical fatigue-management trial, not a diagnosis or a promise of muscle growth.</p>
+ <p>Start with Day A. Train A, B and C on separate days with a rest day between. No missed-session catch-up.</p>
+ <button class="btn btn-pr" onclick="startTrainingPlan()">Start deload today</button>
+ <button class="btn btn-wh" style="margin-top:6px" onclick="startTrainingPlan(dayAfter(today()))">Start deload tomorrow</button></div>`;
+ h+=`<h3>${st.label}</h3><p>${st.pending?'Starts': 'Started'} ${fmtD(st.stageStart)}${st.stage==='progress'?'':` · seven planned days through ${fmtD(st.end)}`}. ${st.stage==='progress'?'About 11 working sets per day.':`Review from ${fmtD(st.review)}. The date does not automatically increase your training.`}</p>`;
+ if(st.resting)h+=`<p><b>Rest now.</b> You chose extra rest. Check how you feel again on ${fmtD(st.review)}; no catch-up sessions.</p>`;
+ if(st.stage==='deload')h+='<p><b>Do this now:</b> three easy A/B/C sessions at most, on separate days. Six working sets per session. Use the lighter suggested loads and leave 4–5 clean reps available. Aim for about 25–40 minutes. Take a rest day instead if even this feels draining.</p>';
+ else if(st.stage==='return')h+='<p><b>Do this now:</b> five exercises, two working sets each. Start around 90% of your earlier loads and leave about three clean reps available. Hold loads for this week; do not add extra sets.</p>';
+ else h+='<p><b>Do this now:</b> follow the shorter list and leave 2–3 clean reps available. Build reps first. A weight increase needs two comparable, complete sessions at the top of the range, rated Solid/Strict with at least two reps left. No automatic catch-up to old weights.</p>';
+ h+='<details><summary>When to stop, rest or return</summary><p>Stop a set when control breaks down or discomfort rises. You can finish the workout early and save only the sets actually completed.</p><p>At the review date, move on only if the easy sessions feel manageable and you recover normally between them. Missing a session does not extend the week or require making it up.</p><p>If still tired, choose two more rest days and reassess. Repeated fatigue after returning means the everyday workload needs another review. Persistent or worsening fatigue, especially outside workouts, warrants medical advice.</p><p>Rest about 2–3 minutes for main lifts and 60–90 seconds for accessories; take longer when needed. Warm up before loaded work. The shorter routine aims for roughly 45–65 minutes, not a mandatory deadline.</p><p>This plan applies at Home. Partner sessions use their existing programme.</p></details>';
+ if(st.due)h+=`<p><b>Check in now:</b> there is no automatic return.</p><button class="btn btn-pr" onclick="advanceTrainingPlan()">${st.stage==='deload'?'I feel ready — start easy return week':'I feel ready — use shorter routine'}</button><button class="btn btn-wh" style="margin-top:6px" onclick="restTrainingPlan()">Still tired — take two more rest days</button>`;
+ h+='<button class="btn btn-ghost" style="margin-top:8px" onclick="stopTrainingPlan()">Use original programme instead</button></div>';
+ return h;
+}
+function shortSuggestion(ex){
+ const p=D.trainingPlan;if(!ex._short||!p)return null;
+ const st=trainingPlanStatus(),early=p.stage!=='progress',seed=p.loads[ex.id];
+ const hist=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&!s.noProg&&(s.loc||'home')==='home')
+  .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty,complete:s.trainingComplete===true,finishReason:s.finishReason}:null}).filter(Boolean).slice(-2);
+ const last=hist.at(-1),rated=e=>e&&e.complete&&!['fatigue','discomfort'].includes(e.finishReason)&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
+  e.form?.length>=ex.s&&e.reps.every((r,i)=>!(r>0)||e.form[i]>=4)&&Number(e.difficulty||0)<4;
+ const disc=getDiscomfortRecent(ex.id,3).some(d=>d.level==='moderate');
+ const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
+ const detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':'Build reps first; rate form and record reps left before expecting a load increase.'}`;
+ if(ex.tp==='bw')return{text:'Unloaded — control first',type:'stay',wt:null,traj:[],detail,regress:''};
+ if(ex.tp==='band'){
+  let b=last?.band||p.bands[ex.id]||'';
+  if(early&&p.stage==='deload'&&b){const i=BAND_IDX(b);b=BANDS[Math.max(0,Math.min(BANDS.length-1,i+(ex.bandMode==='assist'?-1:1)))]}
+  const pattern=last?bandPattern(last):Array(ex.s).fill(b),mixed=new Set(pattern).size>1;
+  const match=hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
+   JSON.stringify(bandPattern(hist[0]))===JSON.stringify(pattern)&&pattern.every(x=>BANDS.includes(x))&&!disc;
+  if(!early&&match&&b){
+   const assist=ex.bandMode==='assist',indices=pattern.map(BAND_IDX);
+   const hard=assist?Math.max(...indices):Math.min(...indices),back=assist?Math.min(...indices):Math.max(...indices);
+   const nextIndex=mixed?hard:hard+(assist?1:-1),next=BANDS[nextIndex];
+   if(next){const plan=[...pattern],i=mixed?indices.indexOf(back):0;plan[i]=next;
+    return{text:'Advance one set on the band ladder',type:'up',wt:null,band:b,bands:plan,traj:[],detail,regress:''}}
+  }
+  return{text:mixed?'Repeat the mixed-band setup':b?`Stay on ${b}`:'Choose an easy band',type:'stay',wt:null,band:b,
+   ...(!early&&mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
+ }
+ const vw=vwOf(ex),snapDown=t=>vw.filter(w=>w<=t).at(-1)||vw[0];
+ const anchor=last?sessLoad(last,ex.s):seed? snapDown(seed*(p.stage==='deload'?.82:.90)):barOf(ex);
+ const match=!early&&hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
+  hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
+ const wt=match?nxUp(anchor,vw):anchor;
+ return{text:`${wt}kg · ${match?'small increase':early?'easy week':'build reps'}`,type:match?'up':'stay',wt,traj:[],detail,
+  regress:disc?'Hold progression; reduce load or stop if discomfort rises.':''};
+}
+function getCurPR(){return shortHomePlan()?shortProgram():getProgram(D.phase,D.location)}
 
 // ═══════════════ PERIODIZATION ═══════════════
 function getPhaseInfo(){
@@ -1735,8 +1855,8 @@ function advancePhase(){const next=D.phase>=3?1:D.phase+1;D.phase=next;D.phaseSt
 // Guarded mutators for phase/location. Both invalidate a pending resumable workout
 // (checkResume rejects on loc/phase mismatch), so warn before silently orphaning one;
 // re-tapping the active phase must NOT reset the phase clock.
-function advancePhaseSafe(){if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;advancePhase();render()}
-function setPhase(p){if(p===D.phase)return;
+function advancePhaseSafe(){if(D.trainingPlan){alert('This shorter plan has its own stages. Use its readiness check instead of switching phases.');return}if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;advancePhase();render()}
+function setPhase(p){if(D.trainingPlan){alert('This shorter plan has its own rep ranges. Use original programme instead before changing its phase.');return}if(p===D.phase)return;
 if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;
 if(!confirm(`Switch to Phase ${p} (${PHASES[p].name})? The phase week counter restarts from today.`))return;
 D.phase=p;D.phaseStart=today();save();render()}
@@ -2058,7 +2178,7 @@ if(ex.manualLoad){
 // (b) an easy deload session can't read as a fresh confirm or an overshoot. They still
 // count everywhere else (history, tonnage, analytics). If ALL history is deload-week
 // (edge case), keep it — a light anchor beats "first time".
-if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const dlEnd=ymd(de);
+if(D.lastDeload&&!D.sessions.some(s=>s.trainingStage==='deload'&&s.trainingPlanStart===D.lastDeload)){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const dlEnd=ymd(de);
   const f=hist.filter(h=>h.date<D.lastDeload||h.date>dlEnd);if(f.length)hist=f}
 // A return ramp's STAGE 1 is deliberately submaximal for the same reason a deload week is, so
 // it gets the same treatment: those sessions leave progression memory, and the next suggestion
@@ -2617,12 +2737,12 @@ function recentOtherVenueWork(ex,ids,loc,label){
   return D.sessions.some(s=>(s.loc||'home')===loc&&s.date>=cut&&s.date<=now&&(!lastOwn||s.date>=lastOwn)&&
     (s.ex||[]).some(e=>ids.has(e.id)&&effectiveReps(ALL_EX.find(x=>x.id===e.id)||{},e.reps).length>=3))?label:''}
 function safetyHist(ex){let h=getHist(ex.id,8).filter(x=>!x.noProg&&effectiveReps(ex,x.reps).length>0);
-  if(D.lastDeload){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const end=ymd(de);
+  if(D.lastDeload&&!D.sessions.some(s=>s.trainingStage==='deload'&&s.trainingPlanStart===D.lastDeload)){const de=new Date(D.lastDeload+'T12:00:00');de.setDate(de.getDate()+6);const end=ymd(de);
     const f=h.filter(x=>x.date<D.lastDeload||x.date>end);if(f.length)h=f}
   const muted=rampMutedDates();if(muted.size){const f=h.filter(x=>!muted.has(x.date));if(f.length)h=f}
   return h.slice(-5)}
 function getSmartSugg(ex){
-  const base=getSmartSuggCore(ex);
+  const base=shortSuggestion(ex)||getSmartSuggCore(ex);
   if(base.type!=='up')return base;
   const hist=safetyHist(ex),last=hist[hist.length-1],reasons=[];
   if(last&&Number(last.difficulty)===5)reasons.push('last session effort was 5/5');
@@ -2864,6 +2984,7 @@ if(sc<=3)return{score:sc,label:'Fresh',color:'var(--gr)'};if(sc<=5)return{score:
 if(sc<=7)return{score:sc,label:'Building',color:'var(--am)'};return{score:sc,label:'Fatigued',color:'var(--rd)'}}
 
 function getDeload(stalledMajor=0){
+if(D.trainingPlan)return null;
 // The deload clock measures accumulated training fatigue since it was last discharged. A
 // layoff long enough to need a return ramp discharges it as surely as a deload week does, so
 // the clock restarts from the ramp's end when that is the more recent of the two. Without
@@ -2974,17 +3095,18 @@ function fmtMS(sec){const s=Math.max(0,Math.round(sec));return`${Math.floor(s/60
 // The timestamped full sessions are useful evidence that time drifts, but they cannot tell
 // us how the new Essentials prescription behaves. One measured A/B/C Essentials cycle can.
 const ESSENTIALS_TARGET_SEC=80*60;
-function essentialsBudget(start,now){
+function essentialsBudget(start,now,target=ESSENTIALS_TARGET_SEC){
 if(!(Number(start)>0))return null;
 const elapsed=Math.max(0,Math.floor(((now==null?Date.now():now)-Number(start))/1000));
-const left=ESSENTIALS_TARGET_SEC-elapsed;
-return{elapsed,left,over:left<0,pct:Math.min(100,elapsed/ESSENTIALS_TARGET_SEC*100)}}
+const left=target-elapsed;
+return{elapsed,left,over:left<0,pct:Math.min(100,elapsed/target*100)}}
+function workoutBudgetTarget(){return shortHomePlan()?(D.trainingPlan.stage==='deload'?40:65)*60:ESSENTIALS_TARGET_SEC}
 function essentialsBudgetLabel(b){
 if(!b)return'';
 return b.over?`+${fmtMS(-b.left)} over target`:`${fmtMS(b.left)} left`}
 function updateEssentialsBudget(){
 const box=document.getElementById('xp-pace');if(!box)return;
-const b=essentialsBudget(SS);if(!b)return;
+const b=essentialsBudget(SS,undefined,workoutBudgetTarget());if(!b)return;
 box.classList.toggle('over',b.over);
 const t=document.getElementById('xp-rem');if(t)t.textContent=essentialsBudgetLabel(b);
 const f=document.getElementById('xp-fill');if(f)f.style.width=`${b.pct}%`}
@@ -3041,12 +3163,13 @@ function lastSessDate(){let m=null;for(const s of D.sessions)if(!m||s.date>m)m=s
 function rtnDays(gap){return Math.max(RTN_MIN_DAYS,Math.min(RTN_MAX_DAYS,Math.round(gap)))}
 // Inclusive end date: a 7-day ramp starting Monday ends the following Sunday, not Monday.
 function rtnEnd(start,days){const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+days-1);return ymd(d)}
-function dayAfter(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+1);return ymd(x)}
+function dayAfter(d,n=1){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return ymd(x)}
 
 // The break signal: a gap long enough to warrant a ramp, with none already running. Returns
 // null when there is nothing to offer — including when a ramp is open, because the offer and
 // the progress card are mutually exclusive states of the same thing.
 function getBreak(){
+if(D.trainingPlan)return null;
 if(D.comeback)return null;
 // A store still on the bundled SEED demo has months-old sessions nobody trained. Offering a
 // 21-day ramp back from a break that never happened is the first thing a new install would
@@ -3418,6 +3541,7 @@ const nd=!['A','B','C'].includes(nd0)?'A':nd0;
 const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledMajor);
 const resume=checkResume();
 let h='<div class="sec"><h2 class="sr-only">Today</h2>';
+h+=trainingPlanCard();
 
 if(resume){const ageMin=Math.max(0,Math.round((Date.now()-resume.start)/60000));
 const ageLbl=ageMin<120?`${ageMin} min ago`:ageMin<2880?`${Math.round(ageMin/60)}h ago`:`${Math.round(ageMin/1440)}d ago`;
@@ -3567,21 +3691,21 @@ if(restDay){
   ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} Essentials anyway</button>
+    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} ${shortHomePlan()?trainingPlanStatus().label:'Essentials'} anyway</button>
   </div>
-  <button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>
+  ${shortHomePlan()?'':`<button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>`}
   </div>`;
 }else{
   // ESSENTIALS — the focused session is the everyday default; the complete accessory-inclusive
   // session remains one tap away. At home the audited primary/control filter applies; at the
   // partner venue the seven-movement shared full-body base remains and rotating additions drop.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const startBtns=xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  const startBtns=shortHomePlan()?`<button class="start-primary" onclick="beginW('${nd}',true)">Start ${trainingPlanStatus().label} · Day ${nd}</button>`:xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
   <div class="dm" style="margin-top:6px;text-align:center">Essentials is the complete session: main lifts, targeted stability work, and selected accessories. Full optionally adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
   :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
   h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
-  <div class="meta">P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
+  <div class="meta">${shortHomePlan()?trainingPlanStatus().label:`P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk}`} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
   ${startBtns}</div>`;
 }
@@ -3633,7 +3757,7 @@ h+=`</div>`;
 // Deload-week banner — "Took one" starts a 7-day window where every suggestion carries
 // the ~-10% advisory; show the countdown so the week has a visible start and end.
 {const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
-if(dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#bfe6d0;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
+if(!D.trainingPlan&&dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#bfe6d0;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
 
 // Fatigue strip — no fake "Wk 19/8" denominators: past the deload timer just say how long it's been.
 if(dl)h+=`<div style="display:flex;justify-content:space-between;padding:4px 2px;font-size:10px;color:var(--mu)">
@@ -3643,7 +3767,7 @@ h+=`<div class="fg-bar"><div class="fg-fill" style="width:${fat.score*10}%;backg
 // Phase change — all three computed states now surface (timer_only and early_stall were
 // computed but never rendered, so a well-progressing user never saw a phase prompt).
 const nxtP=phi.phase>=3?1:phi.phase+1;
-if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
+if(!D.trainingPlan&&phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledMajor} key lifts stalling · ${PHASES[nxtP].desc}</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
 // The dismissal key is the PHASE, not phase+week: keying it to the week regenerated a new
@@ -3651,12 +3775,12 @@ if(phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);t
 // banner back weekly no matter how many times they dismissed it. Safe to silence for the
 // whole phase because this is only the SOFT verdict — once lifts actually stall the
 // 'due' branch above takes over, and that one is deliberately not dismissible.
-else if(phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.phase)))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
+else if(!D.trainingPlan&&phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.phase)))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
 <button onclick="dismissBanner('phasetimer','${phi.phase}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:3px;padding-right:20px">Phase timer complete</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks of ${phi.name} and lifts are still moving (${phi.progressingEx}/${phi.totalEx} progressing). Switch when ready — or ride the wave a little longer.</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
-else if(phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledMajor))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
+else if(!D.trainingPlan&&phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledMajor))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
 <button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledMajor}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${phi.stalledMajor} key lifts stalling early</div>
 <div class="dm" style="margin-bottom:6px">Only week ${phi.wk}/${phi.maxWk} of ${phi.name} — check the deload advice above first; if fatigue is fine, an early phase switch can reset momentum.</div>
@@ -3683,10 +3807,10 @@ const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 // the last session had fewer sets than today prescribes (same id on a 3-set and a 4-set
 // day, or a set-count bump like floor press 3→4 in v21), rendering "undefined" in the
 // 4th input and mis-reading the exercise as done.
-LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:last?.band||sg.band||'',
-reps:Array.from({length:ex.s},(_,i)=>{const r=last?last.reps[i]:null;return r>0?String(r):''}),
+LOG[ex.id]={wt:sg.wt||last?.wt||defWt,band:ex._short?(sg.band||''):(last?.band||sg.band||''),
+reps:Array.from({length:ex.s},(_,i)=>{const r=ex._short?null:last?last.reps[i]:null;return r>0?String(r):''}),
 wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
-bands:Array.from({length:ex.s},(_,i)=>Array.isArray(sg.bands)?sg.bands[i]||'':last&&Array.isArray(last.bands)?last.bands[i]||'':''),
+bands:Array.from({length:ex.s},(_,i)=>Array.isArray(sg.bands)?sg.bands[i]||'':!ex._short&&last&&Array.isArray(last.bands)?last.bands[i]||'':''),
 setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),
 // Wall-clock (epoch ms) at which each set was ticked off, 0 = not yet. Saved as
 // SECONDS FROM SESSION START on the finished session (see the `ts` row below), which is
@@ -3735,6 +3859,7 @@ function isExpressKeep(ex){
 const PARTNER_ESSENTIAL_IDS=new Set(PARTNER_BASE.map(e=>e.id));
 function expressAvailable(){return true}
 function dayExs(day,sw,xp){sw=sw||SWAP;
+if(shortHomePlan())return(shortProgram()[day]||[]).map(e=>({...e,_slot:e.id}));
 if(xp===undefined)xp=EXPRESS;
 const rows=(getCurPR()[day]||[]);
 // Filter on the RESOLVED movement, so a swapped-in isolation lift is dropped by express
@@ -3786,6 +3911,12 @@ delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
 SWAP_OPEN=null;saveAW();render()}
 
 function beginW(day,xp){
+const tp=shortHomePlan()?trainingPlanStatus():null;
+if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
+if(tp){const rows=D.sessions.filter(s=>s.trainingPlanStart===tp.start&&s.trainingStage===tp.stage&&s.date>=tp.stageStart&&(s.loc||'home')==='home');
+ const last=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home').at(-1);
+ if(last&&dayDiff(today(),last.date)<2){alert('Take a rest day between these home sessions. Next suggested training day: '+fmtD(dayAfter(last.date,2))+'.');return}
+ if(tp.stage!=='progress'&&rows.length>=3){alert('Your three easy sessions are logged. Rest until the review on '+fmtD(tp.review)+'. Do not add catch-up workouts.');return}}
 if(!WRITER||PENDING_SAVE){updateSaveStatus();return}
 // A pending resumable session dies the moment a new one starts (saveAW overwrites the
 // blob) — one accidental tap on Start used to silently destroy 45 minutes of logging.
@@ -3800,7 +3931,7 @@ if(pend&&typeof confirm==='function'){
 ACTIVE_ID=recordId();ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 // Set before dayExs — it reads EXPRESS when no explicit flag is passed. Express is
 // home-only, so a venue switch mid-flight can never leave a partner day filtered.
-EXPRESS=!!xp&&expressAvailable();
+EXPRESS=shortHomePlan()||!!xp&&expressAvailable();
 const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
@@ -3873,7 +4004,7 @@ let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
 
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span>${EXPRESS?` <span class="bg" style="background:var(--prl);color:var(--pr)">Essentials</span>`:''}</div>
+<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span>${EXPRESS?` <span class="bg" style="background:var(--prl);color:var(--pr)">${shortHomePlan()?trainingPlanStatus().label:'Essentials'}</span>`:''}</div>
 <button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div>`;
 
 // Live session strip (sticky): running duration + volume/sets banked from CHECKED
@@ -3884,7 +4015,7 @@ const lv=liveStats(LOG);
 // against the rest timer because it also includes setup and the next set's work.
 {const li=intervalStats(liveIntervals(LOG));
 h+=`<div class="work-sticky">
-<div><div class="ws-l">Duration${EXPRESS?' · 80m target':''}</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
+<div><div class="ws-l">Duration${EXPRESS?` · ${workoutBudgetTarget()/60}m target`:''}</div><div class="ws-v" style="color:var(--pr)" id="sc">${elapsed()}</div></div>
 <div><div class="ws-l">External load</div><div class="ws-v"><span id="lv-vol">${lv.vol.toLocaleString('en-NZ')}</span><span class="ws-u"> kg</span></div></div>
 <div><div class="ws-l">Sets</div><div class="ws-v" id="lv-sets">${lv.sets}</div></div>
 <div><div class="ws-l">Set interval <span class="ws-u">med</span></div><div class="ws-v" id="lv-interval">${li?fmtMS(li.med):'—'}</div></div></div>`;}
@@ -3893,9 +4024,9 @@ h+=`<div class="work-sticky">
 // protects needed recovery: the correct response to a slow, technically demanding set is
 // not to race the clock. What it does expose is the otherwise invisible setup/interruption
 // drift that the timestamp audit found in the recent full sessions.
-if(EXPRESS){const xb=essentialsBudget(SS);
-h+=`<div class="xp-pace${xb.over?' over':''}" id="xp-pace" role="group" aria-label="Essentials 80-minute pacing target">
-<div class="xp-pace-top"><span><b>80-minute pacing target</b> · not a rest cap</span><span class="xp-pace-time" id="xp-rem">${essentialsBudgetLabel(xb)}</span></div>
+if(EXPRESS){const xb=essentialsBudget(SS,undefined,workoutBudgetTarget()),targetMinutes=workoutBudgetTarget()/60;
+h+=`<div class="xp-pace${xb.over?' over':''}" id="xp-pace" role="group" aria-label="${shortHomePlan()?'Shorter routine': 'Essentials'} ${targetMinutes}-minute pacing target">
+<div class="xp-pace-top"><span><b>${targetMinutes}-minute pacing target</b> · not a rest cap</span><span class="xp-pace-time" id="xp-rem">${essentialsBudgetLabel(xb)}</span></div>
 <div class="xp-pace-track"><div class="xp-pace-fill" id="xp-fill" style="width:${xb.pct}%"></div></div>
 <div class="xp-pace-note">Use the prescribed rest timer. Take longer when form or performance requires it.</div></div>`}
 
@@ -3912,6 +4043,7 @@ h+=`<div class="prog-seg${dn?' pg-done':i===CIDX?' pg-cur':''}"></div>`}
 h+=`</div><div style="text-align:right;font-size:10px;color:var(--mu);margin-bottom:6px">${dC}/${exs.length}</div>`;
 
 // Return-ramp strip. A ramp is a SESSION-level fact — "you are on day 3 of a comeback, run it
+if(shortHomePlan())h+=trainingPlanCard();
 // at ~90% and stop short" applies to the whole workout, not to one lift. It rode only on the
 // per-lift advisory at first, and that line is emitted from the middle of getSmartSugg's
 // ladder: every lift that returns early (a first-time lift, a band with no history, a
@@ -3960,7 +4092,7 @@ h+=`<div class="ex-row cur" id="ex-cur" data-exercise="${esc(ex.id)}">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}${ex._swapped?' <span class="swap-badge">SWAP</span>':''}</span>
 <span style="display:flex;align-items:center;gap:8px">
-<button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>
+${ex._short?'':`<button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>`}
 <span class="dm">${idx+1}/${exs.length}</span></span></div>
 <div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst}${targetEffort?` · ${targetEffort}`:''}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
 ${ex.ss?`<div class="ss-chip">⚡ Superset · ${esc(ex.ss)}</div>`:''}`;
@@ -4116,6 +4248,7 @@ for(const j of JOINTS)h+=`<button type="button" class="disc-joint${log.discJoint
 h+=`</div>`}h+=`</div>`;
 
 // Notes
+if(ex._short)h+=`<label class="lb" for="rir-${ex.id}">Clean reps left after your hardest set (estimate)</label><select class="ni" id="rir-${ex.id}" onchange="setL('${ex.id}','rir',this.value);saveAW()"><option value="">Not rated</option>${[0,1,2,3,4,5].map(n=>`<option value="${n}"${String(log.rir??'')===String(n)?' selected':''}>${n===5?'5+':n}</option>`).join('')}</select><div class="dm">2 means you estimate two more clean reps were available. This is your report, not an app measurement.</div>`;
 h+=`<input type="text" class="ni" style="margin-top:4px" value="${esc(log.notes)}" placeholder="Notes..." aria-label="Notes for ${esc(ex.nm)}" oninput="setL('${ex.id}','notes',this.value)" onchange="setL('${ex.id}','notes',this.value);saveAW()">`;
 h+=`<div style="display:flex;justify-content:space-between;margin-top:3px"><button class="btn-ghost" style="font-size:10px" onclick="editCue('${ex.id}')">✏ ${cue?'Edit':'Add'} cue</button>
 <span class="dm" style="font-size:9px;max-width:55%;text-align:right">${esc(ex.rl)}</span></div>`;
@@ -4230,6 +4363,7 @@ const logged=Object.entries(LOG).map(([id,v])=>{
   if(!reps.some(r=>r>0))return null;
   const wt=v.wt?Number(v.wt):null;
   const row={id,wt,reps,band:v.band||'',form:Array.isArray(v.form)?v.form.map(f=>Number(f)||0):[],notes:v.notes};
+  if(v.rir!==''&&v.rir!=null&&Number.isInteger(Number(v.rir))&&Number(v.rir)>=0&&Number(v.rir)<=5)row.rir=Number(v.rir);
   // Band exercises may bridge assistance within the session (for example Red top
   // sets followed by Purple back-offs). A uniform override becomes the new default;
   // a genuinely mixed setup stays aligned to reps in `bands`, like `wts` for load.
@@ -4267,7 +4401,7 @@ if(!S){go('home');return}
 let h=`<div class="sec">
 <div style="margin-bottom:4px"><button class="btn-ghost" style="font-size:12px;padding-left:0" onclick="VIEW='workout';render();window.scrollTo(0,0)">← Back to workout</button></div>
 <div class="summary-card">
-<div style="font-family:var(--disp);font-size:20px;font-weight:900;margin-bottom:6px;letter-spacing:.5px">Session Complete ✓</div>
+<div style="font-family:var(--disp);font-size:20px;font-weight:900;margin-bottom:6px;letter-spacing:.5px">${shortHomePlan()&&!shortWorkComplete(S)?'Workout ended early':'Session Complete ✓'}</div>
 <span class="bg bg-${S.day.toLowerCase()}">Day ${S.day}</span>
 <div style="display:flex;justify-content:center;gap:16px;margin:14px 0">
 <div><div class="summary-num">${S.dur}</div><div class="summary-label">min</div></div>
@@ -4298,10 +4432,13 @@ for(let i=1;i<=5;i++)h+=`<button type="button" class="diff-pick" aria-pressed="$
 <div class="diff-btn${SDIFF===i?' sel':''}" style="margin:0 auto;${SDIFF===i?'border-color:'+EFFORT_COLORS[i-1]+';background:'+EFFORT_COLORS[i-1]+'18;color:'+EFFORT_COLORS[i-1]:''}">${i}</div>
 <div style="font-size:8px;color:${SDIFF===i?EFFORT_COLORS[i-1]:'var(--dm)'};margin-top:2px;font-weight:${SDIFF===i?700:400}">${EFFORT_LABELS[i-1]}</div></button>`;
 h+=`</div></div></div>
+${shortHomePlan()?`<div class="cd"><label class="lb" for="finish-reason">Why did you finish?</label><select class="bs" id="finish-reason" onchange="window._S.finishReason=this.value"><option value="">Choose (optional)</option>${[['complete','Planned work finished'],['fatigue','Too tired'],['time','Ran out of time'],['discomfort','Discomfort'],['other','Other']].map(([v,l])=>`<option value="${v}"${S.finishReason===v?' selected':''}>${l}</option>`).join('')}</select><p class="dm">Saving an unfinished session is fine. It stays in History and does not earn a load increase.</p></div>`:''}
 <button class="btn btn-pr" onclick="saveSumm()">Save ✓</button>
 ${SDIFF?'':`<div class="dm" style="text-align:center;margin-top:6px">Optional: this self-report feeds the workload estimate and deload timing.</div>`}</div>`;el.innerHTML=h}
 
 function finishSavedSummary(){clearAW();window._S=null;ADAY=null;ACTIVE_ID=null;LOG={};SS=null;SNOTES='';PICK_DAY=null;SWAP={};SWAP_OPEN=null;EXPRESS=false;clearTimer();releaseWake();go('home')}
+function shortWorkComplete(S){const exs=dayExs(S.day);return exs.length>0&&exs.every(ex=>{
+ const e=S.exs.find(e=>e.id===ex.id);return e&&e.reps.filter(r=>r>0).length>=ex.s;});}
 function saveSumm(){const S=window._S;if(!S||!WRITER)return;
 if(!S.id)S.id=ACTIVE_ID||(ACTIVE_ID=recordId());
 const W=structuredClone(D),loggedIds=new Set(S.exs.map(e=>e.id));
@@ -4309,6 +4446,11 @@ for(const[id,v] of Object.entries(LOG)){if(loggedIds.has(id)&&v.disc&&v.disc!=='
 for(const j of v.discJoints){const row={date:S.date,exId:id,level:v.disc,joint:j};
 if(!W.discomfort.some(x=>x.date===row.date&&x.exId===id&&x.joint===j))W.discomfort.push(row)}}}
 const session={id:S.id,date:S.date,day:S.day,loc:D.location||'home',phase:D.phase,ex:S.exs,difficulty:SDIFF||null,duration:S.dur,volume:S.tv,warmup:S.warmup,notes:S.notes||'',...(S.express?{express:true}:{})};
+if(shortHomePlan()){session.trainingStage=D.trainingPlan.stage;session.trainingPlanStart=D.trainingPlan.start;
+ session.trainingComplete=shortWorkComplete(S);
+ session.finishReason=['complete','fatigue','time','discomfort','other'].includes(S.finishReason)?S.finishReason:session.trainingComplete?'complete':'unspecified';
+ if(D.trainingPlan.stage!=='progress')session.noProg=true;
+ if(D.trainingPlan.stage==='deload')W.lastDeload=D.trainingPlan.start;}
 const ix=W.sessions.findIndex(s=>s.id===S.id);if(ix<0)W.sessions.push(session);else W.sessions[ix]=session;
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 if(isRotDay(S.day))W.nextDay=NEXT_DAY[S.day];
@@ -5439,7 +5581,7 @@ if(s.notes)h+=`<div style="font-size:11px;color:var(--mu);font-style:italic;padd
 if(dupMap.has(s.id))h+=`<div style="font-size:10px;color:var(--am);margin-top:5px">Same date, exercises, loads and reps as another entry. Compare both records before deleting one.</div>`;
 h+=`<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
 <button class="btn-sm btn-rd" onclick="event.stopPropagation();delS('${s.id}')">${DEL_ARMED===s.id?'Tap again to delete':'Delete'}</button>
-<button class="btn-sm btn-wh" onclick="event.stopPropagation();toggleNoProg('${s.id}')">${s.noProg?'▶ Include in progression':'⏸ Ignore for progression'}</button></div>
+${s.trainingStage&&s.trainingStage!=='progress'?'<span class="dm">Easy recovery session · held out of progression</span>':`<button class="btn-sm btn-wh" onclick="event.stopPropagation();toggleNoProg('${s.id}')">${s.noProg?'▶ Include in progression':'⏸ Ignore for progression'}</button>`}</div>
 ${s.noProg?`<div style="font-size:10px;color:var(--am);margin-top:4px">Ignored by weight suggestions — still counts for rotation, history &amp; charts.</div>`:''}</div>`}
 h+=`</div>`}
 if(rest>0)h+=`<button class="btn btn-wh" style="width:100%;margin-top:4px" onclick="moreHist()">Show ${Math.min(HIST_PAGE,rest)} more · ${rest} older session${rest===1?'':'s'}</button>`;
@@ -5584,6 +5726,7 @@ function rPlates(el){
 // ─── SETTINGS ────────────────────────────────
 function rSet(el){const sz=(new Blob([JSON.stringify(D)])).size;const phi=getPhaseInfo();
 let h=`<div class="sec"><h2 class="pg-title">Settings</h2>
+${trainingPlanCard()}
 <div class="lb" style="margin-bottom:6px">Data</div>
 <div class="cd"><div class="estrip" style="margin-bottom:8px">
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--pr)">${D.sessions.length}</div><div class="estrip-lbl">Sessions</div></div>
@@ -5683,6 +5826,7 @@ for(const e of s.ex){
   if(!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id))continue;
   const reps=Array.isArray(e.reps)?e.reps.map(r=>finiteNumber(r)||0):[];
   const row={id:e.id,reps,wt:finiteNumber(e.wt),band:typeof e.band==='string'?e.band:'',notes:typeof e.notes==='string'?e.notes:''};
+   if(Number.isInteger(finiteNumber(e.rir))&&finiteNumber(e.rir)<=5)row.rir=Number(e.rir);
   if(Array.isArray(e.bands)){const bands=e.bands.map(b=>typeof b==='string'&&BANDS.includes(b)?b:'');
     if(bands.some((b,i)=>b&&b!==row.band&&reps[i]>0))row.bands=bands}
   if(Array.isArray(e.form))row.form=e.form.map(f=>Number.isInteger(finiteNumber(f))&&finiteNumber(f)<=5?Number(f):0);
@@ -5693,6 +5837,11 @@ const row={id:safeId(s.id),date:s.date,day:s.day,ex,
   duration:finiteNumber(s.duration),difficulty:[1,2,3,4,5].includes(finiteNumber(s.difficulty))?Number(s.difficulty):null,
   warmup:[0,1,2,3].includes(finiteNumber(s.warmup))?Number(s.warmup):null,
   volume:finiteNumber(s.volume),notes:typeof s.notes==='string'?s.notes:''};
+if(['deload','return','progress'].includes(s.trainingStage)&&validISODate(s.trainingPlanStart)){
+ row.trainingStage=s.trainingStage;row.trainingPlanStart=s.trainingPlanStart;
+ row.trainingComplete=s.trainingComplete===true;
+ if(['complete','fatigue','time','discomfort','other','unspecified'].includes(s.finishReason))row.finishReason=s.finishReason;
+ if(s.trainingStage!=='progress')row.noProg=true;}
 if(['home','partner'].includes(s.loc))row.loc=s.loc;
 if([1,2,3].includes(s.phase))row.phase=s.phase;
 for(const k of ['express','retro','noProg'])if(s[k]===true)row[k]=true;
@@ -5722,7 +5871,7 @@ if(['duration','volume'].some(k=>s[k]!=null&&finiteNumber(s[k])===null)||
 (s.loc!=null&&!['home','partner'].includes(s.loc))||
 (s.phase!=null&&![1,2,3].includes(s.phase))||
 ['express','retro','noProg'].some(k=>s[k]!=null&&typeof s[k]!=='boolean')||
-Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek'].includes(k))||
+Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek','trainingStage','trainingPlanStart','trainingComplete','finishReason'].includes(k))||
 s.ex.some(e=>!plainObject(e)||typeof e.id!=='string'||!/^[\w-]{1,100}$/.test(e.id)||
 (e.wt!=null&&finiteNumber(e.wt)===null)||['band','notes'].some(k=>e[k]!=null&&typeof e[k]!=='string')||
 !Array.isArray(e.reps)||e.reps.some(r=>finiteNumber(r)===null)||
@@ -5748,6 +5897,8 @@ W.lastBackupCount=Math.floor(finiteNumber(d.lastBackupCount)||0);
 if(safeId(d.resetEpoch))W.resetEpoch=String(d.resetEpoch);
 W.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&&safeId(x)).slice(-TOMB_MAX);
 W.comeback=validComeback(d.comeback);W.comebackLog=validComebackLog(d.comebackLog);
+W.trainingPlan=validTrainingPlan(d.trainingPlan);
+if(d.trainingPlan!=null&&!W.trainingPlan)issues.dropped++;
 if(d.comeback!=null&&!W.comeback)issues.dropped++;
 if(d.comebackLog!=null&&(!Array.isArray(d.comebackLog)||W.comebackLog.length!==d.comebackLog.length))issues.dropped++;
 if(d.seeded===true)W.seeded=true;
@@ -5880,6 +6031,7 @@ if(wasFresh){
   // already has real training in that window would silently blank those sessions from every
   // suggestion. Fresh device only, validated, and null (no ramp) is a legitimate value to adopt.
   if(d.comeback!==undefined)W.comeback=validComeback(d.comeback);
+  if(d.trainingPlan!==undefined)W.trainingPlan=validTrainingPlan(d.trainingPlan);
 }
 // Update nextDay from latest session — location aware
 {const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}
