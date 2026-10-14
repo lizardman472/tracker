@@ -76,7 +76,8 @@ installed PWA could continue serving the previous application shell.
 
 ### Deload and shorter A/B/C
 
-Choose **Start deload today** or **Start deload tomorrow** on Today or in Settings.
+Expand **Recovery plan and routine choices** on Today, or use Settings, then choose
+**Start deload today** or **Start deload tomorrow**.
 This is an opt-in home routine; the original programme and Partner routine remain available.
 The app captures starting loads from your own history, never from sample workouts.
 
@@ -88,7 +89,8 @@ The app captures starting loads from your own history, never from sample workout
   sessions feels normal, or choose **Still tired** for two more rest days.
 - **Easy return:** another seven calendar days, five exercises with two sets each,
   approximately 90% of the earlier load and about three clean reps left. Loads stay held.
-- **Shorter routine:** about 11 working sets per home day, 2–3 clean reps left, and
+- **Shorter A/B/C (default after recovery):** five exercises and 11 working sets per home day,
+  2–3 clean reps left, and
   rep-first progression. Two comparable sessions on different dates must reach every
   target with Solid/Strict ratings and at least two self-reported reps left before an increase.
   Missed sets, unknown ratings and deliberate light sessions do not earn increases.
@@ -101,10 +103,33 @@ and analytics but are excluded from weight progression. The plan survives export
 to a fresh device; importing into a device with existing training does not replace its plan.
 Plan changes are blocked while an unfinished workout is waiting to resume.
 
-**Return to normal routine** is available throughout the plan on Today and in Settings.
-Confirming it ends the recovery plan and restores the original home A/B/C exercises,
-set counts and progression. Saved workouts stay in History; the current phase and next
-A/B/C day are preserved. Choose it when ready for the usual workload.
+**Original A/B/C Essentials** means the pre-deload home list: eight or nine exercises and
+24–26 working sets per day. The routine is the exercise list and set prescription; the
+phase (Linear, etc.) governs rep targets and is preserved when changing routines. Full
+adds optional work beyond Essentials and is unavailable during gradual return.
+
+**Return to original routine** is an optional choice after the easy return week or while
+using the shorter routine. It starts three held steps, each at least seven days:
+
+1. Two sets per original Essentials exercise, capped at 90% of earlier loads and no higher
+   than the latest logged load.
+2. Original Essentials sets, capped at 95% of earlier loads.
+3. Held practice toward earlier loads, capped at 100%.
+
+Each later step adds at most 5% of the earlier load to the latest logged load, rounded
+down to available plates. Manual-control exercises remain manual. Bands start easier
+and advance at most one rung per confirmed step toward the earlier band. Unknown loads
+start light. Completing one manageable A/B/C on separate days in a step and confirming
+readiness are required to advance; fatigue/discomfort endings and effort ratings of 4–5
+do not qualify. Missing sessions extend this optional return, never trigger a jump.
+The final confirmation resumes original progression from logged practice loads, even
+when they remain below earlier loads. Early steps are excluded from progression; complete,
+non-fatigue final practice records are retained as the new anchors. **Keep shorter routine
+(default)** remains available throughout this optional return.
+
+Today shows one compact routine panel with guidance and choices collapsed. Workouts show
+only the current prescription; Settings exposes the full controls. Saved history, current
+phase and next A/B/C day are preserved throughout routine changes.
 
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.

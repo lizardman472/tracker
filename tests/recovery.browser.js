@@ -1,5 +1,8 @@
 // Real UI coverage, called by browser.test.js. No user data or local browser installs.
 module.exports=async function({browser,origin,T,baseStore}){
+ const fs=require('fs'),path=require('path'),shots=path.join(__dirname,'..','test-results','recovery-layout');
+ fs.mkdirSync(shots,{recursive:true});
+ const screenshot=(page,name)=>page.screenshot({path:path.join(shots,name+'.png')});
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
  async function open(store){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
@@ -10,13 +13,18 @@ module.exports=async function({browser,origin,T,baseStore}){
  }
  {
   const store=baseStore(),{ctx,page,errors}=await open(store);
+  await page.getByText('Recovery plan and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Start deload today',exact:true}).click();
   T('deload setup preserves existing training history',await page.evaluate(n=>D.sessions.length===n,store.sessions.length));
   T('deload setup shows dates, effort, six sets and manual return',await page.locator('#training-plan').evaluate(e=>
-   /seven planned days/.test(e.textContent)&&/Six working sets/.test(e.textContent)&&/4–5/.test(e.textContent)&&/does not automatically/.test(e.textContent)));
+   /seven planned days/.test(e.textContent)&&/6 working sets/.test(e.textContent)&&/4–5/.test(e.textContent)&&/does not automatically/.test(e.textContent)));
+  T('recovery controls are collapsed and compact at phone width',await page.locator('#training-plan').evaluate(e=>
+   !e.querySelector('details').open&&e.getBoundingClientRect().height<180));
+  await screenshot(page,'deload-phone');
   T('deload previews exactly the shortened A day',await page.evaluate(()=>dayExs('A').length===4&&dayExs('A').reduce((n,e)=>n+e.s,0)===6));
   await page.getByRole('button',{name:'Start Deload week · Day A',exact:true}).click();
   T('workout shows the deload pacing target',/40-minute pacing target/.test(await page.locator('#app').innerText()));
+  T('workout recovery strip contains no routine controls',await page.locator('#training-plan button').count()===0);
   const rir=page.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true});
   await rir.selectOption('4');
   T('reported reps-left value is stored in the recoverable draft',await page.evaluate(()=>JSON.parse(localStorage.getItem(AW_KEY)).log.hex_dl.rir==='4'));
@@ -41,12 +49,44 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.evaluate(()=>{D.trainingPlan.stageStart=dayAfter(today(),-7);delete D.trainingPlan.reviewAfter;save();render()});
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();
   T('second ready check activates eleven-set ongoing days',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&['A','B','C'].every(d=>dayExs(d).reduce((n,e)=>n+e.s,0)===11)));
+  T('shorter default panel stays compact with no horizontal overflow',await page.locator('#training-plan').evaluate(e=>
+   e.textContent.includes('Shorter A/B/C · default')&&!e.querySelector('details').open&&e.getBoundingClientRect().height<150&&document.documentElement.scrollWidth<=innerWidth));
+  await screenshot(page,'shorter-phone-light');
+  await page.evaluate(()=>{D.theme='dark';save();applyTheme();render()});
+  await screenshot(page,'shorter-phone-dark');
+  await page.setViewportSize({width:1280,height:900});
+  await screenshot(page,'shorter-desktop-dark');
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{D.theme='light';save();applyTheme();render()});
   const before=await page.evaluate(()=>({history:JSON.stringify(D.sessions),phase:D.phase,nextDay:D.nextDay}));
-  await page.getByRole('button',{name:'Return to normal routine',exact:true}).click();
-  T('return button restores original A/B/C and preserves history and schedule',await page.evaluate(b=>
-   D.trainingPlan===null&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay&&
-   ['A','B','C'].every(d=>!dayExs(d).some(e=>e._short)),before));
-  T('return button disappears once the normal routine is restored',await page.getByRole('button',{name:'Return to normal routine',exact:true}).count()===0);
+  await page.getByText('Plan details and routine choices',{exact:true}).click();
+  T('routine choices explain original volume and separate it from phase',await page.locator('#training-plan').evaluate(e=>
+   /24–26 working sets/.test(e.textContent)&&/does not change phase/.test(e.textContent)&&/default after recovery/.test(e.textContent)));
+  await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
+   D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay&&
+   ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));
+  await screenshot(page,'original-return-phone');
+  await page.getByText('Plan details and routine choices',{exact:true}).click();
+  await page.getByRole('button',{name:'Keep shorter routine (default)',exact:true}).click();
+  T('longer return can be abandoned for the shorter default',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
+  // Exercise the real buttons through all three optional original-return steps.
+  await page.getByText('Plan details and routine choices',{exact:true}).click();
+  await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  for(const stage of ['original1','original2','original3']){
+   await page.evaluate(stage=>{
+    D.trainingPlan.stage=stage;D.trainingPlan.stageStart=dayAfter(today(),-7);
+    for(const [i,day]of ['A','B','C'].entries())D.sessions.push({id:'return-'+stage+day,date:dayAfter(today(),-6+i*2),day,loc:'home',phase:D.phase,difficulty:2,
+     trainingStage:stage,trainingPlanStart:D.trainingPlan.start,trainingComplete:true,finishReason:'complete',noProg:stage!=='original3',
+     ex:dayExs(day).map(e=>({id:e.id,wt:getSmartSugg(e).wt,band:getSmartSugg(e).band||'',reps:Array(e.s).fill(e.tg),form:Array(e.s).fill(5),rir:3}))});
+    save();render();
+   },stage);
+   await page.getByRole('button',{name:stage==='original3'?'I feel ready — resume original progression':'I feel ready — next return step',exact:true}).click();
+   T('original return advances only on confirmed step '+stage,await page.evaluate(stage=>
+    stage==='original3'?D.trainingPlan===null:D.trainingPlan.stage===(stage==='original1'?'original2':'original3'),stage));
+  }
+  T('original progression resumes with original Essentials prescription',await page.evaluate(()=>
+   D.trainingPlan===null&&['A','B','C'].every(d=>dayExs(d,{},true).reduce((n,e)=>n+e.s,0)>=24)));
   T('readiness flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
 };
