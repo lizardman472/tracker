@@ -169,6 +169,13 @@ test('original progression resumes from lower practice loads rather than the old
  for(const s of d.sessions.filter(s=>s.trainingStage==='original3')){const e=s.ex.find(e=>e.id==='hex_dl');if(e)e.wt=50}
  R.setD(d);assert(R.advanceTrainingPlan());assert(R.getSmartSugg(R.dayExs('A',{},true)[0]).wt<55);
 });
+test('choosing shorter again keeps lower practice weights and requires fresh confirmations',()=>{
+ const d=state('original1');d.sessions=[...progressRows(),...originalRows('original1')];
+ for(const s of d.sessions.filter(s=>s.trainingStage==='original1')){const e=s.ex.find(e=>e.id==='hex_dl');if(e)e.wt=50}
+ R.setD(d);assert(R.keepShorterRoutine());const ex=R.dayExs('A')[0],s=R.getSmartSugg(ex);
+ assert.equal(s.type,'stay');assert.equal(s.wt,50);
+ const other=state('progress');other.location='partner';R.setD(other);assert(R.trainingPlanCard().includes('Home routine · Shorter A/B/C'));
+});
 test('mixed-band progression repeats the bridge and advances only one further set',()=>{
  const d=state('progress');d.sessions=progressRows();
  for(const s of d.sessions)s.ex=[{id:'pullup_a',wt:null,reps:[10,10],band:'Green',bands:['Purple+Red','Green'],form:[5,5],rir:2}];

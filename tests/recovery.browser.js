@@ -67,6 +67,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
    D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay&&
    ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));
+  T('routine changes bring the new status into view',await page.locator('#training-plan .routine-title').evaluate(e=>
+   e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<=innerHeight));
   await screenshot(page,'original-return-phone');
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Keep shorter routine (default)',exact:true}).click();

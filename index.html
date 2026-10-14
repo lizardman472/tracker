@@ -1764,6 +1764,9 @@ function changeTrainingPlanAllowed(){
  if(ADAY||pendingAW()){alert('Finish or discard the current workout before changing this plan. Your logged sets are kept.');return false}
  return true;
 }
+function renderTrainingPlanChange(){
+ render();document.getElementById('training-plan')?.querySelector('.routine-title')?.scrollIntoView({block:'nearest',behavior:'auto'});
+}
 function startTrainingPlan(start=today()){
  if(!changeTrainingPlanAllowed()||!validISODate(start)||start<today())return false;
  if(D.comeback){alert('Finish or cancel the existing return-from-break ramp in Settings before starting this plan.');return false}
@@ -1774,7 +1777,7 @@ function startTrainingPlan(start=today()){
   if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
  }
  W.trainingPlan={stage:'deload',start,stageStart:start,loads,bands};W.nextDay='A';
- return save(W,{after:()=>render()});
+ return save(W,{after:renderTrainingPlanChange});
 }
 function advanceTrainingPlan(){
  if(!changeTrainingPlanAllowed())return false;const st=trainingPlanStatus();
@@ -1802,12 +1805,12 @@ function advanceTrainingPlan(){
   }
   W.trainingPlan.stage=st.stage==='original1'?'original2':st.stage==='original2'?'original3':st.stage==='deload'?'return':'progress';
   W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;}
- return save(W,{after:()=>render()});
+ return save(W,{after:renderTrainingPlanChange});
 }
 function restTrainingPlan(){
  if(!changeTrainingPlanAllowed()||!D.trainingPlan)return false;
  const W=structuredClone(D);W.trainingPlan.reviewAfter=dayAfter(today(),2);
- return save(W,{after:()=>render()});
+ return save(W,{after:renderTrainingPlanChange});
 }
 function stopTrainingPlan(){
  if(!changeTrainingPlanAllowed())return false;const st=trainingPlanStatus();
@@ -1835,16 +1838,16 @@ function stopTrainingPlan(){
   p.returnBands[id]=BANDS[assist?Math.min(easy,current):Math.max(easy,current)];
  }
  p.stage='original1';p.stageStart=today();delete p.reviewAfter;
- return save(W,{after:()=>render()});
+ return save(W,{after:renderTrainingPlanChange});
 }
 function keepShorterRoutine(){
  if(!changeTrainingPlanAllowed()||!originalReturn()||!confirm('Keep shorter A/B/C as your default? Return to five exercises and 11 working sets per day. Saved workouts stay in History.'))return false;
  const W=structuredClone(D);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;
- return save(W,{after:()=>render()});
+ return save(W,{after:renderTrainingPlanChange});
 }
 function trainingPlanCard(view='home'){
  const st=trainingPlanStatus(),orig=originalReturn(st);
- const cue=!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':'');
+ const cue=(D.location==='partner'?'Home routine · ':'')+(!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':''));
  const effort=st?.stage==='deload'?'4–5':st?.stage==='progress'||st?.stage==='original3'?'2–3':'3';
  const instruction=!st?'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · build toward earlier'} loads · ${effort} clean reps left`;
@@ -1888,16 +1891,18 @@ function shortSuggestion(ex){
  const p=D.trainingPlan;if(!ex._short||!p)return null;
  if(originalReturn(p))return originalReturnSuggestion(ex);
  const st=trainingPlanStatus(),early=p.stage!=='progress',seed=p.loads[ex.id];
- const hist=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&!s.noProg&&(s.loc||'home')==='home')
+ const hist=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&s.date>=p.stageStart&&s.date<=today()&&!s.noProg&&(s.loc||'home')==='home')
   .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty,complete:s.trainingComplete===true,finishReason:s.finishReason}:null}).filter(Boolean).slice(-2);
  const last=hist.at(-1),rated=e=>e&&e.complete&&!['fatigue','discomfort'].includes(e.finishReason)&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
   e.form?.length>=ex.s&&e.reps.every((r,i)=>!(r>0)||e.form[i]>=4)&&Number(e.difficulty||0)<4;
+ const practice=!early?D.sessions.filter(s=>s.trainingPlanStart===p.start&&ORIGINAL_STAGES.includes(s.trainingStage)&&(s.loc||'home')==='home'&&s.date<=p.stageStart)
+  .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0))).at(-1):null;
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.level==='moderate');
  const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
  const detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':'Build reps first; rate form and record reps left before expecting a load increase.'}`;
  if(ex.tp==='bw')return{text:'Unloaded — control first',type:'stay',wt:null,traj:[],detail,regress:''};
  if(ex.tp==='band'){
-  let b=last?.band||p.bands[ex.id]||'';
+  let b=last?.band||practice?.band||p.bands[ex.id]||'';
   if(early&&p.stage==='deload'&&b){const i=BAND_IDX(b);b=BANDS[Math.max(0,Math.min(BANDS.length-1,i+(ex.bandMode==='assist'?-1:1)))]}
   const pattern=last?bandPattern(last):Array(ex.s).fill(b),mixed=new Set(pattern).size>1;
   const match=hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
@@ -1913,7 +1918,7 @@ function shortSuggestion(ex){
    ...(!early&&mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
  }
  const vw=vwOf(ex),snapDown=t=>vw.filter(w=>w<=t).at(-1)||vw[0];
- const anchor=last?sessLoad(last,ex.s):seed? snapDown(seed*(p.stage==='deload'?.82:.90)):barOf(ex);
+ const anchor=last?sessLoad(last,ex.s):practice?snapDown(Math.min(sessLoad(practice,practice.reps.filter(r=>r>0).length),seed?seed*.90:Infinity)):seed? snapDown(seed*(p.stage==='deload'?.82:.90)):barOf(ex);
  const match=!early&&hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
   hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
  const wt=match?nxUp(anchor,vw):anchor;
