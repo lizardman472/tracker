@@ -89,6 +89,8 @@ The app captures starting loads from your own history, never from sample workout
   sessions feels normal, or choose **Still tired** for two more rest days.
 - **Easy return:** another seven calendar days, five exercises with two sets each,
   approximately 90% of the earlier load and about three clean reps left. Loads stay held.
+  At its review, explicitly choose **Linear** or **Hypertrophy** before confirming the
+  shorter routine. Recovery is a stage, not an active Linear/Hypertrophy phase.
 - **Shorter A/B/C (default after recovery):** five exercises and 11 working sets per home day,
   2–3 clean reps left, and
   rep-first progression. Two comparable sessions on different dates must reach every
@@ -105,18 +107,21 @@ Plan changes are blocked while an unfinished workout is waiting to resume.
 
 **Original A/B/C Essentials** means the pre-deload home list: eight or nine exercises and
 24–26 working sets per day. The routine is the exercise list and set prescription; the
-phase (Linear, etc.) governs rep targets and is preserved when changing routines. Full
+phase (Linear, etc.) governs rep targets and is chosen explicitly before regular training.
+Phase choice does not change exercise lists or set counts. Full
 adds optional work beyond Essentials and is unavailable during gradual return.
 
 **Return to original routine** is an optional choice after the easy return week or while
-using the shorter routine. It starts three held steps, each at least seven days:
+using the shorter routine. Choose its Linear/Hypertrophy phase first. Earlier loads are
+re-anchored for the chosen targets using a conservative Epley estimate that never estimates
+a heavier load for a lower-rep choice. It starts three held steps, each at least seven days:
 
-1. Two sets per original Essentials exercise, capped at 90% of earlier loads and no higher
+1. Two sets per original Essentials exercise, capped at 90% of phase-adjusted reference loads and no higher
    than the latest logged load.
-2. Original Essentials sets, capped at 95% of earlier loads.
+2. Original Essentials sets, capped at 95% of phase-adjusted reference loads.
 3. Held practice toward earlier loads, capped at 100%.
 
-Each later step adds at most 5% of the earlier load to the latest logged load, rounded
+Each later step adds at most 5% of the phase-adjusted reference to the latest logged load, rounded
 down to available plates. Manual-control exercises remain manual. Bands start easier
 and advance at most one rung per confirmed step toward the earlier band. Unknown loads
 start light. Completing one manageable A/B/C on separate days in a step and confirming
@@ -130,7 +135,29 @@ non-fatigue final practice records are retained as the new anchors. **Keep short
 Today embeds compact routine controls in the workout-start panel with guidance and choices
 collapsed. Workouts show
 only the current prescription; Settings exposes the full controls. Saved history, current
-phase and next A/B/C day are preserved throughout routine changes.
+next A/B/C day are preserved throughout routine changes. Confirming a new phase updates
+the phase and starts its review clock; it never rewrites old workouts.
+
+### Phase choice and transition context
+
+The compact controls show **Current phase** and **Next** on Today and in workouts, while
+the expandable guidance explains **When** and **Why this stage**. Progress and Settings
+use the same phase context. Deload/easy return do not highlight a regular phase as active.
+Existing shorter plans keep their mixed rep ranges until the user explicitly chooses a
+phase; updating the app cannot silently change an unfinished prescription.
+
+For regular shorter A/B/C, Linear applies Phase 1 lower-rep targets and Hypertrophy applies
+Phase 2 higher-rep targets, keeping five exercises and 11 sets. The selected phase also
+governs Partner rep targets. A phase change derives starting loads from recent performance
+and requires fresh comparable sessions in that phase to earn increases. Phase choices
+are held during recovery and all gradual-return steps, and changes are blocked during
+unfinished workouts. Phase and adjusted-load fields survive export/import to a fresh device.
+
+The shorter routine displays an optional phase review after four weeks of manageable
+training; staying in the phase is allowed. The original routine retains its eight-week or
+24-session review signal, with repeated compound stalls determining recommendations.
+Future-dated sessions do not count toward that signal. Neither timer switches phase.
+These dates and estimates are practical app policies, not validated readiness thresholds.
 
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
