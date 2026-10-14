@@ -11,7 +11,7 @@ context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,dayAfter,today,dayExs,startTrainingPlan,
- advanceTrainingPlan,restTrainingPlan,trainingPlanCard,ensureLog,beginW,AW_KEY,
+ advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,trainingPlanCard,ensureLog,beginW,AW_KEY,
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -44,6 +44,22 @@ test('deload is six working sets; return ten; ongoing eleven per day',()=>{
 test('shorter plan applies only at home and Full cannot add a tail',()=>{
  R.setD(state('progress'));assert.deepEqual(json(R.dayExs('A',{},true)),json(R.dayExs('A',{},false)));
  const d=state();d.location='partner';R.setD(d);assert(!R.dayExs('A').some(e=>e._short));
+});
+test('return to normal needs confirmation and restores every day without losing history',()=>{
+ const d=state('progress');d.phase=2;d.nextDay='C';
+ d.sessions=[{id:'easy',date:'2020-02-02',day:'A',trainingStage:'deload',trainingPlanStart:'2020-02-01',ex:[{id:'hex_dl',wt:60,reps:[5,5]}]}];
+ const original={...d,trainingPlan:null};R.setD(original);
+ const days=Object.fromEntries(['A','B','C'].map(day=>[day,json(R.dayExs(day))]));
+ R.setD(d);const history=json(R.getD().sessions);
+ assert(R.trainingPlanCard().includes('Return to normal routine'));
+ R.setConfirm(false);assert.equal(R.stopTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'progress');
+ R.setConfirm(true);assert(R.stopTrainingPlan());assert.equal(R.getD().trainingPlan,null);
+ assert.deepEqual(json(R.getD().sessions),history);assert.equal(R.getD().phase,2);assert.equal(R.getD().nextDay,'C');
+ for(const day of ['A','B','C'])assert.deepEqual(json(R.dayExs(day)),days[day]);
+ assert(!R.trainingPlanCard().includes('Return to normal routine'));
+});
+test('return to normal cannot replace an active workout',()=>{
+ R.setD(state());R.setActive('A');assert.equal(R.stopTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'deload');R.setActive(null);
 });
 test('capturing loads preserves history and excludes deliberately light records',()=>{
  const d=json(R.freshState());d.sessions=[{id:'old',date:'2020-01-01',day:'A',loc:'home',ex:[{id:'hex_dl',wt:80,reps:[5,5],band:''}]},

@@ -101,6 +101,11 @@ and analytics but are excluded from weight progression. The plan survives export
 to a fresh device; importing into a device with existing training does not replace its plan.
 Plan changes are blocked while an unfinished workout is waiting to resume.
 
+**Return to normal routine** is available throughout the plan on Today and in Settings.
+Confirming it ends the recovery plan and restores the original home A/B/C exercises,
+set counts and progression. Saved workouts stay in History; the current phase and next
+A/B/C day are preserved. Choose it when ready for the usual workload.
+
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
 Session time targets are planning aids and never shorten necessary rests.

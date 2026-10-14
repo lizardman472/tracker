@@ -1748,7 +1748,7 @@ function restTrainingPlan(){
  return save(W,{after:()=>render()});
 }
 function stopTrainingPlan(){
- if(!changeTrainingPlanAllowed()||!confirm('Return to the original programme? Saved workouts and recovery-stage records will stay in History.'))return false;
+ if(!changeTrainingPlanAllowed()||!confirm('Return to normal routine? This ends the recovery plan and restores your original home A/B/C exercises, set counts and progression. Saved workouts stay in History.'))return false;
  const W=structuredClone(D);W.trainingPlan=null;return save(W,{after:()=>render()});
 }
 function trainingPlanCard(){
@@ -1764,7 +1764,7 @@ function trainingPlanCard(){
  else h+='<p><b>Do this now:</b> follow the shorter list and leave 2–3 clean reps available. Build reps first. A weight increase needs two comparable, complete sessions at the top of the range, rated Solid/Strict with at least two reps left. No automatic catch-up to old weights.</p>';
  h+='<details><summary>When to stop, rest or return</summary><p>Stop a set when control breaks down or discomfort rises. You can finish the workout early and save only the sets actually completed.</p><p>At the review date, move on only if the easy sessions feel manageable and you recover normally between them. Missing a session does not extend the week or require making it up.</p><p>If still tired, choose two more rest days and reassess. Repeated fatigue after returning means the everyday workload needs another review. Persistent or worsening fatigue, especially outside workouts, warrants medical advice.</p><p>Rest about 2–3 minutes for main lifts and 60–90 seconds for accessories; take longer when needed. Warm up before loaded work. The shorter routine aims for roughly 45–65 minutes, not a mandatory deadline.</p><p>This plan applies at Home. Partner sessions use their existing programme.</p></details>';
  if(st.due)h+=`<p><b>Check in now:</b> there is no automatic return.</p><button class="btn btn-pr" onclick="advanceTrainingPlan()">${st.stage==='deload'?'I feel ready — start easy return week':'I feel ready — use shorter routine'}</button><button class="btn btn-wh" style="margin-top:6px" onclick="restTrainingPlan()">Still tired — take two more rest days</button>`;
- h+='<button class="btn btn-ghost" style="margin-top:8px" onclick="stopTrainingPlan()">Use original programme instead</button></div>';
+ h+='<p style="margin-top:16px"><b>Done with this plan?</b> Return when you feel ready for your usual workload. This restores your original home A/B/C exercises, set counts and progression. Saved workouts stay in History.</p><button class="btn btn-wh" onclick="stopTrainingPlan()">Return to normal routine</button></div>';
  return h;
 }
 function shortSuggestion(ex){
@@ -1856,7 +1856,7 @@ function advancePhase(){const next=D.phase>=3?1:D.phase+1;D.phase=next;D.phaseSt
 // (checkResume rejects on loc/phase mismatch), so warn before silently orphaning one;
 // re-tapping the active phase must NOT reset the phase clock.
 function advancePhaseSafe(){if(D.trainingPlan){alert('This shorter plan has its own stages. Use its readiness check instead of switching phases.');return}if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;advancePhase();render()}
-function setPhase(p){if(D.trainingPlan){alert('This shorter plan has its own rep ranges. Use original programme instead before changing its phase.');return}if(p===D.phase)return;
+function setPhase(p){if(D.trainingPlan){alert('This shorter plan has its own rep ranges. Choose Return to normal routine before changing its phase.');return}if(p===D.phase)return;
 if(checkResume()&&!confirm('You have an unfinished workout — changing phase will orphan it. Continue?'))return;
 if(!confirm(`Switch to Phase ${p} (${PHASES[p].name})? The phase week counter restarts from today.`))return;
 D.phase=p;D.phaseStart=today();save();render()}
