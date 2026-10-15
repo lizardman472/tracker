@@ -248,6 +248,7 @@ input[type=number]{-moz-appearance:textfield}
 .routine-control{margin:0 0 12px;padding:11px 13px;border:1px solid var(--cb);border-radius:var(--rad-sm);background:var(--cd)}
 .routine-control .routine-title{font-size:13px;font-weight:700;color:var(--tx)}
 .routine-control .routine-meta{font-size:11px;color:var(--mu);margin-top:4px;line-height:1.5}
+.routine-control .routine-state{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:6px;font-size:11px;font-weight:700;color:var(--tx);line-height:1.5}
 .routine-control details{margin-top:8px;font-size:12px;line-height:1.5}
 .routine-control summary{cursor:pointer;color:var(--pr);font-weight:600;padding:5px 0;min-height:34px}
 .routine-control p{margin:8px 0}
@@ -1814,17 +1815,52 @@ function setShorterPhase(phase){
  const W=structuredClone(D);selectPlanPhase(W,phase,{recent:true});W.trainingPlan.stageStart=today();
  return save(W,{after:renderTrainingPlanChange});
 }
+function recoveryPlanFromHistory(start=today(),stage='deload'){
+ const loads={},bands={},p=D.trainingPlan;
+ for(const id of planExerciseIds()){
+  const rows=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home'&&(!s.noProg||p&&s.trainingPlanStart===p.start)&&s.ex.some(e=>e.id===id&&e.reps.some(r=>r>0)));
+  const e=rows.at(-1)?.ex.find(e=>e.id===id);
+  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
+  // With no newer practice, retain the current plan's conservative starting point.
+  else if(p){const kg=p.returnLoads?.[id]||p.progressLoads?.[id]||p.phaseLoads?.[id]||p.loads[id];if(kg>0)loads[id]=kg;if(BANDS.includes(p.bands[id]))bands[id]=p.bands[id]}
+ }
+ return{stage,start,stageStart:start,loads,bands};
+}
 function startTrainingPlan(start=today()){
  if(!changeTrainingPlanAllowed()||!validISODate(start)||start<today())return false;
  if(D.comeback){alert('Finish or cancel the existing return-from-break ramp in Settings before starting this plan.');return false}
- const W=structuredClone(D),loads={},bands={};
- for(const id of planExerciseIds()){
-  const rows=W.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home'&&!s.noProg&&s.ex.some(e=>e.id===id&&e.reps.some(r=>r>0)));
-  const e=rows.at(-1)?.ex.find(e=>e.id===id);
-  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
- }
- W.trainingPlan={stage:'deload',start,stageStart:start,loads,bands};W.nextDay='A';
+ const W=structuredClone(D);W.trainingPlan=recoveryPlanFromHistory(start);W.nextDay='A';
  return save(W,{after:renderTrainingPlanChange});
+}
+function setRecoveryMode(mode,phase){
+ if(!['off','deload','return'].includes(mode)||!changeTrainingPlanAllowed())return false;
+ const p=D.trainingPlan,isRecovery=p&&['deload','return'].includes(p.stage);
+ if(mode==='off'&&!isRecovery||mode===p?.stage)return false;
+ if(D.comeback){alert('Finish or cancel the existing return-from-break ramp in Settings before changing recovery mode.');return false}
+ const W=structuredClone(D);
+ if(mode==='off'){
+  if(![1,2].includes(phase)){alert('Choose Linear or Hypertrophy for regular training first.');return false}
+  const early=!trainingPlanStatus().due;
+  if(!confirm(`Turn recovery off${early?' before its review is complete':''} and start shorter A/B/C in ${PHASES[phase].name}? Confirm only if sessions feel manageable and recovery between them feels normal. Five exercises and 11 sets; starting weights stay conservative and future increases must be earned. This does not restore the longer routine or old weights. History stays saved.`))return false;
+  selectPlanPhase(W,phase);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;
+ }else{
+  if(!confirm(`Turn on ${mode==='deload'?'deload: six working sets, about 82% of reference loads and 4–5 clean reps left':'easy return: ten working sets, about 90% of reference loads and three clean reps left'}? Loads and progression are held. The seven-day review starts today; nothing advances automatically. ${isRecovery?'Keep the current recovery reference loads.':'Use your logged practice as the starting reference.'} History and your next A/B/C day stay saved.`))return false;
+  W.trainingPlan=isRecovery?{stage:mode,start:p.start,stageStart:today(),loads:structuredClone(p.loads),bands:structuredClone(p.bands)}:recoveryPlanFromHistory(today(),mode);
+ }
+ return save(W,{after:renderTrainingPlanChange});
+}
+function recoveryModeControlsH(st){
+ const current=st&&['deload','return'].includes(st.stage)?st.stage:'off';
+ return `<label for="recovery-mode" class="routine-meta" style="display:block;margin-top:9px">Recovery mode</label><select id="recovery-mode" onchange="updateRecoveryModeChoice()">${[['off','Off — regular training'],['deload','Deload — 7-day review'],['return','Easy return — 7-day review']].map(([value,label])=>`<option value="${value}"${current===value?' selected':''}>${label}</option>`).join('')}</select>
+ ${current!=='off'?`<div id="recovery-phase-choice" hidden>${phaseChoiceH('recovery-off-phase','Training phase when recovery is off')}</div>`:''}
+ <div class="routine-actions"><button class="btn btn-wh" onclick="setRecoveryMode(document.getElementById('recovery-mode').value,Number(document.getElementById('recovery-off-phase')?.value))">Apply recovery mode</button></div>
+ <p class="routine-meta">Changes apply only after confirmation. Turning recovery off starts shorter regular training at adjusted loads. Use the ready check at the review date, or deliberately end recovery here when you feel ready. Exact kilograms stay on each exercise.</p>`;
+}
+function updateRecoveryModeChoice(){const field=document.getElementById('recovery-phase-choice');if(field)field.hidden=document.getElementById('recovery-mode').value!=='off'}
+function trainingLoadContext(st=trainingPlanStatus()){
+ if(!st)return 'Progression on · per exercise';
+ return st.stage==='deload'?'Held · about 82% reference':st.stage==='return'?'Held · about 90% reference':st.stage==='progress'?'Progression on · reps → weight':
+  st.stage==='original1'?'Held · up to 90% reference':st.stage==='original2'?'Held · up to 95% reference':'Held · logged practice loads';
 }
 function advanceTrainingPlan(phase){
  if(!changeTrainingPlanAllowed())return false;const st=trainingPlanStatus();
@@ -1925,6 +1961,7 @@ function trainingPlanCard(view='home'){
  const instruction=!st?'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · held reference'} loads · ${effort} clean reps left`;
  let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
+ h+=`<div class="routine-state"><span>Recovery: ${st&&['deload','return'].includes(st.stage)?st.pending?'Scheduled':'On':'Off'}</span><span>Load: ${trainingLoadContext(st)}</span></div>`;
  h+=`<div class="routine-meta"><b>Current phase:</b> ${ctx.label}${D.location==='partner'?`<br>Active Partner phase: ${PHASES[D.phase].name}`:''}</div>`;
  if(view==='workout')return h+'</div>';
  h+=`<div class="routine-meta"><b>Next:</b> ${ctx.next}</div>`;
@@ -1933,10 +1970,11 @@ function trainingPlanCard(view='home'){
   h+=`<div class="routine-actions"><button class="btn btn-pr" onclick="advanceTrainingPlan(${st.stage==='return'?"Number(document.getElementById('phase-after-recovery').value)":''})">${st.stage==='deload'?'I feel ready — start easy return week':st.stage==='return'?'I feel ready — use shorter routine':st.stage==='original3'?'I feel ready — resume original progression':'I feel ready — next return step'}</button><button class="btn btn-wh" onclick="restTrainingPlan()">Still tired — take two more rest days</button></div>`;
  }
  h+=`<details${view==='settings'?' open':''}><summary>${st?'Plan details and routine choices':'Recovery plan and routine choices'}</summary>`;
+ h+=recoveryModeControlsH(st);
  if(st?.stage==='progress')h+=phaseChoiceH('shorter-phase','Phase for shorter A/B/C',st.phase||'')+'<div class="routine-actions"><button class="btn btn-wh" onclick="setShorterPhase(Number(document.getElementById(\'shorter-phase\').value))">Apply training phase</button></div>';
  h+=`<div class="routine-guide"><b>Shorter A/B/C — default after recovery</b><p>Five exercises, 11 working sets per day. Build reps first; a small weight increase needs two comparable, complete sessions on different days at the top of the range, rated Solid/Strict with at least two clean reps left. Stay here if it suits your muscle-building goal and recovery.</p>
  <b>Original A/B/C — optional longer routine</b><p>Your pre-deload home Essentials list: eight or nine exercises, 24–26 working sets per day. Routine means the exercise list and sets; phase means the rep emphasis. Choosing Linear or Hypertrophy does not change the routine list. Full adds optional work and is unavailable during gradual return.</p></div>
- <p><b>When:</b> ${ctx.when}</p><p><b>Why this stage:</b> ${ctx.why}</p><p><b>Phase choice:</b> choose Linear for lower-rep main lifts or Hypertrophy for a higher-rep emphasis. Neither choice automatically restores heavier weights or adds sets. The new rep targets also apply at Partner. Deload and easy return are recovery stages; their prescriptions stay held until recovery is complete.</p>`;
+ <p><b>When:</b> ${ctx.when}</p><p><b>Why this stage:</b> ${ctx.why}</p><p><b>Phase choice:</b> choose Linear for lower-rep main lifts or Hypertrophy for a higher-rep emphasis. Both can build muscle and strength. Keep building reps and then weight within your chosen range; Hypertrophy does not mean stopping strength progress. Neither choice automatically restores heavier weights or adds sets. The new rep targets also apply at Partner. Deload and easy return are recovery stages; their prescriptions stay held until recovery is complete.</p>`;
  if(!st)h+='<p>Start with seven planned days of deload, then a seven-day easy return week. The shorter routine is the next default choice; there is no automatic change.</p><div class="routine-actions"><button class="btn btn-pr" onclick="startTrainingPlan()">Start deload today</button><button class="btn btn-wh" onclick="startTrainingPlan(dayAfter(today()))">Start deload tomorrow</button></div>';
  else{
   h+='<p><b>When to move on:</b> only if sessions feel manageable and recovery between them feels normal. The date does not automatically increase training. Stop a set if control breaks down or discomfort rises; save only what you performed.</p>';

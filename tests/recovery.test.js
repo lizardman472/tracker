@@ -11,7 +11,7 @@ context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,dayAfter,today,dayExs,startTrainingPlan,
- advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
+ advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -25,6 +25,49 @@ test('seven calendar days and a review on the following day',()=>{
  R.setD(state());const s=R.trainingPlanStatus('2020-02-07');assert.equal(s.end,'2020-02-07');assert.equal(s.review,'2020-02-08');assert.equal(s.due,false);
  assert.equal(R.trainingPlanStatus('2020-02-08').due,true);assert.equal(R.getD().trainingPlan.stage,'deload');
  assert.equal(R.dayAfter('2020-02-28',2),'2020-03-01');
+});
+test('recovery can be started again from shorter training using recent actual loads',()=>{
+ const d=state('progress','2020-02-01');d.phase=2;d.trainingPlan.phase=2;d.nextDay='C';
+ d.sessions=[{id:'old',date:'2020-01-01',day:'A',loc:'home',phase:1,ex:[{id:'hex_dl',wt:80,reps:[5,5]}]},
+  {id:'recent',date:R.today(),day:'A',loc:'home',phase:2,trainingPlanStart:'2020-02-01',trainingStage:'progress',ex:[{id:'hex_dl',wt:60,reps:[8,8]}]}];
+ R.setD(d);const history=json(R.getD().sessions);assert(R.setRecoveryMode('deload'));
+ assert.equal(R.getD().trainingPlan.stage,'deload');assert.equal(R.getD().trainingPlan.loads.hex_dl,60);
+ assert.equal(R.getD().trainingPlan.phase,undefined);assert.equal(R.getD().nextDay,'C');assert.equal(R.getD().phase,2);
+ assert.deepEqual(json(R.getD().sessions),history);assert(R.getSmartSugg(R.dayExs('A')[0]).wt<=60*.82);
+});
+test('recovery mode changes preserve anchors and restart only the stage review',()=>{
+ R.setD(state());assert(R.setRecoveryMode('return'));const p=R.getD().trainingPlan;
+ assert.equal(p.start,'2020-02-01');assert.equal(p.stageStart,R.today());assert.equal(p.loads.hex_dl,80);
+ assert.equal(R.trainingPlanStatus().review,R.dayAfter(R.today(),7));assert.equal(R.trainingPlanStatus().due,false);
+ assert.equal(R.setRecoveryMode('return'),false);assert.equal(R.getD().trainingPlan.stageStart,p.stageStart);
+ assert(R.setRecoveryMode('deload'));assert.equal(R.getD().trainingPlan.loads.hex_dl,80);
+});
+test('turning recovery off early needs a phase and confirmation and keeps shorter training',()=>{
+ R.setD(state('deload',R.today()));assert.equal(R.setRecoveryMode('off'),false);assert.equal(R.getD().trainingPlan.stage,'deload');
+ R.setConfirm(false);assert.equal(R.setRecoveryMode('off',2),false);assert.equal(R.getD().trainingPlan.stage,'deload');R.setConfirm(true);
+ assert(R.setRecoveryMode('off',2));assert.equal(R.getD().trainingPlan.stage,'progress');assert.equal(R.getD().trainingPlan.phase,2);
+ assert.equal(R.getD().phase,2);assert.equal(R.getD().trainingPlan.stageStart,R.today());
+ assert.equal(R.dayExs('A').reduce((n,e)=>n+e.s,0),11);assert.equal(R.dayExs('A')[0].tg,8);
+ assert(R.getSmartSugg(R.dayExs('A')[0]).wt<=80*.90);assert.equal(R.setRecoveryMode('off',1),false);
+});
+test('recovery mode is transactional and blocks unfinished workouts and incompatible ramps',()=>{
+ R.setD(state('progress'));const before=json(R.getD());R.setConfirm(false);assert.equal(R.setRecoveryMode('deload'),false);assert.deepEqual(json(R.getD()),before);R.setConfirm(true);
+ R.setActive('A');assert.equal(R.setRecoveryMode('deload'),false);R.setActive(null);
+ context.localStorage.setItem(R.AW_KEY,JSON.stringify({id:'draft',day:'A',loc:'home',phase:1,resetEpoch:'0',start:Date.now(),ts:Date.now(),log:{hex_dl:{reps:[5],wt:40}}}));
+ assert.equal(R.setRecoveryMode('return'),false);assert.deepEqual(json(R.getD()),before);
+ R.setD(state('progress'));assert.equal(R.setRecoveryMode('invalid'),false);
+ const ramp=state('progress');ramp.comeback={start:R.today(),end:R.dayAfter(R.today(),3),gap:21};R.setD(ramp);
+ assert.equal(R.setRecoveryMode('deload'),false);assert.equal(R.getD().trainingPlan.stage,'progress');
+});
+test('status separates held recovery loads from regular progression and controls exist at every stage',()=>{
+ for(const stage of ['deload','return','progress','original1','original2','original3']){
+  R.setD(state(stage));const h=R.trainingPlanCard();assert(h.includes('Recovery mode'));assert(h.includes('Apply recovery mode'));
+  assert(h.includes(stage==='deload'||stage==='return'?'Recovery: On':'Recovery: Off'));
+  assert(h.includes(stage==='progress'?'Load: Progression on':'Load: Held'));
+  const w=R.trainingPlanCard('workout');assert(w.includes('Load:'));assert(!w.includes('Apply recovery mode'));
+ }
+ R.setD(json(R.freshState()));assert(R.trainingPlanCard().includes('Recovery: Off'));
+ assert(R.setRecoveryMode('return'));assert.equal(R.getD().trainingPlan.stage,'return');
 });
 test('scheduled starts remain pending and cannot advance early',()=>{
  const d=state('deload',R.dayAfter(R.today(),3));R.setD(d);assert(R.trainingPlanStatus().pending);assert.equal(R.advanceTrainingPlan(),false);R.beginW('A');assert.equal(R.getADAY(),null);

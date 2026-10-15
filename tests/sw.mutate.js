@@ -16,7 +16,8 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const SW = path.join(__dirname, '..', 'sw.js');
-const src = fs.readFileSync(SW, 'utf8');
+// Match the same mutation anchors in Windows CRLF and CI's LF checkouts.
+const src = fs.readFileSync(SW, 'utf8').replace(/\r\n/g, '\n');
 
 // Each mutation: a description, and a transform that must make the battery fail.
 const MUTATIONS = [
