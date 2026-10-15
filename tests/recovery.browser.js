@@ -19,7 +19,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('deload setup shows dates, effort, six sets and manual return',await page.locator('#training-plan').evaluate(e=>
    /seven planned days/.test(e.textContent)&&/6 working sets/.test(e.textContent)&&/4–5/.test(e.textContent)&&/does not automatically/.test(e.textContent)));
   T('recovery controls are collapsed and compact at phone width',await page.locator('#training-plan').evaluate(e=>
-   !e.querySelector('details').open&&e.getBoundingClientRect().height<210));
+   !e.querySelector('details').open&&e.getBoundingClientRect().height<250));
   T('routine controls share the existing workout-start panel',await page.locator('#training-plan').evaluate(e=>!!e.closest('.start-hero')));
   await screenshot(page,'deload-phone');
   T('deload previews exactly the shortened A day',await page.evaluate(()=>dayExs('A').length===4&&dayExs('A').reduce((n,e)=>n+e.s,0)===6));
@@ -60,7 +60,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();
   T('second ready check activates eleven-set ongoing days',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&['A','B','C'].every(d=>dayExs(d).reduce((n,e)=>n+e.s,0)===11)));
   T('shorter default panel stays compact with no horizontal overflow',await page.locator('#training-plan').evaluate(e=>
-   e.textContent.includes('Shorter A/B/C · default')&&!e.querySelector('details').open&&e.getBoundingClientRect().height<200&&document.documentElement.scrollWidth<=innerWidth));
+   e.textContent.includes('Shorter A/B/C · default')&&!e.querySelector('details').open&&e.getBoundingClientRect().height<240&&document.documentElement.scrollWidth<=innerWidth));
   T('Hypertrophy choice applies actual targets while keeping shorter sets',await page.evaluate(()=>
    D.phase===2&&D.trainingPlan.phase===2&&dayExs('A')[0].tg===8&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
   T('active phase and next step are visible without expanding details',await page.locator('#training-plan').evaluate(e=>
@@ -125,5 +125,36 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('Progress shows the selected Hypertrophy phase and optional review',await page.getByText('Phase 2 · Hypertrophy',{exact:true}).count()===1&&
    /Optional phase review/.test(await page.locator('#app').innerText()));
   T('phase control has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ {
+  const store=baseStore();store.nextDay='C';store.phase=2;store.trainingPlan={stage:'progress',phase:2,phaseStart:ago(5),start:ago(14),stageStart:ago(5),loads:{hex_dl:60},bands:{}};
+  const {ctx,page,errors}=await open(store),before=await page.evaluate(()=>({history:JSON.stringify(D.sessions),nextDay:D.nextDay}));
+  T('regular status explicitly shows recovery off and progression on',await page.locator('#training-plan').evaluate(e=>
+   /Recovery: Off/.test(e.innerText)&&/Load: Progression on/.test(e.innerText)&&/Phase 2 · Hypertrophy/.test(e.innerText)));
+  await page.getByText('Plan details and routine choices',{exact:true}).click();
+  await page.getByLabel('Recovery mode',{exact:true}).selectOption('deload');
+  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
+  T('cancelled recovery change leaves regular training in place',await page.evaluate(()=>D.trainingPlan.stage==='progress'));
+  page.on('dialog',d=>d.accept());
+  await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
+  T('deload can be restarted from shorter regular training through the actual controls',await page.evaluate(()=>
+   D.trainingPlan.stage==='deload'&&!D.trainingPlan.phase&&dayExs('A').reduce((n,e)=>n+e.s,0)===6));
+  T('recovery and held-load status are visible before expanding guidance',await page.locator('#training-plan').evaluate(e=>
+   /Recovery: On/.test(e.innerText)&&/Load: Held · about 82% reference/.test(e.innerText)&&!e.querySelector('details').open));
+  await page.getByText('Plan details and routine choices',{exact:true}).click();
+  await page.getByLabel('Recovery mode',{exact:true}).selectOption('off');
+  T('turning recovery off exposes an explicit regular phase choice',await page.getByLabel('Training phase when recovery is off',{exact:true}).isVisible());
+  await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
+  T('turning recovery off cannot apply an unchosen phase',await page.evaluate(()=>D.trainingPlan.stage==='deload'));
+  await page.getByLabel('Training phase when recovery is off',{exact:true}).selectOption('2');
+  await page.locator('#recovery-mode').scrollIntoViewIfNeeded();
+  await page.screenshot({path:path.join(shots,'recovery-controls-phone.png')});
+  await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
+  T('explicit early exit starts shorter Hypertrophy with progression and fresh review',await page.evaluate(()=>
+   D.trainingPlan.stage==='progress'&&D.trainingPlan.phase===2&&D.trainingPlan.stageStart===today()&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
+  T('recovery toggles preserve history and next day',await page.evaluate(b=>JSON.stringify(D.sessions)===b.history&&D.nextDay===b.nextDay,before));
+  T('manual recovery controls do not overflow a phone',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  T('recovery selector has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
 };

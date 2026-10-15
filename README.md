@@ -159,6 +159,27 @@ training; staying in the phase is allowed. The original routine retains its eigh
 Future-dated sessions do not count toward that signal. Neither timer switches phase.
 These dates and estimates are practical app policies, not validated readiness thresholds.
 
+### Recovery mode and load controls
+
+Today and the active workout show **Recovery: On / Off / Scheduled**, the current phase,
+and **Load: Held / Progression on** inside the existing routine panel. Held percentages
+refer to the plan's reference loads, not a measured 1RM; the exact buildable kilograms
+remain on each exercise. Original-return steps also show held loads even though deload
+is off. Partner keeps its own routine, explicitly labelled separately from the home plan.
+
+Expand routine choices (or open Settings) to select **Recovery mode**: Off, Deload, or
+Easy return, then **Apply recovery mode**. A confirmation is required. Recovery can be
+started again from shorter training; its reference uses recent logged practice rather
+than restoring old heavy loads. Switching between recovery stages keeps their reference
+loads and starts a fresh seven-day review. Selecting the current mode does not restart it.
+
+Turning recovery off requires choosing Linear or Hypertrophy and confirming readiness.
+It starts shorter regular training with adjusted loads, including when ending recovery
+before its review date. It does not restore the longer routine or old weights. The ready
+check at the review date remains the usual path. These manual controls never erase
+history, change the next A/B/C day, or replace an unfinished workout. Regular shorter
+training retains its separate phase selector; the original routine remains optional.
+
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
 Session time targets are planning aids and never shorten necessary rests.
