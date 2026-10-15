@@ -2,7 +2,29 @@
 module.exports=async function({browser,origin,T,baseStore}){
  const fs=require('fs'),path=require('path'),shots=path.join(__dirname,'..','test-results','recovery-layout');
  fs.mkdirSync(shots,{recursive:true});
- const screenshot=async(page,name)=>{await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:path.join(shots,name+'.png')});};
+ const screenshot=async(page,name,{target='#app .sec',text='',top=true}={})=>{
+  if(top)await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  // Settle finite CSS animations in the capture only. Advancing wall time would
+  // also advance workout timers; changing app CSS would hide the real behavior.
+  await page.evaluate(async()=>{
+   await document.fonts.ready;
+   for(const animation of document.getAnimations()){
+    if(Number.isFinite(animation.effect?.getComputedTiming().endTime))animation.finish();
+   }
+  });
+  const subject=page.locator(target).first();await subject.waitFor({state:'visible'});
+  const state=await subject.evaluate(el=>{
+   const rect=el.getBoundingClientRect();let visible=true;
+   for(let node=el;node;node=node.parentElement){const css=getComputedStyle(node);
+    if(css.display==='none'||css.visibility!=='visible'||Number(css.opacity)<0.99)visible=false;
+   }
+   return{visible:visible&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth,
+    text:(el.innerText||el.getAttribute('aria-label')||el.value||'').trim()};
+  });
+  if(!state.visible||!state.text||text&&!state.text.includes(text))throw Error(`Screenshot ${name} has no settled visible target: ${JSON.stringify(state)}`);
+  T('screenshot has settled visible content: '+name,true);
+  await page.screenshot({path:path.join(shots,name+'.png'),animations:'disabled'});
+ };
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
  async function open(store){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
@@ -108,7 +130,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   await keyActivate(page,page.getByRole('button',{name:/^Next →/}));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
   await page.getByLabel('Why did you finish?',{exact:true}).selectOption('fatigue');
-  await screenshot(page,'logged-summary-'+theme);
+  await screenshot(page,'logged-summary-'+theme,{target:'.summary-card',text:'Workout ended early'});
   await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
   const saved=await page.evaluate(()=>D.sessions.at(-1));
   T('real interaction saves lower per-set weight, mixed bands, fatigue and stable identity '+theme,
@@ -275,7 +297,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('turning recovery off cannot apply an unchosen phase',await page.evaluate(()=>D.trainingPlan.stage==='deload'));
   await page.getByLabel('Training phase when recovery is off',{exact:true}).selectOption('2');
   await page.locator('#recovery-mode').scrollIntoViewIfNeeded();
-  await page.screenshot({path:path.join(shots,'recovery-controls-phone.png')});
+  await screenshot(page,'recovery-controls-phone',{target:'#recovery-mode',top:false});
   await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
   T('explicit early exit starts shorter Hypertrophy with progression and fresh review',await page.evaluate(()=>
    D.trainingPlan.stage==='progress'&&D.trainingPlan.phase===2&&D.trainingPlan.stageStart===today()&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
