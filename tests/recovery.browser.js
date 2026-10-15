@@ -39,6 +39,19 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('clock boundary scenario has no page errors, legacy='+legacy,errors.length===0,errors.join('\n'));await ctx.close();
  }
  {
+  const store=baseStore(),ex=[{id:'hex_dl',wt:40,reps:[5,5],form:[4,4],band:''}];
+  store.sessions=[{id:'same-day-home',day:'A',date:ago(1),loc:'home',phase:1,ex},
+   {id:'same-day-partner',day:'A',date:ago(1),loc:'partner',phase:1,ex},
+   {id:'same-day-duplicate',day:'A',date:ago(1),loc:'home',phase:1,noProg:true,ex}];
+  const {ctx,page,errors}=await open(store);await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
+  T('same-day History controls have distinct Home and Partner accessible names',
+   await page.getByRole('button',{name:/Day A,.*Home workout details/}).count()===1&&await page.getByRole('button',{name:/Day A,.*Partner workout details/}).count()===1);
+  const flagged=page.getByRole('button',{name:/Day A,.*Home, ignored for progression, possible duplicate workout details/});
+  T('History accessible name includes ignored and duplicate flags',await flagged.count()===1);
+  await keyActivate(page,flagged);T('flagged History remains keyboard operable',await flagged.getAttribute('aria-expanded')==='true');
+  T('History status names produce no page errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ {
   const store=baseStore();store.nextDay='A';const {ctx,page,errors}=await open(store);
   await keyActivate(page,page.locator('button[onclick="beginW(\'A\',true)"]').first());
   const swap=page.locator('.swap-btn');await keyActivate(page,swap);

@@ -1503,7 +1503,7 @@ return d}
 let LOAD_DROPPED=0,LOAD_REPAIRED=0,RECOVERY_RAW=null;
 let STORE_COMMITTED=null,STORE_RAW=null,PENDING_SAVE=null,PENDING_AFTER=null,SAVE_ERROR='',AW_ERROR='';
 let WRITER=false,WRITER_READY=false,WRITER_BUSY=false,WRITER_RELEASE=null,WRITER_CHANNEL=null,WANT_WRITER=false;
-let ACTIVE_ID=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
+let ACTIVE_ID=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,PENDING_ACTIVE_BEFORE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
 function canWriteStore(){return WRITER&&WRITER_READY}
 const WRITER_ID='tab-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 function recordId(prefix='s'){return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)}
@@ -1549,9 +1549,11 @@ runSavedCallback(options.after);return true}
 function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERROR='Data was saved, but the screen could not update. Reload to continue.';updateSaveStatus();alert(SAVE_ERROR)}}
 function retrySave(){if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(ADAY)return saveAW();return false}
 function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
-PENDING_SAVE=null;PENDING_AFTER=null;PENDING_ACTIVE=null;SAVE_ERROR='';updateSaveStatus();render()}
+PENDING_SAVE=null;PENDING_AFTER=null;releasePendingActive(true);SAVE_ERROR='';updateSaveStatus();render()}
+function releasePendingActive(restore=false){if(restore&&PENDING_ACTIVE_BEFORE){AW_ERROR=PENDING_ACTIVE_BEFORE.error;AW_CLEANUP=PENDING_ACTIVE_BEFORE.cleanup;AW_CLEANUP_AFTER=PENDING_ACTIVE_BEFORE.after}
+PENDING_ACTIVE=null;PENDING_ACTIVE_BEFORE=null}
 function discardPendingActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE||!confirm('Discard the imported unfinished workout that could not be saved? Download the recovery copy first if you need it. Saved history and any earlier resume workout stay saved.'))return false;
-PENDING_ACTIVE=null;AW_ERROR='';updateSaveStatus();render();return true}
+releasePendingActive(true);updateSaveStatus();render();return true}
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,resetEpoch:'0'}}
 function resetAll(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
 return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
@@ -5892,7 +5894,7 @@ if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here au
 const RW=rampWindows(Infinity); // hoisted: rampOf runs once per rendered session row
 for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px">
-<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
+<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)}, ${s.loc==='partner'?'Partner':'Home'}${s.noProg?', ignored for progression':''}${dupMap.has(s.id)?', possible duplicate':''} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
 <span style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
@@ -6381,14 +6383,14 @@ return{W,added,replaced,skipped}}
 function saveImportedActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE)return false;
 try{localStorage.setItem(AW_KEY,JSON.stringify(PENDING_ACTIVE))}
 catch(_){AW_ERROR='The imported unfinished workout is not saved. Retry or download this recovery copy before closing the tab.';updateSaveStatus();return false}
-PENDING_ACTIVE=null;AW_ERROR='';AW_CLEANUP=false;
+releasePendingActive();AW_ERROR='';AW_CLEANUP=false;AW_CLEANUP_AFTER=null;
 ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;updateSaveStatus();runSavedCallback(()=>{clearTimer();render()});return true}
 function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;updateSaveStatus();const r=new FileReader();
 r.onload=e=>{try{const source=JSON.parse(e.target.result);const{W,added,replaced,skipped}=mergeImport(D,source);
 let active=null;if(source.activeWorkout!=null&&!W.sessions.some(s=>s.id===source.activeWorkout.id)){active=normalizeActiveRecord({...source.activeWorkout,resetEpoch:W.resetEpoch},W);
 if(!active)throw Error('Invalid active workout');
 if((ADAY||pendingAW())&&!confirm('This recovery file includes an unfinished workout. Replace the current resume workout with this copy?'))return}
-PENDING_ACTIVE=active;
+PENDING_ACTIVE=active;PENDING_ACTIVE_BEFORE=active?{error:AW_ERROR,cleanup:AW_CLEANUP,after:AW_CLEANUP_AFTER}:null;
 const complete=()=>{const activeSaved=active?saveImportedActive():false;
 render();const dup=sessionDuplicateMap(D.sessions).size;
 alert(`Import saved: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed records or fields skipped or repaired`:''}${dup?` · ${dup} possible duplicates flagged in History`:''}${activeSaved?' · unfinished workout available to resume':active?' · unfinished workout NOT saved; keep the recovery file':''}`)};
