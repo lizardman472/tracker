@@ -6,7 +6,7 @@ const values=new Map(),alerts=[];
 const context={console,Date,Math,structuredClone,Blob,confirm:()=>true,alert:x=>alerts.push(x),navigator:{},
  setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},scrollTo(){},
  localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)},
- document:{getElementById:()=>null,createElement:()=>({style:{},setAttribute(){},click(){}})}};
+ document:{getElementById:()=>null,createElement:()=>({style:{},textContent:'',get innerHTML(){return String(this.textContent).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')},setAttribute(){},click(){}})}};
 context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
@@ -333,6 +333,16 @@ test('missing sets, changing loads/phases and one struggling lift cannot create 
 test('calendar alone gives an optional check-in and never starts a deload',()=>{
  const d=recentState();d.sessions=recentRows();R.setD(d);assert.equal(R.getDeload().due,false);assert(R.getDeload().consider);
  assert(R.trainingPlanCard().includes('not a required deload'));assert.equal(R.getD().trainingPlan.stage,'progress');
+});
+test('fatigue window includes the last 14 local dates and never falls back to stale ratings',()=>{
+ const d=recentState();d.sessions=recentRows({finishReason:'fatigue',noProg:true}).slice(-2);d.sessions[0].date=R.dayAfter(R.today(),-13);R.setD(d);assert(R.getDeload().due);
+ d.sessions[0].date=R.dayAfter(R.today(),-14);R.setD(d);assert.equal(R.getDeload().due,false);assert.equal(R.getDeload().fatigueN,1);
+});
+test('a recovery warning also holds an earned band-ladder advance',()=>{
+ const d=recentState();d.sessions=recentRows().slice(0,2).map(s=>({...s,ex:[{id:'pullup_a',band:'Green',wt:0,reps:[10,10],form:[5,5],rir:2}]}));R.setD(d);
+ const ex=R.dayExs('A').find(e=>e.id==='pullup_a');assert.equal(R.shortSuggestion(ex).action,'Advance one band set');
+ d.sessions.push(...recentRows({finishReason:'fatigue',noProg:true,trainingComplete:false}).slice(-2).map(s=>({...s,id:'tired-'+s.id})));R.setD(d);
+ assert.equal(R.shortSuggestion(ex).type,'stay');assert.equal(R.shortSuggestion(ex).action,'Hold progression');
 });
 test('next lift action distinguishes reps, first confirmation, increased load and missing ratings',()=>{
  const d=recentState();R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Add reps when ready');
