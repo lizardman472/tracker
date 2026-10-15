@@ -23,7 +23,11 @@ module.exports=async function({browser,origin,T,baseStore}){
  for(const legacy of [false,true]){
   const store=baseStore(),start=ago(0);store.trainingPlan={stage:'deload',start,stageStart:start,loads:{hex_dl:60},bands:{}};
   const {ctx,page,errors}=await open(store);
-  await page.evaluate(legacy=>{restTrainingPlan();if(legacy){delete D.trainingPlan.restUntil;save();render()}},legacy);
+  await page.evaluate(legacy=>{restTrainingPlan();if(legacy){
+   // Old backups stored only the two-day rest deadline in reviewAfter. The
+   // current status still applies its separate seven-day minimum review.
+   delete D.trainingPlan.restUntil;D.trainingPlan.reviewAfter=dayAfter(D.trainingPlan.stageStart,2);save();render();
+  }},legacy);
   const minReview=await page.evaluate(()=>dayAfter(D.trainingPlan.stageStart,7));
   for(const days of [1,2,3,6,7,8]){
    const at=new Date(start+'T12:00:00');at.setDate(at.getDate()+days);await page.clock.setFixedTime(at);await page.evaluate(()=>render());
