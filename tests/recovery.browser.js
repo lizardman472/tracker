@@ -2,7 +2,32 @@
 module.exports=async function({browser,origin,T,baseStore}){
  const fs=require('fs'),path=require('path'),shots=path.join(__dirname,'..','test-results','recovery-layout');
  fs.mkdirSync(shots,{recursive:true});
- const screenshot=async(page,name,{target='#app .sec',text='',top=true}={})=>{
+ const navEvidence=[];
+ async function navState(page,label){
+  const state=await page.evaluate(()=>{
+   const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,bottom:r.bottom,left:r.left,right:r.right}};
+   const style=el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','visibility','opacity','color','backgroundColor','position','top','zIndex','transform','overflow','filter','backdropFilter','clipPath'].map(k=>[k,s[k]]))};
+   const nav=document.getElementById('nav'),header=document.querySelector('.hdr');
+   return{view:VIEW,lastView:LAST_VIEW,stage:D.trainingPlan?.stage,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},
+    header:{rect:rect(header),style:style(header)},nav:{html:nav.innerHTML,rect:rect(nav),style:style(nav)},
+    buttons:[...nav.querySelectorAll('button')].map(el=>{const r=rect(el),x=r.left+r.width/2,y=r.top+r.height/2,hit=document.elementFromPoint(x,y);
+     let visible=true;for(let n=el;n;n=n.parentElement){const s=getComputedStyle(n);if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)<0.99)visible=false}
+     return{text:el.textContent.trim(),ariaLabel:el.getAttribute('aria-label'),rect:r,style:style(el),visible,
+      inViewport:r.width>0&&r.height>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,
+      unoccluded:!!hit&&(el===hit||el.contains(hit)),hit:hit?{tag:hit.tagName,id:hit.id,class:hit.className,text:hit.textContent?.trim().slice(0,100)}:null};})};
+  });
+  navEvidence.push({label,...state});fs.writeFileSync(path.join(shots,'original-return-nav-diagnostics.json'),JSON.stringify(navEvidence,null,2));
+  console.log('NAV_DIAGNOSTIC '+JSON.stringify({label,...state}));return state;
+ }
+ async function assertNav(page,label,view='home'){
+  const s=await navState(page,label),okay=s.view===view&&s.buttons.length===5&&s.buttons.every((b,i)=>
+   b.text===['Today','History','Progress','Body','Settings'][i]&&b.visible&&b.inViewport&&b.unoccluded);
+  T('main navigation visible and unoccluded: '+label,okay,JSON.stringify(s));
+  if(!okay)throw Error('Main navigation acceptance failed: '+JSON.stringify(s));
+  for(const name of ['Today','History','Progress','Body','Settings'])
+   if(await page.locator('#nav').getByRole('button',{name,exact:true}).count()!==1)throw Error('Missing named navigation control: '+name);
+ }
+ const screenshot=async(page,name,{target='#app .sec',text='',top=true,nav=false}={})=>{
   if(top)await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
   // Settle finite CSS animations in the capture only. Advancing wall time would
   // also advance workout timers; changing app CSS would hide the real behavior.
@@ -11,6 +36,16 @@ module.exports=async function({browser,origin,T,baseStore}){
    for(const animation of document.getAnimations()){
     if(Number.isFinite(animation.effect?.getComputedTiming().endTime))animation.finish();
    }
+   // Require unchanged scroll and geometry across consecutive animation frames;
+   // this synchronizes capture with layout/paint after sticky scroll or resize.
+   const layout=()=>JSON.stringify({x:scrollX,y:scrollY,rects:[...document.querySelectorAll('.hdr,#nav,#nav button,#app .sec')].map(e=>{
+    const r=e.getBoundingClientRect();return[r.x,r.y,r.width,r.height]})});
+   let previous=layout(),stable=0;
+   for(let frame=0;frame<8;frame++){
+    await new Promise(resolve=>requestAnimationFrame(resolve));const current=layout();stable=current===previous?stable+1:0;previous=current;
+    if(stable>=2)return;
+   }
+   throw Error('Capture layout did not settle: '+previous);
   });
   const subject=page.locator(target).first();await subject.waitFor({state:'visible'});
   const state=await subject.evaluate(el=>{
@@ -23,7 +58,9 @@ module.exports=async function({browser,origin,T,baseStore}){
   });
   if(!state.visible||!state.text||text&&!state.text.includes(text))throw Error(`Screenshot ${name} has no settled visible target: ${JSON.stringify(state)}`);
   T('screenshot has settled visible content: '+name,true);
+  if(nav)await assertNav(page,name+' before capture');
   await page.screenshot({path:path.join(shots,name+'.png'),animations:'disabled'});
+  if(nav)await assertNav(page,name+' after capture');
  };
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
  async function open(store){
@@ -226,12 +263,22 @@ module.exports=async function({browser,origin,T,baseStore}){
    /24–26 working sets/.test(e.textContent)&&/phase means the rep emphasis/.test(e.textContent)&&/default after recovery/.test(e.textContent)));
   await page.getByLabel('Phase for return to original routine',{exact:true}).selectOption('1');
   await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  await navState(page,'immediately after actual Return to original routine action');
   T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
    D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===1&&D.trainingPlan.phase===1&&D.nextDay===b.nextDay&&
    ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));
   T('routine changes bring the new status into view',await page.locator('#training-plan .routine-title').evaluate(e=>
    e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<=innerHeight));
-  await screenshot(page,'original-return-phone');
+  await screenshot(page,'original-return-phone',{nav:true});
+  const returnState=await page.evaluate(()=>({plan:JSON.stringify(D.trainingPlan),history:JSON.stringify(D.sessions),phase:D.phase,nextDay:D.nextDay}));
+  for(const [name,view]of [['History','history'],['Progress','stats'],['Body','body'],['Settings','settings'],['Today','home']]){
+   await page.locator('#nav').getByRole('button',{name,exact:true}).click();
+   await page.waitForFunction(v=>VIEW===v,view);
+   await assertNav(page,'after actual '+name+' navigation',view);
+   T('navigation preserves original return plan/history/phase/rotation: '+name,await page.evaluate(b=>
+    JSON.stringify(D.trainingPlan)===b.plan&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay,returnState));
+  }
+  await screenshot(page,'original-return-after-navigation-phone',{nav:true});
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Keep shorter routine (default)',exact:true}).click();
   T('longer return can be abandoned for the shorter default',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
