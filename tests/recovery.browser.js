@@ -27,8 +27,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   for(const name of ['Today','History','Progress','Body','Settings'])
    if(await page.locator('#nav').getByRole('button',{name,exact:true}).count()!==1)throw Error('Missing named navigation control: '+name);
  }
- const screenshot=async(page,name,{target='#app .sec',text='',top=true,nav=false}={})=>{
-  if(top)await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+ async function settleLayout(page){
   // Settle finite CSS animations in the capture only. Advancing wall time would
   // also advance workout timers; changing app CSS would hide the real behavior.
   await page.evaluate(async()=>{
@@ -47,6 +46,10 @@ module.exports=async function({browser,origin,T,baseStore}){
    }
    throw Error('Capture layout did not settle: '+previous);
   });
+ }
+ const screenshot=async(page,name,{target='#app .sec',text='',top=true,nav=false}={})=>{
+  if(top)await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  await settleLayout(page);
   const subject=page.locator(target).first();await subject.waitFor({state:'visible'});
   const state=await subject.evaluate(el=>{
    const rect=el.getBoundingClientRect();let visible=true;
@@ -264,6 +267,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.getByLabel('Phase for return to original routine',{exact:true}).selectOption('1');
   await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
   await navState(page,'immediately after actual Return to original routine action');
+  await screenshot(page,'original-return-after-action-scrolled-phone',{target:'#training-plan .routine-title',top:false});
+  await assertNav(page,'settled after original-return action without resetting scroll');
   T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
    D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===1&&D.trainingPlan.phase===1&&D.nextDay===b.nextDay&&
    ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));
