@@ -11,7 +11,8 @@ context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
- advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
+ advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,finishW,saveSumm,bandPattern,AW_KEY,
+ setFinishReason:r=>{window._S.finishReason=r},
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -394,5 +395,23 @@ test('a fatigue hold caps suggestions at lower actual practice, not an older suc
  const d=recentState();d.sessions=recentRows().slice(0,2);d.sessions.push({...recentRows().at(-1),id:'reduced-fatigue',finishReason:'fatigue',trainingComplete:false,noProg:true,
   ex:[{id:'hex_dl',wt:40,reps:[5],form:[4],rir:1}]});R.setD(d);
  const sg=R.getSmartSugg(R.dayExs('A')[0]);assert.equal(sg.action,'Hold progression');assert(sg.wt<=40);
+});
+test('new recovery anchors use mixed counted bands through the actual finish and save path',()=>{
+ for(const reason of ['fatigue','discomfort','time'])for(const [day,id,scalar,performed,easiest]of [
+  ['A','pullup_a','Purple',['Blue (heaviest)','Green'],'Blue (heaviest)'],
+  ['B','rear_delt','Blue (heaviest)',['Purple','Red'],'Red']]){
+  R.setD(state('progress'));R.beginW(day);const row=R.getLOG()[id];
+  Object.assign(row,{band:scalar,bands:[...performed,scalar],reps:['6','5','12'],setDone:[true,true,false],form:[4,4,5],notes:'Synthetic mixed practice',rir:'2'});
+  R.finishW();R.setFinishReason(reason);R.saveSumm();
+  const saved=R.getD().sessions.at(-1),ex=saved.ex.find(e=>e.id===id);
+  assert.equal(saved.trainingComplete,false);assert.equal(saved.noProg,true);assert.equal(saved.finishReason,reason);
+  assert.equal(ex.band,scalar);assert.deepEqual(json(ex.bands),[...performed,'']);assert.deepEqual(json(ex.reps),[6,5,0]);
+  const history=json(R.getD().sessions);assert(R.setRecoveryMode('deload'));assert.equal(R.getD().trainingPlan.bands[id],easiest);
+  const check=()=>{const def=R.dayExs(day).find(e=>e.id===id),sg=R.getSmartSugg(def),pattern=sg.bands||Array(def.s).fill(sg.band);
+   const order=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'];
+   for(const b of pattern)assert(def.bandMode==='assist'?order.indexOf(b)<=order.indexOf(easiest):order.indexOf(b)>=order.indexOf(easiest));};
+  check();assert.deepEqual(json(R.getD().sessions),history);
+  const restored=R.mergeImport(R.freshState(),json(R.getD())).W;R.setD(restored);check();assert.deepEqual(json(R.getD().sessions),history);
+ }
 });
 console.log(`\n${passed} recovery tests passed`);

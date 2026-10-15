@@ -7,9 +7,103 @@ module.exports=async function({browser,origin,T,baseStore}){
  async function open(store){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('dialog',d=>d.accept());
-  await page.addInitScript(s=>{localStorage.setItem('rft-v12',JSON.stringify(s));localStorage.setItem('rft-v12-gen',String(s.gen||0))},store);
+  await page.addInitScript(s=>{if(!localStorage.getItem('recovery-test-seeded')){localStorage.setItem('rft-v12',JSON.stringify(s));localStorage.setItem('rft-v12-gen',String(s.gen||0));localStorage.setItem('recovery-test-seeded','1')}},store);
+  await page.clock.install({time:new Date()});
   await page.goto(origin+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>WRITER_READY&&WRITER);return{ctx,page,errors};
+ }
+ async function keyActivate(page,control){await control.focus();await page.keyboard.press('Enter')}
+ async function tabActivate(page,control){
+  for(let i=0;i<180;i++){
+   if(await control.evaluate(el=>el===document.activeElement)){await page.keyboard.press('Enter');return}
+   await page.keyboard.press('Tab');
+  }
+  throw Error('Control is not reachable by Tab: '+await control.innerText());
+ }
+ for(const legacy of [false,true]){
+  const store=baseStore(),start=ago(0);store.trainingPlan={stage:'deload',start,stageStart:start,loads:{hex_dl:60},bands:{}};
+  const {ctx,page,errors}=await open(store);
+  await page.evaluate(legacy=>{restTrainingPlan();if(legacy){delete D.trainingPlan.restUntil;save();render()}},legacy);
+  const minReview=await page.evaluate(()=>dayAfter(D.trainingPlan.stageStart,7));
+  for(const days of [1,2,3,6,7,8]){
+   const at=new Date(start+'T12:00:00');at.setDate(at.getDate()+days);await page.clock.setFixedTime(at);await page.evaluate(()=>render());
+   T(`early ${legacy?'legacy':'explicit'} extra rest day ${days} preserves seven-day readiness minimum`,await page.evaluate(({days,minReview})=>
+    trainingPlanStatus().review===minReview&&trainingPlanStatus().resting===(days<2)&&trainingPlanStatus().due===(days>=7)&&
+    (days>=7||!advanceTrainingPlan()),{days,minReview}));
+   T(`readiness UI agrees with minimum on day ${days}, legacy=${legacy}`,await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).count()===(days>=7?1:0));
+  }
+  T('clock boundary scenario has no page errors, legacy='+legacy,errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ {
+  const store=baseStore();store.nextDay='A';const {ctx,page,errors}=await open(store);
+  await keyActivate(page,page.locator('button[onclick="beginW(\'A\',true)"]').first());
+  const swap=page.locator('.swap-btn');await keyActivate(page,swap);
+  T('swap announces expansion and focuses a keyboard-operable choice',await swap.getAttribute('aria-expanded')==='true'&&await page.locator('.swap-opt').first().evaluate(el=>el===document.activeElement&&el.tagName==='BUTTON'));
+  const replacement=await page.locator('.swap-opt').first().innerText();await page.keyboard.press('Enter');
+  T('swap choice opens the replacement with predictable focus',await page.locator('#ex-cur').evaluate(el=>el===document.activeElement)&&replacement.includes((await page.locator('#ex-cur').getAttribute('aria-label')).replace(/ exercise$/,'')));
+  T('navigation and swap controls contain no nested interactive controls',await page.locator('button.ex-row button,button.swap-opt button,.row-control button').count()===0);
+  T('swap keyboard flow has no page errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ // Actual mobile-viewport logging, interruption, keyboard review and save. State
+ // inspection asserts outcomes; it never supplies the performed sets or summary.
+ for(const theme of ['light','dark']){
+  const store=baseStore();store.theme=theme;store.nextDay='A';
+  store.trainingPlan={stage:'deload',start:ago(0),stageStart:ago(0),loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
+  const {ctx,page,errors}=await open(store);
+  await keyActivate(page,page.getByRole('button',{name:'Start Deload week · Day A',exact:true}));
+  await tabActivate(page,page.locator('#activation-toggle'));
+  T('activation opens by keyboard with announced state '+theme,await page.locator('#activation-toggle').getAttribute('aria-expanded')==='true');
+  for(const name of ['Joint Circles','Isometric Hold']){
+   // The second item's name can be exercise-specific; use its stable native control.
+   const control=name==='Joint Circles'?page.locator('#wu-check-0'):page.locator('#wu-check-1');
+   await keyActivate(page,control);
+   T('warm-up selection and focus survive rerender '+name+' '+theme,await control.getAttribute('aria-pressed')==='true'&&await control.evaluate(el=>el===document.activeElement));
+  }
+  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  T('exercise navigation moves focus into the opened exercise '+theme,await page.locator('#ex-cur').evaluate(el=>el===document.activeElement));
+  for(let i=1;i<=2;i++){
+   await page.getByLabel(`Set ${i} weight, kilograms`,{exact:true}).fill('20');
+   await page.getByLabel(`Set ${i} reps`,{exact:true}).fill('5');
+   await keyActivate(page,page.getByRole('button',{name:`Set ${i} done`,exact:true}));
+  }
+  await page.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption('4');
+  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await page.getByLabel('Band for Pull-ups (Comfortable Grip)',{exact:true}).selectOption('Purple');
+  for(const [i,band]of ['Blue (heaviest)','Green'].entries()){
+   await page.getByLabel(`Set ${i+1} band`,{exact:true}).selectOption(band);
+   await page.getByLabel(`Set ${i+1} reps`,{exact:true}).fill('6');
+   await keyActivate(page,page.getByRole('button',{name:`Set ${i+1} done`,exact:true}));
+  }
+  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  T('completed exercise can be revisited without losing actual lower weights '+theme,await page.getByLabel('Set 1 weight, kilograms',{exact:true}).inputValue()==='20');
+  await page.getByLabel('Session Notes',{exact:true}).fill('Synthetic interrupted phone workout');await page.keyboard.press('Tab');
+  await screenshot(page,'logged-recovery-'+theme);
+  const draft=await page.evaluate(()=>localStorage.getItem(AW_KEY));
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await keyActivate(page,page.getByRole('button',{name:'Discard',exact:true}));
+  T('cancelled Resume discard retains exact serialized work '+theme,await page.evaluate(v=>localStorage.getItem(AW_KEY)===v,draft));
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  T('cancelled discard preserves identity, ratings and notes across reload '+theme,await page.evaluate(v=>localStorage.getItem(AW_KEY)===v,draft));
+  page.on('dialog',d=>d.accept());await keyActivate(page,page.getByRole('button',{name:'Resume',exact:true}));
+  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
+  await page.getByLabel('Why did you finish?',{exact:true}).selectOption('fatigue');
+  await screenshot(page,'logged-summary-'+theme);
+  await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
+  const saved=await page.evaluate(()=>D.sessions.at(-1));
+  T('real interaction saves lower per-set weight, mixed bands, fatigue and stable identity '+theme,
+   saved.id===JSON.parse(draft).id&&saved.finishReason==='fatigue'&&saved.noProg&&saved.trainingComplete===false&&
+   saved.ex.find(e=>e.id==='hex_dl').wts.every(w=>w===20)&&JSON.stringify(saved.ex.find(e=>e.id==='pullup_a').bands)===JSON.stringify(['Blue (heaviest)','Green']));
+  await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
+  await tabActivate(page,page.locator('#history-'+saved.id));
+  T('saved History expands by Tab and Enter and retains focus '+theme,await page.locator('#history-'+saved.id).getAttribute('aria-expanded')==='true'&&await page.locator('#history-'+saved.id).evaluate(el=>el===document.activeElement));
+  await screenshot(page,'logged-history-'+theme);
+  await keyActivate(page,page.getByRole('button',{name:'Settings',exact:true}));
+  const picker=page.waitForEvent('filechooser');await tabActivate(page,page.getByRole('button',{name:'↑ Import',exact:true}));await picker;
+  T('Import opens a file chooser by Tab and Enter '+theme,true);
+  T('phone interaction has no horizontal overflow or browser errors '+theme,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)&&errors.length===0,errors.join('\n'));
+  await ctx.close();
  }
  {
   const store=baseStore(),{ctx,page,errors}=await open(store);
@@ -51,10 +145,23 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('expired deload remains light until readiness is confirmed',await page.evaluate(()=>D.trainingPlan.stage==='deload'&&trainingPlanStatus().due));
   await page.getByRole('button',{name:'Still tired — take two more rest days',exact:true}).click();
   T('extra rest is visible and cannot advance the stage',await page.evaluate(()=>trainingPlanStatus().resting&&D.trainingPlan.stage==='deload'));
-  await page.evaluate(()=>{D.trainingPlan.reviewAfter=today();save();render()});
+  await screenshot(page,'extra-rest-phone-light');
+  await page.evaluate(()=>{D.theme='dark';save();applyTheme();render()});await screenshot(page,'extra-rest-phone-dark');
+  await page.evaluate(()=>{D.theme='light';save();applyTheme();render()});
+  const restUntil=await page.evaluate(()=>D.trainingPlan.restUntil);
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()-86400000));
+  await page.evaluate(()=>render());
+  T('before the extra-rest deadline neither the UI nor handler can advance',await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).count()===0&&await page.evaluate(()=>!advanceTrainingPlan()&&trainingPlanStatus().resting));
+  await page.clock.setFixedTime(new Date(restUntil+'T12:00:00'));
+  await page.evaluate(()=>render());
+  T('on the extra-rest deadline readiness is available without editing the plan',await page.evaluate(()=>!trainingPlanStatus().resting&&trainingPlanStatus().due));
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()+86400000));
+  await page.evaluate(()=>render());
+  T('after the extra-rest deadline the stage still waits for explicit readiness',await page.evaluate(()=>trainingPlanStatus().due&&D.trainingPlan.stage==='deload'));
   await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).click();
   T('ready check activates a held-load two-set return week',await page.evaluate(()=>D.trainingPlan.stage==='return'&&dayExs('A').reduce((n,e)=>n+e.s,0)===10));
-  await page.evaluate(()=>{D.trainingPlan.stageStart=dayAfter(today(),-7);delete D.trainingPlan.reviewAfter;save();render()});
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()+8*86400000));
+  await page.evaluate(()=>render());
   await page.getByLabel('Training phase after recovery',{exact:true}).selectOption('2');
   await screenshot(page,'phase-choice-after-recovery-phone');
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();

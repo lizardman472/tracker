@@ -387,6 +387,10 @@ button.set-prev:active{color:var(--pr)}
 .wu-check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--cb);cursor:pointer}
 .wu-box{width:36px;height:36px;border-radius:9px;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:.15s;color:var(--mu)}
 .wu-box.checked{background:var(--pr);border-color:var(--pr);color:var(--ink)}
+.row-control{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button.ex-row,button.swap-opt,button.wu-check{width:100%;text-align:left;font:inherit;color:inherit}
+button.wu-check{background:none;border:0;border-bottom:1px solid var(--cb)}
+.row-control:focus-visible,button.ex-row:focus-visible,button.swap-opt:focus-visible,button.wu-check:focus-visible{outline:2px solid var(--pr);outline-offset:3px}
 
 /* Discomfort */
 .disc-row{display:flex;gap:5px;justify-content:center;margin-top:7px}
@@ -1525,6 +1529,7 @@ updateSaveStatus()}
 // D becomes the proposal only after setItem succeeds. A failed proposal is separately
 // recoverable and retryable; no positional rollback can remove another session.
 function save(proposed=D,options={}){const candidate=normalizeState(proposed).W;
+if(PENDING_ACTIVE&&!options.importingActive&&!(options.retry&&proposed===PENDING_SAVE)){if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);updateSaveStatus();return false}
 if(!WRITER){if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);
 SAVE_ERROR='This tab is read-only. Use this tab to make changes.';updateSaveStatus();return false}
 if(PENDING_SAVE&&!options.retry){D=structuredClone(STORE_COMMITTED);SAVE_ERROR='A previous change is not saved. Retry or download it before making another change.';updateSaveStatus();return false}
@@ -1542,20 +1547,22 @@ SAVE_ERROR=e.message==='conflict'?'Saved data changed outside this tab. Download
 updateSaveStatus();return false}
 runSavedCallback(options.after);return true}
 function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERROR='Data was saved, but the screen could not update. Reload to continue.';updateSaveStatus();alert(SAVE_ERROR)}}
-function retrySave(){if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(ADAY)return saveAW();return false}
+function retrySave(){if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(ADAY)return saveAW();return false}
 function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
 PENDING_SAVE=null;PENDING_AFTER=null;PENDING_ACTIVE=null;SAVE_ERROR='';updateSaveStatus();render()}
+function discardPendingActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE||!confirm('Discard the imported unfinished workout that could not be saved? Download the recovery copy first if you need it. Saved history and any earlier resume workout stay saved.'))return false;
+PENDING_ACTIVE=null;AW_ERROR='';updateSaveStatus();render();return true}
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,resetEpoch:'0'}}
-function resetAll(){if(!WRITER){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
+function resetAll(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
 return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
 function activeRecord(){if(!ADAY)return null;
 if(!ACTIVE_ID)ACTIVE_ID=recordId();
 return{id:ACTIVE_ID,owner:WRITER_ID,resetEpoch:D.resetEpoch||'0',day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
 loc:D.location,phase:D.phase,exIds:dayExs(ADAY).map(e=>e.id),swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}}
-function saveAW(){if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
+function saveAW(){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
 try{localStorage.setItem(AW_KEY,JSON.stringify(activeRecord()));AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();return true}
 catch(e){AW_ERROR='Current workout is not saved on this device. Keep this tab open. Retry or download the workout.';updateSaveStatus();return false}}
-function clearAW(after=null){if(!WRITER){updateSaveStatus();return false}
+function clearAW(after=null){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
 try{localStorage.removeItem(AW_KEY)}catch(e){AW_CLEANUP=true;AW_CLEANUP_AFTER=after;AW_ERROR='Could not remove the resume backup. Retry after freeing device storage.';updateSaveStatus();return false}
 AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();runSavedCallback(after);return true}
 function downloadJSON(value,name){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
@@ -1565,18 +1572,19 @@ if(active&&!value.sessions.some(s=>s.id===active.id))value.activeWorkout=active;
 function exportActiveWorkout(){downloadJSON(recoveryExportData(),`workout-recovery-${today()}.json`)}
 // This region lives outside #app, so set-entry rendering cannot erase a failure warning.
 function updateSaveStatus(){if(typeof document==='undefined'||!document.body)return;
-try{const app=document.getElementById('app');if(app)app.inert=!!PENDING_SAVE;
+try{const app=document.getElementById('app');if(app)app.inert=!!(PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY);
 let box=document.getElementById('save-status');if(!box){box=document.createElement('div');box.id='save-status';box.setAttribute('role','status');box.setAttribute('aria-live','polite');
 box.style.cssText='position:sticky;top:0;z-index:250;padding:12px 16px;background:var(--cd);color:var(--tx);border-bottom:2px solid var(--am);font-size:14px;line-height:1.45';document.body.prepend(box);
 if(typeof ResizeObserver!=='undefined'){STATUS_OBSERVER=new ResizeObserver(()=>measureSaveStatus());STATUS_OBSERVER.observe(box)}}
 const readonly=!WRITER;
-const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||AW_ERROR;
+const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||(PENDING_ACTIVE?'The imported unfinished workout is not saved. Keep this tab open. Retry, download the recovery copy, or explicitly discard it.':AW_ERROR)|| (IMPORT_BUSY?'Reading import…':'');
 box.hidden=!message;measureSaveStatus();if(!message)return;box.replaceChildren();const text=document.createElement('div');text.textContent=message;box.append(text);
 const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='btn-sm btn-wh';b.style.cssText='margin:8px 8px 0 0;min-height:40px';b.textContent=label;b.onclick=fn;box.append(b)};
 if(readonly&&WRITER_READY&&navigator.locks)button('Use this tab',()=>requestWriter(true));
-if(WRITER&&(PENDING_SAVE||AW_ERROR))button('Retry save',retrySave);
-button(ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
+if(WRITER&&(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR))button('Retry save',retrySave);
+button(PENDING_ACTIVE?'Download imported workout':ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
 if(WRITER&&PENDING_SAVE)button('Discard pending change',discardPendingSave);
+else if(WRITER&&PENDING_ACTIVE)button('Discard imported workout',discardPendingActive);
 measureSaveStatus();
 }catch(_){}}
 function measureSaveStatus(){const box=document.getElementById('save-status');if(box&&document.documentElement)document.documentElement.style.setProperty('--save-status-height',box.hidden?'0px':box.getBoundingClientRect().height+'px')}
@@ -1775,7 +1783,7 @@ function shortProgram(){
  return pr;
 }
 function changeTrainingPlanAllowed(){
- if(!WRITER||PENDING_SAVE){updateSaveStatus();return false}
+ if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
  if(ADAY||pendingAW()){alert('Finish or discard the current workout before changing this plan. Your logged sets are kept.');return false}
  return true;
 }
@@ -1829,7 +1837,11 @@ function recoveryPlanFromHistory(start=today(),stage='deload'){
  for(const id of planExerciseIds()){
   const rows=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home'&&(!s.noProg||p&&s.trainingPlanStart===p.start)&&s.ex.some(e=>e.id===id&&e.reps.some(r=>r>0)));
   const e=rows.at(-1)?.ex.find(e=>e.id===id);
-  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
+  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;
+   // Only counted sets describe actual practice. A mixed row can retain an unused,
+   // harder scalar default, so anchor recovery to the easiest performed setup.
+   const pattern=bandPattern(e).filter(b=>BANDS.includes(b)),assist=ALL_EX.find(ex=>ex.id===id)?.bandMode==='assist';
+   if(pattern.length)bands[id]=BANDS[assist?Math.min(...pattern.map(BAND_IDX)):Math.max(...pattern.map(BAND_IDX))];}
   // With no newer practice, retain the current plan's conservative starting point.
   else if(p){const kg=p.returnLoads?.[id]||p.progressLoads?.[id]||p.phaseLoads?.[id]||p.loads[id];if(kg>0)loads[id]=kg;if(BANDS.includes(p.bands[id]))bands[id]=p.bands[id]}
  }
@@ -2150,7 +2162,7 @@ function setPhase(p){
 function locSwitchH(cur,fn){return`<div style="display:flex;gap:0;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">
 <button type="button" aria-pressed="${cur!=='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur!=='partner'?'var(--pr)':'var(--cd)'};color:${cur!=='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('home')">🏠 Home</button>
 <button type="button" aria-pressed="${cur==='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur==='partner'?'var(--pr)':'var(--cd)'};color:${cur==='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('partner')">🏘 Partner's</button></div>`}
-function setLoc(l){if(l===D.location){render();return}
+function setLoc(l){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}if(l===D.location){render();return}
 if(checkResume()&&!confirm('You have an unfinished workout at the other location — switching hides it until you switch back. Continue?'))return;
 D.location=l;save();render()}
 
@@ -4213,17 +4225,18 @@ return ALL_EX.filter(e=>{
 .map(e=>({e,ov:pset.reduce((a,x)=>a+((MG[e.id]||{})[x]||0),0)}))
 .sort((a,b)=>b.ov-a.ov).slice(0,12).map(x=>x.e)}
 
-function openSwap(slotId){SWAP_OPEN=SWAP_OPEN===slotId?null:slotId;SWAP_FILTER='all';render()}
+function openSwap(slotId){SWAP_OPEN=SWAP_OPEN===slotId?null:slotId;SWAP_FILTER='all';render();document.querySelector(SWAP_OPEN?'.swap-opt':'.swap-btn')?.focus()}
 function doSwap(slotId,newId){const oldId=SWAP[slotId]||slotId;
 if(oldId!==newId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
 SWAP[slotId]=newId;ensureLog(ALL_EX.find(e=>e.id===newId));
-SWAP_OPEN=null;saveAW();render()}
+SWAP_OPEN=null;saveAW();render();document.getElementById('ex-cur')?.focus()}
 function revertSwap(slotId){const oldId=SWAP[slotId];
 if(oldId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
 delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
-SWAP_OPEN=null;saveAW();render()}
+SWAP_OPEN=null;saveAW();render();document.getElementById('ex-cur')?.focus()}
 
 function beginW(day,xp){
+if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}
 const tp=shortHomePlan()?trainingPlanStatus():null;
 if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.restUntil||tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
 if(tp){const rows=D.sessions.filter(s=>s.trainingPlanStart===tp.start&&s.trainingStage===tp.stage&&s.date>=tp.stageStart&&(s.loc||'home')==='home');
@@ -4250,7 +4263,7 @@ const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
-function resumeW(){if(!WRITER||PENDING_SAVE){updateSaveStatus();return}const r=checkResume();if(!r)return;ACTIVE_ID=r.id||'s'+r.start;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
+function resumeW(){if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}const r=checkResume();if(!r)return;ACTIVE_ID=r.id||'s'+r.start;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
 SNOTES=typeof r.notes==='string'?r.notes:'';
 WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];EXPRESS=!!r.xp;
 // Normalize resumed LOG rows: a blob written by an older build may lack fields newer
@@ -4369,15 +4382,15 @@ if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:va
 
 // Warmup section
 const wuD=WU_CHECKS.filter(Boolean).length;const fIso=exs.find(e=>e.isoWU);
-h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation" onclick="selectExercise(-1)">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation">
+<button type="button" id="activation-toggle" class="row-control" aria-expanded="${CIDX===-1}" onclick="selectExercise(-1)" style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700">Activation <span class="dm" style="font-weight:500">· recommended before loaded work</span></span>
-<span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></div>`;
+<span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></button>`;
 if(CIDX===-1){const its=[{l:'Joint Circles',d:'Shoulders, wrists, elbows, hips'},{l:fIso?.isoWU||'Isometric Hold',d:'Build tension before loading'},{l:'Single-Leg Balance',d:'30s per leg'}];
 h+=`<div class="ex-expand">`;for(let i=0;i<its.length;i++){
-h+=`<div class="wu-check" onclick="event.stopPropagation();WU_CHECKS[${i}]=!WU_CHECKS[${i}];saveAW();render()">
-<div class="wu-box${WU_CHECKS[i]?' checked':''}">${WU_CHECKS[i]?'✓':''}</div>
-<div><div style="font-size:12px;font-weight:600">${its[i].l}</div><div class="dm">${its[i].d}</div></div></div>`}
+h+=`<button type="button" id="wu-check-${i}" class="wu-check" aria-pressed="${WU_CHECKS[i]}" onclick="WU_CHECKS[${i}]=!WU_CHECKS[${i}];saveAW();render();document.getElementById('wu-check-${i}').focus()">
+<span aria-hidden="true" class="wu-box${WU_CHECKS[i]?' checked':''}">${WU_CHECKS[i]?'✓':''}</span>
+<span><span style="display:block;font-size:12px;font-weight:600">${its[i].l}</span><span class="dm">${its[i].d}</span></span></button>`}
 h+=`</div>`}h+=`</div>`;
 
 // Exercises
@@ -4389,24 +4402,24 @@ const last=getLast(ex.id),sg=getSmartSugg(ex),cue=D.cues[ex.id];
 
 if(isDone&&!isCur){
 // Done row
-h+=`<div class="ex-row done-row" onclick="selectExercise(${idx})">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<button type="button" class="ex-row done-row" aria-expanded="false" onclick="selectExercise(${idx})">
+<span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></div></div>`;
+<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></span></button>`;
 } else if(!isCur){
 // Upcoming row
-h+=`<div class="ex-row upcoming" onclick="selectExercise(${idx})">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<button type="button" class="ex-row upcoming" aria-expanded="false" onclick="selectExercise(${idx})">
+<span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:600">${esc(ex.nm)} <span class="dm">${ex.s}×${ex.rp}</span></span>
-<span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></div></div>`;
+<span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></span></button>`;
 } else {
 const targetEffort=targetRirLabel(ex);
 // Current — expanded
-h+=`<div class="ex-row cur" id="ex-cur" data-exercise="${esc(ex.id)}">
+h+=`<div class="ex-row cur" id="ex-cur" tabindex="-1" role="group" aria-label="${esc(ex.nm)} exercise" data-exercise="${esc(ex.id)}">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}${ex._swapped?' <span class="swap-badge">SWAP</span>':''}</span>
 <span style="display:flex;align-items:center;gap:8px">
-${ex._short?'':`<button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>`}
+${ex._short?'':`<button type="button" aria-label="Swap ${esc(ex.nm)}" aria-expanded="${SWAP_OPEN===ex._slot}" class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>`}
 <span class="dm">${idx+1}/${exs.length}</span></span></div>
 <div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst}${targetEffort?` · ${targetEffort}`:''}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
 ${ex.ss?`<div class="ss-chip">⚡ Superset · ${esc(ex.ss)}</div>`:''}`;
@@ -4416,13 +4429,13 @@ const cands=swapCandidates(ex._slot,ex.id,SWAP_FILTER);
 const prim=Object.keys(MG[ex.id]||MG[ex._slot]||{}).filter(m=>(MG[ex.id]||MG[ex._slot])[m]>=1);
 const mLbl=prim.map(m=>(MG_INFO.find(x=>x[0]===m)||[,m])[1]).join(' · ');
 h+=`<div class="swap-panel"><div class="swap-hd">Replace with — same muscle${mLbl?` (${mLbl})`:''}</div>
-<div class="swap-filters">${tps.map(t=>`<button class="${t===SWAP_FILTER?'on':''}" onclick="event.stopPropagation();SWAP_FILTER='${t}';render()">${t==='all'?'All gear':esc(TP_LABEL[t]||t)}</button>`).join('')}</div>`;
+<div class="swap-filters">${tps.map(t=>`<button type="button" id="swap-filter-${t}" aria-pressed="${t===SWAP_FILTER}" class="${t===SWAP_FILTER?'on':''}" onclick="event.stopPropagation();SWAP_FILTER='${t}';render();document.getElementById('swap-filter-${t}').focus()">${t==='all'?'All gear':esc(TP_LABEL[t]||t)}</button>`).join('')}</div>`;
 if(!cands.length)h+=`<div class="dm" style="padding:6px 2px">No alternatives for this filter.</div>`;
 for(const c of cands){const cl=getLast(c.id);
-h+=`<div class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
-<div><div style="font-size:12px;font-weight:700">${esc(c.nm)}</div>
-<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</div></div>
-<span class="swap-go">Use</span></div>`}
+h+=`<button type="button" class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
+<span><span style="display:block;font-size:12px;font-weight:700">${esc(c.nm)}</span>
+<span class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</span></span>
+<span class="swap-go">Use</span></button>`}
 if(ex._swapped)h+=`<button class="btn-ghost" style="font-size:10px;margin-top:6px;color:var(--am)" onclick="event.stopPropagation();revertSwap('${ex._slot}')">↺ Restore original</button>`;
 h+=`</div>`}
 
@@ -4583,6 +4596,7 @@ h+=`</div>`;el.innerHTML=h}
 // ─── HELPERS ───────────────────────────────────
 // Scrolling belongs to explicit exercise navigation, never ordinary set entry.
 function selectExercise(idx){CIDX=idx;saveAW();render();
+document.getElementById(idx<0?'activation-toggle':'ex-cur')?.focus({preventScroll:true});
 const target=document.getElementById(idx<0?'ex-activation':'ex-cur'),strip=document.querySelector('.work-sticky');
 // Account for the actual sticky strip height, including enlarged text and safe areas.
 if(target){if(strip)target.style.scrollMarginTop=(parseFloat(getComputedStyle(strip).top)+strip.getBoundingClientRect().height+8)+'px';
@@ -4647,7 +4661,10 @@ const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===sco
 for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
-function discardActiveWorkout(){return clearAW(()=>{ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')})}
+function discardActiveWorkout(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
+const draft=activeRecord()||checkResume();
+if(!confirm(`Discard unfinished Day ${draft?.day||'workout'}? Its unsaved sets, ratings and notes will be removed. Saved workout history stays saved.`))return false;
+return clearAW(()=>{ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')})}
 function cancelW(){if(CANCEL_ARMED){discardActiveWorkout()}
 else{CANCEL_ARMED=true;setTimeout(()=>{if(CANCEL_ARMED){CANCEL_ARMED=false;render()}},3000);render()}}
 function editCue(exId){const cur=D.cues[exId]||'';const v=prompt(`Cue for ${ALL_EX.find(e=>e.id===exId)?.nm||exId}:`,cur);
@@ -5874,16 +5891,16 @@ h+=`</div>`}}
 if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
 const RW=rampWindows(Infinity); // hoisted: rampOf runs once per rendered session row
 for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
-h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
+h+=`<div class="cd" style="padding:10px 14px">
+<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
+<span style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
 ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
 ${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}
 ${dupMap.has(s.id)?`<span style="font-size:9px;font-weight:700;color:var(--am);border:1px solid var(--am);border-radius:4px;padding:1px 4px" title="Same exercises, loads and reps as another session on this date">possible duplicate</span>`:''}
-${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</div>
-<span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
+${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</span>
+<span class="dm">${s.duration?s.duration+'m':''}</span></button>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
 <div class="mu" style="font-size:11px">${fmtSets(e)}${e.band&&!Array.isArray(e.bands)?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
@@ -5905,6 +5922,7 @@ h+=`</div>`;el.innerHTML=h}
 // Per-session progression exclusion — for bad data (e.g. a glitch session logged at
 // submaximal loads) that should stay in the rotation/history record but never anchor
 // a weight suggestion. Additive flag: old backups without it import unchanged.
+function toggleHistory(id){EXP=EXP===id?null:id;render();document.getElementById('history-'+id)?.focus()}
 window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)return;
 if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
 // Return-ramp controls. On window because they are reached from inline onclick handlers.
@@ -6103,8 +6121,8 @@ h+=`</div><div class="dm" style="margin-top:8px">${held?'Phase changes are held 
  'Linear: lower-rep main lifts. Hypertrophy: higher-rep emphasis. Choose when recovered and sessions are manageable; a review date does not force a switch. Rep targets change, not the routine list or set counts.'}</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Backup</div>
 <button class="btn btn-wh" style="margin-bottom:6px" onclick="expD()">↓ Export</button>
-<label class="btn btn-wh" style="text-align:center;cursor:pointer;display:block;margin-bottom:6px">↑ Import
-<input type="file" accept=".json" style="display:none" onchange="impD(event)"></label>
+<button type="button" class="btn btn-wh" style="margin-bottom:6px" onclick="document.getElementById('import-backup').click()">↑ Import</button>
+<input id="import-backup" type="file" accept=".json" hidden onchange="impD(event)">
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Cues</div>`;
 const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.find(e=>e.id===k);
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
@@ -6360,12 +6378,12 @@ if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
 migrateData(W);
 delete W.seeded;
 return{W,added,replaced,skipped}}
-function saveImportedActive(){if(!WRITER||!PENDING_ACTIVE)return false;
+function saveImportedActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE)return false;
 try{localStorage.setItem(AW_KEY,JSON.stringify(PENDING_ACTIVE))}
 catch(_){AW_ERROR='The imported unfinished workout is not saved. Retry or download this recovery copy before closing the tab.';updateSaveStatus();return false}
 PENDING_ACTIVE=null;AW_ERROR='';AW_CLEANUP=false;
 ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;updateSaveStatus();runSavedCallback(()=>{clearTimer();render()});return true}
-function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;const r=new FileReader();
+function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;updateSaveStatus();const r=new FileReader();
 r.onload=e=>{try{const source=JSON.parse(e.target.result);const{W,added,replaced,skipped}=mergeImport(D,source);
 let active=null;if(source.activeWorkout!=null&&!W.sessions.some(s=>s.id===source.activeWorkout.id)){active=normalizeActiveRecord({...source.activeWorkout,resetEpoch:W.resetEpoch},W);
 if(!active)throw Error('Invalid active workout');
@@ -6374,9 +6392,9 @@ PENDING_ACTIVE=active;
 const complete=()=>{const activeSaved=active?saveImportedActive():false;
 render();const dup=sessionDuplicateMap(D.sessions).size;
 alert(`Import saved: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed records or fields skipped or repaired`:''}${dup?` · ${dup} possible duplicates flagged in History`:''}${activeSaved?' · unfinished workout available to resume':active?' · unfinished workout NOT saved; keep the recovery file':''}`)};
-if(!save(W,{after:complete}))alert('Import could not be saved. The pending import is available to retry or download; your saved history is unchanged.');
-}catch(e){alert('Invalid file — nothing was changed.')}finally{IMPORT_BUSY=false}};
-r.onerror=()=>{IMPORT_BUSY=false;alert('The file could not be read. Nothing was changed.')};
+if(!save(W,{after:complete,importingActive:!!active}))alert('Import could not be saved. The pending import is available to retry or download; your saved history is unchanged.');
+}catch(e){alert('Invalid file — nothing was changed.')}finally{IMPORT_BUSY=false;updateSaveStatus()}};
+r.onerror=()=>{IMPORT_BUSY=false;updateSaveStatus();alert('The file could not be read. Nothing was changed.')};
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════

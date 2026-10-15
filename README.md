@@ -29,6 +29,17 @@ session identity through interruption and retry. Browser storage remains device-
 coordination does not synchronize different devices. After updating from an older release,
 close and reopen existing app tabs so every tab uses the same storage rules.
 
+If an imported unfinished workout cannot be stored, its recovery warning stays visible and
+replacement actions are blocked. Keep that tab open and choose **Retry save**, **Download
+imported workout**, or **Discard imported workout**. Downloading keeps the pending copy
+available; explicitly discarding it preserves any earlier stored resume workout and saved
+history. Discarding from the Resume card also requires confirmation. Canceling keeps its
+sets, ratings, notes and identity.
+
+Activation, exercise navigation, swaps, History details and Import use keyboard-operable
+buttons. Opening an exercise moves focus into its card; warm-up and History buttons retain
+focus after changing their state.
+
 ## Run locally
 
 Serve the repository root over HTTP; service workers do not run correctly from `file://`.
@@ -205,6 +216,11 @@ Easy return, then **Apply recovery mode**. A confirmation is required. Recovery 
 started again from shorter training; its reference uses recent logged practice rather
 than restoring old heavy loads. Switching between recovery stages keeps their reference
 loads and starts a fresh seven-day review. Selecting the current mode does not restart it.
+
+A new recovery cycle uses counted set bands from recent practice. When those bands are
+mixed, its reference uses the easiest performed setup: more assistance for pull-ups/dips,
+less resistance for resistance-band work. An unused exercise default cannot seed a harder
+recovery setup. Unchecked sets do not supply that reference.
 
 Turning recovery off requires choosing Linear or Hypertrophy and confirming readiness.
 It starts shorter regular training with adjusted loads, including when ending recovery

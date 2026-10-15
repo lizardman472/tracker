@@ -135,4 +135,47 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
         D.sessions.filter(s => s.id === id).length === 1 && !checkResume(), pendingId));
     } finally { await ctx.close(); }
   }
+  // An active-key failure after a successful import must freeze replacement, not
+  // silently lose the imported payload. Earlier persisted work remains until retry.
+  {
+    const ctx=await context();
+    try {
+      const page=await tab(ctx,true);
+      const backup=await page.evaluate(()=>{
+        beginW('A');const id=dayExs(ADAY)[0].id;LOG[id].reps[0]='5';LOG[id].setDone[0]=true;saveAW();
+        const active=JSON.parse(localStorage.getItem(AW_KEY));active.id='pending-import-workout';active.notes='Imported synthetic draft';
+        const value=structuredClone(D);value.activeWorkout=active;go('settings');
+        window.realActiveSetItem=Storage.prototype.setItem;
+        Storage.prototype.setItem=function(k,v){if(k==='rft-active')throw new DOMException('Synthetic quota','QuotaExceededError');return window.realActiveSetItem.call(this,k,v)};
+        return value;
+      });
+      await page.locator('#import-backup').setInputFiles({name:'recovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+      await page.getByRole('button',{name:'Download imported workout',exact:true}).waitFor();
+      const before=await page.evaluate(()=>({pending:JSON.stringify(PENDING_ACTIVE),stored:localStorage.getItem(AW_KEY),saved:localStorage.getItem(SK)}));
+      T('pending import disables competing UI and announces recovery actions',await page.locator('#app').evaluate(el=>el.inert)&&await page.getByRole('button',{name:'Discard imported workout',exact:true}).isVisible());
+      const blocked=await page.evaluate(()=>{
+        Storage.prototype.setItem=window.realActiveSetItem;
+        for(const active of [null,{...PENDING_ACTIVE,id:'competing-import'}]){
+          const value=structuredClone(D);if(active)value.activeWorkout=active;
+          impD({target:{files:[new File([JSON.stringify(value)],'other.json',{type:'application/json'})],value:''}});
+        }
+        beginW('B');resumeW();resetAll();clearAW();saveAW();setLoc('partner');setRecoveryMode('deload');
+        AW_ERROR='';updateSaveStatus();
+        return {pending:JSON.stringify(PENDING_ACTIVE),stored:localStorage.getItem(AW_KEY),saved:localStorage.getItem(SK)};
+      });
+      T('all replacement boundaries retain the pending identity and earlier stored draft',JSON.stringify(before)===JSON.stringify(blocked));
+      T('warning cannot disappear when incidental AW_ERROR clears',await page.getByRole('button',{name:'Retry save',exact:true}).isVisible());
+      const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download imported workout',exact:true}).click();
+      const downloaded=await download,stream=await downloaded.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
+      T('download retains the exact pending imported draft',JSON.stringify(JSON.parse(raw).activeWorkout)===before.pending);
+      page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+      await page.getByRole('button',{name:'Discard imported workout',exact:true}).click();
+      T('cancel pending discard keeps the exact draft',await page.evaluate(v=>JSON.stringify(PENDING_ACTIVE)===v,before.pending));
+      page.on('dialog',d=>d.accept());
+      await page.getByRole('button',{name:'Retry save',exact:true}).click();
+      T('retry stores imported identity once and removes the warning',await page.evaluate(()=>!PENDING_ACTIVE&&checkResume().id==='pending-import-workout')&&!await page.locator('#app').evaluate(el=>el.inert));
+      await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+      T('imported identity and checked work survive reload',await page.evaluate(()=>checkResume().id==='pending-import-workout'&&Object.values(checkResume().log).some(l=>l.setDone[0]&&Number(l.reps[0])===5)));
+    } finally {await ctx.close()}
+  }
 };
