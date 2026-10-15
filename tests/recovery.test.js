@@ -11,7 +11,7 @@ context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
- advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
+ advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -355,5 +355,44 @@ test('recovery warning overrides previously earned weight increases without chan
  const d=recentState();d.sessions=recentRows().slice(0,2);d.sessions.push(...recentRows({finishReason:'fatigue',noProg:true,trainingComplete:false}).slice(-2).map(s=>({...s,id:'tired-'+s.id})));R.setD(d);
  const before=json(R.getD());const sg=R.getSmartSugg(R.dayExs('A')[0]);assert.equal(sg.type,'stay');assert.equal(sg.action,'Hold progression');assert(sg.wt<=60);
  assert.deepEqual(json(R.getD()),before);
+});
+test('extra rest early in recovery cannot shorten its seven-day minimum',()=>{
+ const d=state('deload',R.today());R.setD(d);assert(R.restTrainingPlan());const p=R.getD().trainingPlan;
+ assert.equal(p.restUntil,R.dayAfter(R.today(),2));assert.equal(R.trainingPlanStatus().review,R.dayAfter(R.today(),7));
+ assert.equal(R.trainingPlanStatus(R.dayAfter(R.today(),2)).resting,false);assert.equal(R.trainingPlanStatus(R.dayAfter(R.today(),2)).due,false);
+ const restored=R.mergeImport(R.freshState(),json(R.getD())).W;assert.equal(restored.trainingPlan.restUntil,p.restUntil);
+ const legacy=state('return',R.today());legacy.trainingPlan.reviewAfter=R.dayAfter(R.today(),2);R.setD(legacy);
+ assert.equal(R.trainingPlanStatus(R.dayAfter(R.today(),2)).due,false);assert.equal(R.trainingPlanStatus().review,R.dayAfter(R.today(),7));
+});
+test('stage changes clear rest locks and the start action matches the review state',()=>{
+ R.setD(state('deload',R.dayAfter(R.today(),2)));assert(R.trainingStartButton('A').includes('disabled'));
+ R.setD(state('deload',R.today()));R.restTrainingPlan();assert(R.trainingStartButton('A').includes('Rest until'));
+ const d=state('return');d.trainingPlan.restUntil=R.dayAfter(R.today(),-1);R.setD(d);assert(R.trainingStartButton('A').includes('Review recovery below'));
+ assert(R.advanceTrainingPlan(2));assert.equal(R.getD().trainingPlan.restUntil,undefined);assert(R.trainingStartButton('A').includes('Start Shorter'));
+});
+test('held recovery suggestions retain a lower actual working weight',()=>{
+ for(const stage of ['deload','return']){
+  const d=state(stage);d.sessions=[{id:'lighter',date:R.today(),day:'A',loc:'home',phase:1,trainingPlanStart:d.trainingPlan.start,trainingStage:stage,noProg:true,
+   ex:[{id:'hex_dl',wt:40,reps:[5,5]}]}];R.setD(d);
+  const sg=R.getSmartSugg(R.dayExs('A')[0]);assert(sg.wt<=40);assert.equal(sg.type,'stay');R.ensureLog(R.dayExs('A')[0]);assert(Number(R.getLOG().hex_dl.wt)<=40);
+ }
+});
+test('deload reductions survive the easy-return handoff without changing normal planned caps',()=>{
+ const d=state('return');d.sessions=[{id:'lighter',date:R.dayAfter(R.today(),-2),day:'A',loc:'home',phase:1,trainingPlanStart:d.trainingPlan.start,trainingStage:'deload',noProg:true,ex:[{id:'hex_dl',wt:40,reps:[5,5]}]}];
+ R.setD(d);assert(R.getSmartSugg(R.dayExs('A')[0]).wt<=40);
+ d.sessions[0].ex[0].wt=65.5;R.setD(d);assert(R.getSmartSugg(R.dayExs('A')[0]).wt<=72);assert(R.getSmartSugg(R.dayExs('A')[0]).wt>65.5);
+});
+test('first shorter Hypertrophy uses actual return reps and preserves easier mixed bands',()=>{
+ const d=state('return');d.sessions=[{id:'practice',date:R.dayAfter(R.today(),-2),day:'A',loc:'home',phase:1,trainingPlanStart:d.trainingPlan.start,trainingStage:'return',noProg:true,
+  ex:[{id:'hex_dl',wt:40,reps:[5,5]},{id:'pullup_a',wt:0,band:'Blue (heaviest)',bands:['Blue (heaviest)','Green'],reps:[6,6]}]}];R.setD(d);
+ assert(R.advanceTrainingPlan(2));const ex=R.dayExs('A')[0],sg=R.getSmartSugg(ex);assert.equal(ex.tg,8);assert(sg.wt<40);assert.equal(sg.type,'stay');
+ const pull=R.dayExs('A').find(e=>e.id==='pullup_a');assert.deepEqual(json(R.getSmartSugg(pull).bands),['Blue (heaviest)','Green']);
+ const restored=R.mergeImport(R.freshState(),json(R.getD())).W;R.setD(restored);assert(R.getSmartSugg(R.dayExs('A')[0]).wt<40);
+ assert.deepEqual(json(R.getSmartSugg(R.dayExs('A').find(e=>e.id==='pullup_a')).bands),['Blue (heaviest)','Green']);
+});
+test('a fatigue hold caps suggestions at lower actual practice, not an older success',()=>{
+ const d=recentState();d.sessions=recentRows().slice(0,2);d.sessions.push({...recentRows().at(-1),id:'reduced-fatigue',finishReason:'fatigue',trainingComplete:false,noProg:true,
+  ex:[{id:'hex_dl',wt:40,reps:[5],form:[4],rir:1}]});R.setD(d);
+ const sg=R.getSmartSugg(R.dayExs('A')[0]);assert.equal(sg.action,'Hold progression');assert(sg.wt<=40);
 });
 console.log(`\n${passed} recovery tests passed`);

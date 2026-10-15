@@ -1729,6 +1729,7 @@ function validTrainingPlan(v){
  const out={stage:v.stage,start:v.start,stageStart:v.stageStart,loads:{},bands:{}};
  if(v.stageStart<v.start)return null;
  if(validISODate(v.reviewAfter)&&v.reviewAfter>=v.stageStart)out.reviewAfter=v.reviewAfter;
+ if(validISODate(v.restUntil)&&v.restUntil>=v.stageStart)out.restUntil=v.restUntil;
  const ids=planExerciseIds();
  if(!['deload','return'].includes(v.stage)&&[1,2].includes(v.phase)){
   out.phase=v.phase;if(validISODate(v.phaseStart)&&v.phaseStart>=v.start)out.phaseStart=v.phaseStart;
@@ -1750,9 +1751,9 @@ function validTrainingPlan(v){
 }
 function trainingPlanStatus(now=today()){
  const p=D.trainingPlan;if(!p)return null;
- const end=dayAfter(p.stageStart,6),review=p.reviewAfter||dayAfter(end);
+ const end=dayAfter(p.stageStart,6),restUntil=p.restUntil||p.reviewAfter,review=[dayAfter(end),p.reviewAfter||'',restUntil||''].sort().at(-1);
  const completed=originalReturn(p)?originalCompletedDays(p,now):[];
- return{...p,end,review,completed,pending:now<p.stageStart,resting:!!p.reviewAfter&&now<p.reviewAfter,
+ return{...p,end,review,restUntil,completed,pending:now<p.stageStart,resting:!!restUntil&&now<restUntil,
   due:p.stage!=='progress'&&now>=review&&(!originalReturn(p)||completed.length===3),
   day:Math.max(1,dayDiff(now,p.stageStart)+1),label:p.stage==='deload'?'Deload week':p.stage==='return'?'Easy return week':p.stage==='progress'?'Shorter A/B/C':
    `Original A/B/C · step ${ORIGINAL_STAGES.indexOf(p.stage)+1}/3`};
@@ -1801,13 +1802,19 @@ function phaseLoadTargets(p,phase,recent=false){
  }
  return out;
 }
+function latestPlanPractice(ex,stages,since=D.trainingPlan.stageStart){
+ const p=D.trainingPlan;
+ return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.trainingPlanStart===p.start&&stages.includes(s.trainingStage)&&s.date>=since&&s.date<=today())
+  .sort((a,b)=>a.date.localeCompare(b.date)).flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0)).map(e=>({...e,date:s.date}))).at(-1)||null;
+}
 function selectPlanPhase(W,phase,{recent=false}={}){
  const p=W.trainingPlan,targets=phaseLoadTargets(p,phase),progress=recent?phaseLoadTargets(p,phase,true):{};
  p.phaseLoads=targets;p.progressLoads=progress;
  if(!recent)for(const[id,target]of Object.entries(p.phaseLoads)){
-  const e=D.sessions.filter(s=>(s.loc||'home')==='home'&&s.date<=today()&&s.trainingPlanStart===p.start&&s.trainingStage==='return')
-   .flatMap(s=>s.ex.filter(e=>e.id===id&&e.reps.some(r=>r>0))).at(-1);
-  p.progressLoads[id]=e?Math.min(target,sessLoad(e,e.reps.filter(r=>r>0).length)):target*.90;
+  const def=shortPhaseExercise(ALL_EX.find(ex=>ex.id===id),phase),e=latestPlanPractice(def,['deload','return'],p.start);
+  const reps=e?effectiveReps(def,e.reps):[],load=e?sessLoad(e,e.reps.filter(r=>r>0).length):0;
+  const adjusted=load&&reps.length&&!def.manualLoad&&!def.qualityLoad?load*(1+Math.min(...reps,def.tg)/30)/(1+def.tg/30):load;
+  p.progressLoads[id]=e?Math.min(target,adjusted):target*.90;
  }
  p.phase=phase;p.phaseStart=today();W.phase=phase;W.phaseStart=today();
 }
@@ -1844,7 +1851,7 @@ function setRecoveryMode(mode,phase){
   if(![1,2].includes(phase)){alert('Choose Linear or Hypertrophy for regular training first.');return false}
   const early=!trainingPlanStatus().due;
   if(!confirm(`Turn recovery off${early?' before its review is complete':''} and start shorter A/B/C in ${PHASES[phase].name}? Confirm only if sessions feel manageable and recovery between them feels normal. Five exercises and 11 sets; starting weights stay conservative and future increases must be earned. This does not restore the longer routine or old weights. History stays saved.`))return false;
-  selectPlanPhase(W,phase);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;
+  selectPlanPhase(W,phase);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;
  }else{
   if(!confirm(`Turn on ${mode==='deload'?'deload: six working sets, about 82% of reference loads and 4–5 clean reps left':'easy return: ten working sets, about 90% of reference loads and three clean reps left'}? Loads and progression are held. The seven-day review starts today; nothing advances automatically. ${isRecovery?'Keep the current recovery reference loads.':'Use your logged practice as the starting reference.'} History and your next A/B/C day stay saved.`))return false;
   W.trainingPlan=isRecovery?{stage:mode,start:p.start,stageStart:today(),loads:structuredClone(p.loads),bands:structuredClone(p.bands)}:recoveryPlanFromHistory(today(),mode);
@@ -1893,12 +1900,12 @@ function advanceTrainingPlan(phase){
    }
   }
   W.trainingPlan.stage=st.stage==='original1'?'original2':st.stage==='original2'?'original3':st.stage==='deload'?'return':'progress';
-  W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;}
+  W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;}
  return save(W,{after:renderTrainingPlanChange});
 }
 function restTrainingPlan(){
- if(!changeTrainingPlanAllowed()||!D.trainingPlan)return false;
- const W=structuredClone(D);W.trainingPlan.reviewAfter=dayAfter(today(),2);
+ if(!changeTrainingPlanAllowed()||!D.trainingPlan||D.trainingPlan.stage==='progress')return false;
+ const W=structuredClone(D);W.trainingPlan.restUntil=dayAfter(today(),2);W.trainingPlan.reviewAfter=[trainingPlanStatus().review,W.trainingPlan.restUntil].sort().at(-1);
  return save(W,{after:renderTrainingPlanChange});
 }
 function stopTrainingPlan(phase=D.trainingPlan?.phase||D.phase){
@@ -1929,12 +1936,12 @@ function stopTrainingPlan(phase=D.trainingPlan?.phase||D.phase){
   const current=pattern.length?(assist?Math.min(...pattern.map(BAND_IDX)):Math.max(...pattern.map(BAND_IDX))):easy;
   p.returnBands[id]=BANDS[assist?Math.min(easy,current):Math.max(easy,current)];
  }
- p.stage='original1';p.stageStart=today();delete p.reviewAfter;
+ p.stage='original1';p.stageStart=today();delete p.reviewAfter;delete p.restUntil;
  return save(W,{after:renderTrainingPlanChange});
 }
 function keepShorterRoutine(){
  if(!changeTrainingPlanAllowed()||!originalReturn()||!confirm('Keep shorter A/B/C as your default? Return to five exercises and 11 working sets per day. Saved workouts stay in History.'))return false;
- const W=structuredClone(D);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();W.trainingPlan.phaseStart=today();W.phase=planPhase(W.trainingPlan);W.phaseStart=today();delete W.trainingPlan.reviewAfter;
+ const W=structuredClone(D);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();W.trainingPlan.phaseStart=today();W.phase=planPhase(W.trainingPlan);W.phaseStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;
  return save(W,{after:renderTrainingPlanChange});
 }
 function phaseChoiceH(id,label,selected=''){
@@ -1952,18 +1959,25 @@ function trainingPhaseContext(now=today()){
   original1:'Reintroduce the longer list with two sets and lighter loads.',original2:'Restore Essentials sets while increasing load gradually.',original3:'Practise the chosen phase before restarting its regular progression from actual logged loads.'};
  const when=st.stage==='progress'?st.phase?`Review from ${fmtD(dayAfter(st.phaseStart||st.stageStart,28))}, after about four weeks of manageable training. Stay if progressing; change emphasis by choice, never automatically.`:
   'Choose Linear or Hypertrophy when recovered. Your current mixed rep ranges stay in place until you confirm a phase.':
-  st.pending?'Start on '+fmtD(st.stageStart)+'. No phase change before recovery is complete.':st.resting?'Rest until '+fmtD(st.review)+', then reassess.':
+  st.pending?'Start on '+fmtD(st.stageStart)+'. No phase change before recovery is complete.':st.resting?'Rest until '+fmtD(st.restUntil||st.review)+', then reassess.':
   `Review from ${fmtD(st.review)}${originalReturn(st)?`; manageable A/B/C completed: ${st.completed.length}/3` :''}. Move on only when sessions and recovery feel manageable; confirm yourself.`;
  return{label:labels[st.stage],next:next[st.stage],when,why:why[st.stage],clock:st.phaseStart||st.stageStart};
 }
 function activePhaseLabel(){return D.location==='partner'?`Partner · Phase ${D.phase} · ${PHASES[D.phase].name}`:trainingPhaseContext().label}
+function trainingStartButton(day,compact=false){
+ const st=trainingPlanStatus(),cls=compact?'btn btn-wh btn-md':'start-primary';
+ if(st.pending)return `<button class="${cls}" disabled>Starts ${fmtD(st.stageStart)}</button>`;
+ if(st.resting)return `<button class="${cls}" disabled>Rest until ${fmtD(st.restUntil||st.review)}</button>`;
+ if(st.due)return `<button class="${cls}" onclick="document.getElementById('training-plan').scrollIntoView({block:'start',behavior:'smooth'})">Review recovery below</button>`;
+ return `<button class="${cls}" onclick="beginW('${day}',true)">Start ${st.label} · Day ${day}</button>`;
+}
 function trainingPlanCard(view='home'){
  const st=trainingPlanStatus(),orig=originalReturn(st),ctx=trainingPhaseContext(),check=shortDeloadStatus();
  const cue=(D.location==='partner'?'Home routine · ':'')+(!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':''));
  const effort=st?.stage==='deload'?'4–5':st?.stage==='progress'||st?.stage==='original3'?'2–3':'3';
  const instruction=!st?'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · held reference'} loads · ${effort} clean reps left`;
- let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
+ let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.restUntil||st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
  h+=`<div class="routine-state"><span>Recovery: ${st&&['deload','return'].includes(st.stage)?st.pending?'Scheduled':'On':'Off'}</span><span>Load: ${trainingLoadContext(st)}</span></div>`;
  h+=`<div class="routine-meta"><b>Current phase:</b> ${ctx.label}${D.location==='partner'?`<br>Active Partner phase: ${PHASES[D.phase].name}`:''}</div>`;
  h+=shortDeloadGuidanceH(check,view);
@@ -1984,7 +1998,8 @@ function trainingPlanCard(view='home'){
  else{
   h+='<p><b>When to move on:</b> only if sessions feel manageable and recovery between them feels normal. The date does not automatically increase training. Stop a set if control breaks down or discomfort rises; save only what you performed.</p>';
   if(!orig)h+='<p>Deload: seven planned days, at most three sessions, six working sets and 4–5 clean reps left. Easy return: another seven days, two sets for each of five exercises, around 90% of earlier loads and three clean reps left. Missing a recovery session does not require catch-up.</p>';
-  h+='<p><b>Return to original routine:</b> use this after the easy return week only if you want the longer list. Choose Linear or Hypertrophy first. Earlier loads are adjusted for its rep targets; higher reps can need lighter starting weights. These are starting estimates, not a strength test.</p><p>Step 1: up to 90% of phase-adjusted reference loads, capped by your latest logged load, two sets per exercise. Step 2: original Essentials sets, up to 95%. Step 3: held practice toward the phase-adjusted references. Each later step adds at most 5% of the phase-adjusted reference to your latest logged load, rounded down to available plates. A lower load stays a lower starting point.</p><p>Each step lasts at least seven days and needs completed A/B/C sessions on separate days, without fatigue/discomfort endings or an effort rating of 4–5, plus your readiness confirmation. Reduce a suggested load whenever needed. Finish step 3 to resume the chosen phase from your logged practice loads, even if they are still below the old ones.</p>';
+  h+='<details><summary>Optional longer routine: return details</summary><p><b>Return to original routine:</b> use this after the easy return week only if you want the longer list. Choose Linear or Hypertrophy first. Earlier loads are adjusted for its rep targets; higher reps can need lighter starting weights. These are starting estimates, not a strength test.</p><p>Step 1: up to 90% of phase-adjusted reference loads, capped by your latest logged load, two sets per exercise. Step 2: original Essentials sets, up to 95%. Step 3: held practice toward the phase-adjusted references. Each later step adds at most 5% of the phase-adjusted reference to your latest logged load, rounded down to available plates. A lower load stays a lower starting point.</p><p>Each step lasts at least seven days and needs completed A/B/C sessions on separate days, without fatigue/discomfort endings or an effort rating of 4–5, plus your readiness confirmation. Reduce a suggested load whenever needed. Finish step 3 to resume the chosen phase from your logged practice loads, even if they are still below the old ones.</p>';
+  h+='</details>';
   if(orig)h+='<div class="routine-actions"><button class="btn btn-wh" onclick="keepShorterRoutine()">Keep shorter routine (default)</button></div>';
   else if(st.stage==='progress'||st.stage==='return'&&st.due)h+=phaseChoiceH('original-phase','Phase for return to original routine')+'<div class="routine-actions"><button class="btn btn-wh" onclick="stopTrainingPlan(Number(document.getElementById(\'original-phase\').value))">Return to original routine</button></div>';
   else h+='<p>Finish the deload and easy return week before choosing the optional original routine.</p>';
@@ -2024,6 +2039,7 @@ function shortSuggestion(ex){
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0))).at(-1);
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.date<=today()&&d.level==='moderate');
  const check=early?null:shortDeloadStatus(),hold=!!(check?.due||check?.hold||disc);
+ const actual=latestPlanPractice(ex,[p.stage]),recovery=latestPlanPractice(ex,['deload','return'],p.start);
  const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
  let detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':hold?'Hold progression; take an easier session or rest and reassess. '+(check?.reason||'Adjust for recent discomfort.'):'Keep the load; try one extra total rep within '+ex.rp+' only when control and 2–3 clean reps remain. Rate form and reps left.'}`;
  const confirmed=last&&rated(last)&&(ex.tp==='band'?bandPattern(last).every(b=>BANDS.includes(b)):last.reps.every((r,i)=>!(r>0)||wEq(setWt(last,i),sessLoad(last,ex.s))));
@@ -2031,7 +2047,12 @@ function shortSuggestion(ex){
  if(ex.tp==='band'){
   let b=last?.band||(!early?prior?.band:null)||practice?.band||p.bands[ex.id]||'';
   if(early&&p.stage==='deload'&&b){const i=BAND_IDX(b);b=BANDS[Math.max(0,Math.min(BANDS.length-1,i+(ex.bandMode==='assist'?-1:1)))]}
-  const pattern=last?bandPattern(last):!early&&prior?bandPattern(prior).slice(0,ex.s):Array(ex.s).fill(b),mixed=new Set(pattern).size>1;
+  let pattern=last?bandPattern(last):!early&&prior?bandPattern(prior).slice(0,ex.s):Array(ex.s).fill(b);
+  const preserve=early||hold?actual||recovery:!last?recovery:null;
+  if(preserve){const logged=bandPattern(preserve);pattern=Array.from({length:ex.s},(_,i)=>{
+   const a=pattern[i]||b,c=logged[i]||logged.at(-1);if(!BANDS.includes(c))return a;if(!BANDS.includes(a))return c;
+   return BANDS[ex.bandMode==='assist'?Math.min(BAND_IDX(a),BAND_IDX(c)):Math.max(BAND_IDX(a),BAND_IDX(c))];});b=pattern[0]||b}
+  const mixed=new Set(pattern).size>1;
   const match=hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
    JSON.stringify(bandPattern(hist[0]))===JSON.stringify(pattern)&&pattern.every(x=>BANDS.includes(x))&&!disc;
   if(!early&&!hold&&match&&b){
@@ -2044,11 +2065,13 @@ function shortSuggestion(ex){
   const action=early?'Hold recovery load':hold?'Hold progression':confirmed?'Repeat target (1/2)':'Add reps when ready';
   if(!early&&!hold&&confirmed)detail='One confirmation. Repeat the shown band setup at every target with Solid/Strict form and at least two reps left in a complete workout on another date.';
   return{text:mixed?'Repeat the mixed-band setup':b?`Stay on ${b}`:'Choose an easy band',action,type:'stay',wt:null,band:b,
-   ...(!early&&mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
+   ...(mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
  }
  const vw=vwOf(ex),snapDown=t=>vw.filter(w=>w<=t).at(-1)||vw[0];
- const anchor=last?sessLoad(last,ex.s):!early&&p.progressLoads?.[ex.id]?snapDown(Math.min(p.progressLoads[ex.id],practice?sessLoad(practice,practice.reps.filter(r=>r>0).length):Infinity)):
+ let anchor=last?sessLoad(last,ex.s):!early&&p.progressLoads?.[ex.id]?snapDown(Math.min(p.progressLoads[ex.id],practice?sessLoad(practice,practice.reps.filter(r=>r>0).length):Infinity)):
   practice?snapDown(Math.min(sessLoad(practice,practice.reps.filter(r=>r>0).length),seed?seed*.90:Infinity)):seed? snapDown(seed*(p.stage==='deload'?.82:.90)):barOf(ex);
+ if((early||hold)&&actual){const load=sessLoad(actual,actual.reps.filter(r=>r>0).length);if(load>0)anchor=snapDown(Math.min(anchor,load))}
+ else if(p.stage==='return'&&recovery){const load=sessLoad(recovery,recovery.reps.filter(r=>r>0).length);if(load>0&&load<snapDown((seed||0)*.82))anchor=snapDown(Math.min(anchor,load))}
  const match=!early&&!hold&&hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
   hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
  const wt=match?nxUp(anchor,vw):anchor,increase=match&&wt>anchor;
@@ -3980,7 +4003,7 @@ if(restDay){
   ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} ${shortHomePlan()?trainingPlanStatus().label:'Essentials'} anyway</button>
+    ${shortHomePlan()?trainingStartButton(nd,true):`<button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} Essentials anyway</button>`}
   </div>
   ${shortHomePlan()?'':`<button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>`}
   ${trainingPlanCard()}
@@ -3990,7 +4013,7 @@ if(restDay){
   // session remains one tap away. At home the audited primary/control filter applies; at the
   // partner venue the seven-movement shared full-body base remains and rotating additions drop.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const startBtns=shortHomePlan()?`<button class="start-primary" onclick="beginW('${nd}',true)">Start ${trainingPlanStatus().label} · Day ${nd}</button>`:xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  const startBtns=shortHomePlan()?trainingStartButton(nd):xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
   <div class="dm" style="margin-top:6px;text-align:center">Essentials is the complete session: main lifts, targeted stability work, and selected accessories. Full optionally adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
   :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
@@ -4202,7 +4225,7 @@ SWAP_OPEN=null;saveAW();render()}
 
 function beginW(day,xp){
 const tp=shortHomePlan()?trainingPlanStatus():null;
-if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
+if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.restUntil||tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
 if(tp){const rows=D.sessions.filter(s=>s.trainingPlanStart===tp.start&&s.trainingStage===tp.stage&&s.date>=tp.stageStart&&(s.loc||'home')==='home');
  const last=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home').at(-1);
  if(last&&dayDiff(today(),last.date)<2){alert('Take a rest day between these home sessions. Next suggested training day: '+fmtD(dayAfter(last.date,2))+'.');return}
