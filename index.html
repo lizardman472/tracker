@@ -6122,7 +6122,7 @@ h+=`</div><div class="dm" style="margin-top:8px">${held?'Phase changes are held 
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Backup</div>
 <button class="btn btn-wh" style="margin-bottom:6px" onclick="expD()">↓ Export</button>
 <button type="button" class="btn btn-wh" style="margin-bottom:6px" onclick="document.getElementById('import-backup').click()">↑ Import</button>
-<input id="import-backup" type="file" accept=".json" hidden onchange="impD(event)">
+<input id="import-backup" type="file" accept=".json" aria-label="Import workout backup file" hidden onchange="impD(event)">
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Cues</div>`;
 const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.find(e=>e.id===k);
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
