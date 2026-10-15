@@ -9,6 +9,7 @@ module.exports=async function({browser,origin,T,baseStore}){
    const style=el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','visibility','opacity','color','backgroundColor','position','top','zIndex','transform','overflow','filter','backdropFilter','clipPath'].map(k=>[k,s[k]]))};
    const nav=document.getElementById('nav'),header=document.querySelector('.hdr');
    return{view:VIEW,lastView:LAST_VIEW,stage:D.trainingPlan?.stage,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},
+    overflow:{html:{x:getComputedStyle(document.documentElement).overflowX,y:getComputedStyle(document.documentElement).overflowY},body:{x:getComputedStyle(document.body).overflowX,y:getComputedStyle(document.body).overflowY}},
     header:{rect:rect(header),style:style(header)},nav:{html:nav.innerHTML,rect:rect(nav),style:style(nav)},
     buttons:[...nav.querySelectorAll('button')].map(el=>{const r=rect(el),x=r.left+r.width/2,y=r.top+r.height/2,hit=document.elementFromPoint(x,y);
      let visible=true;for(let n=el;n;n=n.parentElement){const s=getComputedStyle(n);if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)<0.99)visible=false}
@@ -269,6 +270,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   await navState(page,'immediately after actual Return to original routine action');
   await screenshot(page,'original-return-after-action-scrolled-phone',{target:'#training-plan .routine-title',top:false});
   await assertNav(page,'settled after original-return action without resetting scroll');
+  T('new routine status is not obscured by the sticky main navigation',await page.locator('#training-plan .routine-title').evaluate(e=>
+   e.getBoundingClientRect().top>=document.getElementById('nav').getBoundingClientRect().bottom));
   T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
    D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===1&&D.trainingPlan.phase===1&&D.nextDay===b.nextDay&&
    ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));

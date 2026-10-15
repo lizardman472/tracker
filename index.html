@@ -81,7 +81,9 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* Atmospheric backdrop: clean blue and violet glows. */
-body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
+/* Clip horizontal spill without making body a scroll container that traps sticky
+   headers while the document viewport scrolls. */
+body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;overflow-x:clip;
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,var(--glow2),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
 /* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
