@@ -1792,7 +1792,9 @@ function changeTrainingPlanAllowed(){
  return true;
 }
 function renderTrainingPlanChange(){
- render();document.getElementById('training-plan')?.querySelector('.routine-title')?.scrollIntoView({block:'nearest',behavior:'auto'});
+ render();const title=document.getElementById('training-plan')?.querySelector('.routine-title');if(!title)return;
+ const edge=Math.max(0,document.getElementById('nav')?.getBoundingClientRect().bottom||0,document.querySelector('.hdr')?.getBoundingClientRect().bottom||0);
+ title.style.scrollMarginTop=(edge+8)+'px';title.scrollIntoView({block:'nearest',behavior:'auto'});
 }
 function phaseLoadTargets(p,phase,recent=false){
  const defs=recent?Object.values(SHORT_ABC).flat().map(([id,s,rp,tg])=>shortPhaseExercise({...ALL_EX.find(e=>e.id===id),s,rp,tg},phase)):

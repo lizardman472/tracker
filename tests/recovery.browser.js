@@ -7,10 +7,10 @@ module.exports=async function({browser,origin,T,baseStore}){
   const state=await page.evaluate(()=>{
    const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,bottom:r.bottom,left:r.left,right:r.right}};
    const style=el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','visibility','opacity','color','backgroundColor','position','top','zIndex','transform','overflow','filter','backdropFilter','clipPath'].map(k=>[k,s[k]]))};
-   const nav=document.getElementById('nav'),header=document.querySelector('.hdr');
+   const nav=document.getElementById('nav'),header=document.querySelector('.hdr'),status=document.querySelector('#training-plan .routine-title');
    return{view:VIEW,lastView:LAST_VIEW,stage:D.trainingPlan?.stage,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},
     overflow:{html:{x:getComputedStyle(document.documentElement).overflowX,y:getComputedStyle(document.documentElement).overflowY},body:{x:getComputedStyle(document.body).overflowX,y:getComputedStyle(document.body).overflowY}},
-    header:{rect:rect(header),style:style(header)},nav:{html:nav.innerHTML,rect:rect(nav),style:style(nav)},
+    header:{rect:rect(header),style:style(header)},nav:{html:nav.innerHTML,rect:rect(nav),style:style(nav)},status:status?{text:status.textContent.trim(),rect:rect(status)}:null,
     buttons:[...nav.querySelectorAll('button')].map(el=>{const r=rect(el),x=r.left+r.width/2,y=r.top+r.height/2,hit=document.elementFromPoint(x,y);
      let visible=true;for(let n=el;n;n=n.parentElement){const s=getComputedStyle(n);if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)<0.99)visible=false}
      return{text:el.textContent.trim(),ariaLabel:el.getAttribute('aria-label'),rect:r,style:style(el),visible,
