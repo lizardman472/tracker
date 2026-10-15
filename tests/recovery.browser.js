@@ -48,9 +48,9 @@ module.exports=async function({browser,origin,T,baseStore}){
  // inspection asserts outcomes; it never supplies the performed sets or summary.
  for(const theme of ['light','dark']){
   const store=baseStore();store.theme=theme;store.nextDay='A';
-  store.trainingPlan={stage:'deload',start:ago(0),stageStart:ago(0),loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
+  store.trainingPlan={stage:'return',start:ago(0),stageStart:ago(0),loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
   const {ctx,page,errors}=await open(store);
-  await keyActivate(page,page.getByRole('button',{name:'Start Deload week · Day A',exact:true}));
+  await keyActivate(page,page.getByRole('button',{name:'Start Easy return week · Day A',exact:true}));
   await tabActivate(page,page.locator('#activation-toggle'));
   T('activation opens by keyboard with announced state '+theme,await page.locator('#activation-toggle').getAttribute('aria-expanded')==='true');
   for(const name of ['Joint Circles','Isometric Hold']){
