@@ -10,7 +10,7 @@ const context={console,Date,Math,structuredClone,Blob,confirm:()=>true,alert:x=>
 context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
- trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,dayAfter,today,dayExs,startTrainingPlan,
+ trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
  advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,AW_KEY,
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
@@ -282,5 +282,68 @@ test('unfinished and fatigue-ended sessions cannot confirm a load increase',()=>
  for(const over of [{trainingComplete:false},{finishReason:'fatigue'},{finishReason:'discomfort'}]){
   const d=state('progress');d.sessions=progressRows().map(s=>({...s,...over}));R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).type,'stay');
  }
+});
+function recentState(){const d=state('progress',R.dayAfter(R.today(),-42));d.phase=2;d.trainingPlan.phase=2;return d}
+function recentRows(over={}){return [6,3,0].map((days,i)=>({id:'recent-'+i,date:R.dayAfter(R.today(),-days),day:'A',loc:'home',phase:2,
+ trainingPlanStart:R.dayAfter(R.today(),-42),trainingStage:'progress',trainingComplete:true,finishReason:'complete',difficulty:2,
+ ex:[{id:'hex_dl',wt:60,reps:[8,8],form:[5,5],rir:2}],...over}));}
+test('shorter regular training gets a check while held recovery stages remain muted',()=>{
+ R.setD(recentState());assert(R.getDeload());assert.equal(R.getDeload().due,false);
+ for(const stage of ['deload','return','original1','original2','original3']){R.setD(state(stage));assert.equal(R.getDeload(),null)}
+});
+test('two fatigue endings trigger a current shorter-routine reminder without a timer',()=>{
+ const d=recentState();d.sessions=recentRows({trainingComplete:false,finishReason:'fatigue',noProg:true}).slice(-2);R.setD(d);
+ const check=R.getDeload();assert(check.due);assert.equal(check.fatigueN,2);assert(check.reason.includes('Too tired'));
+ assert.equal(R.getD().trainingPlan.stage,'progress');assert(R.trainingPlanCard().includes('Consider a deload'));
+ assert(R.trainingPlanCard().includes('Start deload today'));assert(!R.trainingPlanCard('workout').includes('Start deload today'));
+ assert.equal(R.trainingLoadContext(),'Held · recovery check');
+});
+test('one hard workout holds progression without recommending a whole deload',()=>{
+ for(const over of [{difficulty:4},{finishReason:'fatigue',noProg:true},{finishReason:'discomfort',noProg:true}]){
+  const d=recentState();d.sessions=recentRows(over).slice(-1);R.setD(d);assert.equal(R.getDeload().due,false);assert(R.getDeload().hold);
+  assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Hold progression');
+ }
+});
+test('repeated high effort needs two ratings on separate dates and expires with recent recovery',()=>{
+ const d=recentState();d.sessions=recentRows({difficulty:4}).slice(-2);R.setD(d);assert(R.getDeload().due);
+ d.sessions[0].date=d.sessions[1].date;R.setD(d);assert.equal(R.getDeload().due,false);
+ d.sessions=recentRows({difficulty:4}).map(s=>({...s,date:R.dayAfter(s.date,-15)}));R.setD(d);assert.equal(R.getDeload().due,false);assert.equal(R.getDeload().ratedN,0);
+ d.sessions=recentRows({difficulty:null});R.setD(d);assert.equal(R.getDeload().due,false);assert.equal(R.getDeload().ratedN,0);
+ assert(!R.trainingPlanCard().includes('no repeated signal'));assert(R.trainingPlanCard().includes('Recovery check-in'));
+});
+test('other venues, recovery, future, ignored, old-cycle and empty rows cannot generate a deload',()=>{
+ for(const over of [{loc:'partner'},{trainingStage:'return'},{date:R.dayAfter(R.today(),1)},{trainingPlanStart:'1999-01-01'},{noProg:true},{ex:[{id:'hex_dl',wt:60,reps:[0,0]}]}]){
+  const d=recentState();d.sessions=recentRows({difficulty:5,...over});R.setD(d);assert.equal(R.getDeload().due,false,JSON.stringify(over));
+ }
+});
+test('a phase change does not erase fatigue but a new recovery cycle clears the old reminder',()=>{
+ const d=recentState();d.trainingPlan.stageStart=R.today();d.sessions=recentRows({phase:1,trainingComplete:false,finishReason:'fatigue',noProg:true}).slice(-2);R.setD(d);
+ assert(R.getDeload().due);assert(R.setRecoveryMode('deload'));assert.equal(R.getDeload(),null);
+ assert(R.setRecoveryMode('off',2));assert.equal(R.getDeload().due,false);assert.equal(R.getDeload().fatigueN,0);
+});
+function stalledRows(){return recentRows().map(s=>({...s,ex:[{id:'hex_dl',wt:60,reps:[6,6],form:[5,5],rir:2},{id:'floor_press',wt:40,reps:[8,8,8],form:[5,5,5],rir:2}]}))}
+test('three comparable below-range exposures on two main lifts prompt a deload review',()=>{
+ const d=recentState();d.sessions=stalledRows();R.setD(d);assert(R.getDeload().due);assert.equal(R.getDeload().stalledMajor,2);
+});
+test('missing sets, changing loads/phases and one struggling lift cannot create a two-lift signal',()=>{
+ for(const change of [rows=>{rows[0].ex[0].reps=[6,0]},rows=>{rows[0].ex[0].wt=59},rows=>{rows[0].phase=1},rows=>{rows[0].trainingComplete=false},rows=>{rows[0].ex[0].wts=[59,60]},rows=>{rows.forEach(s=>s.ex=s.ex.slice(0,1))}]){
+  const d=recentState();d.sessions=stalledRows();change(d.sessions);R.setD(d);assert.equal(R.getDeload().due,false);assert(R.getDeload().stalledMajor<2);
+ }
+});
+test('calendar alone gives an optional check-in and never starts a deload',()=>{
+ const d=recentState();d.sessions=recentRows();R.setD(d);assert.equal(R.getDeload().due,false);assert(R.getDeload().consider);
+ assert(R.trainingPlanCard().includes('not a required deload'));assert.equal(R.getD().trainingPlan.stage,'progress');
+});
+test('next lift action distinguishes reps, first confirmation, increased load and missing ratings',()=>{
+ const d=recentState();R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Add reps when ready');
+ d.sessions=recentRows().slice(-1);R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Repeat target (1/2)');
+ d.sessions=recentRows().slice(-2);R.setD(d);let sg=R.shortSuggestion(R.dayExs('A')[0]);assert.equal(sg.action,'Increase weight');assert(sg.wt>60);assert(sg.detail.includes('build within'));
+ d.sessions.push({...recentRows().at(-1),id:'higher',date:R.today(),ex:[{id:'hex_dl',wt:sg.wt,reps:[6,6],form:[5,5],rir:2}]});R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Add reps when ready');
+ d.sessions=recentRows().slice(-1);d.sessions[0].ex[0].rir=null;R.setD(d);assert.equal(R.shortSuggestion(R.dayExs('A')[0]).action,'Hold weight · check ratings');
+});
+test('recovery warning overrides previously earned weight increases without changing saved history',()=>{
+ const d=recentState();d.sessions=recentRows().slice(0,2);d.sessions.push(...recentRows({finishReason:'fatigue',noProg:true,trainingComplete:false}).slice(-2).map(s=>({...s,id:'tired-'+s.id})));R.setD(d);
+ const before=json(R.getD());const sg=R.getSmartSugg(R.dayExs('A')[0]);assert.equal(sg.type,'stay');assert.equal(sg.action,'Hold progression');assert(sg.wt<=60);
+ assert.deepEqual(json(R.getD()),before);
 });
 console.log(`\n${passed} recovery tests passed`);

@@ -159,6 +159,39 @@ training; staying in the phase is allowed. The original routine retains its eigh
 Future-dated sessions do not count toward that signal. Neither timer switches phase.
 These dates and estimates are practical app policies, not validated readiness thresholds.
 
+### Shorter-routine progression and deload prompts
+
+Each lift's Today preview and workout suggestion shows its next action: **Add reps when
+ready**, **Repeat target (1/2)**, **Increase weight**, or **Hold progression**. Keep the
+same load and try one extra total rep within the range when control and 2–3 clean reps
+remain. An increase still needs two comparable, complete sessions on different dates,
+all targets met, Solid/Strict form and at least two recorded reps left. Missing ratings
+and mixed per-set loads cannot masquerade as confirmations. Bands advance one set at a
+time; bodyweight work keeps its control-first guidance. Equipment ceilings hold weight.
+
+Regular shorter A/B/C now gets a compact deload check inside the existing routine panel.
+It uses the last three distinct training dates within the past 14 calendar days. Two
+Too tired endings, or at least two effort ratings averaging 4/5 or higher, prompt
+**Consider a deload** without waiting for a phase timer. An alternative signal is three
+comparable below-range workouts at the same load on each of two main lifts, within
+28 days with the latest within 14 days. These comparisons require complete workouts,
+the current phase and prescription, and uniform per-set loads. A single most-recent
+fatigue/discomfort ending or high-effort session prompts a temporary hold and reassessment.
+
+Recovery workouts, future dates, other venues, previous plan cycles, weight-only rows,
+and deliberately ignored sessions cannot manufacture a new signal. Fatigue/discomfort
+endings remain eligible for the recovery check even though they are correctly excluded
+from weight progression. Phase changes do not erase recent fatigue reports. Old ratings
+are not reused when recent data is missing. With missing ratings the UI asks for them;
+it does not claim the lifter is recovered. Four weeks is an optional recovery check-in,
+separate from the phase review, and never a forced deload or automatic phase switch.
+
+A recovery warning holds suggested weight/band increases and offers **Start deload
+today** outside an active workout. Confirmation starts the actual seven-day recovery
+plan; it does not simply mark a deload as already taken. Active workouts show guidance
+without plan-switch buttons. These thresholds are practical app policies, not validated
+individual readiness tests; the user still confirms how they feel.
+
 ### Recovery mode and load controls
 
 Today and the active workout show **Recovery: On / Off / Scheduled**, the current phase,

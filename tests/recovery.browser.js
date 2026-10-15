@@ -157,4 +157,46 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('manual recovery controls do not overflow a phone',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   T('recovery selector has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
+ {
+  const store=baseStore();store.phase=2;store.nextDay='A';store.trainingPlan={stage:'progress',phase:2,start:ago(35),stageStart:ago(28),loads:{hex_dl:60},bands:{}};
+  store.sessions=[{id:'below-target',date:ago(6),day:'A',loc:'home',phase:2,trainingPlanStart:ago(35),trainingStage:'progress',trainingComplete:true,finishReason:'complete',difficulty:2,
+   ex:[{id:'hex_dl',wt:60,reps:[6,6],form:[5,5],rir:2}]}];
+  const {ctx,page,errors}=await open(store);
+  T('Today preview tells the shorter lifter to add reps before load',await page.locator('.prev2').first().innerText().then(t=>t.includes('Add reps when ready')));
+  T('four weeks alone gives a check-in without a deload recommendation',await page.locator('#training-plan').evaluate(e=>
+   /Recovery check-in/.test(e.innerText)&&/not a required deload/.test(e.innerText)&&!e.querySelector('.routine-checkin button')));
+  T('normal compact check-in stays within the existing panel on a phone',await page.locator('#training-plan').evaluate(e=>
+   e.getBoundingClientRect().height<285&&!e.querySelector('details').open&&document.documentElement.scrollWidth<=innerWidth));
+  await screenshot(page,'shorter-progression-phone');
+  await page.evaluate(()=>{D.sessions[0].ex[0].reps=[8,8];save();render()});
+  T('one qualifying session visibly asks for a repeat confirmation',await page.locator('.prev2').first().innerText().then(t=>t.includes('Repeat target (1/2)')));
+  await page.evaluate(()=>{D.sessions.push({...structuredClone(D.sessions[0]),id:'confirmed-twice',date:dayAfter(today(),-3)});save();render()});
+  T('two qualifying sessions visibly earn the next small weight increase',await page.locator('.prev2').first().innerText().then(t=>t.includes('Increase weight'))&&
+   await page.evaluate(()=>getSmartSugg(dayExs('A')[0]).wt>60));
+  await screenshot(page,'shorter-increase-phone');
+  await page.evaluate(()=>{for(const [i,days]of [4,2].entries())D.sessions.push({id:'tired-check-'+i,date:dayAfter(today(),-days),day:'B',loc:'home',phase:2,
+   trainingPlanStart:D.trainingPlan.start,trainingStage:'progress',trainingComplete:false,finishReason:'fatigue',noProg:true,difficulty:4,ex:[{id:'hex_row',wt:30,reps:[8],form:[4],rir:1}]});save();render()});
+  T('repeated tired endings show a reason and a real start-deload action',await page.locator('#training-plan').evaluate(e=>
+   /Consider a deload/.test(e.innerText)&&/Too tired/.test(e.innerText)&&/Load: Held · recovery check/.test(e.innerText))&&
+   await page.getByRole('button',{name:'Start deload today',exact:true}).count()===1);
+  T('recovery warning overrides the earned increase in the visible lift cue',await page.locator('.prev2').first().innerText().then(t=>t.includes('Hold progression'))&&
+   await page.evaluate(()=>getSmartSugg(dayExs('A')[0]).wt===60));
+  T('reminder is inside the existing panel and contains no undefined clock',await page.locator('#training-plan').evaluate(e=>
+   !!e.closest('.start-hero')&&e.getBoundingClientRect().height<370)&&!(/undefinedwk|undefined sessions/.test(await page.locator('#app').innerText())));
+  await screenshot(page,'shorter-deload-reminder-phone');
+  await page.evaluate(()=>{D.theme='dark';save();applyTheme();render()});await screenshot(page,'shorter-deload-reminder-dark');
+  await page.getByRole('button',{name:'Start Shorter A/B/C · Day A',exact:true}).click();
+  T('active workout shows the warning without switching the plan mid-session',await page.locator('#training-plan').evaluate(e=>
+   /Consider a deload/.test(e.innerText)&&!e.querySelector('button')));
+  await page.evaluate(()=>{ADAY=null;localStorage.removeItem(AW_KEY);ACTIVE_ID=null;go('home')});
+  const before=await page.evaluate(()=>({history:JSON.stringify(D.sessions),nextDay:D.nextDay,lastDeload:D.lastDeload}));
+  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await page.getByRole('button',{name:'Start deload today',exact:true}).click();
+  T('declining a reminder never marks a deload as taken',await page.evaluate(b=>D.trainingPlan.stage==='progress'&&D.lastDeload===b.lastDeload,before));
+  page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'Start deload today',exact:true}).click();
+  T('accepting the reminder starts actual held recovery and clears the recommendation',await page.evaluate(b=>
+   D.trainingPlan.stage==='deload'&&D.trainingPlan.stageStart===today()&&dayExs('A').reduce((n,e)=>n+e.s,0)===6&&JSON.stringify(D.sessions)===b.history&&D.nextDay===b.nextDay&&D.lastDeload===b.lastDeload,before));
+  T('active deload does not ask for another deload',await page.getByRole('button',{name:'Start deload today',exact:true}).count()===0);
+  T('shorter progression and reminder flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
 };
