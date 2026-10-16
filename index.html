@@ -81,7 +81,9 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 /* Atmospheric backdrop: clean blue and violet glows. */
-body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;
+/* Clip horizontal spill without making body a scroll container that traps sticky
+   headers while the document viewport scrolls. */
+body{max-width:480px;margin:0 auto;padding-bottom:calc(28px + var(--sab));position:relative;overflow-x:clip;
 background:radial-gradient(125% 55% at 50% -12%,rgba(var(--prRGB),.09),transparent 58%),radial-gradient(90% 50% at 100% 8%,var(--glow2),transparent 60%),var(--bg);background-attachment:fixed}
 input,select,button,textarea{font-family:inherit}
 /* Former div-onclick controls are real <button>s now — neutralize UA button chrome. */
@@ -387,6 +389,10 @@ button.set-prev:active{color:var(--pr)}
 .wu-check{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--cb);cursor:pointer}
 .wu-box{width:36px;height:36px;border-radius:9px;border:2px solid var(--ibr);background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:.15s;color:var(--mu)}
 .wu-box.checked{background:var(--pr);border-color:var(--pr);color:var(--ink)}
+.row-control{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button.ex-row,button.swap-opt,button.wu-check{width:100%;text-align:left;font:inherit;color:inherit}
+button.wu-check{background:none;border:0;border-bottom:1px solid var(--cb)}
+.row-control:focus-visible,button.ex-row:focus-visible,button.swap-opt:focus-visible,button.wu-check:focus-visible{outline:2px solid var(--pr);outline-offset:3px}
 
 /* Discomfort */
 .disc-row{display:flex;gap:5px;justify-content:center;margin-top:7px}
@@ -1499,7 +1505,7 @@ return d}
 let LOAD_DROPPED=0,LOAD_REPAIRED=0,RECOVERY_RAW=null;
 let STORE_COMMITTED=null,STORE_RAW=null,PENDING_SAVE=null,PENDING_AFTER=null,SAVE_ERROR='',AW_ERROR='';
 let WRITER=false,WRITER_READY=false,WRITER_BUSY=false,WRITER_RELEASE=null,WRITER_CHANNEL=null,WANT_WRITER=false;
-let ACTIVE_ID=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
+let ACTIVE_ID=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,PENDING_ACTIVE_BEFORE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
 function canWriteStore(){return WRITER&&WRITER_READY}
 const WRITER_ID='tab-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 function recordId(prefix='s'){return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)}
@@ -1525,6 +1531,7 @@ updateSaveStatus()}
 // D becomes the proposal only after setItem succeeds. A failed proposal is separately
 // recoverable and retryable; no positional rollback can remove another session.
 function save(proposed=D,options={}){const candidate=normalizeState(proposed).W;
+if(PENDING_ACTIVE&&!options.importingActive&&!(options.retry&&proposed===PENDING_SAVE)){if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);updateSaveStatus();return false}
 if(!WRITER){if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);
 SAVE_ERROR='This tab is read-only. Use this tab to make changes.';updateSaveStatus();return false}
 if(PENDING_SAVE&&!options.retry){D=structuredClone(STORE_COMMITTED);SAVE_ERROR='A previous change is not saved. Retry or download it before making another change.';updateSaveStatus();return false}
@@ -1542,20 +1549,24 @@ SAVE_ERROR=e.message==='conflict'?'Saved data changed outside this tab. Download
 updateSaveStatus();return false}
 runSavedCallback(options.after);return true}
 function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERROR='Data was saved, but the screen could not update. Reload to continue.';updateSaveStatus();alert(SAVE_ERROR)}}
-function retrySave(){if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(ADAY)return saveAW();return false}
+function retrySave(){if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(ADAY)return saveAW();return false}
 function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
-PENDING_SAVE=null;PENDING_AFTER=null;PENDING_ACTIVE=null;SAVE_ERROR='';updateSaveStatus();render()}
+PENDING_SAVE=null;PENDING_AFTER=null;releasePendingActive(true);SAVE_ERROR='';updateSaveStatus();render()}
+function releasePendingActive(restore=false){if(restore&&PENDING_ACTIVE_BEFORE){AW_ERROR=PENDING_ACTIVE_BEFORE.error;AW_CLEANUP=PENDING_ACTIVE_BEFORE.cleanup;AW_CLEANUP_AFTER=PENDING_ACTIVE_BEFORE.after}
+PENDING_ACTIVE=null;PENDING_ACTIVE_BEFORE=null}
+function discardPendingActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE||!confirm('Discard the imported unfinished workout that could not be saved? Download the recovery copy first if you need it. Saved history and any earlier resume workout stay saved.'))return false;
+releasePendingActive(true);updateSaveStatus();render();return true}
 function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,resetEpoch:'0'}}
-function resetAll(){if(!WRITER){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
+function resetAll(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
 return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
 function activeRecord(){if(!ADAY)return null;
 if(!ACTIVE_ID)ACTIVE_ID=recordId();
 return{id:ACTIVE_ID,owner:WRITER_ID,resetEpoch:D.resetEpoch||'0',day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
 loc:D.location,phase:D.phase,exIds:dayExs(ADAY).map(e=>e.id),swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}}
-function saveAW(){if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
+function saveAW(){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
 try{localStorage.setItem(AW_KEY,JSON.stringify(activeRecord()));AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();return true}
 catch(e){AW_ERROR='Current workout is not saved on this device. Keep this tab open. Retry or download the workout.';updateSaveStatus();return false}}
-function clearAW(after=null){if(!WRITER){updateSaveStatus();return false}
+function clearAW(after=null){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
 try{localStorage.removeItem(AW_KEY)}catch(e){AW_CLEANUP=true;AW_CLEANUP_AFTER=after;AW_ERROR='Could not remove the resume backup. Retry after freeing device storage.';updateSaveStatus();return false}
 AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();runSavedCallback(after);return true}
 function downloadJSON(value,name){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
@@ -1565,18 +1576,19 @@ if(active&&!value.sessions.some(s=>s.id===active.id))value.activeWorkout=active;
 function exportActiveWorkout(){downloadJSON(recoveryExportData(),`workout-recovery-${today()}.json`)}
 // This region lives outside #app, so set-entry rendering cannot erase a failure warning.
 function updateSaveStatus(){if(typeof document==='undefined'||!document.body)return;
-try{const app=document.getElementById('app');if(app)app.inert=!!PENDING_SAVE;
+try{const app=document.getElementById('app');if(app)app.inert=!!(PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY);
 let box=document.getElementById('save-status');if(!box){box=document.createElement('div');box.id='save-status';box.setAttribute('role','status');box.setAttribute('aria-live','polite');
 box.style.cssText='position:sticky;top:0;z-index:250;padding:12px 16px;background:var(--cd);color:var(--tx);border-bottom:2px solid var(--am);font-size:14px;line-height:1.45';document.body.prepend(box);
 if(typeof ResizeObserver!=='undefined'){STATUS_OBSERVER=new ResizeObserver(()=>measureSaveStatus());STATUS_OBSERVER.observe(box)}}
 const readonly=!WRITER;
-const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||AW_ERROR;
+const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||(PENDING_ACTIVE?'The imported unfinished workout is not saved. Keep this tab open. Retry, download the recovery copy, or explicitly discard it.':AW_ERROR)|| (IMPORT_BUSY?'Reading import…':'');
 box.hidden=!message;measureSaveStatus();if(!message)return;box.replaceChildren();const text=document.createElement('div');text.textContent=message;box.append(text);
 const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='btn-sm btn-wh';b.style.cssText='margin:8px 8px 0 0;min-height:40px';b.textContent=label;b.onclick=fn;box.append(b)};
 if(readonly&&WRITER_READY&&navigator.locks)button('Use this tab',()=>requestWriter(true));
-if(WRITER&&(PENDING_SAVE||AW_ERROR))button('Retry save',retrySave);
-button(ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
+if(WRITER&&(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR))button('Retry save',retrySave);
+button(PENDING_ACTIVE?'Download imported workout':ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
 if(WRITER&&PENDING_SAVE)button('Discard pending change',discardPendingSave);
+else if(WRITER&&PENDING_ACTIVE)button('Discard imported workout',discardPendingActive);
 measureSaveStatus();
 }catch(_){}}
 function measureSaveStatus(){const box=document.getElementById('save-status');if(box&&document.documentElement)document.documentElement.style.setProperty('--save-status-height',box.hidden?'0px':box.getBoundingClientRect().height+'px')}
@@ -1729,6 +1741,7 @@ function validTrainingPlan(v){
  const out={stage:v.stage,start:v.start,stageStart:v.stageStart,loads:{},bands:{}};
  if(v.stageStart<v.start)return null;
  if(validISODate(v.reviewAfter)&&v.reviewAfter>=v.stageStart)out.reviewAfter=v.reviewAfter;
+ if(validISODate(v.restUntil)&&v.restUntil>=v.stageStart)out.restUntil=v.restUntil;
  const ids=planExerciseIds();
  if(!['deload','return'].includes(v.stage)&&[1,2].includes(v.phase)){
   out.phase=v.phase;if(validISODate(v.phaseStart)&&v.phaseStart>=v.start)out.phaseStart=v.phaseStart;
@@ -1750,9 +1763,9 @@ function validTrainingPlan(v){
 }
 function trainingPlanStatus(now=today()){
  const p=D.trainingPlan;if(!p)return null;
- const end=dayAfter(p.stageStart,6),review=p.reviewAfter||dayAfter(end);
+ const end=dayAfter(p.stageStart,6),restUntil=p.restUntil||p.reviewAfter,review=[dayAfter(end),p.reviewAfter||'',restUntil||''].sort().at(-1);
  const completed=originalReturn(p)?originalCompletedDays(p,now):[];
- return{...p,end,review,completed,pending:now<p.stageStart,resting:!!p.reviewAfter&&now<p.reviewAfter,
+ return{...p,end,review,restUntil,completed,pending:now<p.stageStart,resting:!!restUntil&&now<restUntil,
   due:p.stage!=='progress'&&now>=review&&(!originalReturn(p)||completed.length===3),
   day:Math.max(1,dayDiff(now,p.stageStart)+1),label:p.stage==='deload'?'Deload week':p.stage==='return'?'Easy return week':p.stage==='progress'?'Shorter A/B/C':
    `Original A/B/C · step ${ORIGINAL_STAGES.indexOf(p.stage)+1}/3`};
@@ -1774,12 +1787,14 @@ function shortProgram(){
  return pr;
 }
 function changeTrainingPlanAllowed(){
- if(!WRITER||PENDING_SAVE){updateSaveStatus();return false}
+ if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
  if(ADAY||pendingAW()){alert('Finish or discard the current workout before changing this plan. Your logged sets are kept.');return false}
  return true;
 }
 function renderTrainingPlanChange(){
- render();document.getElementById('training-plan')?.querySelector('.routine-title')?.scrollIntoView({block:'nearest',behavior:'auto'});
+ render();const title=document.getElementById('training-plan')?.querySelector('.routine-title');if(!title)return;
+ const edge=Math.max(0,document.getElementById('nav')?.getBoundingClientRect().bottom||0,document.querySelector('.hdr')?.getBoundingClientRect().bottom||0);
+ title.style.scrollMarginTop=(edge+8)+'px';title.scrollIntoView({block:'nearest',behavior:'auto'});
 }
 function phaseLoadTargets(p,phase,recent=false){
  const defs=recent?Object.values(SHORT_ABC).flat().map(([id,s,rp,tg])=>shortPhaseExercise({...ALL_EX.find(e=>e.id===id),s,rp,tg},phase)):
@@ -1801,13 +1816,19 @@ function phaseLoadTargets(p,phase,recent=false){
  }
  return out;
 }
+function latestPlanPractice(ex,stages,since=D.trainingPlan.stageStart){
+ const p=D.trainingPlan;
+ return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.trainingPlanStart===p.start&&stages.includes(s.trainingStage)&&s.date>=since&&s.date<=today())
+  .sort((a,b)=>a.date.localeCompare(b.date)).flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0)).map(e=>({...e,date:s.date}))).at(-1)||null;
+}
 function selectPlanPhase(W,phase,{recent=false}={}){
  const p=W.trainingPlan,targets=phaseLoadTargets(p,phase),progress=recent?phaseLoadTargets(p,phase,true):{};
  p.phaseLoads=targets;p.progressLoads=progress;
  if(!recent)for(const[id,target]of Object.entries(p.phaseLoads)){
-  const e=D.sessions.filter(s=>(s.loc||'home')==='home'&&s.date<=today()&&s.trainingPlanStart===p.start&&s.trainingStage==='return')
-   .flatMap(s=>s.ex.filter(e=>e.id===id&&e.reps.some(r=>r>0))).at(-1);
-  p.progressLoads[id]=e?Math.min(target,sessLoad(e,e.reps.filter(r=>r>0).length)):target*.90;
+  const def=shortPhaseExercise(ALL_EX.find(ex=>ex.id===id),phase),e=latestPlanPractice(def,['deload','return'],p.start);
+  const reps=e?effectiveReps(def,e.reps):[],load=e?sessLoad(e,e.reps.filter(r=>r>0).length):0;
+  const adjusted=load&&reps.length&&!def.manualLoad&&!def.qualityLoad?load*(1+Math.min(...reps,def.tg)/30)/(1+def.tg/30):load;
+  p.progressLoads[id]=e?Math.min(target,adjusted):target*.90;
  }
  p.phase=phase;p.phaseStart=today();W.phase=phase;W.phaseStart=today();
 }
@@ -1822,7 +1843,11 @@ function recoveryPlanFromHistory(start=today(),stage='deload'){
  for(const id of planExerciseIds()){
   const rows=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home'&&(!s.noProg||p&&s.trainingPlanStart===p.start)&&s.ex.some(e=>e.id===id&&e.reps.some(r=>r>0)));
   const e=rows.at(-1)?.ex.find(e=>e.id===id);
-  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;if(BANDS.includes(e.band))bands[id]=e.band}
+  if(e){const kg=sessLoad(e,e.reps.filter(r=>r>0).length);if(kg>0)loads[id]=kg;
+   // Only counted sets describe actual practice. A mixed row can retain an unused,
+   // harder scalar default, so anchor recovery to the easiest performed setup.
+   const pattern=bandPattern(e).filter(b=>BANDS.includes(b)),assist=ALL_EX.find(ex=>ex.id===id)?.bandMode==='assist';
+   if(pattern.length)bands[id]=BANDS[assist?Math.min(...pattern.map(BAND_IDX)):Math.max(...pattern.map(BAND_IDX))];}
   // With no newer practice, retain the current plan's conservative starting point.
   else if(p){const kg=p.returnLoads?.[id]||p.progressLoads?.[id]||p.phaseLoads?.[id]||p.loads[id];if(kg>0)loads[id]=kg;if(BANDS.includes(p.bands[id]))bands[id]=p.bands[id]}
  }
@@ -1844,7 +1869,7 @@ function setRecoveryMode(mode,phase){
   if(![1,2].includes(phase)){alert('Choose Linear or Hypertrophy for regular training first.');return false}
   const early=!trainingPlanStatus().due;
   if(!confirm(`Turn recovery off${early?' before its review is complete':''} and start shorter A/B/C in ${PHASES[phase].name}? Confirm only if sessions feel manageable and recovery between them feels normal. Five exercises and 11 sets; starting weights stay conservative and future increases must be earned. This does not restore the longer routine or old weights. History stays saved.`))return false;
-  selectPlanPhase(W,phase);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;
+  selectPlanPhase(W,phase);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;
  }else{
   if(!confirm(`Turn on ${mode==='deload'?'deload: six working sets, about 82% of reference loads and 4–5 clean reps left':'easy return: ten working sets, about 90% of reference loads and three clean reps left'}? Loads and progression are held. The seven-day review starts today; nothing advances automatically. ${isRecovery?'Keep the current recovery reference loads.':'Use your logged practice as the starting reference.'} History and your next A/B/C day stay saved.`))return false;
   W.trainingPlan=isRecovery?{stage:mode,start:p.start,stageStart:today(),loads:structuredClone(p.loads),bands:structuredClone(p.bands)}:recoveryPlanFromHistory(today(),mode);
@@ -1893,12 +1918,12 @@ function advanceTrainingPlan(phase){
    }
   }
   W.trainingPlan.stage=st.stage==='original1'?'original2':st.stage==='original2'?'original3':st.stage==='deload'?'return':'progress';
-  W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;}
+  W.trainingPlan.stageStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;}
  return save(W,{after:renderTrainingPlanChange});
 }
 function restTrainingPlan(){
- if(!changeTrainingPlanAllowed()||!D.trainingPlan)return false;
- const W=structuredClone(D);W.trainingPlan.reviewAfter=dayAfter(today(),2);
+ if(!changeTrainingPlanAllowed()||!D.trainingPlan||D.trainingPlan.stage==='progress')return false;
+ const W=structuredClone(D);W.trainingPlan.restUntil=dayAfter(today(),2);W.trainingPlan.reviewAfter=[trainingPlanStatus().review,W.trainingPlan.restUntil].sort().at(-1);
  return save(W,{after:renderTrainingPlanChange});
 }
 function stopTrainingPlan(phase=D.trainingPlan?.phase||D.phase){
@@ -1929,12 +1954,12 @@ function stopTrainingPlan(phase=D.trainingPlan?.phase||D.phase){
   const current=pattern.length?(assist?Math.min(...pattern.map(BAND_IDX)):Math.max(...pattern.map(BAND_IDX))):easy;
   p.returnBands[id]=BANDS[assist?Math.min(easy,current):Math.max(easy,current)];
  }
- p.stage='original1';p.stageStart=today();delete p.reviewAfter;
+ p.stage='original1';p.stageStart=today();delete p.reviewAfter;delete p.restUntil;
  return save(W,{after:renderTrainingPlanChange});
 }
 function keepShorterRoutine(){
  if(!changeTrainingPlanAllowed()||!originalReturn()||!confirm('Keep shorter A/B/C as your default? Return to five exercises and 11 working sets per day. Saved workouts stay in History.'))return false;
- const W=structuredClone(D);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();W.trainingPlan.phaseStart=today();W.phase=planPhase(W.trainingPlan);W.phaseStart=today();delete W.trainingPlan.reviewAfter;
+ const W=structuredClone(D);W.trainingPlan.stage='progress';W.trainingPlan.stageStart=today();W.trainingPlan.phaseStart=today();W.phase=planPhase(W.trainingPlan);W.phaseStart=today();delete W.trainingPlan.reviewAfter;delete W.trainingPlan.restUntil;
  return save(W,{after:renderTrainingPlanChange});
 }
 function phaseChoiceH(id,label,selected=''){
@@ -1952,18 +1977,25 @@ function trainingPhaseContext(now=today()){
   original1:'Reintroduce the longer list with two sets and lighter loads.',original2:'Restore Essentials sets while increasing load gradually.',original3:'Practise the chosen phase before restarting its regular progression from actual logged loads.'};
  const when=st.stage==='progress'?st.phase?`Review from ${fmtD(dayAfter(st.phaseStart||st.stageStart,28))}, after about four weeks of manageable training. Stay if progressing; change emphasis by choice, never automatically.`:
   'Choose Linear or Hypertrophy when recovered. Your current mixed rep ranges stay in place until you confirm a phase.':
-  st.pending?'Start on '+fmtD(st.stageStart)+'. No phase change before recovery is complete.':st.resting?'Rest until '+fmtD(st.review)+', then reassess.':
+  st.pending?'Start on '+fmtD(st.stageStart)+'. No phase change before recovery is complete.':st.resting?'Rest until '+fmtD(st.restUntil||st.review)+', then reassess.':
   `Review from ${fmtD(st.review)}${originalReturn(st)?`; manageable A/B/C completed: ${st.completed.length}/3` :''}. Move on only when sessions and recovery feel manageable; confirm yourself.`;
  return{label:labels[st.stage],next:next[st.stage],when,why:why[st.stage],clock:st.phaseStart||st.stageStart};
 }
 function activePhaseLabel(){return D.location==='partner'?`Partner · Phase ${D.phase} · ${PHASES[D.phase].name}`:trainingPhaseContext().label}
+function trainingStartButton(day,compact=false){
+ const st=trainingPlanStatus(),cls=compact?'btn btn-wh btn-md':'start-primary';
+ if(st.pending)return `<button class="${cls}" disabled>Starts ${fmtD(st.stageStart)}</button>`;
+ if(st.resting)return `<button class="${cls}" disabled>Rest until ${fmtD(st.restUntil||st.review)}</button>`;
+ if(st.due)return `<button class="${cls}" onclick="document.getElementById('training-plan').scrollIntoView({block:'start',behavior:'smooth'})">Review recovery below</button>`;
+ return `<button class="${cls}" onclick="beginW('${day}',true)">Start ${st.label} · Day ${day}</button>`;
+}
 function trainingPlanCard(view='home'){
  const st=trainingPlanStatus(),orig=originalReturn(st),ctx=trainingPhaseContext(),check=shortDeloadStatus();
  const cue=(D.location==='partner'?'Home routine · ':'')+(!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':''));
  const effort=st?.stage==='deload'?'4–5':st?.stage==='progress'||st?.stage==='original3'?'2–3':'3';
  const instruction=!st?'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · held reference'} loads · ${effort} clean reps left`;
- let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
+ let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.restUntil||st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
  h+=`<div class="routine-state"><span>Recovery: ${st&&['deload','return'].includes(st.stage)?st.pending?'Scheduled':'On':'Off'}</span><span>Load: ${trainingLoadContext(st)}</span></div>`;
  h+=`<div class="routine-meta"><b>Current phase:</b> ${ctx.label}${D.location==='partner'?`<br>Active Partner phase: ${PHASES[D.phase].name}`:''}</div>`;
  h+=shortDeloadGuidanceH(check,view);
@@ -1984,7 +2016,8 @@ function trainingPlanCard(view='home'){
  else{
   h+='<p><b>When to move on:</b> only if sessions feel manageable and recovery between them feels normal. The date does not automatically increase training. Stop a set if control breaks down or discomfort rises; save only what you performed.</p>';
   if(!orig)h+='<p>Deload: seven planned days, at most three sessions, six working sets and 4–5 clean reps left. Easy return: another seven days, two sets for each of five exercises, around 90% of earlier loads and three clean reps left. Missing a recovery session does not require catch-up.</p>';
-  h+='<p><b>Return to original routine:</b> use this after the easy return week only if you want the longer list. Choose Linear or Hypertrophy first. Earlier loads are adjusted for its rep targets; higher reps can need lighter starting weights. These are starting estimates, not a strength test.</p><p>Step 1: up to 90% of phase-adjusted reference loads, capped by your latest logged load, two sets per exercise. Step 2: original Essentials sets, up to 95%. Step 3: held practice toward the phase-adjusted references. Each later step adds at most 5% of the phase-adjusted reference to your latest logged load, rounded down to available plates. A lower load stays a lower starting point.</p><p>Each step lasts at least seven days and needs completed A/B/C sessions on separate days, without fatigue/discomfort endings or an effort rating of 4–5, plus your readiness confirmation. Reduce a suggested load whenever needed. Finish step 3 to resume the chosen phase from your logged practice loads, even if they are still below the old ones.</p>';
+  h+='<details><summary>Optional longer routine: return details</summary><p><b>Return to original routine:</b> use this after the easy return week only if you want the longer list. Choose Linear or Hypertrophy first. Earlier loads are adjusted for its rep targets; higher reps can need lighter starting weights. These are starting estimates, not a strength test.</p><p>Step 1: up to 90% of phase-adjusted reference loads, capped by your latest logged load, two sets per exercise. Step 2: original Essentials sets, up to 95%. Step 3: held practice toward the phase-adjusted references. Each later step adds at most 5% of the phase-adjusted reference to your latest logged load, rounded down to available plates. A lower load stays a lower starting point.</p><p>Each step lasts at least seven days and needs completed A/B/C sessions on separate days, without fatigue/discomfort endings or an effort rating of 4–5, plus your readiness confirmation. Reduce a suggested load whenever needed. Finish step 3 to resume the chosen phase from your logged practice loads, even if they are still below the old ones.</p>';
+  h+='</details>';
   if(orig)h+='<div class="routine-actions"><button class="btn btn-wh" onclick="keepShorterRoutine()">Keep shorter routine (default)</button></div>';
   else if(st.stage==='progress'||st.stage==='return'&&st.due)h+=phaseChoiceH('original-phase','Phase for return to original routine')+'<div class="routine-actions"><button class="btn btn-wh" onclick="stopTrainingPlan(Number(document.getElementById(\'original-phase\').value))">Return to original routine</button></div>';
   else h+='<p>Finish the deload and easy return week before choosing the optional original routine.</p>';
@@ -2024,6 +2057,7 @@ function shortSuggestion(ex){
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0))).at(-1);
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.date<=today()&&d.level==='moderate');
  const check=early?null:shortDeloadStatus(),hold=!!(check?.due||check?.hold||disc);
+ const actual=latestPlanPractice(ex,[p.stage]),recovery=latestPlanPractice(ex,['deload','return'],p.start);
  const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
  let detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':hold?'Hold progression; take an easier session or rest and reassess. '+(check?.reason||'Adjust for recent discomfort.'):'Keep the load; try one extra total rep within '+ex.rp+' only when control and 2–3 clean reps remain. Rate form and reps left.'}`;
  const confirmed=last&&rated(last)&&(ex.tp==='band'?bandPattern(last).every(b=>BANDS.includes(b)):last.reps.every((r,i)=>!(r>0)||wEq(setWt(last,i),sessLoad(last,ex.s))));
@@ -2031,7 +2065,12 @@ function shortSuggestion(ex){
  if(ex.tp==='band'){
   let b=last?.band||(!early?prior?.band:null)||practice?.band||p.bands[ex.id]||'';
   if(early&&p.stage==='deload'&&b){const i=BAND_IDX(b);b=BANDS[Math.max(0,Math.min(BANDS.length-1,i+(ex.bandMode==='assist'?-1:1)))]}
-  const pattern=last?bandPattern(last):!early&&prior?bandPattern(prior).slice(0,ex.s):Array(ex.s).fill(b),mixed=new Set(pattern).size>1;
+  let pattern=last?bandPattern(last):!early&&prior?bandPattern(prior).slice(0,ex.s):Array(ex.s).fill(b);
+  const preserve=early||hold?actual||recovery:!last?recovery:null;
+  if(preserve){const logged=bandPattern(preserve);pattern=Array.from({length:ex.s},(_,i)=>{
+   const a=pattern[i]||b,c=logged[i]||logged.at(-1);if(!BANDS.includes(c))return a;if(!BANDS.includes(a))return c;
+   return BANDS[ex.bandMode==='assist'?Math.min(BAND_IDX(a),BAND_IDX(c)):Math.max(BAND_IDX(a),BAND_IDX(c))];});b=pattern[0]||b}
+  const mixed=new Set(pattern).size>1;
   const match=hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
    JSON.stringify(bandPattern(hist[0]))===JSON.stringify(pattern)&&pattern.every(x=>BANDS.includes(x))&&!disc;
   if(!early&&!hold&&match&&b){
@@ -2044,11 +2083,13 @@ function shortSuggestion(ex){
   const action=early?'Hold recovery load':hold?'Hold progression':confirmed?'Repeat target (1/2)':'Add reps when ready';
   if(!early&&!hold&&confirmed)detail='One confirmation. Repeat the shown band setup at every target with Solid/Strict form and at least two reps left in a complete workout on another date.';
   return{text:mixed?'Repeat the mixed-band setup':b?`Stay on ${b}`:'Choose an easy band',action,type:'stay',wt:null,band:b,
-   ...(!early&&mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
+   ...(mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
  }
  const vw=vwOf(ex),snapDown=t=>vw.filter(w=>w<=t).at(-1)||vw[0];
- const anchor=last?sessLoad(last,ex.s):!early&&p.progressLoads?.[ex.id]?snapDown(Math.min(p.progressLoads[ex.id],practice?sessLoad(practice,practice.reps.filter(r=>r>0).length):Infinity)):
+ let anchor=last?sessLoad(last,ex.s):!early&&p.progressLoads?.[ex.id]?snapDown(Math.min(p.progressLoads[ex.id],practice?sessLoad(practice,practice.reps.filter(r=>r>0).length):Infinity)):
   practice?snapDown(Math.min(sessLoad(practice,practice.reps.filter(r=>r>0).length),seed?seed*.90:Infinity)):seed? snapDown(seed*(p.stage==='deload'?.82:.90)):barOf(ex);
+ if((early||hold)&&actual){const load=sessLoad(actual,actual.reps.filter(r=>r>0).length);if(load>0)anchor=snapDown(Math.min(anchor,load))}
+ else if(p.stage==='return'&&recovery){const load=sessLoad(recovery,recovery.reps.filter(r=>r>0).length);if(load>0&&load<snapDown((seed||0)*.82))anchor=snapDown(Math.min(anchor,load))}
  const match=!early&&!hold&&hist.length===2&&hist[0].date!==hist[1].date&&hist.every(rated)&&
   hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
  const wt=match?nxUp(anchor,vw):anchor,increase=match&&wt>anchor;
@@ -2127,7 +2168,7 @@ function setPhase(p){
 function locSwitchH(cur,fn){return`<div style="display:flex;gap:0;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">
 <button type="button" aria-pressed="${cur!=='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur!=='partner'?'var(--pr)':'var(--cd)'};color:${cur!=='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('home')">🏠 Home</button>
 <button type="button" aria-pressed="${cur==='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur==='partner'?'var(--pr)':'var(--cd)'};color:${cur==='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('partner')">🏘 Partner's</button></div>`}
-function setLoc(l){if(l===D.location){render();return}
+function setLoc(l){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}if(l===D.location){render();return}
 if(checkResume()&&!confirm('You have an unfinished workout at the other location — switching hides it until you switch back. Continue?'))return;
 D.location=l;save();render()}
 
@@ -3980,7 +4021,7 @@ if(restDay){
   ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    <button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} ${shortHomePlan()?trainingPlanStatus().label:'Essentials'} anyway</button>
+    ${shortHomePlan()?trainingStartButton(nd,true):`<button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} Essentials anyway</button>`}
   </div>
   ${shortHomePlan()?'':`<button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>`}
   ${trainingPlanCard()}
@@ -3990,7 +4031,7 @@ if(restDay){
   // session remains one tap away. At home the audited primary/control filter applies; at the
   // partner venue the seven-movement shared full-body base remains and rotating additions drop.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const startBtns=shortHomePlan()?`<button class="start-primary" onclick="beginW('${nd}',true)">Start ${trainingPlanStatus().label} · Day ${nd}</button>`:xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  const startBtns=shortHomePlan()?trainingStartButton(nd):xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
   <div class="dm" style="margin-top:6px;text-align:center">Essentials is the complete session: main lifts, targeted stability work, and selected accessories. Full optionally adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
   :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
@@ -4190,19 +4231,20 @@ return ALL_EX.filter(e=>{
 .map(e=>({e,ov:pset.reduce((a,x)=>a+((MG[e.id]||{})[x]||0),0)}))
 .sort((a,b)=>b.ov-a.ov).slice(0,12).map(x=>x.e)}
 
-function openSwap(slotId){SWAP_OPEN=SWAP_OPEN===slotId?null:slotId;SWAP_FILTER='all';render()}
+function openSwap(slotId){SWAP_OPEN=SWAP_OPEN===slotId?null:slotId;SWAP_FILTER='all';render();document.querySelector(SWAP_OPEN?'.swap-opt':'.swap-btn')?.focus()}
 function doSwap(slotId,newId){const oldId=SWAP[slotId]||slotId;
 if(oldId!==newId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
 SWAP[slotId]=newId;ensureLog(ALL_EX.find(e=>e.id===newId));
-SWAP_OPEN=null;saveAW();render()}
+SWAP_OPEN=null;saveAW();render();document.getElementById('ex-cur')?.focus()}
 function revertSwap(slotId){const oldId=SWAP[slotId];
 if(oldId&&LOG[oldId]&&!LOG[oldId].touched)delete LOG[oldId];
 delete SWAP[slotId];ensureLog((getCurPR()[ADAY]||[]).find(e=>e.id===slotId));
-SWAP_OPEN=null;saveAW();render()}
+SWAP_OPEN=null;saveAW();render();document.getElementById('ex-cur')?.focus()}
 
 function beginW(day,xp){
+if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}
 const tp=shortHomePlan()?trainingPlanStatus():null;
-if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
+if(tp&&(tp.pending||tp.due||tp.resting)){alert(tp.pending?'Your deload starts '+fmtD(tp.stageStart)+'. Rest today; come back on the start date.':tp.resting?'You chose extra rest. Check in again on '+fmtD(tp.restUntil||tp.review)+'.':'Review how you feel in the deload/return card before starting another workout. There is no automatic return.');return}
 if(tp){const rows=D.sessions.filter(s=>s.trainingPlanStart===tp.start&&s.trainingStage===tp.stage&&s.date>=tp.stageStart&&(s.loc||'home')==='home');
  const last=D.sessions.filter(s=>s.date<=today()&&(s.loc||'home')==='home').at(-1);
  if(last&&dayDiff(today(),last.date)<2){alert('Take a rest day between these home sessions. Next suggested training day: '+fmtD(dayAfter(last.date,2))+'.');return}
@@ -4227,7 +4269,7 @@ const exs=dayExs(day);LOG={};SS=Date.now();CIDX=0;
 for(const ex of exs)ensureLog(ex);
 saveAW();VIEW='workout';acquireWake();render();window.scrollTo(0,0)}
 
-function resumeW(){if(!WRITER||PENDING_SAVE){updateSaveStatus();return}const r=checkResume();if(!r)return;ACTIVE_ID=r.id||'s'+r.start;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
+function resumeW(){if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}const r=checkResume();if(!r)return;ACTIVE_ID=r.id||'s'+r.start;ADAY=r.day;LOG=r.log;SS=r.start;CIDX=r.cidx||0;SWAP=r.swaps||{};SWAP_OPEN=null;
 SNOTES=typeof r.notes==='string'?r.notes:'';
 WU_CHECKS=Array.isArray(r.wu)&&r.wu.length===3?r.wu:[false,false,false];EXPRESS=!!r.xp;
 // Normalize resumed LOG rows: a blob written by an older build may lack fields newer
@@ -4346,15 +4388,15 @@ if(rw&&!rw.pending&&!rw.over)h+=`<div class="deload-banner" style="background:va
 
 // Warmup section
 const wuD=WU_CHECKS.filter(Boolean).length;const fIso=exs.find(e=>e.isoWU);
-h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation" onclick="selectExercise(-1)">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation">
+<button type="button" id="activation-toggle" class="row-control" aria-expanded="${CIDX===-1}" onclick="selectExercise(-1)" style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700">Activation <span class="dm" style="font-weight:500">· recommended before loaded work</span></span>
-<span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></div>`;
+<span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></button>`;
 if(CIDX===-1){const its=[{l:'Joint Circles',d:'Shoulders, wrists, elbows, hips'},{l:fIso?.isoWU||'Isometric Hold',d:'Build tension before loading'},{l:'Single-Leg Balance',d:'30s per leg'}];
 h+=`<div class="ex-expand">`;for(let i=0;i<its.length;i++){
-h+=`<div class="wu-check" onclick="event.stopPropagation();WU_CHECKS[${i}]=!WU_CHECKS[${i}];saveAW();render()">
-<div class="wu-box${WU_CHECKS[i]?' checked':''}">${WU_CHECKS[i]?'✓':''}</div>
-<div><div style="font-size:12px;font-weight:600">${its[i].l}</div><div class="dm">${its[i].d}</div></div></div>`}
+h+=`<button type="button" id="wu-check-${i}" class="wu-check" aria-pressed="${WU_CHECKS[i]}" onclick="WU_CHECKS[${i}]=!WU_CHECKS[${i}];saveAW();render();document.getElementById('wu-check-${i}').focus()">
+<span aria-hidden="true" class="wu-box${WU_CHECKS[i]?' checked':''}">${WU_CHECKS[i]?'✓':''}</span>
+<span><span style="display:block;font-size:12px;font-weight:600">${its[i].l}</span><span class="dm">${its[i].d}</span></span></button>`}
 h+=`</div>`}h+=`</div>`;
 
 // Exercises
@@ -4366,24 +4408,24 @@ const last=getLast(ex.id),sg=getSmartSugg(ex),cue=D.cues[ex.id];
 
 if(isDone&&!isCur){
 // Done row
-h+=`<div class="ex-row done-row" onclick="selectExercise(${idx})">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<button type="button" class="ex-row done-row" aria-expanded="false" onclick="selectExercise(${idx})">
+<span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></div></div>`;
+<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></span></button>`;
 } else if(!isCur){
 // Upcoming row
-h+=`<div class="ex-row upcoming" onclick="selectExercise(${idx})">
-<div style="display:flex;justify-content:space-between;align-items:center">
+h+=`<button type="button" class="ex-row upcoming" aria-expanded="false" onclick="selectExercise(${idx})">
+<span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:600">${esc(ex.nm)} <span class="dm">${ex.s}×${ex.rp}</span></span>
-<span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></div></div>`;
+<span class="sg ${sgClass(sg.type)}" style="font-size:9px;padding:2px 6px">${esc(sg.text)}</span></span></button>`;
 } else {
 const targetEffort=targetRirLabel(ex);
 // Current — expanded
-h+=`<div class="ex-row cur" id="ex-cur" data-exercise="${esc(ex.id)}">
+h+=`<div class="ex-row cur" id="ex-cur" tabindex="-1" role="group" aria-label="${esc(ex.nm)} exercise" data-exercise="${esc(ex.id)}">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:14px;font-weight:800">${esc(ex.nm)}${sg.maxed?' <span class="max-badge">MAX</span>':''}${ex._swapped?' <span class="swap-badge">SWAP</span>':''}</span>
 <span style="display:flex;align-items:center;gap:8px">
-${ex._short?'':`<button class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>`}
+${ex._short?'':`<button type="button" aria-label="Swap ${esc(ex.nm)}" aria-expanded="${SWAP_OPEN===ex._slot}" class="btn-ghost swap-btn${SWAP_OPEN===ex._slot?' on':''}" onclick="event.stopPropagation();openSwap('${ex._slot}')">⇄ Swap</button>`}
 <span class="dm">${idx+1}/${exs.length}</span></span></div>
 <div style="font-size:12px;margin-top:2px"><span style="font-weight:700;color:var(--tx)">${ex.s}×${ex.rp}</span><span style="color:var(--mu)"> · Rest ${ex.rst}${targetEffort?` · ${targetEffort}`:''}${ex.tempo&&ex.tempo!=='—'?' · '+ex.tempo:''}</span></div>
 ${ex.ss?`<div class="ss-chip">⚡ Superset · ${esc(ex.ss)}</div>`:''}`;
@@ -4393,13 +4435,13 @@ const cands=swapCandidates(ex._slot,ex.id,SWAP_FILTER);
 const prim=Object.keys(MG[ex.id]||MG[ex._slot]||{}).filter(m=>(MG[ex.id]||MG[ex._slot])[m]>=1);
 const mLbl=prim.map(m=>(MG_INFO.find(x=>x[0]===m)||[,m])[1]).join(' · ');
 h+=`<div class="swap-panel"><div class="swap-hd">Replace with — same muscle${mLbl?` (${mLbl})`:''}</div>
-<div class="swap-filters">${tps.map(t=>`<button class="${t===SWAP_FILTER?'on':''}" onclick="event.stopPropagation();SWAP_FILTER='${t}';render()">${t==='all'?'All gear':esc(TP_LABEL[t]||t)}</button>`).join('')}</div>`;
+<div class="swap-filters">${tps.map(t=>`<button type="button" id="swap-filter-${t}" aria-pressed="${t===SWAP_FILTER}" class="${t===SWAP_FILTER?'on':''}" onclick="event.stopPropagation();SWAP_FILTER='${t}';render();document.getElementById('swap-filter-${t}').focus()">${t==='all'?'All gear':esc(TP_LABEL[t]||t)}</button>`).join('')}</div>`;
 if(!cands.length)h+=`<div class="dm" style="padding:6px 2px">No alternatives for this filter.</div>`;
 for(const c of cands){const cl=getLast(c.id);
-h+=`<div class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
-<div><div style="font-size:12px;font-weight:700">${esc(c.nm)}</div>
-<div class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</div></div>
-<span class="swap-go">Use</span></div>`}
+h+=`<button type="button" class="swap-opt" onclick="event.stopPropagation();doSwap('${ex._slot}','${c.id}')">
+<span><span style="display:block;font-size:12px;font-weight:700">${esc(c.nm)}</span>
+<span class="dm" style="font-size:9px">${esc(TP_LABEL[c.tp]||c.tp)} · ${c.s}×${c.rp}${cl?` · last ${cl.wt?cl.wt+'kg':''}${cl.band?' '+esc(cl.band):''}`:' · new'}</span></span>
+<span class="swap-go">Use</span></button>`}
 if(ex._swapped)h+=`<button class="btn-ghost" style="font-size:10px;margin-top:6px;color:var(--am)" onclick="event.stopPropagation();revertSwap('${ex._slot}')">↺ Restore original</button>`;
 h+=`</div>`}
 
@@ -4560,6 +4602,7 @@ h+=`</div>`;el.innerHTML=h}
 // ─── HELPERS ───────────────────────────────────
 // Scrolling belongs to explicit exercise navigation, never ordinary set entry.
 function selectExercise(idx){CIDX=idx;saveAW();render();
+document.getElementById(idx<0?'activation-toggle':'ex-cur')?.focus({preventScroll:true});
 const target=document.getElementById(idx<0?'ex-activation':'ex-cur'),strip=document.querySelector('.work-sticky');
 // Account for the actual sticky strip height, including enlarged text and safe areas.
 if(target){if(strip)target.style.scrollMarginTop=(parseFloat(getComputedStyle(strip).top)+strip.getBoundingClientRect().height+8)+'px';
@@ -4624,7 +4667,10 @@ const cur=LOG[id].form.slice(0,n);const uniform=cur.length&&cur.every(f=>f===sco
 for(let i=0;i<n;i++)LOG[id].form[i]=uniform?0:score;LOG[id].touched=true;saveAW();render()}
 function setFormSet(id,i,score){ensureForm(id,i+1);LOG[id].form[i]=LOG[id].form[i]===score?0:score;LOG[id].touched=true;saveAW();render()}
 let CANCEL_ARMED=false;
-function discardActiveWorkout(){return clearAW(()=>{ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')})}
+function discardActiveWorkout(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}
+const draft=activeRecord()||checkResume();
+if(!confirm(`Discard unfinished Day ${draft?.day||'workout'}? Its unsaved sets, ratings and notes will be removed. Saved workout history stays saved.`))return false;
+return clearAW(()=>{ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;CANCEL_ARMED=false;SNOTES='';SWAP={};SWAP_OPEN=null;clearTimer();releaseWake();go('home')})}
 function cancelW(){if(CANCEL_ARMED){discardActiveWorkout()}
 else{CANCEL_ARMED=true;setTimeout(()=>{if(CANCEL_ARMED){CANCEL_ARMED=false;render()}},3000);render()}}
 function editCue(exId){const cur=D.cues[exId]||'';const v=prompt(`Cue for ${ALL_EX.find(e=>e.id===exId)?.nm||exId}:`,cur);
@@ -5851,16 +5897,16 @@ h+=`</div>`}}
 if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
 const RW=rampWindows(Infinity); // hoisted: rampOf runs once per rendered session row
 for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
-h+=`<div class="cd" style="padding:10px 14px;cursor:pointer" onclick="EXP=EXP==='${s.id}'?null:'${s.id}';render()">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<div style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
+h+=`<div class="cd" style="padding:10px 14px">
+<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)}, ${s.loc==='partner'?'Partner':'Home'}${s.noProg?', ignored for progression':''}${dupMap.has(s.id)?', possible duplicate':''} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
+<span style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
 ${s.noProg?`<span style="font-size:10px;font-weight:700;color:var(--am)" title="Ignored for progression">⏸</span>`:''}
 ${s.retro?`<span style="font-size:9px;font-weight:700;color:var(--dm);border:1px solid var(--cb);border-radius:4px;padding:1px 4px" title="Logged retroactively">retro</span>`:''}
 ${dupMap.has(s.id)?`<span style="font-size:9px;font-weight:700;color:var(--am);border:1px solid var(--am);border-radius:4px;padding:1px 4px" title="Same exercises, loads and reps as another session on this date">possible duplicate</span>`:''}
-${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</div>
-<span class="dm">${s.duration?s.duration+'m':''}</span></div>`;
+${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);border:1px solid var(--pr);border-radius:4px;padding:1px 4px" title="Trained inside a return-from-break ramp">↩ ramp</span>`:''}</span>
+<span class="dm">${s.duration?s.duration+'m':''}</span></button>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
 <div class="mu" style="font-size:11px">${fmtSets(e)}${e.band&&!Array.isArray(e.bands)?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
@@ -5882,6 +5928,7 @@ h+=`</div>`;el.innerHTML=h}
 // Per-session progression exclusion — for bad data (e.g. a glitch session logged at
 // submaximal loads) that should stay in the rotation/history record but never anchor
 // a weight suggestion. Additive flag: old backups without it import unchanged.
+function toggleHistory(id){EXP=EXP===id?null:id;render();document.getElementById('history-'+id)?.focus()}
 window.toggleNoProg=function(id){const s=D.sessions.find(x=>x.id===id);if(!s)return;
 if(s.noProg)delete s.noProg;else s.noProg=true;save();render()}
 // Return-ramp controls. On window because they are reached from inline onclick handlers.
@@ -6080,8 +6127,8 @@ h+=`</div><div class="dm" style="margin-top:8px">${held?'Phase changes are held 
  'Linear: lower-rep main lifts. Hypertrophy: higher-rep emphasis. Choose when recovered and sessions are manageable; a review date does not force a switch. Rep targets change, not the routine list or set counts.'}</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Backup</div>
 <button class="btn btn-wh" style="margin-bottom:6px" onclick="expD()">↓ Export</button>
-<label class="btn btn-wh" style="text-align:center;cursor:pointer;display:block;margin-bottom:6px">↑ Import
-<input type="file" accept=".json" style="display:none" onchange="impD(event)"></label>
+<button type="button" class="btn btn-wh" style="margin-bottom:6px" onclick="document.getElementById('import-backup').click()">↑ Import</button>
+<input id="import-backup" type="file" accept=".json" aria-label="Import workout backup file" hidden onchange="impD(event)">
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Cues</div>`;
 const ck=Object.keys(D.cues);if(ck.length){for(const k of ck){const ex=ALL_EX.find(e=>e.id===k);
 h+=`<div class="cd" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
@@ -6337,23 +6384,23 @@ if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
 migrateData(W);
 delete W.seeded;
 return{W,added,replaced,skipped}}
-function saveImportedActive(){if(!WRITER||!PENDING_ACTIVE)return false;
+function saveImportedActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE)return false;
 try{localStorage.setItem(AW_KEY,JSON.stringify(PENDING_ACTIVE))}
 catch(_){AW_ERROR='The imported unfinished workout is not saved. Retry or download this recovery copy before closing the tab.';updateSaveStatus();return false}
-PENDING_ACTIVE=null;AW_ERROR='';AW_CLEANUP=false;
+releasePendingActive();AW_ERROR='';AW_CLEANUP=false;AW_CLEANUP_AFTER=null;
 ADAY=null;ACTIVE_ID=null;LOG={};SS=null;window._S=null;updateSaveStatus();runSavedCallback(()=>{clearTimer();render()});return true}
-function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;const r=new FileReader();
+function impD(ev){const f=ev.target.files[0];if(!f)return;if(!WRITER||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();ev.target.value='';return}IMPORT_BUSY=true;updateSaveStatus();const r=new FileReader();
 r.onload=e=>{try{const source=JSON.parse(e.target.result);const{W,added,replaced,skipped}=mergeImport(D,source);
 let active=null;if(source.activeWorkout!=null&&!W.sessions.some(s=>s.id===source.activeWorkout.id)){active=normalizeActiveRecord({...source.activeWorkout,resetEpoch:W.resetEpoch},W);
 if(!active)throw Error('Invalid active workout');
 if((ADAY||pendingAW())&&!confirm('This recovery file includes an unfinished workout. Replace the current resume workout with this copy?'))return}
-PENDING_ACTIVE=active;
+PENDING_ACTIVE=active;PENDING_ACTIVE_BEFORE=active?{error:AW_ERROR,cleanup:AW_CLEANUP,after:AW_CLEANUP_AFTER}:null;
 const complete=()=>{const activeSaved=active?saveImportedActive():false;
 render();const dup=sessionDuplicateMap(D.sessions).size;
 alert(`Import saved: ${added} new, ${replaced} updated (${D.sessions.length} total)${skipped?` · ${skipped} malformed records or fields skipped or repaired`:''}${dup?` · ${dup} possible duplicates flagged in History`:''}${activeSaved?' · unfinished workout available to resume':active?' · unfinished workout NOT saved; keep the recovery file':''}`)};
-if(!save(W,{after:complete}))alert('Import could not be saved. The pending import is available to retry or download; your saved history is unchanged.');
-}catch(e){alert('Invalid file — nothing was changed.')}finally{IMPORT_BUSY=false}};
-r.onerror=()=>{IMPORT_BUSY=false;alert('The file could not be read. Nothing was changed.')};
+if(!save(W,{after:complete,importingActive:!!active}))alert('Import could not be saved. The pending import is available to retry or download; your saved history is unchanged.');
+}catch(e){alert('Invalid file — nothing was changed.')}finally{IMPORT_BUSY=false;updateSaveStatus()}};
+r.onerror=()=>{IMPORT_BUSY=false;updateSaveStatus();alert('The file could not be read. Nothing was changed.')};
 r.readAsText(f);ev.target.value=''}
 
 // ═══════════════ INIT ═══════════════

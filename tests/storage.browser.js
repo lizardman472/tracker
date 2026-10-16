@@ -135,4 +135,78 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
         D.sessions.filter(s => s.id === id).length === 1 && !checkResume(), pendingId));
     } finally { await ctx.close(); }
   }
+  // An active-key failure after a successful import must freeze replacement, not
+  // silently lose the imported payload. Earlier persisted work remains until retry.
+  {
+    const ctx=await context();
+    try {
+      const page=await tab(ctx,true);
+      const backup=await page.evaluate(()=>{
+        beginW('A');const id=dayExs(ADAY)[0].id;LOG[id].reps[0]='5';LOG[id].setDone[0]=true;saveAW();
+        const active=JSON.parse(localStorage.getItem(AW_KEY));active.id='pending-import-workout';active.notes='Imported synthetic draft';
+        const value=structuredClone(D);value.activeWorkout=active;go('settings');
+        window.realActiveSetItem=Storage.prototype.setItem;
+        Storage.prototype.setItem=function(k,v){if(k==='rft-active')throw new DOMException('Synthetic quota','QuotaExceededError');return window.realActiveSetItem.call(this,k,v)};
+        return value;
+      });
+      await page.locator('#import-backup').setInputFiles({name:'recovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
+      await page.getByRole('button',{name:'Download imported workout',exact:true}).waitFor();
+      const before=await page.evaluate(()=>({pending:JSON.stringify(PENDING_ACTIVE),stored:localStorage.getItem(AW_KEY),saved:localStorage.getItem(SK)}));
+      T('pending import disables competing UI and announces recovery actions',await page.locator('#app').evaluate(el=>el.inert)&&await page.getByRole('button',{name:'Discard imported workout',exact:true}).isVisible());
+      const blocked=await page.evaluate(()=>{
+        Storage.prototype.setItem=window.realActiveSetItem;
+        for(const active of [null,{...PENDING_ACTIVE,id:'competing-import'}]){
+          const value=structuredClone(D);if(active)value.activeWorkout=active;
+          impD({target:{files:[new File([JSON.stringify(value)],'other.json',{type:'application/json'})],value:''}});
+        }
+        beginW('B');resumeW();resetAll();clearAW();saveAW();setLoc('partner');setRecoveryMode('deload');
+        AW_ERROR='';updateSaveStatus();
+        return {pending:JSON.stringify(PENDING_ACTIVE),stored:localStorage.getItem(AW_KEY),saved:localStorage.getItem(SK)};
+      });
+      T('all replacement boundaries retain the pending identity and earlier stored draft',JSON.stringify(before)===JSON.stringify(blocked));
+      T('warning cannot disappear when incidental AW_ERROR clears',await page.getByRole('button',{name:'Retry save',exact:true}).isVisible());
+      const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download imported workout',exact:true}).click();
+      const downloaded=await download,stream=await downloaded.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
+      T('download retains the exact pending imported draft',JSON.stringify(JSON.parse(raw).activeWorkout)===before.pending);
+      page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+      await page.getByRole('button',{name:'Discard imported workout',exact:true}).click();
+      T('cancel pending discard keeps the exact draft',await page.evaluate(v=>JSON.stringify(PENDING_ACTIVE)===v,before.pending));
+      page.on('dialog',d=>d.accept());
+      await page.getByRole('button',{name:'Retry save',exact:true}).click();
+      T('retry stores imported identity once and removes the warning',await page.evaluate(()=>!PENDING_ACTIVE&&checkResume().id==='pending-import-workout')&&!await page.locator('#app').evaluate(el=>el.inert));
+      await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+      T('imported identity and checked work survive reload',await page.evaluate(()=>checkResume().id==='pending-import-workout'&&Object.values(checkResume().log).some(l=>l.setDone[0]&&Number(l.reps[0])===5)));
+    } finally {await ctx.close()}
+  }
+  {
+    const ctx=await context();
+    try {
+      const page=await tab(ctx,true);
+      const setup=await page.evaluate(()=>{
+        beginW('A');const id=dayExs(ADAY)[0].id;LOG[id].reps[0]='5';LOG[id].setDone[0]=true;saveAW();
+        const original=localStorage.getItem(AW_KEY),identity=ACTIVE_ID;
+        window.realSetBeforeCombinedFailure=Storage.prototype.setItem;
+        Storage.prototype.setItem=function(k,v){if(k==='rft-active')throw new DOMException('Synthetic quota','QuotaExceededError');return window.realSetBeforeCombinedFailure.call(this,k,v)};
+        LOG[id].reps[0]='6';saveAW();const error=AW_ERROR,value=structuredClone(D);
+        value.activeWorkout={...activeRecord(),id:'second-failed-import'};go('settings');return {original,identity,id,error,value};
+      });
+      await page.locator('#import-backup').setInputFiles({name:'second.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(setup.value))});
+      await page.getByRole('button',{name:'Discard imported workout',exact:true}).waitFor();
+      page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+      await page.getByRole('button',{name:'Discard imported workout',exact:true}).click();
+      T('combined failure cancel keeps imported copy pending',await page.evaluate(()=>PENDING_ACTIVE?.id==='second-failed-import'));
+      page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'Discard imported workout',exact:true}).click();
+      T('discard imported copy restores earlier visible warning and original six-rep draft',await page.evaluate(({identity,id,error,original})=>
+        AW_ERROR===error&&ACTIVE_ID===identity&&Number(LOG[id].reps[0])===6&&localStorage.getItem(AW_KEY)===original&&!PENDING_ACTIVE,setup)&&
+        await page.getByText(/Current workout is not saved on this device/).isVisible());
+      T('earlier failure retains beforeunload protection',await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented}));
+      const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download current workout',exact:true}).click();
+      const file=await download,stream=await file.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
+      const recovered=JSON.parse(raw).activeWorkout;
+      T('restored current-workout download keeps six reps and original identity',recovered.id===setup.identity&&Number(recovered.log[setup.id].reps[0])===6);
+      await page.evaluate(()=>{Storage.prototype.setItem=window.realSetBeforeCombinedFailure});
+      await page.getByRole('button',{name:'Retry save',exact:true}).click();
+      T('restored retry saves earlier workout under its original identity',await page.evaluate(({identity,id})=>!AW_ERROR&&checkResume().id===identity&&Number(checkResume().log[id].reps[0])===6,setup));
+    } finally {await ctx.close()}
+  }
 };

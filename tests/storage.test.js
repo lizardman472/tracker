@@ -183,6 +183,66 @@ test('imported active write failure has a working retry and downloadable pending
   assert.equal(h.ctx.recoveryExportData().activeWorkout.id,'stable-workout');
   assert.match(h.alerts.at(-1),/NOT saved/); h.fail(false); assert.equal(h.ctx.retrySave(),true); assert.equal(h.ctx.checkResume().id,'stable-workout');
 });
+test('unresolved imported draft survives every replacement boundary and retries the same identity', () => {
+  const source=harness(); summary(source); const backup=fixture(); backup.activeWorkout=plain(source.ctx.activeRecord());
+  const h=harness(); summary(h); h.ctx.saveAW(); const previous=h.values.get(AW);
+  backup.activeWorkout.id='imported-draft'; h.fail(false,true);
+  const imp=data=>h.ctx.impD({target:{files:[{content:JSON.stringify(data)}],value:'x'}});
+  imp(backup); const pending=JSON.stringify(h.ctx.recoveryExportData().activeWorkout),saved=h.values.get(SK);
+  h.fail(false);
+  const other=fixture(); other.activeWorkout={...backup.activeWorkout,id:'competing-draft'};
+  imp(fixture()); imp(other); h.ctx.beginW('B'); h.ctx.resumeW(); h.ctx.resetAll();
+  h.ctx.clearAW(); h.ctx.saveAW(); h.ctx.setLoc('partner'); h.ctx.setRecoveryMode('deload');
+  const proposed=plain(h.api.getD());proposed.theme='dark';assert.equal(h.ctx.save(proposed),false);
+  assert.equal(h.values.get(AW),previous);assert.equal(h.values.get(SK),saved);
+  assert.equal(JSON.stringify(h.ctx.recoveryExportData().activeWorkout),pending);
+  h.ctx.confirm=()=>false;assert.equal(h.ctx.discardPendingActive(),false);
+  assert.equal(JSON.stringify(h.ctx.recoveryExportData().activeWorkout),pending);
+  h.ctx.confirm=()=>true;assert.equal(h.ctx.retrySave(),true);
+  assert.equal(h.ctx.checkResume().id,'imported-draft');assert.equal(h.ctx.checkResume().log.hex_dl.reps[0],5);
+  const retried=h.values.get(AW);h.ctx.retrySave();assert.equal(h.values.get(AW),retried);
+});
+test('explicit pending-import discard preserves earlier resume workout and committed history', () => {
+  const h=harness();summary(h);h.ctx.saveAW();const previous=h.values.get(AW);
+  const backup=fixture();backup.activeWorkout={...plain(h.ctx.activeRecord()),id:'failed-import'};
+  h.fail(false,true);h.ctx.impD({target:{files:[{content:JSON.stringify(backup)}],value:'x'}});
+  const saved=h.values.get(SK);assert.equal(h.ctx.discardPendingActive(),true);
+  assert.equal(h.values.get(AW),previous);assert.equal(h.values.get(SK),saved);
+  assert.equal(h.ctx.checkResume().id,'stable-workout');assert.equal(h.api.getAWError(),'');
+});
+test('discard confirmation cancellation retains exact draft; confirmation removes only the draft', () => {
+  const h=harness();summary(h);h.ctx.saveAW();const draft=h.values.get(AW),saved=h.values.get(SK);
+  h.ctx.confirm=()=>false;assert.equal(h.ctx.discardActiveWorkout(),false);
+  assert.equal(h.values.get(AW),draft);assert.equal(h.api.getActiveId(),'stable-workout');
+  h.ctx.load();assert.equal(h.ctx.checkResume().id,'stable-workout');
+  h.ctx.confirm=()=>true;assert.equal(h.ctx.discardActiveWorkout(),true);
+  assert.equal(h.values.has(AW),false);assert.equal(h.values.get(SK),saved);
+});
+test('discarding a failed import restores an earlier unsaved edit and its retry identity', () => {
+  const h=harness();summary(h);h.ctx.saveAW();const stored=h.values.get(AW),original=plain(h.ctx.activeRecord());
+  original.log.hex_dl.reps[0]=6;h.api.setActive(original);h.fail(false,true);assert.equal(h.ctx.saveAW(),false);
+  const earlierError=h.api.getAWError(),backup=fixture();backup.activeWorkout={...plain(h.ctx.activeRecord()),id:'other-import'};
+  h.ctx.impD({target:{files:[{content:JSON.stringify(backup)}],value:'x'}});
+  const pending=plain(h.ctx.recoveryExportData().activeWorkout),saved=h.values.get(SK);
+  assert.equal(pending.id,'other-import');h.ctx.exportActiveWorkout();assert.equal(h.downloads.length,1);
+  h.ctx.confirm=()=>false;assert.equal(h.ctx.discardPendingActive(),false);assert.equal(h.ctx.recoveryExportData().activeWorkout.id,'other-import');
+  h.ctx.confirm=()=>true;assert.equal(h.ctx.discardPendingActive(),true);
+  assert.equal(h.api.getAWError(),earlierError);assert.match(h.api.getAWError(),/Current workout is not saved/);
+  assert.equal(h.values.get(AW),stored);assert.equal(h.values.get(SK),saved);
+  const remaining=plain(h.ctx.recoveryExportData().activeWorkout);assert.equal(remaining.id,'stable-workout');assert.equal(remaining.log.hex_dl.reps[0],6);
+  h.ctx.exportActiveWorkout();assert.equal(h.downloads.length,2);
+  h.fail(false);assert.equal(h.ctx.retrySave(),true);assert.equal(h.api.getAWError(),'');
+  const retried=h.ctx.checkResume();assert.equal(retried.id,'stable-workout');assert.equal(retried.log.hex_dl.reps[0],6);
+});
+test('discarding a failed import restores an earlier cleanup failure and callback', () => {
+  const h=harness();summary(h);h.ctx.saveAW();let callbacks=0;h.fail(false,true,true);
+  assert.equal(h.ctx.clearAW(()=>callbacks++),false);const earlierError=h.api.getAWError();
+  const backup=fixture();backup.activeWorkout={...plain(h.ctx.activeRecord()),id:'other-import'};
+  h.ctx.impD({target:{files:[{content:JSON.stringify(backup)}],value:'x'}});
+  assert.equal(h.ctx.discardPendingActive(),true);assert.equal(h.api.getAWError(),earlierError);
+  h.fail(false);assert.equal(h.ctx.retrySave(),true);assert.equal(h.values.has(AW),false);assert.equal(callbacks,1);
+  assert.equal(h.api.getAWError(),'');
+});
 test('unparseable legacy source bytes survive fallback and first successful save', () => {
   const h=harness(); h.values.delete(SK); const raw='{bad legacy json'; h.values.set('rft-v11',raw);
   h.ctx.load(); assert.equal(h.api.getD().sessions.length,0); assert.equal(h.values.get(SK+'-corrupt'),raw);

@@ -2,14 +2,190 @@
 module.exports=async function({browser,origin,T,baseStore}){
  const fs=require('fs'),path=require('path'),shots=path.join(__dirname,'..','test-results','recovery-layout');
  fs.mkdirSync(shots,{recursive:true});
- const screenshot=async(page,name)=>{await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:path.join(shots,name+'.png')});};
+ const navEvidence=[];
+ async function navState(page,label){
+  const state=await page.evaluate(()=>{
+   const rect=el=>{const r=el.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,bottom:r.bottom,left:r.left,right:r.right}};
+   const style=el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','visibility','opacity','color','backgroundColor','position','top','zIndex','transform','overflow','filter','backdropFilter','clipPath'].map(k=>[k,s[k]]))};
+   const nav=document.getElementById('nav'),header=document.querySelector('.hdr'),status=document.querySelector('#training-plan .routine-title');
+   return{view:VIEW,lastView:LAST_VIEW,stage:D.trainingPlan?.stage,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},
+    overflow:{html:{x:getComputedStyle(document.documentElement).overflowX,y:getComputedStyle(document.documentElement).overflowY},body:{x:getComputedStyle(document.body).overflowX,y:getComputedStyle(document.body).overflowY}},
+    header:{rect:rect(header),style:style(header)},nav:{html:nav.innerHTML,rect:rect(nav),style:style(nav)},status:status?{text:status.textContent.trim(),rect:rect(status)}:null,
+    buttons:[...nav.querySelectorAll('button')].map(el=>{const r=rect(el),x=r.left+r.width/2,y=r.top+r.height/2,hit=document.elementFromPoint(x,y);
+     let visible=true;for(let n=el;n;n=n.parentElement){const s=getComputedStyle(n);if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)<0.99)visible=false}
+     return{text:el.textContent.trim(),ariaLabel:el.getAttribute('aria-label'),rect:r,style:style(el),visible,
+      inViewport:r.width>0&&r.height>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,
+      unoccluded:!!hit&&(el===hit||el.contains(hit)),hit:hit?{tag:hit.tagName,id:hit.id,class:hit.className,text:hit.textContent?.trim().slice(0,100)}:null};})};
+  });
+  navEvidence.push({label,...state});fs.writeFileSync(path.join(shots,'original-return-nav-diagnostics.json'),JSON.stringify(navEvidence,null,2));
+  console.log('NAV_DIAGNOSTIC '+JSON.stringify({label,...state}));return state;
+ }
+ async function assertNav(page,label,view='home'){
+  const s=await navState(page,label),okay=s.view===view&&s.buttons.length===5&&s.buttons.every((b,i)=>
+   b.text===['Today','History','Progress','Body','Settings'][i]&&b.visible&&b.inViewport&&b.unoccluded);
+  T('main navigation visible and unoccluded: '+label,okay,JSON.stringify(s));
+  if(!okay)throw Error('Main navigation acceptance failed: '+JSON.stringify(s));
+  for(const name of ['Today','History','Progress','Body','Settings'])
+   if(await page.locator('#nav').getByRole('button',{name,exact:true}).count()!==1)throw Error('Missing named navigation control: '+name);
+ }
+ async function settleLayout(page){
+  // Settle finite CSS animations in the capture only. Advancing wall time would
+  // also advance workout timers; changing app CSS would hide the real behavior.
+  await page.evaluate(async()=>{
+   await document.fonts.ready;
+   for(const animation of document.getAnimations()){
+    if(Number.isFinite(animation.effect?.getComputedTiming().endTime))animation.finish();
+   }
+   // Require unchanged scroll and geometry across consecutive animation frames;
+   // this synchronizes capture with layout/paint after sticky scroll or resize.
+   const layout=()=>JSON.stringify({x:scrollX,y:scrollY,rects:[...document.querySelectorAll('.hdr,#nav,#nav button,#app .sec')].map(e=>{
+    const r=e.getBoundingClientRect();return[r.x,r.y,r.width,r.height]})});
+   let previous=layout(),stable=0;
+   for(let frame=0;frame<8;frame++){
+    await new Promise(resolve=>requestAnimationFrame(resolve));const current=layout();stable=current===previous?stable+1:0;previous=current;
+    if(stable>=2)return;
+   }
+   throw Error('Capture layout did not settle: '+previous);
+  });
+ }
+ const screenshot=async(page,name,{target='#app .sec',text='',top=true,nav=false}={})=>{
+  if(top)await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  await settleLayout(page);
+  const subject=page.locator(target).first();await subject.waitFor({state:'visible'});
+  const state=await subject.evaluate(el=>{
+   const rect=el.getBoundingClientRect();let visible=true;
+   for(let node=el;node;node=node.parentElement){const css=getComputedStyle(node);
+    if(css.display==='none'||css.visibility!=='visible'||Number(css.opacity)<0.99)visible=false;
+   }
+   return{visible:visible&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth,
+    text:(el.innerText||el.getAttribute('aria-label')||el.value||'').trim()};
+  });
+  if(!state.visible||!state.text||text&&!state.text.includes(text))throw Error(`Screenshot ${name} has no settled visible target: ${JSON.stringify(state)}`);
+  T('screenshot has settled visible content: '+name,true);
+  if(nav)await assertNav(page,name+' before capture');
+  await page.screenshot({path:path.join(shots,name+'.png'),animations:'disabled'});
+  if(nav)await assertNav(page,name+' after capture');
+ };
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
  async function open(store){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('dialog',d=>d.accept());
-  await page.addInitScript(s=>{localStorage.setItem('rft-v12',JSON.stringify(s));localStorage.setItem('rft-v12-gen',String(s.gen||0))},store);
+  await page.addInitScript(s=>{if(!localStorage.getItem('recovery-test-seeded')){localStorage.setItem('rft-v12',JSON.stringify(s));localStorage.setItem('rft-v12-gen',String(s.gen||0));localStorage.setItem('recovery-test-seeded','1')}},store);
+  await page.clock.install({time:new Date()});
   await page.goto(origin+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>WRITER_READY&&WRITER);return{ctx,page,errors};
+ }
+ async function keyActivate(page,control){await control.focus();await page.keyboard.press('Enter')}
+ async function tabActivate(page,control){
+  for(let i=0;i<180;i++){
+   if(await control.evaluate(el=>el===document.activeElement)){await page.keyboard.press('Enter');return}
+   await page.keyboard.press('Tab');
+  }
+  throw Error('Control is not reachable by Tab: '+await control.innerText());
+ }
+ for(const legacy of [false,true]){
+  const store=baseStore(),start=ago(0);store.trainingPlan={stage:'deload',start,stageStart:start,loads:{hex_dl:60},bands:{}};
+  const {ctx,page,errors}=await open(store);
+  await page.evaluate(legacy=>{restTrainingPlan();if(legacy){
+   // Old backups stored only the two-day rest deadline in reviewAfter. The
+   // current status still applies its separate seven-day minimum review.
+   delete D.trainingPlan.restUntil;D.trainingPlan.reviewAfter=dayAfter(D.trainingPlan.stageStart,2);save();render();
+  }},legacy);
+  const minReview=await page.evaluate(()=>dayAfter(D.trainingPlan.stageStart,7));
+  for(const days of [1,2,3,6,7,8]){
+   const at=new Date(start+'T12:00:00');at.setDate(at.getDate()+days);await page.clock.setFixedTime(at);await page.evaluate(()=>render());
+   T(`early ${legacy?'legacy':'explicit'} extra rest day ${days} preserves seven-day readiness minimum`,await page.evaluate(({days,minReview})=>
+    trainingPlanStatus().review===minReview&&trainingPlanStatus().resting===(days<2)&&trainingPlanStatus().due===(days>=7)&&
+    (days>=7||!advanceTrainingPlan()),{days,minReview}));
+   T(`readiness UI agrees with minimum on day ${days}, legacy=${legacy}`,await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).count()===(days>=7?1:0));
+  }
+  T('clock boundary scenario has no page errors, legacy='+legacy,errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ {
+  const store=baseStore(),ex=[{id:'hex_dl',wt:40,reps:[5,5],form:[4,4],band:''}];
+  store.sessions=[{id:'same-day-home',day:'A',date:ago(1),loc:'home',phase:1,ex},
+   {id:'same-day-partner',day:'A',date:ago(1),loc:'partner',phase:1,ex},
+   {id:'same-day-duplicate',day:'A',date:ago(1),loc:'home',phase:1,noProg:true,ex}];
+  const {ctx,page,errors}=await open(store);await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
+  T('same-day History controls have distinct Home and Partner accessible names',
+   await page.getByRole('button',{name:/Day A,.*Home workout details/}).count()===1&&await page.getByRole('button',{name:/Day A,.*Partner workout details/}).count()===1);
+  const flagged=page.getByRole('button',{name:/Day A,.*Home, ignored for progression, possible duplicate workout details/});
+  T('History accessible name includes ignored and duplicate flags',await flagged.count()===1);
+  await keyActivate(page,flagged);T('flagged History remains keyboard operable',await flagged.getAttribute('aria-expanded')==='true');
+  T('History status names produce no page errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ {
+  const store=baseStore();store.nextDay='A';const {ctx,page,errors}=await open(store);
+  await keyActivate(page,page.locator('button[onclick="beginW(\'A\',true)"]').first());
+  const swap=page.locator('.swap-btn');await keyActivate(page,swap);
+  T('swap announces expansion and focuses a keyboard-operable choice',await swap.getAttribute('aria-expanded')==='true'&&await page.locator('.swap-opt').first().evaluate(el=>el===document.activeElement&&el.tagName==='BUTTON'));
+  const replacement=await page.locator('.swap-opt').first().innerText();await page.keyboard.press('Enter');
+  T('swap choice opens the replacement with predictable focus',await page.locator('#ex-cur').evaluate(el=>el===document.activeElement)&&replacement.includes((await page.locator('#ex-cur').getAttribute('aria-label')).replace(/ exercise$/,'')));
+  T('navigation and swap controls contain no nested interactive controls',await page.locator('button.ex-row button,button.swap-opt button,.row-control button').count()===0);
+  T('swap keyboard flow has no page errors',errors.length===0,errors.join('\n'));await ctx.close();
+ }
+ // Actual mobile-viewport logging, interruption, keyboard review and save. State
+ // inspection asserts outcomes; it never supplies the performed sets or summary.
+ for(const theme of ['light','dark']){
+  const store=baseStore();store.theme=theme;store.nextDay='A';
+  store.trainingPlan={stage:'return',start:ago(0),stageStart:ago(0),loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
+  const {ctx,page,errors}=await open(store);
+  await keyActivate(page,page.getByRole('button',{name:'Start Easy return week · Day A',exact:true}));
+  await tabActivate(page,page.locator('#activation-toggle'));
+  T('activation opens by keyboard with announced state '+theme,await page.locator('#activation-toggle').getAttribute('aria-expanded')==='true');
+  for(const name of ['Joint Circles','Isometric Hold']){
+   // The second item's name can be exercise-specific; use its stable native control.
+   const control=name==='Joint Circles'?page.locator('#wu-check-0'):page.locator('#wu-check-1');
+   await keyActivate(page,control);
+   T('warm-up selection and focus survive rerender '+name+' '+theme,await control.getAttribute('aria-pressed')==='true'&&await control.evaluate(el=>el===document.activeElement));
+  }
+  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  T('exercise navigation moves focus into the opened exercise '+theme,await page.locator('#ex-cur').evaluate(el=>el===document.activeElement));
+  for(let i=1;i<=2;i++){
+   await page.getByLabel(`Set ${i} weight, kilograms`,{exact:true}).fill('20');
+   await page.getByLabel(`Set ${i} reps`,{exact:true}).fill('5');
+   await keyActivate(page,page.getByRole('button',{name:`Set ${i} done`,exact:true}));
+  }
+  await keyActivate(page,page.locator('.form-row1').getByRole('button',{name:'4',exact:true}));
+  await page.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption('4');
+  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await page.getByLabel('Band for Pull-ups (Comfortable Grip)',{exact:true}).selectOption('Purple');
+  for(const [i,band]of ['Blue (heaviest)','Green'].entries()){
+   await page.getByLabel(`Set ${i+1} band`,{exact:true}).selectOption(band);
+   await page.getByLabel(`Set ${i+1} reps`,{exact:true}).fill('6');
+   await keyActivate(page,page.getByRole('button',{name:`Set ${i+1} done`,exact:true}));
+  }
+  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  T('completed exercise can be revisited without losing actual lower weights '+theme,await page.getByLabel('Set 1 weight, kilograms',{exact:true}).inputValue()==='20');
+  await page.getByLabel('Session Notes',{exact:true}).fill('Synthetic interrupted phone workout');await page.keyboard.press('Tab');
+  await screenshot(page,'logged-recovery-'+theme);
+  const draft=await page.evaluate(()=>localStorage.getItem(AW_KEY));
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await keyActivate(page,page.getByRole('button',{name:'Discard',exact:true}));
+  T('cancelled Resume discard retains exact serialized work '+theme,await page.evaluate(v=>localStorage.getItem(AW_KEY)===v,draft));
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  T('cancelled discard preserves identity, ratings and notes across reload '+theme,await page.evaluate(v=>localStorage.getItem(AW_KEY)===v,draft));
+  page.on('dialog',d=>d.accept());await keyActivate(page,page.getByRole('button',{name:'Resume',exact:true}));
+  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await keyActivate(page,page.getByRole('button',{name:/^Next →/}));
+  await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
+  await page.getByLabel('Why did you finish?',{exact:true}).selectOption('fatigue');
+  await screenshot(page,'logged-summary-'+theme,{target:'.summary-card',text:'Workout ended early'});
+  await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
+  const saved=await page.evaluate(()=>D.sessions.at(-1));
+  T('real interaction saves lower per-set weight, mixed bands, fatigue and stable identity '+theme,
+   saved.id===JSON.parse(draft).id&&saved.finishReason==='fatigue'&&saved.noProg&&saved.trainingComplete===false&&
+   saved.ex.find(e=>e.id==='hex_dl').wts.every(w=>w===20)&&JSON.stringify(saved.ex.find(e=>e.id==='pullup_a').bands)===JSON.stringify(['Blue (heaviest)','Green']));
+  await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
+  await tabActivate(page,page.locator('#history-'+saved.id));
+  T('saved History expands by Tab and Enter and retains focus '+theme,await page.locator('#history-'+saved.id).getAttribute('aria-expanded')==='true'&&await page.locator('#history-'+saved.id).evaluate(el=>el===document.activeElement));
+  await screenshot(page,'logged-history-'+theme);
+  await keyActivate(page,page.getByRole('button',{name:'Settings',exact:true}));
+  const picker=page.waitForEvent('filechooser');await tabActivate(page,page.getByRole('button',{name:'↑ Import',exact:true}));await picker;
+  T('Import opens a file chooser by Tab and Enter '+theme,true);
+  T('phone interaction has no horizontal overflow or browser errors '+theme,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)&&errors.length===0,errors.join('\n'));
+  await ctx.close();
  }
  {
   const store=baseStore(),{ctx,page,errors}=await open(store);
@@ -51,10 +227,23 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('expired deload remains light until readiness is confirmed',await page.evaluate(()=>D.trainingPlan.stage==='deload'&&trainingPlanStatus().due));
   await page.getByRole('button',{name:'Still tired — take two more rest days',exact:true}).click();
   T('extra rest is visible and cannot advance the stage',await page.evaluate(()=>trainingPlanStatus().resting&&D.trainingPlan.stage==='deload'));
-  await page.evaluate(()=>{D.trainingPlan.reviewAfter=today();save();render()});
+  await screenshot(page,'extra-rest-phone-light');
+  await page.evaluate(()=>{D.theme='dark';save();applyTheme();render()});await screenshot(page,'extra-rest-phone-dark');
+  await page.evaluate(()=>{D.theme='light';save();applyTheme();render()});
+  const restUntil=await page.evaluate(()=>D.trainingPlan.restUntil);
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()-86400000));
+  await page.evaluate(()=>render());
+  T('before the extra-rest deadline neither the UI nor handler can advance',await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).count()===0&&await page.evaluate(()=>!advanceTrainingPlan()&&trainingPlanStatus().resting));
+  await page.clock.setFixedTime(new Date(restUntil+'T12:00:00'));
+  await page.evaluate(()=>render());
+  T('on the extra-rest deadline readiness is available without editing the plan',await page.evaluate(()=>!trainingPlanStatus().resting&&trainingPlanStatus().due));
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()+86400000));
+  await page.evaluate(()=>render());
+  T('after the extra-rest deadline the stage still waits for explicit readiness',await page.evaluate(()=>trainingPlanStatus().due&&D.trainingPlan.stage==='deload'));
   await page.getByRole('button',{name:'I feel ready — start easy return week',exact:true}).click();
   T('ready check activates a held-load two-set return week',await page.evaluate(()=>D.trainingPlan.stage==='return'&&dayExs('A').reduce((n,e)=>n+e.s,0)===10));
-  await page.evaluate(()=>{D.trainingPlan.stageStart=dayAfter(today(),-7);delete D.trainingPlan.reviewAfter;save();render()});
+  await page.clock.setFixedTime(new Date(new Date(restUntil+'T12:00:00').getTime()+8*86400000));
+  await page.evaluate(()=>render());
   await page.getByLabel('Training phase after recovery',{exact:true}).selectOption('2');
   await screenshot(page,'phase-choice-after-recovery-phone');
   await page.getByRole('button',{name:'I feel ready — use shorter routine',exact:true}).click();
@@ -78,12 +267,26 @@ module.exports=async function({browser,origin,T,baseStore}){
    /24–26 working sets/.test(e.textContent)&&/phase means the rep emphasis/.test(e.textContent)&&/default after recovery/.test(e.textContent)));
   await page.getByLabel('Phase for return to original routine',{exact:true}).selectOption('1');
   await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  await navState(page,'immediately after actual Return to original routine action');
+  await screenshot(page,'original-return-after-action-scrolled-phone',{target:'#training-plan .routine-title',top:false});
+  await assertNav(page,'settled after original-return action without resetting scroll');
+  T('new routine status is not obscured by the sticky main navigation',await page.locator('#training-plan .routine-title').evaluate(e=>
+   e.getBoundingClientRect().top>=document.getElementById('nav').getBoundingClientRect().bottom));
   T('original return starts with lighter loads and capped sets while preserving history',await page.evaluate(b=>
    D.trainingPlan.stage==='original1'&&JSON.stringify(D.sessions)===b.history&&D.phase===1&&D.trainingPlan.phase===1&&D.nextDay===b.nextDay&&
    ['A','B','C'].every(d=>dayExs(d).every(e=>e.s<=2))&&getSmartSugg(dayExs('A')[0]).wt<=54,before));
   T('routine changes bring the new status into view',await page.locator('#training-plan .routine-title').evaluate(e=>
    e.getBoundingClientRect().top>=0&&e.getBoundingClientRect().bottom<=innerHeight));
-  await screenshot(page,'original-return-phone');
+  await screenshot(page,'original-return-phone',{nav:true});
+  const returnState=await page.evaluate(()=>({plan:JSON.stringify(D.trainingPlan),history:JSON.stringify(D.sessions),phase:D.phase,nextDay:D.nextDay}));
+  for(const [name,view]of [['History','history'],['Progress','stats'],['Body','body'],['Settings','settings'],['Today','home']]){
+   await page.locator('#nav').getByRole('button',{name,exact:true}).click();
+   await page.waitForFunction(v=>VIEW===v,view);
+   await assertNav(page,'after actual '+name+' navigation',view);
+   T('navigation preserves original return plan/history/phase/rotation: '+name,await page.evaluate(b=>
+    JSON.stringify(D.trainingPlan)===b.plan&&JSON.stringify(D.sessions)===b.history&&D.phase===b.phase&&D.nextDay===b.nextDay,returnState));
+  }
+  await screenshot(page,'original-return-after-navigation-phone',{nav:true});
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Keep shorter routine (default)',exact:true}).click();
   T('longer return can be abandoned for the shorter default',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
@@ -149,7 +352,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('turning recovery off cannot apply an unchosen phase',await page.evaluate(()=>D.trainingPlan.stage==='deload'));
   await page.getByLabel('Training phase when recovery is off',{exact:true}).selectOption('2');
   await page.locator('#recovery-mode').scrollIntoViewIfNeeded();
-  await page.screenshot({path:path.join(shots,'recovery-controls-phone.png')});
+  await screenshot(page,'recovery-controls-phone',{target:'#recovery-mode',top:false});
   await page.getByRole('button',{name:'Apply recovery mode',exact:true}).click();
   T('explicit early exit starts shorter Hypertrophy with progression and fresh review',await page.evaluate(()=>
    D.trainingPlan.stage==='progress'&&D.trainingPlan.phase===2&&D.trainingPlan.stageStart===today()&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));

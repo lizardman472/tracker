@@ -1210,7 +1210,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
     day: 'ABC'[i % 3], loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] }));
   R.getD().sessions = many;
   R.go('history');
-  const cards = m => (m.match(/EXP=EXP===/g) || []).length;
+  const cards = m => (m.match(/<button\b[^>]*aria-label="[^"]+ workout details"[^>]*aria-expanded="/g) || []).length;
   let sc = R.getA();
   T('History heading reports the true total, not the page', /· 65 sessions/.test(sc));
   T('History renders one page of cards', cards(sc) === 30, String(cards(sc)));
