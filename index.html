@@ -1865,6 +1865,9 @@ function resumeOriginalAfterRest(){
   const band=easiestOriginalBand(ex,[D.trainingPlan.bands[ex.id],...bandPattern(e)]);if(band)p.bands[ex.id]=band;
  }
  W.trainingPlan=null;W.originalResume=validOriginalResume(p);
+ // The confirmed choice resolves this break offer, using its existing signature.
+ // A later real session changes that signature and allows a new break offer.
+ const last=lastSessDate();if(!D.seeded&&last&&dayDiff(today(),last)>=RTN_MIN_GAP)W.dismissed.rtn=last;
  return save(W,{after:()=>{
   if(AW_ERROR==='Cannot check the unfinished workout backup. Keep this tab open and restore device storage access before changing the routine.')AW_ERROR='';
   updateSaveStatus();renderTrainingPlanChange();

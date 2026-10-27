@@ -36,6 +36,27 @@ module.exports=function({R,context,test,json}){
   }
   assert.match(R.trainingPlanCard(),/Fresh practice/);assert.equal(R.resumeOriginalAfterRest(),false);
  });
+ test('direct return acknowledges only the current dated break offer and preserves other dismissals',()=>{
+  const d=interrupted();d.dismissed={rtn:ago(20),warmup:'keep-warmup',deload:'keep-deload'};R.setD(d);
+  const history=json(R.getD().sessions);R.setConfirm(false);assert.equal(R.resumeOriginalAfterRest(),false);R.setConfirm(true);
+  assert.deepEqual(json(R.getD().dismissed),d.dismissed);assert(R.resumeOriginalAfterRest());
+  assert.deepEqual(json(R.getD().dismissed),{...d.dismissed,rtn:ago(7)});assert.deepEqual(json(R.getD().sessions),history);
+  assert.equal(R.getBreak().last,ago(7));assert(R.bannerDismissed('rtn',R.getBreak().last));
+  R.setD(json(R.getD()));assert(R.bannerDismissed('rtn',R.getBreak().last));
+ });
+ test('direct return does not alter an unrelated break signature below the offer threshold',()=>{
+  const d=interrupted();d.sessions.at(-1).date=ago(6);d.dismissed={rtn:ago(20),warmup:'keep'};R.setD(d);
+  assert(R.resumeOriginalAfterRest());assert.deepEqual(json(R.getD().dismissed),d.dismissed);assert.equal(R.getBreak(),null);
+ });
+ test('a new actual workout followed by a new break re-arms the dated offer normally',()=>{
+  resumed();const dismissed=R.getD().dismissed.rtn;R.beginW('B',true);const ex=def('hex_squat_b');
+  Object.assign(R.getLOG().hex_squat_b,{wt:40,reps:Array(ex.s).fill(String(ex.tg)),setDone:Array(ex.s).fill(true),form:Array(ex.s).fill(5)});
+  R.finishW();R.saveSumm();const saved=R.getD().sessions.at(-1);assert.equal(saved.date,now());assert.notEqual(saved.date,dismissed);assert.equal(R.getBreak(),null);
+  const NativeDate=context.Date,future=new NativeDate(R.dayAfter(now(),7)+'T12:00:00').getTime();
+  context.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:[future]))}static now(){return future}};
+  try{const offer=R.getBreak();assert(offer);assert.equal(offer.last,saved.date);assert.equal(offer.gap,7);assert.equal(R.bannerDismissed('rtn',offer.last),false);assert.equal(R.getD().dismissed.rtn,dismissed)}
+  finally{context.Date=NativeDate}
+ });
  test('direct original choice is separate from shorter and gradual return at any recovery review date',()=>{
   for(const stage of ['deload','return']){
    const d=interrupted();d.trainingPlan.stage=stage;d.trainingPlan.stageStart=now();R.setD(d);

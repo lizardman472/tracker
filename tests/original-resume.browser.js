@@ -37,6 +37,11 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   await page.waitForFunction(()=>VIEW==='home'&&!PENDING_SAVE);
  }
  async function setDay(page,date,offset){const time=new Date(date+'T12:00:00');time.setDate(time.getDate()+offset);await page.clock.setFixedTime(time);await page.evaluate(()=>render())}
+ async function assertNoRampOffer(page,label){
+  const state=await page.evaluate(()=>({last:lastSessDate(),acknowledged:D.dismissed.rtn,
+   offer:!!document.querySelector('button[aria-label="Dismiss return-from-break suggestion"]'),staleText:document.getElementById('app').innerText.includes('A gap this long is a layoff')}));
+  T(label,!state.offer&&!state.staleText,JSON.stringify(state));
+ }
  for(const theme of ['light','dark']){
   const store=baseStore();Object.assign(store,{theme,phase:1,phaseStart:ago(35),nextDay:'A',lastDeload:null,trainingPlan:null,comeback:null});
   store.sessions=[2,4].map((days,i)=>({id:'pre-rest-b-'+i,date:ago(days),day:'B',loc:'home',phase:1,difficulty:3,
@@ -76,6 +81,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   });
   T('direct return focuses the valid named original-routine heading before test scrolling '+theme,focus.focused&&focus.role==='heading'&&focus.name==='Original A/B/C Essentials'&&focus.tabIndex===-1,JSON.stringify(focus));
   T('direct return focus target clears sticky chrome before test scrolling '+theme,focus.top>=focus.edge-1&&focus.bottom<=focus.height,JSON.stringify(focus));
+  await assertNoRampOffer(page,'confirmed direct return has no stale layoff-ramp offer '+theme);
   const marker=await page.evaluate(()=>structuredClone(D.originalResume));
   T('direct return restores original B, normal lists and existing phase clock without history edits '+theme,await page.evaluate(b=>{
    const rows=dayExs('B',{},true),normal=originalEssentials(D.phase).B;
@@ -84,6 +90,8 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
     rows.length>=8&&rows.reduce((n,e)=>n+e.s,0)>=24&&getSmartSugg(rows.find(e=>e.id==='hex_squat_b')).type==='stay';
   },afterDeload));
   await screenshot(page,'direct-original-return-'+theme,{target:'#training-plan',text:'Original A/B/C Essentials',top:false,nav:true});
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  await assertNoRampOffer(page,'direct-return save and reload retain the acknowledged break offer '+theme);
   await keyActivate(page,page.getByRole('button',{name:/^Start Essentials/}));
   T('original B entry starts with the captured context and held weight '+theme,await page.evaluate(id=>ADAY==='B'&&dayExs('B').length>=8&&activeRecord().originalResumeId===id&&LOG.hex_squat_b.wt===40,marker.id));
   await enterExercise(page,'hex_squat_b',{wt:40});
@@ -91,6 +99,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
   await keyActivate(page,page.getByRole('button',{name:'Resume',exact:true}));
   T('original draft reload retains actual entries and original context '+theme,await page.evaluate(d=>activeRecord().originalResumeId===d.originalResumeId&&ACTIVE_ID===d.id&&LOG.hex_squat_b.setDone.every(Boolean),draft));
+  await screenshot(page,'direct-original-resume-entry-top-'+theme,{target:'#ex-cur',text:'Hex Bar Squat',top:false});
   await openExercise(page,await page.evaluate(()=>dayExs(ADAY).find(e=>e.id==='hex_squat_b')));
   await page.locator('#ex-cur').scrollIntoViewIfNeeded();
   await screenshot(page,'direct-original-entry-'+theme,{target:'#ex-cur',text:'Hex Bar Squat',top:false});
@@ -115,7 +124,9 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   T('actual unfinished file import, Resume, finish, save and reload retain one tagged session '+theme,await activeRestore.page.evaluate(({id,context})=>
    D.sessions.filter(s=>s.id===id).length===1&&D.sessions.find(s=>s.id===id).originalResumeId===context&&D.nextDay==='C',{id:draft.id,context:marker.id}));
   T('unfinished recovery-file route has no browser errors '+theme,activeRestore.errors.length===0,activeRestore.errors.join('\n'));await activeRestore.ctx.close();
-  await finishAndSave(page);const first=await page.evaluate(()=>structuredClone(D.sessions.at(-1)));
+  await finishAndSave(page);await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
+  await assertNoRampOffer(page,'new original workout save and reload do not show the resolved old offer '+theme);
+  const first=await page.evaluate(()=>structuredClone(D.sessions.at(-1)));
   T('actual original save advances B to C and cannot combine with old successes '+theme,await page.evaluate(({id,sessionId})=>{
    const s=D.sessions.find(s=>s.id===sessionId),ex=dayExs('B',{},true).find(e=>e.id==='hex_squat_b');
    return s.originalResumeId===id&&s.day==='B'&&s.ex.find(e=>e.id===ex.id).reps.every(r=>r===ex.tg)&&D.nextDay==='C'&&getSmartSugg(ex).type==='cf';
@@ -165,6 +176,13 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
    T(damage+' visible original-exercise guidance points to a reachable recovery route '+theme,await heldCard.getAttribute('data-exercise')==='hex_squat_b'&&guidance.includes('Progression is held')&&guidance.includes('Finish and save, or explicitly discard')&&guidance.includes('Today or Settings')&&guidance.includes('Recovery plan and routine choices')&&!guidance.includes('plan below'),guidance);
    T(damage+' boundary route has no browser errors '+theme,check.errors.length===0,check.errors.join('\n'));await check.ctx.close();
   }
+  // The acknowledged original gap is not a permanent suppression: the actual
+  // new B session on day7 supplies a different signature after a later week off.
+  await setDay(page,start,14);await keyActivate(page,page.getByRole('button',{name:'Today',exact:true}));
+  const newOffer=page.getByRole('button',{name:'Dismiss return-from-break suggestion',exact:true});await newOffer.waitFor({state:'visible'});
+  T('a later break after the actual new workout re-arms the dated ramp offer '+theme,await page.evaluate(()=>{
+   const offer=getBreak();return offer&&offer.gap===7&&offer.last!==D.dismissed.rtn&&!bannerDismissed('rtn',offer.last);
+  }));
   T('direct original route has no browser errors or phone overflow '+theme,errors.length===0&&restored.errors.length===0&&await restored.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),[...errors,...restored.errors].join('\n'));
   await restored.ctx.close();await ctx.close();
  }

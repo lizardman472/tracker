@@ -263,15 +263,16 @@ test('post-commit view errors cannot turn a durable write into a pending retry',
   assert.equal(JSON.parse(h.values.get(SK)).theme,'dark'); assert.equal(h.api.getPending(),null); assert.match(h.alerts.at(-1),/Data was saved/);
   h.values.set(AW,'draft'); assert.equal(h.ctx.clearAW(()=>{throw Error('Synthetic render failure')}),true); assert.equal(h.values.has(AW),false);
 });
-function interruptedOriginal(){const d=fixture();d.trainingPlan={stage:'deload',start:'2020-01-01',stageStart:'2020-01-01',loads:{hex_dl:80},bands:{}};return d}
+function interruptedOriginal(){const d=fixture();d.dismissed={rtn:'2019-12-30',warmup:'keep-warmup'};d.trainingPlan={stage:'deload',start:'2020-01-01',stageStart:'2020-01-01',loads:{hex_dl:80},bands:{}};return d}
 test('direct original resume failure keeps committed recovery and an atomic retryable proposal',()=>{
   const h=harness(interruptedOriginal()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
   assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
   const pending=plain(h.api.getPending());assert.equal(pending.trainingPlan,null);assert(pending.originalResume.id);
+  assert.deepEqual(pending.dismissed,{...before.dismissed,rtn:'2020-01-02'});
   assert.equal(pending.originalResume.loads.hex_dl,40);assert.deepEqual(pending.sessions,before.sessions);
   assert.equal(h.ctx.resumeOriginalAfterRest(),false);h.fail(false);assert(h.ctx.retrySave());
   assert.equal(h.api.getPending(),null);assert.equal(h.api.getD().originalResume.id,pending.originalResume.id);
-  assert.equal(h.api.getD().trainingPlan,null);assert.deepEqual(plain(h.api.getD().sessions),before.sessions);
+  assert.equal(h.api.getD().trainingPlan,null);assert.deepEqual(plain(h.api.getD().sessions),before.sessions);assert.deepEqual(plain(h.api.getD().dismissed),pending.dismissed);
   const committedGen=h.api.getD().gen;assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.api.getD().gen,committedGen);
 });
 test('direct resume cancel and all saved-draft shapes are lossless no-ops',()=>{
