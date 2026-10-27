@@ -1803,7 +1803,10 @@ function renderTrainingPlanChange(){
 function validOriginalResumeId(id){return typeof id==='string'&&/^original-[\w.-]{1,55}$/.test(id)}
 function originalHomeExercises(phase=D.phase){return Object.values(getProgram(phase,'home')).flat()}
 function validOriginalResume(v){
- if(!plainObject(v)||!validOriginalResumeId(v.id)||!validISODate(v.date)||![1,2,3].includes(v.phase))return null;
+ if(v==null)return null;
+ // A damaged boundary is distinct from legacy data with no boundary. Retain a
+ // durable held state rather than making old successes eligible again on reload.
+ if(!plainObject(v)||!validOriginalResumeId(v.id)||!validISODate(v.date)||![1,2,3].includes(v.phase))return{invalid:true,loads:{},bands:{}};
  const out={id:v.id,date:v.date,phase:v.phase,loads:{},bands:{}},ids=new Set(originalHomeExercises(v.phase).map(e=>e.id));
  for(const[id,kg]of Object.entries(plainObject(v.loads)?v.loads:{}))if(ids.has(id)&&finiteNumber(kg)>0&&Number(kg)<=1000)out.loads[id]=Number(kg);
  for(const[id,b]of Object.entries(plainObject(v.bands)?v.bands:{}))if(ids.has(id)&&BANDS.includes(b))out.bands[id]=b;
@@ -1811,9 +1814,10 @@ function validOriginalResume(v){
 }
 function originalResumeContext(ex){
  const p=D.originalResume;
- return p&&!D.trainingPlan&&D.location==='home'&&p.phase===D.phase&&p.date<=today()&&
+ return p&&!D.trainingPlan&&D.location==='home'&&(p.invalid||p.phase===D.phase)&&
   (!ex||originalHomeExercises().some(e=>e.id===ex.id))?p:null;
 }
+function originalResumeProblem(p=originalResumeContext()){return p?.invalid?'Your saved return settings need review.':p&&p.date>today()?`The saved return date (${p.date}) is ahead of this device’s date.`:''}
 function easiestOriginalBand(ex,bands){
  const values=bands.filter(b=>BANDS.includes(b));if(!values.length)return '';
  return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...values.map(BAND_IDX))];
@@ -1823,13 +1827,14 @@ function originalPractice(ex,p){
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0)).at(-1);
 }
 function originalProgressionHist(ex,p){
+ if(p.invalid||p.date>today())return [];
  return D.sessions.filter(s=>s.originalResumeId===p.id&&!s.retro&&!s.noProg&&!s.trainingStage&&
   (s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today())
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0).map(e=>
-   ({...e,date:s.date,phase:s.phase,loc:'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup}))).slice(-8);
+   ({...e,...(ex.tp==='band'?{band:easiestOriginalBand(ex,bandPattern(e))}:{}),date:s.date,phase:s.phase,loc:'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup}))).slice(-8);
 }
 function originalStartingSuggestion(ex,p){
- const last=originalPractice(ex,p),detail='Original routine after rest. Start from this held setup, reduce it if needed, and log fresh practice. Earlier successes do not earn a new increase; later suggestions use the original progression rules.';
+ const last=originalPractice(ex,p),problem=originalResumeProblem(p),detail=problem?`${problem} Progression is held. Check the device date or restore a reviewed backup on a fresh device. To choose a new starting point, start a new recovery plan below, then confirm the return when ready. Earlier successes cannot earn increases.`:'Original routine after rest. Start from this held setup, reduce it if needed, and log fresh practice. Earlier successes do not earn a new increase; later suggestions use the original progression rules.';
  if(ex.tp==='band'){
   const band=easiestOriginalBand(ex,[p.bands[ex.id],...bandPattern(last)]);
   return{text:band?`Hold ${band}`:'Choose an easy band',type:'stay',wt:null,band,traj:[],detail,regress:''};
@@ -1857,8 +1862,11 @@ function resumeOriginalAfterRest(){
   const known=[D.trainingPlan.loads[ex.id],practice].filter(w=>w>0);if(known.length)p.loads[ex.id]=Math.min(...known);
   const band=easiestOriginalBand(ex,[D.trainingPlan.bands[ex.id],...bandPattern(e)]);if(band)p.bands[ex.id]=band;
  }
- W.trainingPlan=null;W.originalResume=p;
- return save(W,{after:renderTrainingPlanChange});
+ W.trainingPlan=null;W.originalResume=validOriginalResume(p);
+ return save(W,{after:()=>{
+  if(AW_ERROR==='Cannot check the unfinished workout backup. Keep this tab open and restore device storage access before changing the routine.')AW_ERROR='';
+  updateSaveStatus();renderTrainingPlanChange();
+ }});
 }
 function phaseLoadTargets(p,phase,recent=false){
  const defs=recent?Object.values(SHORT_ABC).flat().map(([id,s,rp,tg])=>shortPhaseExercise({...ALL_EX.find(e=>e.id===id),s,rp,tg},phase)):
@@ -1949,7 +1957,7 @@ function recoveryModeControlsH(st){
 }
 function updateRecoveryModeChoice(){const field=document.getElementById('recovery-phase-choice');if(field)field.hidden=document.getElementById('recovery-mode').value!=='off'}
 function trainingLoadContext(st=trainingPlanStatus()){
- if(!st)return originalResumeContext()?'Fresh practice · original progression':'Progression on · per exercise';
+ if(!st)return originalResumeProblem()?'Held · check return backup/date':originalResumeContext()?'Fresh practice · original progression':'Progression on · per exercise';
  if(st.stage==='progress'){const check=shortDeloadStatus();if(check?.due||check?.hold)return 'Held · recovery check'}
  return st.stage==='deload'?'Held · about 82% reference':st.stage==='return'?'Held · about 90% reference':st.stage==='progress'?'Progression on · reps → weight':
   st.stage==='original1'?'Held · up to 90% reference':st.stage==='original2'?'Held · up to 95% reference':'Held · logged practice loads';
@@ -2057,10 +2065,11 @@ function trainingPlanCard(view='home'){
  const st=trainingPlanStatus(),orig=originalReturn(st),ctx=trainingPhaseContext(),check=shortDeloadStatus();
  const cue=(D.location==='partner'?'Home routine · ':'')+(!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':''));
  const effort=st?.stage==='deload'?'4–5':st?.stage==='progress'||st?.stage==='original3'?'2–3':'3';
- const instruction=!st?originalResumeContext()?'Original Essentials sets · fresh practice earns progression':'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
+ const instruction=!st?originalResumeProblem()?'Original Essentials sets · progression held for review':originalResumeContext()?'Original Essentials sets · fresh practice earns progression':'Recovery plan available':st.stage==='deload'?'6 working sets · 4–5 clean reps left':st.stage==='return'?'10 working sets · about 90% loads · 3 clean reps left':
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · held reference'} loads · ${effort} clean reps left`;
  let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.restUntil||st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
  h+=`<div class="routine-state"><span>Recovery: ${st&&['deload','return'].includes(st.stage)?st.pending?'Scheduled':'On':'Off'}</span><span>Load: ${trainingLoadContext(st)}</span></div>`;
+ if(originalResumeProblem())h+=`<p role="status">${esc(originalResumeProblem())} Starting loads and progression stay held. Check the device date or restore a reviewed backup on a fresh device. To choose a new starting point, start a new recovery plan below, then confirm the return when ready.</p>`;
  h+=`<div class="routine-meta"><b>Current phase:</b> ${ctx.label}${D.location==='partner'?`<br>Active Partner phase: ${PHASES[D.phase].name}`:''}</div>`;
  h+=shortDeloadGuidanceH(check,view);
  if(view==='workout')return h+'</div>';
@@ -3130,13 +3139,15 @@ function getSmartSugg(ex){
   if(HOME_PRESS_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,PARTNER_PRESS_IDS,'partner','partner pressing work was logged after this lift');if(r)reasons.push(r)}
   if(PARTNER_PRESS_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,HOME_PRESS_IDS,'home','home pressing work was logged after this lift');if(r)reasons.push(r)}
   if(!reasons.length)return base;
- const resume=originalResumeContext(ex),earned=resume?originalProgressionHist(ex,resume).at(-1):null;
- const anchor=earned||last,lastLoad=anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
+  const resume=originalResumeContext(ex),earned=resume?originalProgressionHist(ex,resume).at(-1):null;
+  const anchor=earned||last,lastLoad=anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
+  const heldBand=resume&&ex.tp==='band'?easiestOriginalBand(ex,bandPattern(anchor)):anchor?.band||base.band;
+  const bandHold=resume&&ex.tp==='band'?{band:heldBand,bands:Array(ex.s).fill(heldBand)}:{band:heldBand};
   const unit=ex.loadUnit==='per_db'?'/DB':'';
-  const text=ex.tp==='band'?`Stay on ${anchor?.band||base.band||'current band'} (recovery hold)`:
+  const text=ex.tp==='band'?`Stay on ${heldBand||'current band'} (recovery hold)`:
     lastLoad?`→ ${lastLoad}kg${unit} (recovery hold)`:'Hold progression for recovery';
-  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:lastLoad||base.wt,band:anchor?.band||base.band,
-    detail:`Progression held: ${reasons.join('; ')}.${base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
+  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:lastLoad||base.wt,...bandHold,
+    detail:`Progression held: ${reasons.join('; ')}.${resume&&ex.tp==='band'?` Repeat ${heldBand||'an easy band'} for every set; no harder bridge is prescribed.`:base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
     regress:`⚠ ${reasons.join(' · ')}`}
 }
 
@@ -4201,12 +4212,13 @@ h+=`</div>`;el.innerHTML=h}
 // Seed a LOG row for one exercise (prefilled from last session / smart suggestion).
 // Idempotent — used by beginW and by the swap flow when a new movement enters the day.
 function ensureLog(ex){if(!ex||LOG[ex.id])return;const last=getLast(ex.id),sg=getSmartSugg(ex),resume=originalResumeContext(ex);
+const practicedBand=resume&&ex.tp==='band'?easiestOriginalBand(ex,bandPattern(originalProgressionHist(ex,resume).at(-1))):'';
 const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 // Prefill is PADDED to today's set count — slice() alone left a 3-entry reps array when
 // the last session had fewer sets than today prescribes (same id on a 3-set and a 4-set
 // day, or a set-count bump like floor press 3→4 in v21), rendering "undefined" in the
 // 4th input and mis-reading the exercise as done.
-LOG[ex.id]={wt:sg.wt||(resume?defWt:last?.wt||defWt),band:ex._short||resume?(sg.band||''):(last?.band||sg.band||''),
+LOG[ex.id]={wt:sg.wt||(resume?defWt:last?.wt||defWt),band:ex._short||resume?(sg.band||practicedBand||''):(last?.band||sg.band||''),
 reps:Array.from({length:ex.s},(_,i)=>{const r=ex._short?null:last?last.reps[i]:null;return r>0?String(r):''}),
 wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
 bands:Array.from({length:ex.s},(_,i)=>Array.isArray(sg.bands)?sg.bands[i]||'':!ex._short&&!resume&&last&&Array.isArray(last.bands)?last.bands[i]||'':''),
@@ -6312,8 +6324,9 @@ W.deleted=(Array.isArray(d.deleted)?d.deleted:[]).filter(x=>typeof x==='string'&
 W.comeback=validComeback(d.comeback);W.comebackLog=validComebackLog(d.comebackLog);
 W.trainingPlan=validTrainingPlan(d.trainingPlan);
 W.originalResume=validOriginalResume(d.originalResume);
-if(W.trainingPlan||W.originalResume?.phase!==W.phase)W.originalResume=null;
-if(d.originalResume!=null&&!W.originalResume)issues.dropped++;
+if(W.originalResume&&!W.originalResume.invalid&&W.originalResume.phase!==W.phase)W.originalResume={invalid:true,loads:{},bands:{}};
+if(W.trainingPlan)W.originalResume=null;
+if(d.originalResume!=null&&W.originalResume?.invalid&&d.originalResume.invalid!==true)issues.dropped++;
 if(d.trainingPlan!=null&&!W.trainingPlan)issues.dropped++;
 if(d.comeback!=null&&!W.comeback)issues.dropped++;
 if(d.comebackLog!=null&&(!Array.isArray(d.comebackLog)||W.comebackLog.length!==d.comebackLog.length))issues.dropped++;
@@ -6396,7 +6409,7 @@ const W=normalizeState(cur).W;
 // Fresh device = truly empty OR an old release still carrying the legacy `seeded` flag.
 // On a fresh restore, obsolete demo rows are dropped and phase/venue metadata is adopted
 // from the backup instead of silently keeping defaults.
-const wasFresh=W.sessions.length===0||W.seeded===true;
+const wasFresh=!W.originalResume&&(W.sessions.length===0||W.seeded===true);
 if(W.seeded){W.sessions=[];W.cardioLog=[];W.bodyLog=[];W.discomfort=[]}
 const existingMap=new Map(W.sessions.map(s=>[s.id,s]));
 let added=0,replaced=0;

@@ -272,7 +272,7 @@ test('direct original resume failure keeps committed recovery and an atomic retr
   assert.equal(h.ctx.resumeOriginalAfterRest(),false);h.fail(false);assert(h.ctx.retrySave());
   assert.equal(h.api.getPending(),null);assert.equal(h.api.getD().originalResume.id,pending.originalResume.id);
   assert.equal(h.api.getD().trainingPlan,null);assert.deepEqual(plain(h.api.getD().sessions),before.sessions);
-  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.api.getD().gen,before.gen+1);
+  const committedGen=h.api.getD().gen;assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.api.getD().gen,committedGen);
 });
 test('direct resume cancel and all saved-draft shapes are lossless no-ops',()=>{
   const h=harness(interruptedOriginal()),raw=h.values.get(SK);h.ctx.confirm=()=>false;
@@ -282,11 +282,17 @@ test('direct resume cancel and all saved-draft shapes are lossless no-ops',()=>{
     h.values.set(AW,draft);assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.values.get(AW),draft);assert.equal(h.values.get(SK),raw);
   }
 });
+test('discarding a failed direct-return proposal keeps the original committed recovery',()=>{
+  const h=harness(interruptedOriginal()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert(h.api.getPending().originalResume);
+  h.ctx.discardPendingSave();assert.equal(h.api.getPending(),null);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
+});
 test('unreadable draft storage blocks direct resume and retains a visible save-status warning',()=>{
   const h=harness(interruptedOriginal()),before=plain(h.api.getD()),get=h.storage.getItem;
   h.storage.getItem=k=>{if(k===AW)throw Error('Synthetic unreadable draft');return get(k)};
   assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.deepEqual(plain(h.api.getD()),before);
   assert.match(h.api.getAWError(),/Cannot check the unfinished workout backup/);assert.equal(h.api.getPending(),null);
+  h.storage.getItem=get;assert(h.ctx.resumeOriginalAfterRest());assert.equal(h.api.getAWError(),'');
 });
 test('direct resume respects writer, active-workout, pending-import and import-reading guards',()=>{
   const h=harness(interruptedOriginal()),raw=h.values.get(SK);h.api.owner(false);assert.equal(h.ctx.resumeOriginalAfterRest(),false);h.api.owner(true);

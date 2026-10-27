@@ -402,4 +402,5 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('active deload does not ask for another deload',await page.getByRole('button',{name:'Start deload today',exact:true}).count()===0);
   T('shorter progression and reminder flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
+ await require('./original-resume.browser')({T,baseStore,open,keyActivate,screenshot,ago});
 };

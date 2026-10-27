@@ -1,4 +1,5 @@
 // Synthetic direct-return contract cases, run by recovery.test.js.
+const assert=require('node:assert/strict');
 module.exports=function({R,context,test,json}){
  const now=()=>R.today(),ago=n=>R.dayAfter(now(),-n);
  function interrupted(phase=1){
@@ -63,6 +64,14 @@ module.exports=function({R,context,test,json}){
  test('resistance entry uses a visible uniform scalar without hidden mixed overrides',()=>{
   resumed();R.beginW('B',true);assert.equal(R.getLOG().rear_delt.band,'Red');assert(R.getLOG().rear_delt.bands.every(b=>b===''));
  });
+ test('a fatigue veto replaces an earned harder bridge in both the suggestion and initialized inputs',()=>{
+  const d=resumed(),ex=def('pullup_a'),bands=Array.from({length:ex.s},(_,i)=>i===0?'Purple':'Green');
+  practice(d,'pullup_a',{difficulty:5,ex:[{id:'pullup_a',band:'None',bands,reps:Array(ex.s).fill(ex.tg),form:Array(ex.s).fill(5)}]});R.setD(d);
+  assert.equal(R.getSmartSuggCore(ex).type,'up');const s=R.getSmartSugg(ex);
+  assert.equal(s.type,'stay');assert.equal(s.band,'Green');assert(s.bands.every(b=>b==='Green'));
+  assert.match(s.detail,/no harder bridge/);R.beginW('A',true);
+  assert.equal(R.getLOG().pullup_a.band,'Green');assert(R.getLOG().pullup_a.bands.every(b=>b==='Green'));
+ });
  test('an apparatus minimum above the held reference is explicitly disclosed',()=>{
   const d=resumed();d.originalResume.loads.hex_dl=1;d.sessions=[];R.setD(d);
   const s=R.getSmartSugg(def('hex_dl'));assert(s.wt>1);assert.equal(s.type,'stay');assert.match(s.detail,/lightest available setup.*above/);
@@ -101,9 +110,9 @@ module.exports=function({R,context,test,json}){
   assert.equal(restored.sessions.at(-1).originalResumeId,d.originalResume.id);assert.equal(restored.nextDay,'B');
   R.setD(restored);assert.equal(R.getSmartSugg(def('hex_dl')).type,'cf');
  });
- test('invalid markers and tags are dropped while valid known references are bounded',()=>{
+ test('invalid boundaries stay held, invalid tags are dropped and known references are bounded',()=>{
   for(const bad of [{id:'bad'}, {date:'2026-02-30'}, {phase:4}]){
-   const d=resumed();Object.assign(d.originalResume,bad);assert.equal(R.normalizeState(d).W.originalResume,null);
+   const d=resumed();Object.assign(d.originalResume,bad);assert.equal(R.normalizeState(d).W.originalResume.invalid,true);
   }
   const d=resumed();d.originalResume.loads={hex_dl:Infinity,foreign:30,floor_press:1001,lm_squat:30};
   d.originalResume.bands={pullup_a:'invalid',foreign:'Green'};const p=R.normalizeState(d).W.originalResume;
@@ -115,6 +124,27 @@ module.exports=function({R,context,test,json}){
   assert.equal(R.setPhase(1),false);assert.deepEqual(json(R.getD().originalResume),p);assert.equal(R.getD().phaseStart,clock);
   assert(R.setPhase(2));assert.equal(R.getD().originalResume,null);
   resumed();assert(R.startTrainingPlan());assert.equal(R.getD().originalResume,null);
+ });
+ for(const [label,damage]of [['future',p=>{p.date=R.dayAfter(now(),1)}],['corrupt',p=>{p.id='broken'}]])test(label+' boundary stays held through normalize/reload and fresh import, including real inputs',()=>{
+  const d=resumed();damage(d.originalResume);const normalized=R.normalizeState(d).W;R.setD(normalized);
+  let s=R.getSmartSugg(def('floor_press'));assert.equal(s.type,'stay');assert.match(s.detail,/Progression is held/);
+  assert.match(R.trainingPlanCard(),/Starting loads and progression stay held/);
+  R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=40);assert(R.getLOG().pullup_a.bands.every(b=>b===''));
+  const exported=json(R.getD()),restored=R.mergeImport(R.freshState(),exported).W;R.setD(restored);
+  s=R.getSmartSugg(def('floor_press'));assert.equal(s.type,'stay');assert.match(s.detail,/Progression is held/);
+  assert(R.startTrainingPlan());assert.equal(R.getD().originalResume,null);assert(R.resumeOriginalAfterRest());
+  assert.equal(R.getD().originalResume.invalid,undefined);assert.equal(R.getD().originalResume.date,now());
+ });
+ test('empty history with an occupied return policy cannot be mistaken for a fresh import target',()=>{
+  const d=resumed();d.sessions=[];const marker=json(d.originalResume),clock=d.phaseStart;
+  const old=interrupted(2);old.trainingPlan=null;old.originalResume=null;old.phaseStart=ago(90);
+  const merged=R.mergeImport(d,old).W;assert.deepEqual(json(merged.originalResume),marker);assert.equal(merged.phase,d.phase);assert.equal(merged.phaseStart,clock);
+  R.setD(merged);assert.equal(R.getSmartSugg(def('floor_press')).type,'stay');R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=40);
+ });
+ for(const [id,day]of [['pullup_a','A'],['rear_delt','B']])for(const hit of [false,true])test(id+' initialized band remains actual and visible after fresh '+(hit?'target':'repeat')+' practice',()=>{
+  const d=resumed(),ex=def(id),band=id==='pullup_a'?'Green':'Red',reps=Array(ex.s).fill(hit?ex.tg:1);
+  practice(d,id,{ex:[{id,band:'Blue (heaviest)',bands:Array(ex.s).fill(band),reps,form:Array(ex.s).fill(5)}]});R.setD(d);
+  R.beginW(day,true);assert.equal(R.getLOG()[id].band,band);assert(R.getLOG()[id].bands.every(b=>b===''||b===band||id==='pullup_a'&&b==='Purple+Red'));
  });
  test('begin, persisted resume, summary and save preserve the captured context exactly once',()=>{
   const d=resumed();R.beginW('A',true);const row=R.getLOG().hex_dl;

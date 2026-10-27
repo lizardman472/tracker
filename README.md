@@ -255,6 +255,11 @@ and saved tags; additive imports preserve the current device's routine policy. A
 change, new recovery plan or reset clears the marker. Cancel or a blocked/failed transition
 keeps the committed plan; failed saves retain an atomic retryable proposal. Any saved
 unfinished draft, including notes-only work, or unreadable draft storage blocks this choice.
+An unusable saved return boundary remains visibly held across reloads and imports; it
+cannot fall back to old progression credit. A return date ahead of the device clock also
+holds progression. Check the date or restore a reviewed backup on a fresh device; starting
+a new recovery plan and confirming a new return deliberately establishes a new boundary.
+An occupied return policy is preserved during additive import even if its history is empty.
 
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
