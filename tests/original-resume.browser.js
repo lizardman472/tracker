@@ -1,21 +1,33 @@
 // Phone-control direct return. Invoked by recovery.browser; no parallel browser jobs.
 module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ async function openExercise(page,ex){
+  const current=page.locator('#ex-cur');
+  // The selected exercise is a group, not an exercise-selection button.
+  if(await current.count()!==1||await current.getAttribute('data-exercise')!==ex.id)
+   await keyActivate(page,page.getByRole('button',{name:new RegExp(esc(ex.nm))}).first());
+  const card=page.getByRole('group',{name:ex.nm+' exercise',exact:true});await card.waitFor({state:'visible'});
+  const selected=await card.getAttribute('data-exercise');
+  T('phone helper opens the requested exercise through its actual card: '+ex.id,selected===ex.id);
+  if(selected!==ex.id)throw Error('Requested '+ex.id+' but opened '+selected);
+  return card;
+ }
  async function enterExercise(page,id,{wt,band,rir='3'}={}){
   const ex=await page.evaluate(id=>{const e=dayExs(ADAY).find(e=>e.id===id);return{...e,inputLabel:repInputLabel(e)}},id);
-  await keyActivate(page,page.getByRole('button',{name:new RegExp(esc(ex.nm))}).first());
-  if(band)await page.getByLabel('Band for '+ex.nm,{exact:true}).selectOption(band);
+  const card=await openExercise(page,ex);
+  if(band)await card.getByLabel('Band for '+ex.nm,{exact:true}).selectOption(band);
   for(let i=1;i<=ex.s;i++){
-   if(wt)await page.getByLabel(`Set ${i} weight, kilograms`,{exact:true}).fill(String(wt));
-   await page.getByLabel(`Set ${i} ${ex.inputLabel}`,{exact:true}).fill(String(ex.tg*(ex.perSide?2:1)));
-   await keyActivate(page,page.getByRole('button',{name:`Set ${i} done`,exact:true}));
+   if(wt)await card.getByLabel(`Set ${i} weight, kilograms`,{exact:true}).fill(String(wt));
+   await card.getByLabel(`Set ${i} ${ex.inputLabel}`,{exact:true}).fill(String(ex.tg*(ex.perSide?2:1)));
+   await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
-  await keyActivate(page,page.locator('.form-row1').getByRole('button',{name:'4',exact:true}));
-  await page.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption(rir);
+  await keyActivate(page,card.locator('.form-row1').getByRole('button',{name:'4',exact:true}));
+  const effort=card.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true});
+  T('reps-left input matches the actual routine: '+id,(await effort.count())===(ex._short?1:0));
+  if(ex._short)await effort.selectOption(rir);
  }
  async function finishAndSave(page){
-  const name=await page.evaluate(()=>dayExs(ADAY).at(-1).nm);
-  await keyActivate(page,page.getByRole('button',{name:new RegExp(esc(name))}).first());
+  await openExercise(page,await page.evaluate(()=>dayExs(ADAY).at(-1)));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
   await keyActivate(page,page.locator('.diff-pick').nth(2));
   await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
@@ -60,7 +72,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
   await keyActivate(page,page.getByRole('button',{name:'Resume',exact:true}));
   T('original draft reload retains actual entries and original context '+theme,await page.evaluate(d=>activeRecord().originalResumeId===d.originalResumeId&&ACTIVE_ID===d.id&&LOG.hex_squat_b.setDone.every(Boolean),draft));
-  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Squat/}).first());
+  await openExercise(page,await page.evaluate(()=>dayExs(ADAY).find(e=>e.id==='hex_squat_b')));
   await page.locator('#ex-cur').scrollIntoViewIfNeeded();
   await screenshot(page,'direct-original-entry-'+theme,{target:'#ex-cur',text:'Hex Bar Squat',top:false});
   // Exercise the existing recovery-file UI with the actual unfinished record.
