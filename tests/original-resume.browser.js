@@ -155,8 +155,11 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
    T(damage+' imported boundary stays visibly held after real reload '+theme,await check.page.locator('#training-plan').innerText().then(t=>t.includes('Starting loads and progression stay held'))&&
     await check.page.evaluate(()=>getSmartSugg(dayExs('B',{},true).find(e=>e.id==='hex_squat_b')).type==='stay'));
    await keyActivate(check.page,check.page.locator('.dpick').getByRole('button',{name:'B1',exact:true}));
-   await keyActivate(check.page,check.page.getByRole('button',{name:/^Start Essentials/}));
-   T(damage+' imported boundary cannot initialize an old earned increase '+theme,await check.page.evaluate(()=>Number(LOG.hex_squat_b.wt)<=40&&LOG.rear_delt.bands.every(b=>b==='')));
+   // This backup already contains B today. Use its explicit rest-day override.
+   const override=check.page.getByRole('button',{name:'Day B1 Essentials anyway',exact:true});await override.waitFor({state:'visible'});
+   T(damage+' same-day backup exposes the actual rest-day Essentials override '+theme,await check.page.locator('#app').innerText().then(t=>t.includes('Rest Day'))&&await check.page.getByRole('button',{name:/^Start Essentials/}).count()===0);
+   await keyActivate(check.page,override);
+   T(damage+' imported boundary cannot initialize an old earned increase '+theme,await check.page.evaluate(()=>VIEW==='workout'&&ADAY==='B'&&EXPRESS===true&&Number(LOG.hex_squat_b.wt)<=40&&LOG.rear_delt.bands.every(b=>b==='')));
    T(damage+' workout guidance points to a reachable recovery route '+theme,await check.page.locator('#training-plan').innerText().then(t=>t.includes('Finish and save, or explicitly discard')&&t.includes('Today or Settings')&&!t.includes('plan below')));
    T(damage+' boundary route has no browser errors '+theme,check.errors.length===0,check.errors.join('\n'));await check.ctx.close();
   }
