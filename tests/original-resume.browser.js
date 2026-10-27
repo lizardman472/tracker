@@ -104,7 +104,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
    activeBackup.activeWorkout.id===draft.id&&activeBackup.activeWorkout.originalResumeId===marker.id);
   await page.evaluate(()=>{Storage.prototype.setItem=window.originalResumeSetItem});
   await keyActivate(page,page.getByRole('button',{name:'Retry save',exact:true}));
-  const empty=baseStore();Object.assign(empty,{sessions:[],trainingPlan:null,comeback:null});
+  const empty=baseStore();Object.assign(empty,{theme,sessions:[],trainingPlan:null,comeback:null});
   const activeRestore=await open(empty);await setDay(activeRestore.page,start,7);
   await keyActivate(activeRestore.page,activeRestore.page.getByRole('button',{name:'Settings',exact:true}));
   await activeRestore.page.locator('#import-backup').setInputFiles({name:activeFile.suggestedFilename(),mimeType:'application/json',buffer:Buffer.from(activeRaw)});
@@ -127,12 +127,13 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   const downloaded=page.waitForEvent('download');await keyActivate(page,page.getByRole('button',{name:'↓ Export',exact:true}));
   const download=await downloaded,stream=await download.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
   const backup=JSON.parse(raw);T('actual exported file retains marker and real session tag '+theme,backup.originalResume.id===marker.id&&backup.sessions.find(s=>s.id===first.id).originalResumeId===marker.id);
-  const fresh=baseStore();Object.assign(fresh,{sessions:[],phase:1,phaseStart:ago(0),nextDay:'A',trainingPlan:null,comeback:null});
+  const fresh=baseStore();Object.assign(fresh,{theme,sessions:[],phase:1,phaseStart:ago(0),nextDay:'A',trainingPlan:null,comeback:null});
   const restored=await open(fresh);await setDay(restored.page,start,7);
   await keyActivate(restored.page,restored.page.getByRole('button',{name:'Settings',exact:true}));
   await restored.page.locator('#import-backup').setInputFiles({name:download.suggestedFilename(),mimeType:'application/json',buffer:Buffer.from(raw)});
   await restored.page.waitForFunction(id=>D.originalResume?.id===id,marker.id);
   await restored.page.reload({waitUntil:'domcontentloaded'});await restored.page.waitForFunction(()=>canWriteStore());
+  T('fresh restore keeps the requested local screenshot theme '+theme,await restored.page.evaluate(t=>D.theme===t,theme));
   T('fresh file restore and reload preserve clock, next C, history and fresh-only confirm '+theme,await restored.page.evaluate(({backup,id})=>{
    const ex=dayExs('B',{},true).find(e=>e.id==='hex_squat_b');return D.originalResume.id===id&&D.nextDay==='C'&&D.phaseStart===backup.phaseStart&&
     JSON.stringify(normalizeState(D).W.sessions)===JSON.stringify(normalizeState(backup).W.sessions)&&getSmartSugg(ex).type==='cf';
@@ -160,7 +161,8 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
    T(damage+' same-day backup exposes the actual rest-day Essentials override '+theme,await check.page.locator('#app').innerText().then(t=>t.includes('Rest Day'))&&await check.page.getByRole('button',{name:/^Start Essentials/}).count()===0);
    await keyActivate(check.page,override);
    T(damage+' imported boundary cannot initialize an old earned increase '+theme,await check.page.evaluate(()=>VIEW==='workout'&&ADAY==='B'&&EXPRESS===true&&Number(LOG.hex_squat_b.wt)<=40&&LOG.rear_delt.bands.every(b=>b==='')));
-   T(damage+' workout guidance points to a reachable recovery route '+theme,await check.page.locator('#training-plan').innerText().then(t=>t.includes('Finish and save, or explicitly discard')&&t.includes('Today or Settings')&&!t.includes('plan below')));
+   const heldCard=check.page.locator('#ex-cur');await heldCard.waitFor({state:'visible'});const guidance=await heldCard.innerText();
+   T(damage+' visible original-exercise guidance points to a reachable recovery route '+theme,await heldCard.getAttribute('data-exercise')==='hex_squat_b'&&guidance.includes('Progression is held')&&guidance.includes('Finish and save, or explicitly discard')&&guidance.includes('Today or Settings')&&guidance.includes('Recovery plan and routine choices')&&!guidance.includes('plan below'),guidance);
    T(damage+' boundary route has no browser errors '+theme,check.errors.length===0,check.errors.join('\n'));await check.ctx.close();
   }
   T('direct original route has no browser errors or phone overflow '+theme,errors.length===0&&restored.errors.length===0&&await restored.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),[...errors,...restored.errors].join('\n'));
