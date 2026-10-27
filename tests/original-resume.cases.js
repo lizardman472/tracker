@@ -53,6 +53,13 @@ module.exports=function({R,context,test,json}){
   assert.equal(R.resumeOriginalAfterRest(),false);assert(!R.trainingPlanCard().includes('Resume original A/B/C after rest'));
   assert.deepEqual(json(R.getD()),before);
  });
+ test('an incompatible return-from-break ramp visibly explains a blocked direct choice',()=>{
+  const d=interrupted();d.comeback={start:now(),end:R.dayAfter(now(),7),gap:21};R.setD(d);
+  const before=json(R.getD()),previousAlert=context.alert;let warning='';context.alert=value=>{warning=String(value)};
+  try{assert.equal(R.resumeOriginalAfterRest(),false)}finally{context.alert=previousAlert}
+  assert.deepEqual(json(R.getD()),before);assert.match(warning,/Finish or cancel the existing return-from-break ramp in Settings/);
+  assert.match(R.trainingPlanCard(),/Finish or cancel the existing return-from-break ramp in Settings/);
+ });
  test('starting weights and bands use counted practice, including lower overrides and unused harder defaults',()=>{
   const d=resumed();assert.equal(d.originalResume.loads.hex_dl,40);
   assert.equal(R.getSmartSugg(def('hex_dl')).wt,40);assert.equal(R.getSmartSugg(def('hex_dl')).type,'stay');

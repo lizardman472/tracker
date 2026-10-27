@@ -94,7 +94,7 @@ test('original return needs confirmation and starts light without losing history
  const d=state('progress');d.phase=2;d.nextDay='C';
  d.sessions=[{id:'easy',date:'2020-02-02',day:'A',trainingStage:'deload',trainingPlanStart:'2020-02-01',ex:[{id:'hex_dl',wt:60,reps:[5,5]}]}];
  R.setD(d);const history=json(R.getD().sessions);
- assert(R.trainingPlanCard().includes('Return to original routine'));
+ assert(R.trainingPlanCard().includes('Gradual return to original routine'));
  R.setConfirm(false);assert.equal(R.stopTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'progress');
  R.setConfirm(true);assert(R.stopTrainingPlan());assert.equal(R.getD().trainingPlan.stage,'original1');
  assert.deepEqual(json(R.getD().sessions),history);assert.equal(R.getD().phase,2);assert.equal(R.getD().nextDay,'C');

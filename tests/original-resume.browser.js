@@ -1,5 +1,5 @@
 // Phone-control direct return. Invoked by recovery.browser; no parallel browser jobs.
-module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
+module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLayout,screenshot,ago}){
  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  async function openExercise(page,ex){
   const current=page.locator('#ex-cur');
@@ -28,6 +28,9 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
  }
  async function finishAndSave(page){
   await openExercise(page,await page.evaluate(()=>dayExs(ADAY).at(-1)));
+  // Give each synthetic session plausible elapsed time. Released migrateData
+  // clears sub-ten-minute durations on rows with at least three exercises.
+  await page.clock.setFixedTime(new Date(await page.evaluate(()=>Math.max(Date.now(),SS+12*60000))));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
   await keyActivate(page,page.locator('.diff-pick').nth(2));
   await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
@@ -39,24 +42,40 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
   store.sessions=[2,4].map((days,i)=>({id:'pre-rest-b-'+i,date:ago(days),day:'B',loc:'home',phase:1,difficulty:3,
    ex:[{id:'hex_squat_b',wt:40,reps:[8,8,8],form:[4,4,4],band:''}]}));
   const {ctx,page,errors}=await open(store),start=await page.evaluate(()=>today());
+  await setDay(page,start,0);
   await page.getByText('Recovery plan and routine choices',{exact:true}).click();
   await keyActivate(page,page.getByRole('button',{name:'Start deload today',exact:true}));
   await keyActivate(page,page.getByRole('button',{name:'Start Deload week · Day A',exact:true}));
   for(const id of ['hex_dl','lm_squat','floor_press'])await enterExercise(page,id,{wt:30,rir:'4'});
-  await enterExercise(page,'pullup_a',{band:'Green',rir:'4'});await finishAndSave(page);
-  const afterDeload=await page.evaluate(()=>({history:JSON.stringify(normalizeState(D).W.sessions),phase:D.phase,clock:D.phaseStart,next:D.nextDay,lastDeload:D.lastDeload}));
+  await enterExercise(page,'pullup_a',{band:'Green',rir:'4'});
+  await finishAndSave(page);
+  const afterDeload=await page.evaluate(()=>({history:JSON.stringify(normalizeState(D).W.sessions),ids:D.sessions.map(s=>s.id),phase:D.phase,clock:D.phaseStart,next:D.nextDay,lastDeload:D.lastDeload,stage:D.trainingPlan.stage}));
   T('direct-return fixture saves one actual six-set deload A '+theme,await page.evaluate(()=>{
-   const s=D.sessions.at(-1);return s.day==='A'&&s.trainingStage==='deload'&&s.trainingComplete===true&&s.noProg&&s.ex.reduce((n,e)=>n+e.reps.filter(r=>r>0).length,0)===6&&D.nextDay==='B';
+   const s=D.sessions.at(-1);return s.day==='A'&&s.duration===12&&s.trainingStage==='deload'&&s.trainingComplete===true&&s.noProg&&s.ex.reduce((n,e)=>n+e.reps.filter(r=>r>0).length,0)===6&&D.nextDay==='B';
   }));
   await setDay(page,start,7);await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
-  T('seven days off alone do not create workouts or switch the routine '+theme,await page.evaluate(b=>JSON.stringify(normalizeState(D).W.sessions)===b.history&&D.trainingPlan.stage==='deload'&&D.nextDay==='B',afterDeload));
+  const afterRest=await page.evaluate(()=>({history:JSON.stringify(normalizeState(D).W.sessions),ids:D.sessions.map(s=>s.id),phase:D.phase,clock:D.phaseStart,next:D.nextDay,lastDeload:D.lastDeload,stage:D.trainingPlan?.stage}));
+  const restDiagnostic=JSON.stringify({expected:afterDeload,actual:afterRest});
+  T('seven days off alone do not create workouts or switch the routine '+theme,JSON.stringify(afterRest.ids)===JSON.stringify(afterDeload.ids)&&afterRest.stage==='deload'&&afterRest.next==='B',restDiagnostic);
+  T('seven days off preserve all saved workout fields, phase clock and deload date after reload '+theme,afterRest.history===afterDeload.history&&afterRest.phase===afterDeload.phase&&afterRest.clock===afterDeload.clock&&afterRest.lastDeload===afterDeload.lastDeload,restDiagnostic);
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}).scrollIntoViewIfNeeded();
-  await screenshot(page,'direct-original-choice-'+theme,{target:'button[onclick="resumeOriginalAfterRest()"]',text:'Resume original A/B/C after rest',top:false});
+  await screenshot(page,'direct-original-choice-'+theme,{target:'button[onclick="resumeOriginalAfterRest()"]',text:'RESUME ORIGINAL A/B/C AFTER REST',top:false});
   page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
-  await keyActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
   T('declining direct return preserves the recovery stage and history '+theme,await page.evaluate(b=>D.trainingPlan.stage==='deload'&&!D.originalResume&&JSON.stringify(normalizeState(D).W.sessions)===b.history,afterDeload));
-  page.on('dialog',d=>d.accept());await keyActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  T('keyboard cancel keeps focus on the direct-return choice '+theme,await page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}).evaluate(el=>el===document.activeElement));
+  page.on('dialog',d=>d.accept());await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  // Settle paint without scrolling or moving focus: corrective screenshot helpers
+  // must not hide a failed transition's keyboard or sticky-header behavior.
+  await settleLayout(page);
+  const focus=await page.evaluate(()=>{
+   const title=document.querySelector('#training-plan .routine-title'),r=title.getBoundingClientRect();
+   const edge=Math.max(0,document.getElementById('nav').getBoundingClientRect().bottom,document.querySelector('.hdr').getBoundingClientRect().bottom);
+   return{focused:document.activeElement===title,role:title.getAttribute('role'),name:title.textContent.trim(),tabIndex:title.tabIndex,top:r.top,bottom:r.bottom,edge,height:innerHeight};
+  });
+  T('direct return focuses the valid named original-routine heading before test scrolling '+theme,focus.focused&&focus.role==='heading'&&focus.name==='Original A/B/C Essentials'&&focus.tabIndex===-1,JSON.stringify(focus));
+  T('direct return focus target clears sticky chrome before test scrolling '+theme,focus.top>=focus.edge-1&&focus.bottom<=focus.height,JSON.stringify(focus));
   const marker=await page.evaluate(()=>structuredClone(D.originalResume));
   T('direct return restores original B, normal lists and existing phase clock without history edits '+theme,await page.evaluate(b=>{
    const rows=dayExs('B',{},true),normal=originalEssentials(D.phase).B;
@@ -119,7 +138,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
     JSON.stringify(normalizeState(D).W.sessions)===JSON.stringify(normalizeState(backup).W.sessions)&&getSmartSugg(ex).type==='cf';
   },{backup,id:marker.id}));
   await setDay(restored.page,start,9);
-  await keyActivate(restored.page,restored.page.locator('.dpick').getByRole('button',{name:'B',exact:true}));
+  await keyActivate(restored.page,restored.page.locator('.dpick').getByRole('button',{name:'B1',exact:true}));
   await keyActivate(restored.page,restored.page.getByRole('button',{name:/^Start Essentials/}));
   await enterExercise(restored.page,'hex_squat_b',{wt:40});await finishAndSave(restored.page);
   T('a second actual post-return target earns the original confirm-lift increase '+theme,await restored.page.evaluate(id=>{
@@ -135,9 +154,10 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot,ago}){
    await check.page.waitForFunction(()=>!!D.originalResume);await check.page.reload({waitUntil:'domcontentloaded'});await check.page.waitForFunction(()=>canWriteStore());
    T(damage+' imported boundary stays visibly held after real reload '+theme,await check.page.locator('#training-plan').innerText().then(t=>t.includes('Starting loads and progression stay held'))&&
     await check.page.evaluate(()=>getSmartSugg(dayExs('B',{},true).find(e=>e.id==='hex_squat_b')).type==='stay'));
-   await keyActivate(check.page,check.page.locator('.dpick').getByRole('button',{name:'B',exact:true}));
+   await keyActivate(check.page,check.page.locator('.dpick').getByRole('button',{name:'B1',exact:true}));
    await keyActivate(check.page,check.page.getByRole('button',{name:/^Start Essentials/}));
    T(damage+' imported boundary cannot initialize an old earned increase '+theme,await check.page.evaluate(()=>Number(LOG.hex_squat_b.wt)<=40&&LOG.rear_delt.bands.every(b=>b==='')));
+   T(damage+' workout guidance points to a reachable recovery route '+theme,await check.page.locator('#training-plan').innerText().then(t=>t.includes('Finish and save, or explicitly discard')&&t.includes('Today or Settings')&&!t.includes('plan below')));
    T(damage+' boundary route has no browser errors '+theme,check.errors.length===0,check.errors.join('\n'));await check.ctx.close();
   }
   T('direct original route has no browser errors or phone overflow '+theme,errors.length===0&&restored.errors.length===0&&await restored.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),[...errors,...restored.errors].join('\n'));
