@@ -265,8 +265,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   T('routine choices explain original volume and separate it from phase',await page.locator('#training-plan').evaluate(e=>
    /24–26 working sets/.test(e.textContent)&&/phase means the rep emphasis/.test(e.textContent)&&/default after recovery/.test(e.textContent)));
-  await page.getByLabel('Phase for return to original routine',{exact:true}).selectOption('1');
-  await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  await page.getByLabel('Phase for gradual return to original routine',{exact:true}).selectOption('1');
+  await page.getByRole('button',{name:'Gradual return to original routine',exact:true}).click();
   await navState(page,'immediately after actual Return to original routine action');
   await screenshot(page,'original-return-after-action-scrolled-phone',{target:'#training-plan .routine-title',top:false});
   await assertNav(page,'settled after original-return action without resetting scroll');
@@ -292,8 +292,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('longer return can be abandoned for the shorter default',await page.evaluate(()=>D.trainingPlan.stage==='progress'&&dayExs('A').reduce((n,e)=>n+e.s,0)===11));
   // Exercise the real buttons through all three optional original-return steps.
   await page.getByText('Plan details and routine choices',{exact:true}).click();
-  await page.getByLabel('Phase for return to original routine',{exact:true}).selectOption('1');
-  await page.getByRole('button',{name:'Return to original routine',exact:true}).click();
+  await page.getByLabel('Phase for gradual return to original routine',{exact:true}).selectOption('1');
+  await page.getByRole('button',{name:'Gradual return to original routine',exact:true}).click();
   for(const stage of ['original1','original2','original3']){
    await page.evaluate(stage=>{
     D.trainingPlan.stage=stage;D.trainingPlan.stageStart=dayAfter(today(),-7);
@@ -402,4 +402,5 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('active deload does not ask for another deload',await page.getByRole('button',{name:'Start deload today',exact:true}).count()===0);
   T('shorter progression and reminder flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
+ await require('./original-resume.browser')({T,baseStore,open,keyActivate,tabActivate,settleLayout,screenshot,ago});
 };

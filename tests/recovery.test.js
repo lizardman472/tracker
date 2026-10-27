@@ -12,9 +12,10 @@ vm.runInContext(script.slice(0,script.indexOf('// ══════════
 globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
  advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,finishW,saveSumm,bandPattern,AW_KEY,
+ resumeOriginalAfterRest,validOriginalResume,originalProgressionHist,normalizeActiveRecord,activeRecord,resumeW,getHist,recoveryExportData,getSmartSuggCore,getBreak,bannerDismissed,
  setFinishReason:r=>{window._S.finishReason=r},
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
- setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;LOG={};
+ setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
  setActive:v=>{ADAY=v},setConfirm:v=>{confirm=()=>v}};`,context);
 const R=context.R,json=v=>JSON.parse(JSON.stringify(v));let passed=0;
@@ -93,7 +94,7 @@ test('original return needs confirmation and starts light without losing history
  const d=state('progress');d.phase=2;d.nextDay='C';
  d.sessions=[{id:'easy',date:'2020-02-02',day:'A',trainingStage:'deload',trainingPlanStart:'2020-02-01',ex:[{id:'hex_dl',wt:60,reps:[5,5]}]}];
  R.setD(d);const history=json(R.getD().sessions);
- assert(R.trainingPlanCard().includes('Return to original routine'));
+ assert(R.trainingPlanCard().includes('Gradual return to original routine'));
  R.setConfirm(false);assert.equal(R.stopTrainingPlan(),false);assert.equal(R.getD().trainingPlan.stage,'progress');
  R.setConfirm(true);assert(R.stopTrainingPlan());assert.equal(R.getD().trainingPlan.stage,'original1');
  assert.deepEqual(json(R.getD().sessions),history);assert.equal(R.getD().phase,2);assert.equal(R.getD().nextDay,'C');
@@ -414,4 +415,5 @@ test('new recovery anchors use mixed counted bands through the actual finish and
   const restored=R.mergeImport(R.freshState(),json(R.getD())).W;R.setD(restored);check();assert.deepEqual(json(R.getD().sessions),history);
  }
 });
+require('./original-resume.cases')({R,context,test,json});
 console.log(`\n${passed} recovery tests passed`);

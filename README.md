@@ -229,6 +229,38 @@ check at the review date remains the usual path. These manual controls never era
 history, change the next A/B/C day, or replace an unfinished workout. Regular shorter
 training retains its separate phase selector; the original routine remains optional.
 
+For a deliberate return to the usual pre-deload routine after rest, Home recovery controls
+also offer **Resume original A/B/C after rest**. Confirming restores original Essentials
+(eight or nine exercises, 24–26 working sets) in the existing phase, including Strength.
+It preserves the phase start, next A/B/C day, last-deload date and all saved history. It
+does not require completing the easy return week or the separate gradual-return steps.
+Full remains an optional workout choice. Readiness is the user's explicit choice; dates
+and missed sessions never create completed workouts or earned load increases.
+
+This direct choice saves a unique return marker with conservative load and band references.
+Initial suggestions are held at the reference or lower actual same-phase Home practice,
+rounded down to an available load. If the apparatus minimum exceeds that reference, the
+exercise explains it. Only counted sets supply per-set weights and bands; resistance-band
+starters use one visible easiest band without hidden mixed overrides. Reduce the setup
+whenever needed. A new workout captures its marker at Start and carries it through the
+unfinished draft, summary and save. An older or imported draft does not acquire that tag
+just by being saved after the choice.
+
+Only real, matching Home sessions after that choice supply original progression credit.
+Earlier successes, future/foreign sessions, retroactive entries, ignored rows and recovery
+sessions do not earn it. Once fresh practice exists, the original single-hit, confirm-lift
+and overshoot rules apply; the shorter routine's two-session policy is separate. History,
+analytics and safety evidence remain available. Fresh-device imports preserve the marker
+and saved tags; additive imports preserve the current device's routine policy. A phase
+change, new recovery plan or reset clears the marker. Cancel or a blocked/failed transition
+keeps the committed plan; failed saves retain an atomic retryable proposal. Any saved
+unfinished draft, including notes-only work, or unreadable draft storage blocks this choice.
+An unusable saved return boundary remains visibly held across reloads and imports; it
+cannot fall back to old progression credit. A return date ahead of the device clock also
+holds progression. Check the date or restore a reviewed backup on a fresh device; starting
+a new recovery plan and confirming a new return deliberately establishes a new boundary.
+An occupied return policy is preserved during additive import even if its history is empty.
+
 Stop a set when control breaks down or discomfort rises. Save only work actually performed.
 Persistent or worsening fatigue, especially outside workouts, warrants medical advice.
 Session time targets are planning aids and never shorten necessary rests.

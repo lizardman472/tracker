@@ -33,7 +33,7 @@
 // in Progress and no longer generate a corrective home-screen warning.
 // v120: Day C adds the two-set floor glute bridge with a conservative 31kg first-session estimate.
 // v121: assisted dips and pull-ups can bridge bands set by set, with form-gated progression.
-const C = 'rft-v137';
+const C = 'rft-v141';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

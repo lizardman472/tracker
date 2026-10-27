@@ -25,7 +25,7 @@ function harness(initial = fixture()) {
     values.set(k, String(v));
   }, removeItem(k) { if (failRemove && k === AW) throw new Error('Synthetic remove failure'); values.delete(k); } };
   const ctx = { localStorage: storage, structuredClone, console, Date, Math, Blob, navigator: {},
-    setTimeout: () => 0, clearTimeout() {}, clearInterval() {}, confirm: () => true, alert: x => alerts.push(x),
+    setTimeout: () => 0, clearTimeout() {}, clearInterval() {}, scrollTo() {}, confirm: () => true, alert: x => alerts.push(x),
     URL: { createObjectURL: blob => { downloads.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
     FileReader: class { readAsText(file) { this.onload({ target: { result: file.content } }); } },
     document: { getElementById: id => elements.get(id) || null,
@@ -262,5 +262,55 @@ test('post-commit view errors cannot turn a durable write into a pending retry',
   assert.equal(h.ctx.save(proposal,{after:()=>{throw Error('Synthetic render failure')}}),true);
   assert.equal(JSON.parse(h.values.get(SK)).theme,'dark'); assert.equal(h.api.getPending(),null); assert.match(h.alerts.at(-1),/Data was saved/);
   h.values.set(AW,'draft'); assert.equal(h.ctx.clearAW(()=>{throw Error('Synthetic render failure')}),true); assert.equal(h.values.has(AW),false);
+});
+function interruptedOriginal(){const d=fixture();d.dismissed={rtn:'2019-12-30',warmup:'keep-warmup'};d.trainingPlan={stage:'deload',start:'2020-01-01',stageStart:'2020-01-01',loads:{hex_dl:80},bands:{}};return d}
+test('direct original resume failure keeps committed recovery and an atomic retryable proposal',()=>{
+  const h=harness(interruptedOriginal()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
+  const pending=plain(h.api.getPending());assert.equal(pending.trainingPlan,null);assert(pending.originalResume.id);
+  assert.deepEqual(pending.dismissed,{...before.dismissed,rtn:'2020-01-02'});
+  assert.equal(pending.originalResume.loads.hex_dl,40);assert.deepEqual(pending.sessions,before.sessions);
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);h.fail(false);assert(h.ctx.retrySave());
+  assert.equal(h.api.getPending(),null);assert.equal(h.api.getD().originalResume.id,pending.originalResume.id);
+  assert.equal(h.api.getD().trainingPlan,null);assert.deepEqual(plain(h.api.getD().sessions),before.sessions);assert.deepEqual(plain(h.api.getD().dismissed),pending.dismissed);
+  const committedGen=h.api.getD().gen;assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.api.getD().gen,committedGen);
+});
+test('direct resume cancel and all saved-draft shapes are lossless no-ops',()=>{
+  const h=harness(interruptedOriginal()),raw=h.values.get(SK);h.ctx.confirm=()=>false;
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.values.get(SK),raw);h.ctx.confirm=()=>true;
+  for(const draft of ['', '{malformed', JSON.stringify({day:'A',log:{},notes:'notes only'}),
+    JSON.stringify({id:'hidden',day:'A',loc:'partner',phase:2,start:1,ts:1,log:{hex_dl:{wt:40,reps:[0]}}})]){
+    h.values.set(AW,draft);assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.equal(h.values.get(AW),draft);assert.equal(h.values.get(SK),raw);
+  }
+});
+test('discarding a failed direct-return proposal keeps the original committed recovery',()=>{
+  const h=harness(interruptedOriginal()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert(h.api.getPending().originalResume);
+  h.ctx.discardPendingSave();assert.equal(h.api.getPending(),null);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
+});
+test('unreadable draft storage blocks direct resume and retains a visible save-status warning',()=>{
+  const h=harness(interruptedOriginal()),before=plain(h.api.getD()),get=h.storage.getItem;
+  h.storage.getItem=k=>{if(k===AW)throw Error('Synthetic unreadable draft');return get(k)};
+  assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.deepEqual(plain(h.api.getD()),before);
+  assert.match(h.api.getAWError(),/Cannot check the unfinished workout backup/);assert.equal(h.api.getPending(),null);
+  h.storage.getItem=get;assert(h.ctx.resumeOriginalAfterRest());assert.equal(h.api.getAWError(),'');
+});
+test('direct resume respects writer, active-workout, pending-import and import-reading guards',()=>{
+  const h=harness(interruptedOriginal()),raw=h.values.get(SK);h.api.owner(false);assert.equal(h.ctx.resumeOriginalAfterRest(),false);h.api.owner(true);
+  h.api.setActive({id:'active',day:'A',log:{},start:Date.now()});assert.equal(h.ctx.resumeOriginalAfterRest(),false);
+  vm.runInContext('ADAY=null;PENDING_ACTIVE={id:"pending-import"}',h.ctx);assert.equal(h.ctx.resumeOriginalAfterRest(),false);
+  vm.runInContext('PENDING_ACTIVE=null;IMPORT_BUSY=true',h.ctx);assert.equal(h.ctx.resumeOriginalAfterRest(),false);
+  assert.equal(h.values.get(SK),raw);
+});
+test('failed real post-return save keeps captured provenance through retry without duplicate credit',()=>{
+  const h=harness(interruptedOriginal());assert(h.ctx.resumeOriginalAfterRest());const id=h.api.getD().originalResume.id;
+  h.ctx.beginW('A',true);
+  vm.runInContext('Object.assign(LOG.hex_dl,{wt:40,reps:[5,5,5],setDone:[true,true,true],form:[5,5,5]})',h.ctx);
+  h.ctx.finishW();const sessionId=h.api.getSummary().id;assert.equal(h.api.getSummary().originalResumeId,id);h.fail(true);h.ctx.saveSumm();
+  assert.equal(h.api.getD().sessions.some(s=>s.id===sessionId),false);
+  assert.equal(h.api.getPending().sessions.find(s=>s.id===sessionId).originalResumeId,id);
+  assert.equal(JSON.parse(h.values.get(AW)).originalResumeId,id);h.fail(false);assert(h.ctx.retrySave());
+  assert.equal(h.api.getD().sessions.filter(s=>s.id===sessionId).length,1);
+  assert.equal(h.api.getD().sessions.find(s=>s.id===sessionId).originalResumeId,id);assert.equal(h.values.has(AW),false);
 });
 console.log(`${passed} storage scenarios passed`);
