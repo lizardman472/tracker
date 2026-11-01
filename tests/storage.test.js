@@ -17,14 +17,19 @@ function fixture() {
     cardioLog: [{ id: 'cardio', date: '2020-01-02', type: 'Walking', duration: 20, intensity: 'easy' }],
     discomfort: [{ date: '2020-01-02', exId: 'hex_dl', level: 'mild', joint: 'Knee' }], theme: 'light', gen: 1 };
 }
-function harness(initial = fixture()) {
-  const values = new Map([[SK, JSON.stringify(initial)]]), elements = new Map(), alerts = [], downloads = [];
+function harness(initial = fixture(), options = {}) {
+  const values = new Map(options.values||[[SK, JSON.stringify(initial)]]), elements = new Map(), alerts = [], downloads = [], operations=[];
+  const faults={get:new Set(options.get||[]),set:new Set(options.set||[]),remove:new Set(options.remove||[])};
+  const initialBytes=[...values];
   let failMain = false, failActive = false, failRemove = false;
-  const storage = { getItem: k => values.get(k) ?? null, setItem(k,v) {
-    if ((failMain && k === SK) || (failActive && k === AW)) throw new Error('Synthetic quota failure');
+  const storage = { getItem: k => {if(faults.get.has(k))throw Error('Synthetic key read failure');return values.get(k) ?? null}, setItem(k,v) {
+    operations.push({op:'set',key:k,value:String(v)});
+    if (faults.set.has(k)||(failMain && k === SK) || (failActive && k === AW)) throw new Error('Synthetic quota failure');
     values.set(k, String(v));
-  }, removeItem(k) { if (failRemove && k === AW) throw new Error('Synthetic remove failure'); values.delete(k); } };
-  const ctx = { localStorage: storage, structuredClone, console, Date, Math, Blob, navigator: {},
+    if(options.afterSet)options.afterSet(k,faults);
+  }, removeItem(k) { operations.push({op:'remove',key:k});if(faults.remove.has(k)||(failRemove && k === AW))throw new Error('Synthetic remove failure');values.delete(k);if(options.afterRemove)options.afterRemove(k,faults) } };
+  class CapturedBlob extends Blob {constructor(parts,opts){super(parts,opts);this.parts=parts}}
+  const ctx = { localStorage: storage, structuredClone, console, Date, Math, Blob:CapturedBlob, navigator: {},
     setTimeout: () => 0, clearTimeout() {}, clearInterval() {}, scrollTo() {}, confirm: () => true, alert: x => alerts.push(x),
     URL: { createObjectURL: blob => { downloads.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
     FileReader: class { readAsText(file) { this.onload({ target: { result: file.content } }); } },
@@ -32,18 +37,19 @@ function harness(initial = fixture()) {
       createElement: () => ({ click() {}, setAttribute() {}, style: {} }) } };
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(code + `\n;globalThis.API={
+  vm.runInContext((options.source||code) + `\n;globalThis.API={
     getD:()=>D,setD:x=>{D=x;rememberCommitted(localStorage.getItem(SK));PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=''},
     owner:x=>{WRITER=x;WRITER_READY=true},getPending:()=>PENDING_SAVE,getError:()=>SAVE_ERROR,getAWError:()=>AW_ERROR,
     getIssues:()=>({dropped:LOAD_DROPPED,repaired:LOAD_REPAIRED}),
+    getRaw:()=>RECOVERY_RAW,getRawError:()=>RECOVERY_ERROR,getRawNotice:()=>RECOVERY_NOTICE,getRawCleanup:()=>RECOVERY_CLEANUP,
     setSummary:(s,log)=>{window._S=s;LOG=log;ADAY=s.day;SS=Date.now();ACTIVE_ID=s.id;SDIFF=3},
     setActive:r=>{ADAY=r.day;LOG=r.log;SS=r.start;ACTIVE_ID=r.id;CIDX=0;SWAP={};SNOTES='';WU_CHECKS=[false,false,false]},
     setLP:x=>{LP=x},getView:()=>VIEW,
     getSummary:()=>window._S,getActiveId:()=>ACTIVE_ID};
     render=()=>{};applyTheme=()=>{};clearTimer=()=>{};releaseWake=()=>{};acquireWake=()=>{};
     go=v=>{VIEW=v};`, ctx);
-  ctx.API.owner(true); ctx.load();
-  return { ctx, api: ctx.API, values, storage, elements, alerts, downloads,
+  ctx.API.owner(!options.reader); ctx.load();
+  return { ctx, api: ctx.API, values, storage, elements, alerts, downloads, faults, operations, initialBytes,
     fail: (main, active = false, remove = false) => { failMain=main; failActive=active; failRemove=remove; } };
 }
 const plain = x => JSON.parse(JSON.stringify(x));
@@ -329,4 +335,5 @@ test('cancel, reader, pending import and discarded failed repair preserve commit
  vm.runInContext('PENDING_ACTIVE={id:"pending-import"}',h.ctx);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);vm.runInContext('PENDING_ACTIVE=null',h.ctx);
  assert.deepEqual(plain(h.api.getD()),before);h.fail(true);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.ctx.discardPendingSave();assert.equal(h.api.getPending(),null);assert.deepEqual(plain(h.api.getD()),before);
 });
+require('./raw-recovery.cases')({harness,test,plain,SK,AW,code});
 console.log(`${passed} storage scenarios passed`);

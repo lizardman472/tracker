@@ -209,4 +209,5 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
       T('restored retry saves earlier workout under its original identity',await page.evaluate(({identity,id})=>!AW_ERROR&&checkResume().id===identity&&Number(checkResume().log[id].reps[0])===6,setup));
     } finally {await ctx.close()}
   }
+  await require('./raw-recovery.browser')({browser,origin,T,errors});
 };

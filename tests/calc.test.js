@@ -1663,6 +1663,15 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 // reaches), so the loss vanished and the next save() made it permanent with nothing to
 // recover from. Import has always reported "N malformed sessions skipped"; load now matches.
 {
+  // Independent load fixtures need fresh application RAM: a prior unresolved raw copy
+  // must not be silently abandoned just to inspect an unrelated normalization fixture.
+  let loaded;
+  const load=()=>{
+    const ctx={localStorage:global.localStorage,window:{},navigator:{},structuredClone,console,Date,Math};
+    ctx.global=ctx;require('node:vm').createContext(ctx);require('node:vm').runInContext(code,ctx);
+    ctx.__X.setD({});ctx.load();loaded=ctx.__X;
+  };
+  const getD=()=>loaded.getD(),getDropped=()=>loaded.getDropped();
   const store = {};
   const realLS = global.localStorage;
   global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
@@ -1692,7 +1701,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // ── saveAW reports whether the backup actually landed ──
   // saveSumm's quota-failure path promised "still safe in the resume backup"; a full
   // localStorage is exactly when that write fails too.
-  setD(structuredClone(SEED)); getD().location = 'home';
+  setD(structuredClone(SEED)); global.__X.getD().location = 'home';
   setADAY('A');
   T('saveAW returns true on a successful write', saveAW() === true);
   global.localStorage.setItem = () => { throw new Error('QuotaExceededError') };
