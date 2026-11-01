@@ -59,6 +59,9 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   const h=start();h.ctx.resumeW();const proposal=main();proposal.sessions.push({id:'backup-active-1',date:'2026-11-01',day:'A',loc:'home',phase:1,duration:20,difficulty:3,warmup:2,notes:'Completed keep',ex:[{id:'hex_dl',wt:40,reps:[5],form:[5]}]});h.fail(true);let calls=0;
   assert.equal(h.ctx.save(proposal,{after:()=>calls++}),false);const pending=plain(h.api.getPending());assert(h.ctx.expD());const value=downloaded(h);assert.equal(value.activeWorkout,undefined);assert.equal(value.sessions.filter(s=>s.id==='backup-active-1').length,1);assert.deepEqual(plain(h.api.getPending()),pending);assert.equal(calls,0);assert.equal(h.values.get(AW),F.DRAFT_RAW);
  });
+ test('chosen pending deletion/reset never unions discarded committed history back into backup',()=>{
+  for(const reset of [false,true]){const h=start(),proposal=main();proposal.sessions=[];proposal.deleted=['backup-history-1'];if(reset){proposal.resetEpoch='explicit-reset';proposal.originalResume=null}h.fail(true);assert.equal(h.ctx.save(proposal),false);const committed=h.values.get(SK),error=h.api.getError();assert(h.ctx.expD());const value=downloaded(h);assert.equal(value.sessions.length,0);assert.deepEqual(value.deleted,['backup-history-1']);if(reset)assert.equal(value.activeWorkout,undefined);else assert.equal(value.activeWorkout.id,'backup-active-1');assert.equal(h.values.get(SK),committed);assert.equal(h.values.get(AW),F.DRAFT_RAW);assert.equal(h.api.getError(),error)}
+ });
  test('G failed main import keeps explicit proposal and all separate draft scopes',()=>{
   const h=start(),incoming=draft();incoming.id='backup-imported-1';h.ctx.resumeW();h.fail(true,true);
   h.ctx.impD({target:{files:[{content:JSON.stringify({...main(),activeWorkout:incoming})}],value:'x'}});const pending=plain(h.api.getPending()),raw=h.values.get(SK);
