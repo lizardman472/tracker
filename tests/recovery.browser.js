@@ -403,4 +403,5 @@ module.exports=async function({browser,origin,T,baseStore}){
   T('shorter progression and reminder flow has no browser errors',errors.length===0,errors.join('\n'));await ctx.close();
  }
  await require('./original-resume.browser')({T,baseStore,open,keyActivate,tabActivate,settleLayout,screenshot,ago});
+ await require('./import-text.browser')({T,baseStore,open,keyActivate,tabActivate,screenshot});
 };

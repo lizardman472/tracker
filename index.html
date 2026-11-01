@@ -2482,13 +2482,14 @@ for(const[id,v] of Object.entries(log||{})){
     if(!done[i]||!(r>0))continue;sets++;
     vol+=calcExVol(id,Number(v.wts?.[i])>0?Number(v.wts[i]):(Number(v.wt)||null),[r])}}
 return{sets,vol:Math.round(vol)}}
-// "Previous" column label for set i of the last session's entry (Hevy-style).
+// Plain-text "Previous" column label for set i; HTML callers escape it once.
 function prevSetLbl(last,i){if(!last)return'—';
 const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
 const w=setWt(last,i),b=bandAt(last,i);
 return w?`${w}×${r}`:b?`${b.replace(' (heaviest)','')} ×${r}`:`×${r}`}
 // Compact per-set line for a saved entry: uniform-weight sessions keep the old
 // "46kg [8,8,8]" shape; per-set overrides expand to "46×8, 50×6, 40×10".
+// Returns plain text; HTML callers must escape the complete result once.
 function fmtSets(e){const vr=(e.reps||[]).map(Number);
 const def=ALL_EX.find(x=>x.id===e.id),unit=def&&def.repsPerSide?' reps/side':e.id==='lm_pallof'?' total reps':'';
 if(def&&def.tp==='band'&&Array.isArray(e.bands)&&e.bands.some((b,i)=>b&&vr[i]>0&&b!==e.band)){
@@ -4609,7 +4610,7 @@ if(isDone&&!isCur){
 h+=`<button type="button" class="ex-row done-row" aria-expanded="false" onclick="selectExercise(${idx})">
 <span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${fmtSets(log)}</span></span></button>`;
+<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${esc(fmtSets({...log,id:ex.id}))}</span></span></button>`;
 } else if(!isCur){
 // Upcoming row
 h+=`<button type="button" class="ex-row upcoming" aria-expanded="false" onclick="selectExercise(${idx})">
@@ -4651,7 +4652,7 @@ h+=`<div class="cue" style="border-left-color:var(--am)">📌 ${esc(full||!needs
 h+=`<div style="margin-top:6px"><span class="sg ${sgClass(sg.type)}">${esc(sg.text)}</span>
 ${sg.detail?`<span class="dm" style="margin-left:4px">${esc(sg.detail)}</span>`:''}
 ${sg.regress?`<div class="regress" style="margin-top:3px">⚠ ${esc(sg.regress)}</div>`:''}</div>`;
-if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${fmtSets(last)}${last.band?' '+esc(last.band):''} · ${fmtD(last.date)}</div>`;
+if(last)h+=`<div style="font-size:10px;color:var(--dm);margin-top:3px">Last: ${esc(fmtSets(last))}${last.band?' '+esc(last.band):''} · ${fmtD(last.date)}</div>`;
 
 for(const j of JOINTS){const tr=getDiscomfortTrend(ex.id,j);if(tr.recent3>=2)h+=`<div class="regress" style="margin-top:3px">⚠ ${j} ${tr.recent3}/3</div>`}
 
@@ -4733,7 +4734,7 @@ const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
 ${pl==='—'?`<span class="set-prev">—</span>`
-:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
+:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${esc(pl)}" onclick="usePrev('${ex.id}',${i})">${esc(pl)}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`
 :banded?`<select class="set-band" aria-label="Set ${i+1} band" onchange="setSetBand('${ex.id}',${i},this.value)"><option value="">${esc((log.band||'Default').replace(' (heaviest)',''))}</option>${BANDS.map(b=>`<option value="${esc(b)}"${log.bands[i]===b?' selected':''}>${esc(b.replace(' (heaviest)',''))}</option>`).join('')}</select>`
 :`<span class="dm" style="text-align:center">—</span>`}
@@ -6109,7 +6110,7 @@ ${rampOf(s.date,RW)?`<span style="font-size:9px;font-weight:700;color:var(--pr);
 <span class="dm">${s.duration?s.duration+'m':''}</span></button>`;
 if(EXP===s.id){h+=`<div style="margin-top:8px">`;for(const e of s.ex){const def=ALL_EX.find(p=>p.id===e.id);
 h+=`<div style="padding:5px 0;border-top:1px solid var(--cb)"><div style="font-size:12px;font-weight:600">${esc(def?.nm||e.id)}</div>
-<div class="mu" style="font-size:11px">${fmtSets(e)}${e.band&&!Array.isArray(e.bands)?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
+<div class="mu" style="font-size:11px">${esc(fmtSets(e))}${e.band&&!Array.isArray(e.bands)?' '+esc(e.band):''}${e.notes?' — '+esc(e.notes):''}</div>`;
 // Plate breakdown only makes sense for bar-loaded lifts — barOf() falls back to the
 // 11kg straight bar for everything, so a 12kg-per-DB row was rendering bogus plates.
 if(def&&(def.tp==='bb'||(def.tp==='carry'&&def.bar))&&e.wt&&e.wt>barOf(def))h+=plateH(e.wt,barOf(def),def&&def.lm);
