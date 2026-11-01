@@ -210,4 +210,5 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
     } finally {await ctx.close()}
   }
   await require('./raw-recovery.browser')({browser,origin,T,errors});
+  await require('./backup.browser')({browser,origin,T,errors});
 };

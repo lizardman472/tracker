@@ -10,16 +10,24 @@ module.exports=function({harness,test,plain,SK,AW,code}){
  const start=(extra={})=>harness(undefined,{values:[[SK,F.MAIN_RAW],[AW,F.DRAFT_RAW]],...extra});
  const draft=()=>plain(F.DRAFT),main=()=>plain(F.MAIN),current=h=>vm.runInContext('LOG.hex_dl.reps[0]',h.ctx);
  const downloaded=h=>JSON.parse(h.downloads.at(-1).parts.join(''));
- function fields(record){assert.equal(record.id,F.EXPECTED.id);assert.equal(record.start,F.EXPECTED.start);assert.equal(record.originalResumeId,F.EXPECTED.originalResumeId);
-  for(const key of ['day','loc','phase','resetEpoch','notes','wu','xp'])assert.deepEqual(plain(record[key]),F.EXPECTED[key]);
+ function fields(record,exIds=F.EXPECTED.exIds){assert.equal(record.id,F.EXPECTED.id);assert.equal(record.start,F.EXPECTED.start);assert.equal(record.originalResumeId,F.EXPECTED.originalResumeId);
+  for(const key of ['day','loc','phase','resetEpoch','notes','wu','xp','swaps'])assert.deepEqual(plain(record[key]),F.EXPECTED[key]);assert.deepEqual(plain(record.exIds),exIds);
   for(const[key,expected]of [['hex_dl',F.EXPECTED.hex],['pullup_a',F.EXPECTED.pullup]])for(const[field,value]of Object.entries(expected))assert.deepEqual(plain(record.log[key][field]),value);
  }
  test('B persisted before Resume and D hidden venue retain all independently specified draft fields',()=>{
   const h=start();fields(plain(h.ctx.completeBackupData()).activeWorkout);assert.equal(h.api.getActiveId(),null);assert.equal(h.values.get(AW),F.DRAFT_RAW);
   h.api.getD().location='partner';const hidden=plain(h.ctx.completeBackupData());assert.equal(hidden.location,'partner');fields(hidden.activeWorkout);assert.equal(h.values.get(AW),F.DRAFT_RAW);
  });
+ for(const kind of ['empty','history-only','legacy-key'])test('supported '+kind+' reader export is non-destructive',()=>{
+  const values=kind==='empty'?[]:kind==='legacy-key'?[['rft-v11',F.MAIN_RAW]]:[[SK,F.MAIN_RAW]],h=start({reader:true,values});const before=[...h.values];assert(h.ctx.expD());const value=downloaded(h);assert.equal(value.activeWorkout,undefined);assert.equal(value.sessions.length,kind==='empty'?0:1);assert.deepEqual([...h.values],before);assert.equal(h.operations.length,0);
+ });
+ test('open hidden-phase restore gate retains exact source and captures explicit incompatible contexts',()=>{
+  const m=main();m.phase=2;m.originalResume=null;const raw=JSON.stringify(m),h=start({values:[[SK,raw],[AW,F.DRAFT_RAW]]}),stored=h.ctx.captureStoredBackup(),inventory=h.ctx.backupDraftSources(stored.state,stored,false);
+  assert.equal(stored.state.phase,2);assert.equal(inventory.sources[0].active.phase,1);assert.equal(inventory.sources[0].active.originalResumeId,'original-backup-oracle');assert.equal(h.values.get(SK),raw);assert.equal(h.values.get(AW),F.DRAFT_RAW);
+  // Capture preservation only. No successful phase-mismatched Resume/complete-restore claim.
+ });
  test('A complete export contains current supported fields and keeps source raw bytes intact',()=>{
-  const h=start();h.ctx.resumeW();assert(h.ctx.expD());fields(downloaded(h).activeWorkout);assert.equal(h.values.get(AW),F.DRAFT_RAW);assert.equal(h.api.getAWError(),'');
+  const h=start();h.ctx.resumeW();assert(h.ctx.expD());fields(downloaded(h).activeWorkout,F.RESUMED_EX_IDS);assert.equal(h.values.get(AW),F.DRAFT_RAW);assert.equal(h.api.getAWError(),'');
  });
  test('C reader exports fresh saved pair rather than stale D without any write',()=>{
   const h=start({reader:true}),fresh=main();fresh.bodyLog=[{date:'2026-11-01',weight:82}];h.values.set(SK,JSON.stringify(fresh));const count=h.operations.length;
@@ -114,7 +122,8 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   ['trust equal ID without raw baseline',()=>replace('ACTIVE_BASE_RAW!==null&&s.raw===ACTIVE_BASE_RAW&&',''),source=>{const h=start({source});h.api.setActive(draft());vm.runInContext("LOG.hex_dl.reps[0]='6'",h.ctx);assert.throws(()=>h.ctx.completeBackupData(),/Different unfinished/)}],
   ['accept changing reader pair',()=>replace('if(first.some((raw,i)=>raw!==second[i]))continue;','if(false)continue;'),source=>{let armed=false,n=0;const h=start({reader:true,source,afterGet:(key,values)=>{if(armed&&key===AW){const m=main();m.gen=++n;values.set(SK,JSON.stringify(m))}}});armed=true;assert.throws(()=>h.ctx.completeBackupData(),/changed during capture/)}],
   ['lose notes-only work',()=>replace('function awHasWork(d){if(!d)return false;','function awHasWork(d){return awHasReps(d);if(!d)return false;'),source=>{const d=draft();d.log={};d.notes='Notes only keep';d.ts=1;const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert(h.ctx.checkResume())}],
-  ['erase absent legacy touched evidence',()=>replace("...(Object.prototype.hasOwnProperty.call(v,'touched')?{touched:v.touched===true}:{}),",'touched:v.touched===true,'),source=>{const d=draft();d.notes='';d.wu=[];d.ts=1;d.log={hex_dl:{wt:7,reps:['','',''],notes:''}};const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=plain(h.ctx.completeBackupData());const destination=start({source,values:[[SK,JSON.stringify({...main(),sessions:[],originalResume:null})]]});destination.ctx.impD({target:{files:[{content:JSON.stringify(value)}],value:'x'}});assert(destination.ctx.pendingAW())}]
+  ['erase absent legacy touched evidence',()=>replace("...(Object.prototype.hasOwnProperty.call(v,'touched')?{touched:v.touched===true}:{}),",'touched:v.touched===true,'),source=>{const d=draft();d.notes='';d.wu=[];d.ts=1;d.log={hex_dl:{wt:7,reps:['','',''],notes:''}};const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=plain(h.ctx.completeBackupData());const destination=start({source,values:[[SK,JSON.stringify({...main(),sessions:[],originalResume:null})]]});destination.ctx.impD({target:{files:[{content:JSON.stringify(value)}],value:'x'}});assert(destination.ctx.pendingAW())}],
+  ['claim complete after invalid rating repair',()=>{const form="  v.form!=null&&Array.isArray(v.form)&&v.form.some(x=>x!==''&&x!=null&&(!Number.isInteger(finiteNumber(x))||Number(x)>5))||",rir="  v.rir!==''&&v.rir!=null&&(!Number.isInteger(finiteNumber(v.rir))||Number(v.rir)>5)||";const changed=replace(form,'');assert(changed.includes(rir));return changed.replace(rir,'')},source=>{const d=draft();d.log.hex_dl.form=[99,0,4];const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert.equal(h.ctx.expD(),false)}]
  ];
  for(const[name,mutate,oracle]of faults)test('R4 semantic fault rejected: '+name,()=>{const source=mutate();let error;try{oracle(source)}catch(e){error=e}assert.equal(error?.code,'ERR_ASSERTION','The named preservation oracle must reject the fault');evidence.push({mutation:name,rejected:true,actual:error.actual,expected:error.expected})});
  fs.writeFileSync(output,JSON.stringify(evidence,null,2));
