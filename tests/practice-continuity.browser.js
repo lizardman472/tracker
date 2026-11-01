@@ -1,0 +1,60 @@
+// R6 real entry/save/reload/chooser and explicit stage confirmation, both phone themes.
+module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
+ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),F=require('./fixtures/practice-continuity');
+ const output=path.join(__dirname,'..','test-results','recovery-layout'),evidence=[];
+ const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b),key=keyActivate;
+ const write=()=>fs.writeFileSync(path.join(output,'practice-continuity-browser-evidence.json'),JSON.stringify(evidence,null,2));
+ async function create(d,theme){return open(Object.assign(baseStore(),d,{theme}),new Date(F.now))}
+ async function exercise(p,id){const name=await p.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id),current=p.locator('#ex-cur');if(await current.count()!==1||await current.getAttribute('data-exercise')!==id)await key(p,p.locator('button.ex-row').filter({hasText:name}).first());const card=p.getByRole('group',{name:name+' exercise',exact:true});await card.waitFor({state:'visible'});return card}
+ async function start(p,day='A'){await key(p,p.locator('.dpick').getByRole('button',{name:day+'1',exact:true}));await key(p,p.locator('button[onclick="beginW(\''+day+'\',true)"]').first());await p.waitForFunction(day=>VIEW==='workout'&&ADAY===day,day)}
+ async function day(p,date){await p.clock.setFixedTime(new Date(date+'T12:00:00'));await p.evaluate(()=>render())}
+ async function log(p,id){return p.evaluate(id=>({id:ACTIVE_ID,log:structuredClone(LOG[id]),plan:structuredClone(D.trainingPlan),phase:D.phase}),id)}
+ async function capture(p,name,text){await p.locator('#ex-cur').evaluate(el=>{el.style.scrollMarginTop='130px';el.scrollIntoView({block:'start',behavior:'instant'})});await screenshot(p,'practice-'+name,{target:'#ex-cur',text,top:false})}
+ async function warmup(p,id){await key(p,p.locator('#activation-toggle'));for(const i of [0,1])await key(p,p.locator('#wu-check-'+i));return exercise(p,id)}
+ async function finish(p,id,notes){await p.getByLabel('Session Notes',{exact:true}).fill(notes);await p.keyboard.press('Tab');const identity=await p.evaluate(()=>ACTIVE_ID),last=await p.evaluate(()=>dayExs(ADAY).at(-1).id);await exercise(p,last);await p.clock.setFixedTime(new Date(await p.evaluate(()=>Math.max(Date.now(),SS+12*60000))));await key(p,p.getByRole('button',{name:'Finish ✓',exact:true}));await key(p,p.locator('button[onclick="SDIFF=3;render()"]'));await p.locator('#finish-reason').selectOption('time');await key(p,p.getByRole('button',{name:'Save ✓',exact:true}));await p.waitForFunction(()=>VIEW==='home'&&!PENDING_SAVE);await p.reload({waitUntil:'domcontentloaded'});await p.waitForFunction(()=>canWriteStore());const result=await p.evaluate(id=>({row:structuredClone(D.sessions.find(s=>s.id===id)),count:D.sessions.filter(s=>s.id===id).length,active:localStorage.getItem(AW_KEY)}),identity);T('R6 real finish/save/reload keeps one identity '+id,result.count===1&&result.active===null,JSON.stringify(result));return result}
+ async function roundtrip(p,tag){
+  const before=await p.evaluate(()=>({sessions:structuredClone(D.sessions),plan:structuredClone(D.trainingPlan)}));await key(p,p.locator('#nav').getByRole('button',{name:'Settings',exact:true}));const event=p.waitForEvent('download');await key(p,p.getByRole('button',{name:'↓ Export',exact:true}));const file=await event,stream=await file.createReadStream(),chunks=[];for await(const c of stream)chunks.push(c);const bytes=Buffer.concat(chunks),name='practice-file-'+tag+'.json';fs.writeFileSync(path.join(output,name),bytes);
+  const h=await create({sessions:[],trainingPlan:null,originalResume:null,discomfort:[]},'light');let restored;
+  try{await key(h.page,h.page.locator('#nav').getByRole('button',{name:'Settings',exact:true}));const chooser=h.page.waitForEvent('filechooser');await key(h.page,h.page.getByRole('button',{name:'↑ Import',exact:true}));await(await chooser).setFiles({name,mimeType:'application/json',buffer:bytes});await h.page.waitForFunction(()=>!IMPORT_BUSY&&!PENDING_SAVE&&!PENDING_ACTIVE);await h.page.reload({waitUntil:'domcontentloaded'});await h.page.waitForFunction(()=>canWriteStore());restored=await h.page.evaluate(()=>({sessions:structuredClone(D.sessions),plan:structuredClone(D.trainingPlan)}));T('R6 actual downloaded file preserves all saved fields and plan through chooser/reload '+tag,equal(restored,before),JSON.stringify({before,restored}));T('R6 fresh restore has no page errors '+tag,h.errors.length===0,h.errors.join('\n'))}finally{await h.ctx.close()}
+  await key(p,p.locator('#nav').getByRole('button',{name:'Today',exact:true}));return{name,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),byteLength:bytes.length,before,restored};
+ }
+ for(const theme of ['light','dark']){
+  for(const kind of ['weighted','band','interrupted']){
+   const d=kind==='weighted'?F.lower():kind==='band'?F.bands():F.progress(),h=await create(d,theme),p=h.page,id=kind==='band'?'pullup_a':'hex_dl',tag=kind+'-'+theme;
+   console.log('PRACTICE_CASE_START',tag);
+   try{
+    const old=await p.evaluate(()=>structuredClone(D.sessions));await start(p);let card=await exercise(p,id);const initial=await log(p,id);
+    T('R6 actual initial held input matches independent oracle '+tag,kind==='band'?equal(initial.log.bands,F.assistance):Number(initial.log.wt)===(kind==='weighted'?30:40),JSON.stringify(initial));
+    card=await warmup(p,id);
+    const reps=kind==='band'?[8,8]:kind==='weighted'?[8,8]:[5];
+    for(const[i,n]of reps.entries()){
+     if(kind==='weighted')await card.getByLabel('Set '+(i+1)+' weight, kilograms',{exact:true}).fill(String([20,25][i]));
+     if(kind==='band')await card.getByLabel('Set '+(i+1)+' band',{exact:true}).selectOption({value:F.assistance[i]});
+     await card.getByLabel('Set '+(i+1)+' reps',{exact:true}).fill(String(n));await key(p,card.getByRole('button',{name:'Set '+(i+1)+' done',exact:true}));
+    }
+    await key(p,card.locator('.form-row1').getByRole('button',{name:'5',exact:true}));await card.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption('3');await card.getByLabel('Notes for '+await p.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id),{exact:true}).fill('R6 counted '+kind+' inputs');await p.keyboard.press('Tab');
+    const saved=await finish(p,id,'R6 '+kind+' keep'),row=saved.row,e=row.ex.find(e=>e.id===id);
+    T('R6 saved counted values/notes/context use literal answers '+tag,row.phase===(kind==='interrupted'?1:2)&&row.loc==='home'&&row.trainingStage===(kind==='interrupted'?'progress':'original1')&&row.trainingPlanStart==='2026-10-01'&&row.trainingComplete===false&&row.noProg===true&&row.finishReason==='time'&&row.difficulty===3&&row.warmup===2&&row.notes==='R6 '+kind+' keep'&&e.notes==='R6 counted '+kind+' inputs'&&e.rir===3&&equal(e.reps,kind==='interrupted'?[5,0]:[8,8])&&(kind==='weighted'?e.wt===30&&equal(e.wts,[20,25])&&row.volume===360:kind==='band'?equal(e.bands,F.assistance)&&row.volume===0:e.wt===40&&row.volume===200),JSON.stringify(saved));
+    T('R6 earlier history remains unchanged after actual save '+tag,await p.evaluate(old=>old.every(s=>JSON.stringify(D.sessions.find(x=>x.id===s.id))===JSON.stringify(s)),old));
+    const file=await roundtrip(p,tag);await day(p,'2026-11-03');await start(p);card=await exercise(p,id);const reopened=await log(p,id);
+    T('R6 actual rest-separated new entry retains lower practice or interruption hold '+tag,kind==='band'?equal(reopened.log.bands,F.assistance):Number(reopened.log.wt)===(kind==='weighted'?20:40),JSON.stringify(reopened));
+    if(kind==='interrupted')T('R6 interrupted visible guidance requires fresh confirmations '+tag,(await card.innerText()).includes('two fresh qualifying workouts'));
+    await capture(p,'lower-'+tag,kind==='band'?'Hold':kind==='weighted'?'20kg':'40kg');
+    T('R6 phone has no errors/overflow '+tag,h.errors.length===0&&await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),h.errors.join('\n'));evidence.push({tag,kind,theme,initial,saved,file,reopened,old,errors:h.errors});write();
+   }finally{await h.ctx.close()}
+  }
+  // Continuous confirmed1→2→3: later step's complete history is explicitly seeded setup.
+  const h=await create(F.transition(),theme),p=h.page,dialogs=[];console.log('PRACTICE_CASE_START','stage-'+theme);
+  try{
+   await key(p,p.getByText('Plan details and routine choices',{exact:true}));const before=await p.evaluate(()=>({raw:localStorage.getItem(SK),active:localStorage.getItem(AW_KEY),history:structuredClone(D.sessions)}));
+   p.removeAllListeners('dialog');p.once('dialog',async d=>{dialogs.push({message:d.message(),action:'cancel'});await d.dismiss()});await key(p,p.getByRole('button',{name:'I feel ready — next return step',exact:true}));
+   T('R6 explicit stage cancellation retains exact bytes '+theme,await p.evaluate(b=>localStorage.getItem(SK)===b.raw&&localStorage.getItem(AW_KEY)===b.active,before));p.on('dialog',async d=>{dialogs.push({message:d.message(),action:'accept'});await d.accept()});await key(p,p.getByRole('button',{name:'I feel ready — next return step',exact:true}));
+   T('R6 confirmed first transition stores34 and preserves phase/history '+theme,await p.evaluate(old=>D.trainingPlan.stage==='original2'&&D.trainingPlan.returnLoads.hex_dl===34&&D.phase===2&&JSON.stringify(D.sessions)===JSON.stringify(old),before.history));await start(p);await exercise(p,'hex_dl');const second=await log(p,'hex_dl');T('R6 actual step2 input is34 '+theme,Number(second.log.wt)===34);
+   await key(p,p.getByRole('button',{name:'Cancel',exact:true}));await key(p,p.getByRole('button',{name:'Confirm',exact:true}));await p.waitForFunction(()=>VIEW==='home'&&ADAY===null);
+   const setup=F.transition('original2').sessions.map((s,i)=>({...s,date:['2026-11-02','2026-11-04','2026-11-06','2026-11-03','2026-11-05'][i]}));
+   await p.evaluate(rows=>{D.sessions.push(...rows);D.sessions.sort((a,b)=>a.date.localeCompare(b.date));save();render()},setup);await day(p,'2026-11-08');await key(p,p.getByText('Plan details and routine choices',{exact:true}));await key(p,p.getByRole('button',{name:'I feel ready — next return step',exact:true}));
+   T('R6 confirmed second transition stores38, preserves selected phase '+theme,await p.evaluate(()=>D.trainingPlan.stage==='original3'&&D.trainingPlan.returnLoads.hex_dl===38&&D.phase===2));await start(p);await exercise(p,'hex_dl');const third=await log(p,'hex_dl');T('R6 actual step3 input is38 '+theme,Number(third.log.wt)===38);await capture(p,'stage-'+theme,'38kg');
+   T('R6 stage phone has no errors/overflow '+theme,h.errors.length===0&&await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),h.errors.join('\n'));evidence.push({tag:'stage-'+theme,theme,before,second,third,dialogs,controlledSetup:{explanation:'Stage2 complete A/B/C/readiness rows were seeded after real explicit step1→2 and visible Cancel/Confirm; no UI-performed completion claim',rows:setup},errors:h.errors});write();
+  }finally{await h.ctx.close()}
+ }
+};
