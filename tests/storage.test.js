@@ -20,9 +20,9 @@ function fixture() {
 function harness(initial = fixture(), options = {}) {
   const values = new Map(options.values||[[SK, JSON.stringify(initial)]]), elements = new Map(), alerts = [], downloads = [], operations=[];
   const faults={get:new Set(options.get||[]),set:new Set(options.set||[]),remove:new Set(options.remove||[])};
-  const initialBytes=[...values];
+  const initialBytes=[...values],reads=[];
   let failMain = false, failActive = false, failRemove = false;
-  const storage = { getItem: k => {if(faults.get.has(k))throw Error('Synthetic key read failure');return values.get(k) ?? null}, setItem(k,v) {
+  const storage = { getItem: k => {reads.push(k);if(faults.get.has(k))throw Error('Synthetic key read failure');const value=values.get(k)??null;if(options.afterGet)options.afterGet(k,values);return value}, setItem(k,v) {
     operations.push({op:'set',key:k,value:String(v)});
     if (faults.set.has(k)||(failMain && k === SK) || (failActive && k === AW)) throw new Error('Synthetic quota failure');
     values.set(k, String(v));
@@ -43,13 +43,13 @@ function harness(initial = fixture(), options = {}) {
     getIssues:()=>({dropped:LOAD_DROPPED,repaired:LOAD_REPAIRED}),
     getRaw:()=>RECOVERY_RAW,getRawError:()=>RECOVERY_ERROR,getRawNotice:()=>RECOVERY_NOTICE,getRawCleanup:()=>RECOVERY_CLEANUP,
     setSummary:(s,log)=>{window._S=s;LOG=log;ADAY=s.day;SS=Date.now();ACTIVE_ID=s.id;SDIFF=3},
-    setActive:r=>{ADAY=r.day;LOG=r.log;SS=r.start;ACTIVE_ID=r.id;CIDX=0;SWAP={};SNOTES='';WU_CHECKS=[false,false,false]},
+    setActive:r=>{ADAY=r.day;LOG=r.log;SS=r.start;ACTIVE_ID=r.id;ACTIVE_ORIGINAL_RESUME=r.originalResumeId||null;CIDX=r.cidx||0;SWAP=r.swaps||{};SNOTES=r.notes||'';WU_CHECKS=r.wu||[false,false,false];EXPRESS=!!r.xp},
     setLP:x=>{LP=x},getView:()=>VIEW,
     getSummary:()=>window._S,getActiveId:()=>ACTIVE_ID};
     render=()=>{};applyTheme=()=>{};clearTimer=()=>{};releaseWake=()=>{};acquireWake=()=>{};
     go=v=>{VIEW=v};`, ctx);
   ctx.API.owner(!options.reader); ctx.load();
-  return { ctx, api: ctx.API, values, storage, elements, alerts, downloads, faults, operations, initialBytes,
+  return { ctx, api: ctx.API, values, storage, elements, alerts, downloads, faults, operations, initialBytes,reads,
     fail: (main, active = false, remove = false) => { failMain=main; failActive=active; failRemove=remove; } };
 }
 const plain = x => JSON.parse(JSON.stringify(x));
@@ -336,4 +336,5 @@ test('cancel, reader, pending import and discarded failed repair preserve commit
  assert.deepEqual(plain(h.api.getD()),before);h.fail(true);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.ctx.discardPendingSave();assert.equal(h.api.getPending(),null);assert.deepEqual(plain(h.api.getD()),before);
 });
 require('./raw-recovery.cases')({harness,test,plain,SK,AW,code});
+require('./backup.cases')({harness,test,plain,SK,AW,code});
 console.log(`${passed} storage scenarios passed`);
