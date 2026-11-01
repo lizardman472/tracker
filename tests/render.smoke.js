@@ -884,6 +884,15 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 // which happened. The old copy always claimed "what you see now is a fresh/demo state",
 // which is wrong (and alarming) when most of the history loaded fine.
 {
+  // Each isolated fixture gets fresh application RAM, not only an emptied storage map.
+  const vm=require('node:vm');
+  function isolated(raw){
+    const storage=memoryStorage();storage.setItem(R.SK,raw);
+    const ctx={document:global.document,window:global.window,navigator:global.navigator,localStorage:storage,
+      structuredClone,console,Blob:global.Blob,URL:global.URL,setInterval:()=>0,clearInterval(){},setTimeout:()=>0,clearTimeout(){},confirm:()=>true,alert(){}};
+    ctx.global=ctx;vm.createContext(ctx);vm.runInContext(code+'\nWRITER=true;WRITER_READY=true;',ctx);
+    ctx.__R.load();ctx.__R.go('home');return{ctx,storage,api:ctx.__R};
+  }
   const store = {};
   const realLS = global.localStorage;
   global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
@@ -893,26 +902,30 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   tryRender('home renders after a partial-drop load', () => R.go('home'));
   const partial = R.getA();
   T('partial drop names the count, not an empty reset', /1 stored record needed recovery/.test(partial) && !/fresh empty state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
-  T('partial-drop banner still offers the raw-copy download', /dlCorrupt\(\)/.test(partial));
+  T('partial-drop banner offers the explicitly scoped stored raw download', /dlCorrupt\('stored'\)/.test(partial) && /Download stored raw copy/.test(partial));
+  const firstRaw=store[R.SK+'-corrupt'];
   // Unparseable store → the original total-loss wording.
   store[R.SK] = '{not json';
   R.load();
   tryRender('home renders after an unparseable load', () => R.go('home'));
   const total = R.getA();
   T('total loss explains the fresh empty fallback', /Stored data was corrupted/.test(total) && /fresh empty state/.test(total));
-  // ...and a total loss must clear any partial count left by an earlier rescue, or the
-  // banner would under-report a wiped store as "1 session couldn't be read".
-  T('total loss replaces a stale partial-drop count', Number(store[R.SK + '-corrupt-n']) === -1);
+  T('new total loss preserves the different earlier raw copy and its counts', store[R.SK+'-corrupt']===firstRaw&&Number(store[R.SK+'-corrupt-n'])===1);
+  T('raw conflict offers current and stored originals separately', /Download current raw original/.test(total)&&/Download stored raw copy/.test(total));
+  T('conflict retains the exact new main original alongside the earlier parked original',store[R.SK]==='{not json'&&store[R.SK+'-corrupt']===firstRaw);
+  const malformed=isolated('{isolated not json');
+  T('isolated unreadable main parks its own literal original and total-loss count',malformed.storage.getItem(R.SK)==='{isolated not json'&&malformed.storage.getItem(R.SK+'-corrupt')==='{isolated not json'&&malformed.storage.getItem(R.SK+'-corrupt-n')==='-1');
+  T('isolated unreadable fallback names empty state and stored download',/fresh empty state/.test(malformed.api.getA())&&/dlCorrupt\('stored'\)/.test(malformed.api.getA()));
+  malformed.ctx.save();malformed.api.load();malformed.api.go('home');
+  T('isolated unreadable original remains named after clean-main reload',malformed.storage.getItem(R.SK+'-corrupt')==='{isolated not json'&&/Stored data was corrupted/.test(malformed.api.getA())&&/Download stored raw copy/.test(malformed.api.getA()));
   // The rescue copy outlives the boot that made it, so the COUNT has to as well: keying the
   // wording off this boot's LOAD_DROPPED alone made every later boot claim a fresh reset
   // to a user whose history had actually loaded fine.
-  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
-  R.load();
-  R.go('home');
-  T('boot 1 reports the partial drop', /1 stored record needed recovery/.test(R.getA()));
-  R.load();          // reboot: data is clean now, but the rescue copy is still parked
-  R.go('home');
-  const boot2 = R.getA();
+  const partialBoot=isolated(firstRaw);
+  T('boot 1 reports the partial drop and preserves usable history/raw bytes', /1 stored record needed recovery/.test(partialBoot.api.getA())&&partialBoot.api.getD().sessions[0].id==='ok1'&&partialBoot.storage.getItem(R.SK+'-corrupt')===firstRaw);
+  partialBoot.ctx.save(); // explicitly commit the usable view after verified parking
+  partialBoot.api.load();partialBoot.api.go('home');
+  const boot2 = partialBoot.api.getA();
   T('boot 2 still reports the partial drop, not a demo reset',
     /1 stored record needed recovery/.test(boot2) && !/fresh\/demo state/.test(boot2),
     boot2.slice(boot2.indexOf('\u26a0'), boot2.indexOf('\u26a0') + 150));

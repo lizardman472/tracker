@@ -1502,7 +1502,7 @@ return d}
 // How many stored sessions load() had to discard this boot (-1 = the whole sessions field was
 // unusable). Module-scope on purpose, NOT a field on D: it must never be persisted, exported
 // or merged — it describes this boot, not the data. Read by the rHome rescue banner.
-let LOAD_DROPPED=0,LOAD_REPAIRED=0,RECOVERY_RAW=null;
+let LOAD_DROPPED=0,LOAD_REPAIRED=0,RECOVERY_RAW=null,RECOVERY_ERROR='',RECOVERY_NOTICE='',RECOVERY_CLEANUP=false;
 let STORE_COMMITTED=null,STORE_RAW=null,PENDING_SAVE=null,PENDING_AFTER=null,SAVE_ERROR='',AW_ERROR='';
 let WRITER=false,WRITER_READY=false,WRITER_BUSY=false,WRITER_RELEASE=null,WRITER_CHANNEL=null,WANT_WRITER=false;
 let ACTIVE_ID=null,ACTIVE_ORIGINAL_RESUME=null,AW_CLEANUP=false,AW_CLEANUP_AFTER=null,PENDING_ACTIVE=null,PENDING_ACTIVE_BEFORE=null,IMPORT_BUSY=false,STATUS_OBSERVER=null;
@@ -1510,12 +1510,52 @@ function canWriteStore(){return WRITER&&WRITER_READY}
 const WRITER_ID='tab-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 function recordId(prefix='s'){return prefix+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)}
 function rememberCommitted(raw){STORE_RAW=raw;STORE_COMMITTED=structuredClone(D)}
-function keepRecovery(raw){RECOVERY_RAW=raw;if(!WRITER||!raw)return;
-try{localStorage.setItem(SK+'-corrupt',raw);localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED));
-localStorage.setItem(SK+'-corrupt-repaired',String(LOAD_REPAIRED));RECOVERY_RAW=null}catch(_){}}
-function load(){LOAD_DROPPED=0;LOAD_REPAIRED=0;let raw=null,source=null;
+function keepRecovery(raw){RECOVERY_RAW=raw;if(!raw)return false;
+try{
+ const previous=localStorage.getItem(SK+'-corrupt');
+ if(previous!==null&&previous!==raw){RECOVERY_ERROR='A different stored raw copy already exists. Download both originals, then explicitly resolve one before retrying.';return false}
+ if(previous===null){if(!WRITER){RECOVERY_ERROR='The editing tab must preserve the current raw original before replacing saved data.';return false}localStorage.setItem(SK+'-corrupt',raw)}
+ if(localStorage.getItem(SK+'-corrupt')!==raw)throw Error('Raw copy readback failed');
+ // Payload durability is independent of optional diagnostic counters.
+ RECOVERY_RAW=null;RECOVERY_ERROR='';RECOVERY_NOTICE='';RECOVERY_CLEANUP=false;
+ if(!WRITER)return true;
+ try{localStorage.setItem(SK+'-corrupt-n',String(LOAD_DROPPED));localStorage.setItem(SK+'-corrupt-repaired',String(LOAD_REPAIRED))}
+ catch(_){RECOVERY_NOTICE='The raw original is preserved. Recovery counts could not be saved.'}
+ return true;
+}catch(_){RECOVERY_ERROR='The current raw original could not be verified in recovery storage. Keep this tab open; retry or download that original.';return false}}
+function cleanupRecoveryCounts(){if(!canWriteStore()||!RECOVERY_CLEANUP)return false;
+try{
+ if(localStorage.getItem(SK+'-corrupt')!==null){RECOVERY_CLEANUP=false;RECOVERY_NOTICE='A stored raw copy is present; its recovery counts have been kept.';updateSaveStatus();return false}
+ RECOVERY_ERROR='';
+ let failed=false;for(const suffix of ['-corrupt-n','-corrupt-repaired'])try{localStorage.removeItem(SK+suffix);if(localStorage.getItem(SK+suffix)!==null)failed=true}catch(_){failed=true}
+ RECOVERY_CLEANUP=failed;RECOVERY_NOTICE=failed?'The stored raw copy was discarded, but recovery counts could not all be removed. Retry recovery cleanup.':'The stored raw copy and its recovery counts were discarded.';
+ updateSaveStatus();return !failed;
+}catch(_){RECOVERY_CLEANUP=true;RECOVERY_NOTICE='The stored raw copy was discarded, but recovery cleanup could not be verified. Retry recovery cleanup.';updateSaveStatus();return false}}
+function discardRecoveryCopy(scope='stored'){
+ if(!canWriteStore()||IMPORT_BUSY){RECOVERY_ERROR='Only the editing tab can resolve a raw original. Finish reading any import, then use the editing tab.';updateSaveStatus();return false}
+ try{
+  const stored=localStorage.getItem(SK+'-corrupt'),current=RECOVERY_RAW,main=localStorage.getItem(SK),pending=PENDING_SAVE,after=PENDING_AFTER,active=PENDING_ACTIVE;
+  const target=scope==='current'?current:stored;if(target===null)return false;
+  if(scope!=='current'&&main!==STORE_RAW){RECOVERY_ERROR='Saved data changed outside this tab. Raw copies were kept; download them and reload to review.';updateSaveStatus();return false}
+  const question=scope==='current'?'Discard protection of the current in-memory raw original? It will no longer block saving or fresh-source review. Current saved data, pending changes and the stored raw copy will be kept. Download this original first if you need it.':
+   'Discard only the stored raw recovery copy and its recovery counts? Current saved data, pending changes and unfinished workouts will be kept. Download this stored copy first if you need it.';
+  if(!confirm(question))return false;
+  if(!canWriteStore()||IMPORT_BUSY||PENDING_SAVE!==pending||PENDING_AFTER!==after||PENDING_ACTIVE!==active||RECOVERY_RAW!==current||localStorage.getItem(SK)!==main||localStorage.getItem(SK+'-corrupt')!==stored){
+   RECOVERY_ERROR='The editing state or reviewed raw copy changed during confirmation. Nothing was discarded. Review the copies and try again.';updateSaveStatus();return false}
+  if(scope==='current'){
+   RECOVERY_RAW=null;RECOVERY_ERROR='';RECOVERY_NOTICE='Protection of the current raw original was explicitly discarded. Pending changes and the stored raw copy were kept.'+(main!==STORE_RAW?' Saved data changed externally; download pending changes before reloading to review that source.':'');
+  }else{
+   localStorage.removeItem(SK+'-corrupt');RECOVERY_CLEANUP=true;if(localStorage.getItem(SK+'-corrupt')!==null)throw Error('Raw removal readback failed');
+   RECOVERY_ERROR='';RECOVERY_CLEANUP=true;cleanupRecoveryCounts();
+  }
+  updateSaveStatus();render();return true;
+ }catch(_){RECOVERY_ERROR='The raw copy could not be removed or its removal could not be verified. Pending changes and other copies were kept. Retry after checking device storage.';updateSaveStatus();return false}
+}
+function load(){let raw=null,source=null;
 try{raw=localStorage.getItem(SK);source=raw;
 if(!source)for(const k of OLD_KEYS){source=localStorage.getItem(k);if(source)break}
+if(RECOVERY_RAW!==null&&source!==RECOVERY_RAW&&!keepRecovery(RECOVERY_RAW)){RECOVERY_ERROR='Saved data changed while the current raw original still needs recovery. Its in-memory copy was kept. Download the separate copies before reloading.';updateSaveStatus();return}
+LOAD_DROPPED=0;LOAD_REPAIRED=0;
 const parsed=source?JSON.parse(source):freshState();if(!plainObject(parsed))throw Error('Invalid store');
 const normalized=normalizeState(parsed);let d=normalized.W;
 LOAD_DROPPED=normalized.issues.sessions;LOAD_REPAIRED=normalized.issues.dropped-Math.max(0,LOAD_DROPPED)+normalized.issues.repaired;
@@ -1537,19 +1577,21 @@ SAVE_ERROR='This tab is read-only. Use this tab to make changes.';updateSaveStat
 if(PENDING_SAVE&&!options.retry){D=structuredClone(STORE_COMMITTED);SAVE_ERROR='A previous change is not saved. Retry or download it before making another change.';updateSaveStatus();return false}
 try{const raw=localStorage.getItem(SK);
 if(raw!==STORE_RAW)throw Error('conflict');
+if(RECOVERY_RAW&&!keepRecovery(RECOVERY_RAW))throw Error('recovery');
 candidate.gen=Math.max(STORE_COMMITTED?.gen||0,candidate.gen||0)+1;
 const encoded=JSON.stringify(candidate);localStorage.setItem(SK,encoded);
 D=candidate;rememberCommitted(encoded);PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR='';
 try{localStorage.setItem(SK+'-gen',String(D.gen));for(const k of OLD_KEYS)localStorage.removeItem(k)}catch(_){}
-if(RECOVERY_RAW)keepRecovery(RECOVERY_RAW);
 updateSaveStatus();
 }catch(e){PENDING_SAVE=candidate;PENDING_AFTER=options.after||PENDING_AFTER;
 if(STORE_COMMITTED)D=structuredClone(STORE_COMMITTED);
-SAVE_ERROR=e.message==='conflict'?'Saved data changed outside this tab. Download your pending changes, then reload to review both copies.':'Not saved on this device. Keep this tab open, free storage, then retry.';
+SAVE_ERROR=e.message==='conflict'?'Saved data changed outside this tab. Download your pending changes, then reload to review both copies.':e.message==='recovery'?'Pending changes are not saved. Resolve raw recovery, then retry.':'Not saved on this device. Keep this tab open, free storage, then retry.';
 updateSaveStatus();return false}
 runSavedCallback(options.after);return true}
 function runSavedCallback(after){if(!after)return;try{after()}catch(e){SAVE_ERROR='Data was saved, but the screen could not update. Reload to continue.';updateSaveStatus();alert(SAVE_ERROR)}}
-function retrySave(){if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});if(PENDING_ACTIVE)return saveImportedActive();if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(ADAY)return saveAW();return false}
+function retrySave(){if(PENDING_SAVE)return save(PENDING_SAVE,{retry:true,after:PENDING_AFTER});
+if(RECOVERY_RAW){const ok=keepRecovery(RECOVERY_RAW);updateSaveStatus();render();return ok}
+if(RECOVERY_CLEANUP)return cleanupRecoveryCounts();if(PENDING_ACTIVE)return saveImportedActive();if(AW_CLEANUP)return clearAW(AW_CLEANUP_AFTER);if(ADAY)return saveAW();return false}
 function discardPendingSave(){if(!PENDING_SAVE||!confirm('Discard the change that could not be saved? Download it first if you need a copy.'))return;
 PENDING_SAVE=null;PENDING_AFTER=null;releasePendingActive(true);SAVE_ERROR='';updateSaveStatus();render()}
 function releasePendingActive(restore=false){if(restore&&PENDING_ACTIVE_BEFORE){AW_ERROR=PENDING_ACTIVE_BEFORE.error;AW_CLEANUP=PENDING_ACTIVE_BEFORE.cleanup;AW_CLEANUP_AFTER=PENDING_ACTIVE_BEFORE.after}
@@ -1581,12 +1623,17 @@ let box=document.getElementById('save-status');if(!box){box=document.createEleme
 box.style.cssText='position:sticky;top:0;z-index:250;padding:12px 16px;background:var(--cd);color:var(--tx);border-bottom:2px solid var(--am);font-size:14px;line-height:1.45';document.body.prepend(box);
 if(typeof ResizeObserver!=='undefined'){STATUS_OBSERVER=new ResizeObserver(()=>measureSaveStatus());STATUS_OBSERVER.observe(box)}}
 const readonly=!WRITER;
-const message=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||(PENDING_ACTIVE?'The imported unfinished workout is not saved. Keep this tab open. Retry, download the recovery copy, or explicitly discard it.':AW_ERROR)|| (IMPORT_BUSY?'Reading import…':'');
+const primary=!WRITER_READY?'Checking device save access…':readonly?SAVE_ERROR||'Another tab is editing. This tab can browse and export.':SAVE_ERROR||(PENDING_ACTIVE?'The imported unfinished workout is not saved. Keep this tab open. Retry, download the recovery copy, or explicitly discard it.':AW_ERROR)|| (IMPORT_BUSY?'Reading import…':'');
+const rawMessage=RECOVERY_ERROR||(RECOVERY_RAW?'The current raw original has not been preserved in recovery storage. Keep this tab open; retry, download it, or explicitly resolve that original.':'');
+const message=[primary,rawMessage,RECOVERY_NOTICE].filter(Boolean).join(' ');
 box.hidden=!message;measureSaveStatus();if(!message)return;box.replaceChildren();const text=document.createElement('div');text.textContent=message;box.append(text);
 const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='btn-sm btn-wh';b.style.cssText='margin:8px 8px 0 0;min-height:40px';b.textContent=label;b.onclick=fn;box.append(b)};
 if(readonly&&WRITER_READY&&navigator.locks)button('Use this tab',()=>requestWriter(true));
-if(WRITER&&(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR))button('Retry save',retrySave);
-button(PENDING_ACTIVE?'Download imported workout':ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':'Export saved data',exportActiveWorkout);
+if(WRITER&&(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||RECOVERY_RAW))button(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR?'Retry save':'Retry raw preservation',retrySave);
+button(PENDING_ACTIVE?'Download imported workout':ADAY?'Download current workout':PENDING_SAVE?'Download pending changes':RECOVERY_RAW?'Download usable data':'Export saved data',exportActiveWorkout);
+if(RECOVERY_RAW){button('Download current raw original',()=>dlCorrupt('current'));if(WRITER)button('Discard current raw original',()=>discardRecoveryCopy('current'))}
+try{if(localStorage.getItem(SK+'-corrupt')!==null){button('Download stored raw copy',()=>dlCorrupt('stored'));if(WRITER)button('Discard stored raw copy',()=>discardRecoveryCopy('stored'))}}catch(_){}
+if(WRITER&&RECOVERY_CLEANUP)button('Retry recovery cleanup',cleanupRecoveryCounts);
 if(WRITER&&PENDING_SAVE)button('Discard pending change',discardPendingSave);
 else if(WRITER&&PENDING_ACTIVE)button('Discard imported workout',discardPendingActive);
 measureSaveStatus();
@@ -1609,7 +1656,7 @@ if(WRITER_CHANNEL)WRITER_CHANNEL.postMessage({type:'released'});
 function initStorageOwnership(){
 try{WRITER_CHANNEL=new BroadcastChannel(SK+'-writer');WRITER_CHANNEL.onmessage=event=>{const msg=event.data||{};
 if(msg.type==='handover'&&WRITER){
-if(ADAY||PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||IMPORT_BUSY||['body','cardio','logpast'].includes(VIEW)){WRITER_CHANNEL.postMessage({type:'busy',to:msg.to});return}
+if(ADAY||PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||RECOVERY_RAW||IMPORT_BUSY||['body','cardio','logpast'].includes(VIEW)){WRITER_CHANNEL.postMessage({type:'busy',to:msg.to});return}
 if(WRITER_RELEASE)WRITER_RELEASE();
 }else if(msg.type==='released'&&WANT_WRITER)requestWriter();
 else if(msg.type==='busy'&&msg.to===WRITER_ID){SAVE_ERROR='The other tab has an unfinished workout, open entry form or unsaved change. Finish, save or cancel it there and return Home before switching tabs.';updateSaveStatus()}}}catch(_){}
@@ -1617,9 +1664,9 @@ window.addEventListener('storage',event=>{if(event.key===SK&&!WRITER&&!PENDING_S
 // Stop known mutation controls before their inline handlers run. The save boundary is
 // still guarded, so a missed control cannot write or keep a misleading local mutation.
 document.addEventListener('click',event=>{if(WRITER)return;const control=event.target.closest?.('[onclick]');if(!control)return;
-if(/\b(save|saveAW|saveSumm|saveCardio|saveBod|savePast|beginW|resumeW|clearAW|discardActiveWorkout|cancelW|resetAll|delS|delBod|delCardio|toggleNoProg|setPhase|advancePhase|setLocation|setLoc|advancePhaseSafe|reqNotify|startComeback|endComeback|dismissBanner|toggleNotify|toggleNotifyRest|toggleWake)\s*\(/.test(control.getAttribute('onclick')||'')){
+if(/\b(save|saveAW|saveSumm|saveCardio|saveBod|savePast|beginW|resumeW|clearAW|discardActiveWorkout|discardRecoveryCopy|cleanupRecoveryCounts|cancelW|resetAll|delS|delBod|delCardio|toggleNoProg|setPhase|advancePhase|setLocation|setLoc|advancePhaseSafe|reqNotify|startComeback|endComeback|dismissBanner|toggleNotify|toggleNotifyRest|toggleWake)\s*\(/.test(control.getAttribute('onclick')||'')){
 event.preventDefault();event.stopImmediatePropagation();updateSaveStatus()}},true);
-window.addEventListener('beforeunload',event=>{if(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||IMPORT_BUSY){event.preventDefault();event.returnValue=''}});
+window.addEventListener('beforeunload',event=>{if(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||RECOVERY_RAW||IMPORT_BUSY){event.preventDefault();event.returnValue=''}});
 requestWriter()}
 // Patch 11: checkResume validates loc and phase match.
 // Blobs holding logged work are NEVER silently deleted — the old 2h expiry (and the
@@ -4105,18 +4152,18 @@ ${resume.drifted?`<div style="font-size:11px;color:var(--am);margin-bottom:8px">
 // malformed) — but never told the user. Surface it with a way out. The copy outlives the
 // boot that made it, so the drop COUNT is persisted beside it — keying the wording off this
 // boot's LOAD_DROPPED alone meant every boot after the first fell back to the total-loss copy.
-try{if(RECOVERY_RAW||localStorage.getItem(SK+'-corrupt')){
+try{const storedRaw=localStorage.getItem(SK+'-corrupt');if(RECOVERY_RAW||storedRaw!==null){
 // Prefer this boot's count, fall back to the one stored with the rescue copy.
-const dropN=LOAD_DROPPED>0?LOAD_DROPPED:Number(localStorage.getItem(SK+'-corrupt-n'))||0;
-const repairN=LOAD_REPAIRED||Number(localStorage.getItem(SK+'-corrupt-repaired'))||0;
+const dropN=RECOVERY_RAW!==null||LOAD_DROPPED!==0?LOAD_DROPPED:Number(localStorage.getItem(SK+'-corrupt-n'))||0;
+const repairN=RECOVERY_RAW!==null?LOAD_REPAIRED:LOAD_REPAIRED||Number(localStorage.getItem(SK+'-corrupt-repaired'))||0;
 const partial=dropN>0||repairN>0;
 h+=`<div class="cd" style="border:1px solid var(--rd);background:var(--rdl)">
 <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:3px">⚠ ${partial?`${Math.max(0,dropN)+repairN} stored record${Math.max(0,dropN)+repairN===1?'':'s'} needed recovery`:'Stored data was corrupted'}</div>
 <div class="dm" style="margin-bottom:8px">${partial
 ?`${Math.max(0,dropN)} malformed sessions were left out; ${repairN} other records or fields were repaired or left out. The usable data loaded. Download the original copy to review missing information.`
-:`Your previous data couldn't be read and a raw copy was kept. What you see now is a fresh empty state. Download the raw copy (for recovery), then import your latest backup.`}</div>
-<div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">↓ Save raw copy</button>
-<button class="btn btn-wh btn-md" style="flex:1" onclick="if(confirm('Discard the corrupted copy permanently?')){localStorage.removeItem(SK+'-corrupt');localStorage.removeItem(SK+'-corrupt-n');render()}">Discard</button></div></div>`}}catch(e){}
+:`Your previous data couldn't be read. ${D.sessions.length?'Usable current data is shown; the original still needs separate review.':'What you see now is a fresh empty state.'} Download the original raw bytes for recovery or inspection, then restore a reviewed backup.`}</div>
+${RECOVERY_RAW?`<p class="dm">The current raw original has not been verified in recovery storage. Saving changes is blocked until it is preserved or explicitly resolved.</p><div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt()">Download current raw original</button><button class="btn btn-wh btn-md" style="flex:1" onclick="discardRecoveryCopy('current')">Discard current raw original</button></div>`:''}
+${storedRaw!==null?`<p class="dm">${RECOVERY_RAW&&storedRaw!==RECOVERY_RAW?'A different stored raw copy is also available. Both originals need separate review.':'A stored raw recovery copy is available.'}</p><div style="display:flex;gap:6px"><button class="btn btn-pr btn-md" style="flex:1" onclick="dlCorrupt('stored')">Download stored raw copy</button><button class="btn btn-wh btn-md" style="flex:1" onclick="discardRecoveryCopy('stored')">Discard stored raw copy</button></div>`:''}</div>`}}catch(e){}
 // Backup nag — localStorage is fragile; prompt a download if data has drifted from last backup.
 // Guarded on sessions>0: a brand-new empty install has nothing to back up (the bare
 // daysSince clause used to nag on a completely empty database).
@@ -6368,10 +6415,10 @@ const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.do
 setTimeout(()=>{try{URL.revokeObjectURL(u)}catch(e){}},10000);
 if(WRITER&&!PENDING_SAVE){const W=structuredClone(D);W.lastBackup=today();W.lastBackupCount=W.sessions.length;save(W)}render()}
 // Download the raw corrupted-store copy (rescued by load()) for offline recovery.
-function dlCorrupt(){try{const raw=RECOVERY_RAW||localStorage.getItem(SK+'-corrupt');if(!raw)return;
+function dlCorrupt(scope='current'){try{const raw=scope==='stored'?localStorage.getItem(SK+'-corrupt'):RECOVERY_RAW||localStorage.getItem(SK+'-corrupt');if(raw===null)return false;
 const b=new Blob([raw],{type:'application/json'});
-const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.download=`corrupt-store-${today()}.json`;a.click();
-setTimeout(()=>{try{URL.revokeObjectURL(u)}catch(e){}},10000)}catch(e){}}
+const a=document.createElement('a');const u=URL.createObjectURL(b);a.href=u;a.download=`raw-${scope==='stored'?'stored-copy':'current-original'}-${today()}.json`;a.click();
+setTimeout(()=>{try{URL.revokeObjectURL(u)}catch(e){}},10000);return true}catch(e){RECOVERY_ERROR='The requested raw original could not be read or downloaded. It was not discarded.';updateSaveStatus();return false}}
 // Schema guard for imports. A malformed backup (sessions without ex arrays,
 // non-numeric reps, garbage dates) used to merge silently and crash renders
 // later. Coerce what's salvageable, return null for what isn't.
