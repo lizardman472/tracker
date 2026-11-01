@@ -1914,8 +1914,13 @@ function reviewOriginalReferences(mode){
 }
 function focusOriginalReferenceTarget(id){const target=document.getElementById(id);if(!target)return;
  target.style.scrollMarginTop=(Math.max(0,document.getElementById('nav')?.getBoundingClientRect().bottom||0,document.querySelector('.hdr')?.getBoundingClientRect().bottom||0)+8)+'px';target.scrollIntoView({block:'nearest',behavior:'auto'});target.focus({preventScroll:true})}
-function cancelOriginalReferenceReview(){const mode=ORIGINAL_REFERENCE_REVIEW;ORIGINAL_REFERENCE_REVIEW=null;render();document.getElementById(mode==='return'?'direct-original-choice':'review-original-references')?.focus()}
-function referenceSetup(ex,value){return value?.band?value.band+(ex.bandMode==='assist'?' assistance':' resistance'):value?.wt?value.wt+' kg'+(ex.loadUnit==='per_db'?' per dumbbell':''):'Unknown — choose a manageable setup manually'}
+function cancelOriginalReferenceReview(){const mode=ORIGINAL_REFERENCE_REVIEW;ORIGINAL_REFERENCE_REVIEW=null;render();const id=mode==='return'?'direct-original-choice':'review-original-references';
+ const target=document.getElementById(id);if(target?.closest('details'))target.closest('details').open=true;focusOriginalReferenceTarget(id)}
+function referenceSetup(ex,value){
+ const unit=ex.bandMode==='assist'?' assistance':' resistance',pattern=Array.isArray(value?.bands)?value.bands.map(b=>BANDS.includes(b)?b:value.band).filter(b=>BANDS.includes(b)):[];
+ if(new Set(pattern).size>1)return pattern.map((b,i)=>`Set ${i+1}: ${b}${unit}`).join('; ');
+ const band=pattern[0]||value?.band;return band?band+unit:value?.wt?value.wt+' kg'+(ex.loadUnit==='per_db'?' per dumbbell':''):'Unknown — choose a manageable setup manually';
+}
 function originalReferenceReviewH(){
  const mode=ORIGINAL_REFERENCE_REVIEW;if(!mode)return '';
  const proposal=originalReferenceProposal(mode),block=originalReferenceBlock(),hasSource=proposal?.rows?.some(r=>r.ref&&!r.unresolved),disabled=block||!proposal?.p||mode==='repair'&&!hasSource;
@@ -1940,6 +1945,8 @@ function applyOriginalReferenceCorrection(){
  const blocked=originalReferenceBlock();if(blocked){alert(blocked);return false}
  const proposal=originalReferenceProposal('repair');if(!proposal?.p||!proposal.rows.some(r=>r.ref&&!r.unresolved))return false;
  if(!confirm('Apply the reviewed regular-practice starting references? Actual workouts, lower post-return practice, current phase, next day and earned progression stay saved.'))return false;
+ const changed=originalReferenceBlock();if(changed){alert(changed);return false}
+ if(D.trainingPlan||D.originalResume?.referenceVersion||D.originalResume?.id!==proposal.p.id||D.originalResume.date!==proposal.p.date||D.phase!==proposal.p.phase||D.location!=='home')return false;
  const W=structuredClone(D);W.originalResume=validOriginalResume(proposal.p);
  return save(W,{after:()=>{ORIGINAL_REFERENCE_REVIEW=null;ORIGINAL_REFERENCE_STATUS='Starting references updated. Actual lower practice and fresh progression are retained; missing or unverified references still need manual review.';renderTrainingPlanChange();focusOriginalReferenceTarget('original-reference-status')}});
 }
@@ -1952,6 +1959,8 @@ function resumeOriginalAfterRest(){
  catch(_){AW_ERROR='Cannot check the unfinished workout backup. Keep this tab open and restore device storage access before changing the routine.';updateSaveStatus();return false}
  const proposal=originalReferenceProposal('return');if(!proposal?.p)return false;
  if(!confirm(`Resume your usual original A/B/C Essentials after rest? Confirm only if you feel ready. Eight or nine exercises and 24–26 sets, current ${PHASES[D.phase].name} phase and Day ${D.nextDay} next. Starting setups use the reviewed regular Home practice before recovery; missing references need a manual light start. Historical successes earn no new increase. Full stays optional.`))return false;
+ const changed=originalReferenceBlock();if(changed){alert(changed);return false}
+ if(D.comeback||D.location!=='home'||D.phase!==proposal.p.phase||!['deload','return'].includes(D.trainingPlan?.stage)||D.trainingPlan.start!==proposal.p.recoveryStart)return false;
  const W=structuredClone(D),p={...proposal.p,id:recordId('original-')};
  W.trainingPlan=null;W.originalResume=validOriginalResume(p);
  // The confirmed choice resolves this break offer, using its existing signature.

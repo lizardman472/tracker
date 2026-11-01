@@ -90,4 +90,17 @@ module.exports=function({R,context,test,json}){
   R.setD(legacy());const get=context.localStorage.getItem;context.localStorage.getItem=k=>{if(k===R.AW_KEY)throw Error('Synthetic read failure');return get(k)};
   try{assert.match(R.originalReferenceBlock(),/Cannot check/);assert.equal(R.applyOriginalReferenceCorrection(),false)}finally{context.localStorage.getItem=get}
  });
+ test('a retained earned mixed-band trajectory is described per set in the repair preview',()=>{
+  R.setD(legacy());const d=tagged(legacy(),'pullup_a',{kg:null,band:'Green',ex:[{id:'pullup_a',band:'Green',reps:[8,8,8,8],form:[5,5,5,5]}]});R.setD(d);
+  const value=R.getSmartSugg(ex('pullup_a'));assert.equal(value.type,'up');assert(value.bands.some(b=>b!==value.band));
+  const label=R.referenceSetup(ex('pullup_a'),value);assert.match(label,/Set 1: Purple\+Red assistance/);assert.match(label,/Set 2: Green assistance/);
+  R.reviewOriginalReferences('repair');assert(R.trainingPlanCard().includes(label));
+ });
+ for(const mode of ['repair','return'])test(mode+' rechecks a draft that appears during confirmation',()=>{
+  const d=legacy();if(mode==='return'){d.originalResume=null;d.trainingPlan={stage:'deload',start:ago(9),stageStart:ago(9),loads:{hex_dl:80},bands:{}}}R.setD(d);
+  const before=json(R.getD()),raw=JSON.stringify({id:'arrived-during-confirm',log:{hex_dl:{wt:49.6,wts:[49.6,48],reps:[5,0]}},notes:'Preserve exact bytes'});
+  context.confirm=()=>{context.localStorage.setItem(R.AW_KEY,raw);return true};
+  try{assert.equal(mode==='repair'?R.applyOriginalReferenceCorrection():R.resumeOriginalAfterRest(),false)}finally{R.setConfirm(true)}
+  assert.deepEqual(json(R.getD()),before);assert.equal(context.localStorage.getItem(R.AW_KEY),raw);
+ });
 };
