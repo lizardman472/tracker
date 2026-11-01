@@ -4610,7 +4610,7 @@ if(isDone&&!isCur){
 h+=`<button type="button" class="ex-row done-row" aria-expanded="false" onclick="selectExercise(${idx})">
 <span style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700;color:var(--gr)">✓ ${esc(ex.nm)}${(()=>{const w=sessForm(log);return w?`<span class="form-chip" style="color:${FORM_C[w]};border-color:${FORM_C[w]}">${FORM_LABELS[w]}</span>`:''})()}</span>
-<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${esc(fmtSets(log))}</span></span></button>`;
+<span style="font-size:10px;color:var(--gr)">${log.band?esc(log.band)+' ':''}${esc(fmtSets({...log,id:ex.id}))}</span></span></button>`;
 } else if(!isCur){
 // Upcoming row
 h+=`<button type="button" class="ex-row upcoming" aria-expanded="false" onclick="selectExercise(${idx})">
