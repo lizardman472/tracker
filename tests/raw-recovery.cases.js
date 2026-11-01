@@ -105,7 +105,8 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   assert(h.ctx.discardPendingActive());assert.equal(h.api.getAWError(),'Earlier active failure');assert.equal(h.values.get(AW),F.A0);
  });
  for(const suffix of ['-n','-repaired'])for(const newCopy of [false,true])test('metadata removal succeeds but readback fails '+suffix+'; new payload before retry='+newCopy,()=>{
-  const h=start({values:[[SK,F.R],[C,F.C0],[C+'-n','7'],[C+'-repaired','2'],[AW,F.A0]],set:[],afterRemove:(key,faults)=>{if(key===C+suffix)faults.get.add(key)}});
+  let readbackFault=true;
+  const h=start({values:[[SK,F.R],[C,F.C0],[C+'-n','7'],[C+'-repaired','2'],[AW,F.A0]],set:[],afterRemove:(key,faults)=>{if(key===C+suffix&&readbackFault){faults.get.add(key);readbackFault=false}}});
   vm.runInContext('AW_ERROR="Earlier independent active failure"',h.ctx);
   let calls=0;assert.equal(h.ctx.save(proposal(),{after:()=>calls++}),false);const pending=plain(h.api.getPending()),mainError=h.api.getError();
   assert(h.ctx.discardRecoveryCopy('stored'));h.snap('payload removed; metadata removal returned; metadata readback failed');
