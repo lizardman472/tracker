@@ -10,7 +10,7 @@ const RESUMED_EX_IDS=['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_pre
 // Counted completed rows, specified literally rather than by replaying finish/normalization.
 const COMPLETED_UI={date:'2026-11-01',day:'A',loc:'home',phase:1,difficulty:3,warmup:2,notes:'UI Session keep',volume:175,
  express:true,trainingStage:'progress',trainingPlanStart:'2026-10-01',trainingComplete:false,finishReason:'time',
- rows:{hex_dl:{wt:40,band:'',reps:[5,0],wts:[35,45],form:[4,4],rir:2,notes:'UI Hex keep'},pullup_a:{wt:null,band:'Green',reps:[8,6],bands:['Blue (heaviest)','Green'],form:[4,4],rir:3,notes:'UI Band keep'}}};
+ rows:{hex_dl:{wt:36,band:'',reps:[5,0],wts:[35,45],form:[4,4,4],rir:2,notes:'UI Hex keep'},pullup_a:{wt:null,band:'Green',reps:[8,6],bands:['Blue (heaviest)','Green'],form:[4,4,4,4],rir:3,notes:'UI Band keep'}}};
 const COMPLETED_FIXTURE={date:'2026-11-01',day:'A',loc:'home',phase:1,difficulty:3,warmup:2,notes:'Session notes keep',
  rows:{hex_dl:{wt:40,band:'',form:[5,0,4],rir:2,notes:'Hex notes keep'},pullup_a:{wt:null,band:'Green',reps:[8,0,6],bands:['Green','','Purple'],form:[4,0,5],rir:3,notes:'Band notes keep'}}};
 const COMPLETED_REPS={3:[3,0,0],5:[5,0,0],6:[6,0,0]},COMPLETED_VOLUME={3:120,5:200,6:240};

@@ -94,6 +94,19 @@ module.exports=function({harness,test,plain,SK,AW,code}){
  for(const rating of [0,'4'])test('valid integer zero/numeric-string rating is retained '+JSON.stringify(rating),()=>{
   const d=draft();d.log.hex_dl.form=[rating,0,4];d.log.hex_dl.rir=rating;const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=h.ctx.completeBackupData();assert.equal(value.activeWorkout.log.hex_dl.form[0],Number(rating));assert.equal(value.activeWorkout.log.hex_dl.rir,Number(rating));
  });
+ for(const done of [[1,false,false],['true',false,false],{0:true}])test('malformed completion flags cannot claim complete capture '+JSON.stringify(done),()=>{
+  const d=draft();d.log.hex_dl.setDone=done;const raw=JSON.stringify(d),h=start({values:[[SK,F.MAIN_RAW],[AW,raw]]});
+  assert.equal(h.ctx.expD(),false);assert.equal(h.downloads.length,0);assert.equal(h.values.get(SK),F.MAIN_RAW);assert.equal(h.values.get(AW),raw);assert.match(h.alerts.at(-1),/without repairs/);assert(h.ctx.exportRawWorkout());assert.equal(h.downloads.at(-1).parts.join(''),raw);
+ });
+ for(const legacy of [false,true])test('boolean completion flags and absent legacy field remain supported '+legacy,()=>{
+  const d=draft();if(legacy)delete d.log.hex_dl.setDone;const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});const value=h.ctx.completeBackupData();assert.deepEqual(plain(value.activeWorkout.log.hex_dl.setDone),legacy?[false,false,false]:[true,false,false]);
+ });
+ test('existing whole-exercise form stamps never add sets to a resumed shorter workout',()=>{
+  const m=main();m.originalResume=null;m.trainingPlan={stage:'return',start:'2026-11-01',stageStart:'2026-11-01',loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
+  const h=start({values:[[SK,JSON.stringify(m)]]});h.ctx.beginW('A',true);
+  vm.runInContext("for(const id of ['hex_dl','pullup_a']){LOG[id].reps=['5','5'];LOG[id].setDone=[true,true];setFormAll(id,4)}LOG.hex_dl.wts=[20,20];LOG.pullup_a.bands=['Blue (heaviest)','Green'];WU_CHECKS=[true,true,false];saveAW();ADAY=null;resumeW();finishW();",h.ctx);
+  const rows=plain(h.api.getSummary().exs);assert.deepEqual(rows.find(e=>e.id==='hex_dl').reps,[5,5]);assert.deepEqual(rows.find(e=>e.id==='hex_dl').wts,[20,20]);assert.deepEqual(rows.find(e=>e.id==='hex_dl').form,[4,4,4]);assert.deepEqual(rows.find(e=>e.id==='pullup_a').bands,['Blue (heaviest)','Green']);assert.deepEqual(rows.find(e=>e.id==='pullup_a').form,[4,4,4,4]);
+ });
  test('zero-rep per-slot band setup survives supported export and actual envelope import independently',()=>{
   const d=draft();d.notes='';d.wu=[];d.log={pullup_a:{wt:null,band:'Green',bands:['Green','Blue (heaviest)','Purple'],reps:['','',''],form:[0,0,0],setDone:[false,false,false],notes:'',touched:true}};
   const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=plain(h.ctx.completeBackupData());assert.deepEqual(value.activeWorkout.log.pullup_a.bands,['Green','Blue (heaviest)','Purple']);
