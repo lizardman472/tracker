@@ -338,4 +338,5 @@ require('./backup.cases')({harness,test,plain,SK,AW,code});
 require('./backup-phase.cases')({harness,test,plain,SK,AW,code});
 require('./duration-preservation.cases')({harness,test,plain,SK,AW,code});
 require('./initial-rotation.cases')({harness,test,plain,SK,AW,code});
+require('./current-session.cases')({harness,test,plain,SK,AW,code});
 console.log(`${passed} storage scenarios passed`);
