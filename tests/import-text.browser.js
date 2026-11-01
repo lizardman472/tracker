@@ -59,9 +59,11 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,screensh
   T('entered draft retains explicit opening band and scalar fallback slots '+theme,draft.band===marker&&JSON.stringify(draft.bands)==='["Green","","",""]'&&JSON.stringify(draft.reps)==='["6","6","6","6"]',JSON.stringify(draft));
   await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
   const done=page.locator('button.done-row').filter({hasText:'Pull-ups (Comfortable Grip)'}),doneText=await done.innerText();
-  const doneExpected=expected+', '+marker+'×6, '+marker+'×6';
+  // Current LOG entries have no id: fmtSets cannot resolve a band definition here.
+  // Preserve the existing scalar-prefix + reps summary; History/Last cover mixed text.
+  const doneExpected=marker+' [6,6,6,6]';
   const doneMarkerElements=await page.locator('[data-audit-marker="band-text"]').count();
-  T('completed workout row escapes its formatter text exactly once '+theme,doneText.includes(doneExpected)&&!doneText.includes('&lt;span')&&doneMarkerElements===0,JSON.stringify({doneExpected,doneText,doneMarkerElements}));
+  T('completed workout row preserves the literal scalar and current reps summary '+theme,doneText.includes(doneExpected)&&!doneText.includes('&lt;span')&&doneMarkerElements===0,JSON.stringify({doneExpected,doneText,doneMarkerElements}));
   await done.scrollIntoViewIfNeeded();await screenshot(page,'import-text-done-'+theme,{target:'button.done-row',text:'Pull-ups (Comfortable Grip)',top:false});
   T('reading History/Last and completing draft sets do not rewrite imported history '+theme,await page.evaluate(saved=>JSON.stringify(D.sessions.find(s=>s.id===saved.id))===JSON.stringify(saved),stored));
   T('import-text phone route has no page errors or horizontal overflow '+theme,errors.length===0&&await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),errors.join('\n'));
