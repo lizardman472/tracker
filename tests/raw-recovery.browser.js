@@ -113,8 +113,10 @@ module.exports=async function({browser,origin,T,errors}){
    await mode(page,{set:[C,SK,AW]});await page.getByLabel('Set 1 reps',{exact:true}).fill('6');
    const earlier=await snapshot(page);T('actual active failure retains exact captured earlier bytes before import',earlier.active===earlierStored.active&&earlier.activeError.includes('Current workout is not saved'));
    const incoming=JSON.parse(F.A0);incoming.id='incoming-active-oracle';
-   await key(page,page.getByRole('button',{name:'Settings',exact:true}));const chooser=page.waitForEvent('filechooser');await key(page,page.getByRole('button',{name:'↑ Import',exact:true}));
-   await(await chooser).setFiles({name:'synthetic-raw-import.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...F.P,activeWorkout:incoming}))});
+   // Test-only view setup: workout hides the main navigation. The Resume/edit and
+   // following actual import chooser/failure controls are exercised independently.
+   await page.evaluate(()=>go('settings'));const chooser=page.waitForEvent('filechooser');await key(page,page.getByRole('button',{name:'↑ Import',exact:true}));
+   await(await chooser).setFiles({name:'synthetic-raw-import.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...F.P,theme,activeWorkout:incoming}))});
    await page.waitForFunction(()=>!IMPORT_BUSY&&!!PENDING_SAVE);const rawBlocked=await snapshot(page);
    T('unreadable main/raw barrier retains imported main and active proposals plus earlier A0',rawBlocked.main===F.L0&&rawBlocked.active===earlierStored.active&&pendingId(rawBlocked)&&rawBlocked.pendingActive.id==='incoming-active-oracle'&&rawBlocked.activeError===earlier.activeError);
    await capture(page,'raw-import-blocked-'+theme,'Pending changes are not saved');
@@ -135,7 +137,7 @@ module.exports=async function({browser,origin,T,errors}){
    T('current-workout file still has original identity and actual unsaved six reps',current.id==='active-oracle-1'&&current.log.hex_dl.reps[0]==='6');
    await mode(page,{});await key(page,statusButton(page,'Retry save'));const activeRetried=await snapshot(page);
    T('explicit active retry finally updates that same earlier identity',JSON.parse(activeRetried.active).id==='active-oracle-1'&&JSON.parse(activeRetried.active).log.hex_dl.reps[0]==='6'&&!activeRetried.activeError);
-   evidence.push({case:'2/5/12 combined import',theme,earlierStored,earlier,rawBlocked,currentRaw,importFile,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,activeRetried,dialogs:h.dialogs});write();
+   evidence.push({case:'2/5/12 combined import',theme,setupLimit:'Settings view selected directly after real Resume/edit; active-screen navigation does not expose Settings. Import chooser and all failure/retry/download/discard controls are real.',earlierStored,earlier,rawBlocked,currentRaw,importFile,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,activeRetried,dialogs:h.dialogs});write();
   }finally{await h.ctx.close()}
  }
  // Case7: a second real tab acts as an external writer; original app must not replay P.
