@@ -421,4 +421,5 @@ require('./original-reference.cases')({R,context,test,json});
 require('./band-holds.cases')({R,context,test,json});
 require('./band-provenance.cases')({R,context,test,json});
 require('./current-discomfort.cases')({R,context,test,json});
+require('./practice-continuity.cases')({R,context,test,json});
 console.log(`\n${passed} recovery tests passed`);

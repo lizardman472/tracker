@@ -2113,6 +2113,12 @@ function latestPlanPractice(ex,stages,since=D.trainingPlan.stageStart){
  return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.trainingPlanStart===p.start&&stages.includes(s.trainingStage)&&s.date>=since&&s.date<=today())
   .sort((a,b)=>a.date.localeCompare(b.date)).flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0)).map(e=>({...e,date:s.date}))).at(-1)||null;
 }
+// Held bounds require a known phase match; transitions retain missing-phase legacy rows.
+function originalStagePractice(id,p,knownPhaseOnly=false){
+ return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.trainingPlanStart===p.start&&s.trainingStage===p.stage&&s.date>=p.stageStart&&s.date<=today()&&
+  (!p.phase||s.phase===p.phase||!knownPhaseOnly&&![1,2,3].includes(s.phase)))
+  .flatMap(s=>s.ex.filter(e=>e.id===id&&e.reps.some(r=>r>0))).at(-1)||null;
+}
 function selectPlanPhase(W,phase,{recent=false}={}){
  const p=W.trainingPlan,targets=phaseLoadTargets(p,phase),progress=recent?phaseLoadTargets(p,phase,true):{};
  p.phaseLoads=targets;p.progressLoads=progress;
@@ -2195,15 +2201,13 @@ function advanceTrainingPlan(phase){
    const cap=st.stage==='original1'?.95:1;W.trainingPlan.returnLoads={};W.trainingPlan.returnBands={};
    for(const [id,oldLoad]of Object.entries(st.loads)){
     const target=st.phaseLoads?.[id]||oldLoad;
-    const e=D.sessions.filter(s=>s.trainingPlanStart===st.start&&s.trainingStage===st.stage&&(s.loc||'home')==='home'&&s.date>=st.stageStart&&s.date<=today())
-     .flatMap(s=>s.ex.filter(e=>e.id===id&&e.reps.some(r=>r>0))).at(-1);
+    const e=originalStagePractice(id,st);
     const last=e?sessLoad(e,e.reps.filter(r=>r>0).length):st.returnLoads?.[id]||target*.90;
     W.trainingPlan.returnLoads[id]=ALL_EX.find(e=>e.id===id)?.manualLoad?Math.min(last,st.returnLoads?.[id]||last):Math.min(target*cap,last+target*.05);
    }
    for(const[id,b]of Object.entries(st.bands)){
     const ex=ALL_EX.find(e=>e.id===id),assist=ex?.bandMode==='assist';
-    const e=D.sessions.filter(s=>s.trainingPlanStart===st.start&&s.trainingStage===st.stage&&(s.loc||'home')==='home'&&s.date>=st.stageStart&&s.date<=today())
-     .flatMap(s=>s.ex.filter(e=>e.id===id&&e.reps.some(r=>r>0))).at(-1);
+    const e=originalStagePractice(id,st);
     const pattern=e?bandPattern(e).filter(b=>BANDS.includes(b)):[];
     const from=pattern.length?(assist?Math.min(...pattern.map(BAND_IDX)):Math.max(...pattern.map(BAND_IDX))):BAND_IDX(st.returnBands?.[id]||b);
     const target=BAND_IDX(b);W.trainingPlan.returnBands[id]=BANDS[assist?Math.min(target,from+1):Math.max(target,from-1)];
@@ -2327,15 +2331,26 @@ function trainingPlanCard(view='home'){
 function originalReturnSuggestion(ex){
  const p=D.trainingPlan;if(!ex._short||!originalReturn(p))return null;
  const fraction=p.stage==='original1'?.90:p.stage==='original2'?.95:1;
+ const actual=originalStagePractice(ex.id,p,true);
  const effort=p.stage==='original3'?'2–3':'3';
  const detail=`Original A/B/C return step ${ORIGINAL_STAGES.indexOf(p.stage)+1}/3. Hold this load; leave ${effort} clean reps available. Reduce it if needed. There is no automatic increase from earlier results.`;
  if(ex.tp==='bw'||ex.tp==='club')return{text:'Control first — held practice',type:'stay',wt:ex.fixedKg||null,traj:[],detail,regress:''};
  if(ex.tp==='band'){
   let b=p.returnBands?.[ex.id]||p.bands[ex.id]||'';
   if(!p.returnBands?.[ex.id]&&b&&p.stage!=='original3'){const i=BAND_IDX(b);b=BANDS[Math.max(0,Math.min(BANDS.length-1,i+(ex.bandMode==='assist'?-1:1)))]}
+  if(actual){const logged=bandPattern(actual).map(value=>BANDS[BAND_IDX(value)]||value),easy=easiestOriginalBand(ex,logged),opaque=logged.find(value=>value&&BAND_IDX(value)===99)||'';
+   const bands=Array.from({length:ex.s},(_,i)=>{const value=logged[i]||easy||opaque;
+    if(!value||BAND_IDX(value)===99)return value||'';
+    if(BAND_IDX(b)===99)return value;
+    return BANDS[ex.bandMode==='assist'?Math.min(BAND_IDX(b),BAND_IDX(value)):Math.max(BAND_IDX(b),BAND_IDX(value))]});
+   const band=opaque||easiestOriginalBand(ex,bands),unknown=!!opaque||!band;
+   return{text:unknown?'Hold — choose a band manually':`Hold ${bandSetupLabel({band,bands,reps:Array(ex.s).fill(1)})}`,type:'stay',wt:null,band,bands,...(!band?{requiresBandChoice:true}:{}),traj:[],
+    detail:detail+(unknown?' Some counted bands could not be identified. Keep their labels for review and choose a manageable band manually.':' Lower/easier counted practice stays held; additional sets use the easiest counted band.'),regress:''};
+  }
   return{text:b?`Hold ${b}`:'Choose an easy band',type:'stay',wt:null,band:b,traj:[],detail,regress:''};
  }
- const vw=vwOf(ex),target=p.phaseLoads?.[ex.id]||p.loads[ex.id],raw=target?Math.min(p.returnLoads?.[ex.id]||target*fraction,target*fraction):barOf(ex);
+ const vw=vwOf(ex),target=p.phaseLoads?.[ex.id]||p.loads[ex.id],cap=target?Math.min(p.returnLoads?.[ex.id]||target*fraction,target*fraction):barOf(ex);
+ const load=actual?sessLoad(actual,actual.reps.filter(r=>r>0).length):0,raw=load>0?Math.min(cap,load):cap;
  const wt=vw.filter(w=>w<=raw).at(-1)||vw[0];
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.level==='moderate');
  return{text:ex.manualLoad?'Choose load for control':`${wt}kg · held return load`,type:'stay',wt,traj:[],detail:ex.manualLoad?detail+' Choose this setup by observed control; the return plan does not increase this movement automatically.':detail,
@@ -2345,10 +2360,14 @@ function shortSuggestion(ex){
  const p=D.trainingPlan;if(!ex._short||!p)return null;
  if(originalReturn(p))return originalReturnSuggestion(ex);
  const st=trainingPlanStatus(),early=p.stage!=='progress',seed=p.phaseLoads?.[ex.id]||p.loads[ex.id];
- const hist=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&s.date>=p.stageStart&&s.date<=today()&&(!p.phase||s.phase===p.phase)&&!s.noProg&&(s.loc||'home')==='home')
-  .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty,complete:s.trainingComplete===true,finishReason:s.finishReason}:null}).filter(Boolean).slice(-2);
- const last=hist.at(-1),rated=e=>e&&e.complete&&!['fatigue','discomfort'].includes(e.finishReason)&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
+ const attempts=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&s.date>=p.stageStart&&s.date<=today()&&(!p.phase||s.phase===p.phase)&&(s.loc||'home')==='home')
+  .map(s=>{const e=s.ex.find(e=>e.id===ex.id);return e?{...e,date:s.date,difficulty:s.difficulty,complete:s.trainingComplete===true,finishReason:s.finishReason,noProg:s.noProg,
+   interrupted:s.noProg===true&&s.trainingComplete===false&&['time','unspecified'].includes(s.finishReason)&&e.reps.some(r=>r>0)}:null}).filter(Boolean);
+ const eligible=attempts.filter(e=>!e.noProg),last=eligible.at(-1),rated=e=>e&&e.complete&&!['fatigue','discomfort'].includes(e.finishReason)&&effectiveReps(ex,e.reps).length===ex.s&&effectiveReps(ex,e.reps).every(r=>r>=ex.tg)&&e.rir>=2&&
   e.form?.length>=ex.s&&e.reps.every((r,i)=>!(r>0)||e.form[i]>=4)&&Number(e.difficulty||0)<4;
+ // Date-only records cannot establish within-day order; keep the old success pool/anchor.
+ const interruption=p.stage==='progress'?attempts.filter(e=>e.interrupted&&!eligible.some(s=>s.date===e.date&&rated(s))).at(-1):null;
+ const hist=eligible.filter(e=>!interruption||e.date>interruption.date).slice(-2),candidate=hist.at(-1);
  const practice=!early?D.sessions.filter(s=>s.trainingPlanStart===p.start&&ORIGINAL_STAGES.includes(s.trainingStage)&&(s.loc||'home')==='home'&&s.date<=p.stageStart)
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&e.reps.some(r=>r>0))).at(-1):null;
  const prior=D.sessions.filter(s=>s.trainingPlanStart===p.start&&s.trainingStage==='progress'&&(s.loc||'home')==='home'&&!s.noProg&&s.date<=today())
@@ -2356,9 +2375,9 @@ function shortSuggestion(ex){
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.date<=today()&&d.level==='moderate');
  const check=early?null:shortDeloadStatus(),hold=!!(check?.due||check?.hold||disc);
  const actual=latestPlanPractice(ex,[p.stage]),recovery=latestPlanPractice(ex,['deload','return'],p.start);
- const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
+ const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3',fresh=!early&&!hold&&interruption&&!hist.length;
  let detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':hold?'Hold progression; take an easier session or rest and reassess. '+(check?.reason||'Adjust for recent discomfort.'):'Keep the load; try one extra total rep within '+ex.rp+' only when control and 2–3 clean reps remain. Rate form and reps left.'}`;
- const confirmed=last&&rated(last)&&(ex.tp==='band'?bandPattern(last).every(b=>BANDS.includes(b)):last.reps.every((r,i)=>!(r>0)||wEq(setWt(last,i),sessLoad(last,ex.s))));
+ const confirmed=candidate&&rated(candidate)&&(ex.tp==='band'?bandPattern(candidate).every(b=>BANDS.includes(b)):candidate.reps.every((r,i)=>!(r>0)||wEq(setWt(candidate,i),sessLoad(candidate,ex.s))));
  if(ex.tp==='bw')return{text:'Unloaded — control first',action:hold?'Hold progression':'Control first',type:'stay',wt:null,traj:[],detail,regress:''};
  if(ex.tp==='band'){
   let b=last?.band||(!early?prior?.band:null)||practice?.band||p.bands[ex.id]||'';
@@ -2378,8 +2397,9 @@ function shortSuggestion(ex){
    if(next){const plan=[...pattern],i=mixed?indices.indexOf(back):0;plan[i]=next;
     return{text:'Advance one set on the band ladder',action:'Advance one band set',type:'up',wt:null,band:b,bands:plan,traj:[],detail:'Two confirmed sessions. Advance only the indicated set; keep the other sets on their shown bands. Leave 2–3 clean reps.',regress:''}}
   }
-  const action=early?'Hold recovery load':hold?'Hold progression':confirmed?'Repeat target (1/2)':'Add reps when ready';
+  const action=early?'Hold recovery load':hold?'Hold progression':fresh?'Hold load · fresh confirmations':confirmed?'Repeat target (1/2)':'Add reps when ready';
   if(!early&&!hold&&confirmed)detail='One confirmation. Repeat the shown band setup at every target with Solid/Strict form and at least two reps left in a complete workout on another date.';
+  if(fresh)detail='An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
   return{text:mixed?'Repeat the mixed-band setup':b?`Stay on ${b}`:'Choose an easy band',action,type:'stay',wt:null,band:b,
    ...(mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
  }
@@ -2392,11 +2412,12 @@ function shortSuggestion(ex){
   hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
  const wt=match?nxUp(anchor,vw):anchor,increase=match&&wt>anchor;
  const atTarget=last&&effectiveReps(ex,last.reps).length===ex.s&&effectiveReps(ex,last.reps).every(r=>r>=ex.tg);
- const action=early?'Hold recovery load':hold?'Hold progression':increase?'Increase weight':match?'Hold weight · equipment limit':confirmed?'Repeat target (1/2)':atTarget?'Hold weight · check ratings':'Add reps when ready';
+ const action=early?'Hold recovery load':hold?'Hold progression':fresh?'Hold load · fresh confirmations':increase?'Increase weight':match?'Hold weight · equipment limit':confirmed?'Repeat target (1/2)':atTarget?'Hold weight · check ratings':'Add reps when ready';
  if(increase)detail=`Two confirmed sessions. Small increase from ${anchor}kg; build within ${ex.rp} again with 2–3 clean reps left.`;
  else if(!early&&!hold&&confirmed)detail=`One confirmation at this load. Repeat every set at ${ex.tg}${ex.perSide?'/side':''} with Solid/Strict form and at least two reps left in a complete workout on another date.`;
  else if(!early&&!hold&&atTarget)detail='Top reps alone do not confirm an increase. Repeat with controlled form, at least two recorded reps left and a complete, manageable workout.';
  if(match&&!increase)detail='At the available equipment limit. Repeat controlled targets; extra sets are not required.';
+ if(fresh)detail='An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
  return{text:`${wt}kg · ${action}`,action,type:increase?'up':'stay',wt,traj:[],detail,
   regress:disc?'Hold progression; reduce load or stop if discomfort rises.':''};
 }

@@ -406,4 +406,5 @@ module.exports=async function({browser,origin,T,baseStore}){
  await require('./import-text.browser')({T,baseStore,open,keyActivate,tabActivate,screenshot});
  await require('./band-holds.browser')({T,baseStore,open,keyActivate,screenshot});
  await require('./current-discomfort.browser')({T,baseStore,open,keyActivate,screenshot});
+ await require('./practice-continuity.browser')({T,baseStore,open,keyActivate,screenshot});
 };
