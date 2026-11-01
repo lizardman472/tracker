@@ -51,6 +51,12 @@ module.exports=function({R,context,test,json}){
   test('leading skipped harder override never becomes a counted prescription',()=>{
    const d=state();d.sessions[1].ex[0].reps=[0,8,8,8,8];d.sessions[1].ex[0].bands=['Red',...F.actual];d.sessions[1].ex[0].form=[0,5,5,5,5];check(d);
   });
+  for(const resume of [false,true])for(const first of ['','Legacy band'])test('counted '+(first?'unknown':'blank')+' label cannot shift the known second-slot band '+resume,()=>{
+   const d=state({resume}),e=d.sessions[1].ex[0];e.band=first;e.bands=['','Purple+Red','Green','Green'];
+   // Supported legacy scalars can be unknown; validation rejects unknown overrides.
+   // Tagged history already replaces its scalar with the easiest counted known band.
+   check(d,{expected:[resume?'Green':first||'Green','Purple+Red','Green','Green']});
+  });
   test('fewer counted sets pad with easiest actual band, not unused default',()=>{
    const d=state({discomfort:false,effort:5}),e=d.sessions[1].ex[0];e.band='None';e.reps=[8,0,8,8];e.bands=['Purple+Red','None','Green','Green'];
    // Current core cannot earn an increase with only three counted sets.

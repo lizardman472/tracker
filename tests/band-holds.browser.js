@@ -3,7 +3,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
  const fs=require('fs'),path=require('path'),F=require('./fixtures/band-holds'),evidence=[];
  const scenarios=[['moderate',{}],['moderate-tagged',{resume:true}],['effort',{discomfort:false,effort:5}],
   ['effort-tagged',{resume:true,discomfort:false,effort:5}],['rep-drop',{discomfort:false}],
-  ['partner-press',{discomfort:false,id:'dips',day:'B'}],['earned-advance',{discomfort:false}]];
+  ['partner-press',{discomfort:false,id:'dips',day:'B'}],['earned-advance',{discomfort:false}],['blank-counted',{}]];
  const regex=s=>new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
  async function exercise(page,id){
   const name=await page.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id);
@@ -13,10 +13,11 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
  for(const theme of ['light','dark'])for(const [label,options]of scenarios){
   const store=Object.assign(baseStore(),F.fixture(options),{theme});
   if(label==='rep-drop')store.sessions[0].ex[0].reps=[10,10,10,10];
+  if(label==='blank-counted'){store.sessions[1].ex[0].band='';store.sessions[1].ex[0].bands=['','Purple+Red','Green','Green']}
   if(label==='partner-press')store.sessions.push({id:'partner-press',date:'2026-11-01',day:'A',loc:'partner',phase:1,
    ex:[{id:'db_floor_press',wt:10,reps:[8,8,8],form:[5,5,5]}]});
   const id=options.id||'pullup_a',day=options.day||'A',tag=label+'-'+theme;
-  const expected=label==='earned-advance'?F.advance:options.resume&&label==='effort-tagged'?['Green','Green','Green','Green']:F.actual;
+  const expected=label==='blank-counted'?['Green','Purple+Red','Green','Green']:label==='earned-advance'?F.advance:options.resume&&label==='effort-tagged'?['Green','Green','Green','Green']:F.actual;
   const {ctx,page,errors}=await open(store,new Date(F.now));
   const previous=await page.evaluate(()=>structuredClone(D.sessions));
   const advice=await page.evaluate(({id,day})=>{const e=dayExs(day,{},true).find(e=>e.id===id);return{core:getSmartSuggCore(e),final:getSmartSugg(e)}},{id,day});
@@ -56,7 +57,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
   await keyActivate(page,page.locator('#history-'+saved.id));
   const history=await page.locator('#history-'+saved.id).locator('..').innerText();
-  const historyExpected=expected[1]==='Purple+Red'?'Purple+Red×8, Purple+Red×8, Green×8, Green×8':expected[0]==='Green'?'[8,8,8,8] Green':'Purple+Red×8, Green×8, Green×8, Green×8';
+  const historyExpected=label==='blank-counted'?'Green×8, Purple+Red×8, Green×8, Green×8':label==='earned-advance'?'Purple+Red×8, Purple+Red×8, Green×8, Green×8':label==='effort-tagged'?'[8,8,8,8] Green':'Purple+Red×8, Green×8, Green×8, Green×8';
   T('saved History displays the independently expected counted pattern '+tag,history.includes(historyExpected),history);
   T('band-hold route has no page errors or horizontal overflow '+tag,errors.length===0&&await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),errors.join('\n'));
   evidence.push({theme,label,expected,advice,visible,prefill,cardText,saved,history,oldHistoryUnchanged:previous.every(p=>JSON.stringify(after.find(s=>s.id===p.id))===JSON.stringify(p)),errors});

@@ -3116,11 +3116,11 @@ if(ex.tp==='band'){
   const reps=effectiveReps(ex,last.reps);
   const hitTop=reps.length>=ex.s&&reps.slice(0,ex.s).every(r=>r>=ex.tg);
   const mnB=getRepMin(ex);
-  const performedBandPattern=bandPattern(last).filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
+  const countedBandPattern=bandPattern(last),performedBandPattern=countedBandPattern.filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
   // Apply the existing discomfort veto before a mixed bridge can advance.
   if(modDisc>=2&&hitTop){
-    const band=easiestOriginalBand(ex,performedBandPattern)||last.band||'';
-    const bands=Array.from({length:ex.s},(_,i)=>performedBandPattern[i]||band);
+    const band=easiestOriginalBand(ex,countedBandPattern)||last.band||'';
+    const bands=Array.from({length:ex.s},(_,i)=>countedBandPattern[i]||band);
     const label=bandSetupLabel({band,bands,reps:Array(ex.s).fill(1)});
     return{text:`Stay on ${label||'band'} (hold)`,type:'stay',wt:null,band,bands,traj,
       detail:'Holding the actual band setup due to discomfort trend',regress:discWarn}}
