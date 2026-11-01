@@ -4,8 +4,8 @@ module.exports=async function({browser,origin,T,errors}){
  const directory=path.join(__dirname,'..','test-results','recovery-layout'),evidence=[];fs.mkdirSync(directory,{recursive:true});
  const write=()=>fs.writeFileSync(path.join(directory,'raw-recovery-browser-evidence.json'),JSON.stringify(evidence,null,2));
  const key=async(page,control)=>{await control.focus();await page.keyboard.press('Enter')};
- async function create({main=F.R,legacy=null,stored=null,active=F.A0,fault={set:[C]},label='raw'}={}){
-  const ctx=await browser.newContext({viewport:{width:390,height:844}}),dialogs=[];
+ async function create({main=F.R,legacy=null,stored=null,active=F.A0,fault={set:[C]},label='raw',theme='light'}={}){
+  const ctx=await browser.newContext({viewport:{width:390,height:844},colorScheme:theme}),dialogs=[];
   await ctx.addInitScript(({origin,main,legacy,stored,active,fault})=>{
    if(location.origin!==origin)return;
    const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem,control='raw-test-controls';
@@ -105,8 +105,8 @@ module.exports=async function({browser,origin,T,errors}){
   }
  }
  // Cases2/5/12: unreadable main, real active failure and imported copy remain distinct.
- {
-  const h=await create({main:F.L0,fault:{set:[C,SK]},label:'combined-import'}),{page}=h;
+ for(const theme of ['light','dark']){
+  const h=await create({main:F.L0,fault:{set:[C,SK]},label:'combined-import-'+theme,theme}),{page}=h;
   try{
    await key(page,page.getByRole('button',{name:'Resume',exact:true}));const earlierStored=await snapshot(page);
    T('actual resumed draft is captured before introducing its write fault',JSON.parse(earlierStored.active).id==='active-oracle-1'&&JSON.parse(earlierStored.active).notes==='A0 session keep');
@@ -117,12 +117,15 @@ module.exports=async function({browser,origin,T,errors}){
    await(await chooser).setFiles({name:'synthetic-raw-import.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...F.P,activeWorkout:incoming}))});
    await page.waitForFunction(()=>!IMPORT_BUSY&&!!PENDING_SAVE);const rawBlocked=await snapshot(page);
    T('unreadable main/raw barrier retains imported main and active proposals plus earlier A0',rawBlocked.main===F.L0&&rawBlocked.active===earlierStored.active&&pendingId(rawBlocked)&&rawBlocked.pendingActive.id==='incoming-active-oracle'&&rawBlocked.activeError===earlier.activeError);
+   await capture(page,'raw-import-blocked-'+theme,'Pending changes are not saved');
    const currentRaw=await download(page,'Download current raw original'),importFile=await download(page,'Download imported workout');
    T('combined files retain exact unreadable original and named imported active identity',currentRaw.bytes===F.L0&&JSON.parse(importFile.bytes).activeWorkout.id==='incoming-active-oracle');
    await mode(page,{set:[SK,AW]});await key(page,statusButton(page,'Retry save'));const mainBlocked=await snapshot(page);
    T('raw success cannot clear independent main or active failure',mainBlocked.stored===F.L0&&mainBlocked.main===F.L0&&pendingId(mainBlocked)&&mainBlocked.active===earlierStored.active&&mainBlocked.activeError===earlier.activeError);
+   await capture(page,'raw-import-main-failed-'+theme,'Not saved on this device');
    await mode(page,{set:[AW]});await key(page,statusButton(page,'Retry save'));const activeBlocked=await snapshot(page);
    T('main commit runs imported-active callback only after durable main, preserving A0 on active failure',activeBlocked.pending===null&&activeBlocked.pendingActive.id==='incoming-active-oracle'&&activeBlocked.active===earlierStored.active&&JSON.parse(activeBlocked.main).sessions.filter(s=>s.id==='recovery-save-1').length===1);
+   await capture(page,'raw-import-active-failed-'+theme,'imported unfinished workout');
    const storedRaw=await download(page,'Download stored raw copy');T('committed malformed original is still downloaded literally',storedRaw.bytes===F.L0);
    await key(page,statusButton(page,'Discard stored raw copy'));const rawResolved=await snapshot(page);
    T('explicit raw resolution does not resolve imported-active warning or earlier draft',rawResolved.stored===null&&rawResolved.pendingActive.id==='incoming-active-oracle'&&rawResolved.activeError===activeBlocked.activeError&&rawResolved.active===earlierStored.active);
@@ -132,7 +135,7 @@ module.exports=async function({browser,origin,T,errors}){
    T('current-workout file still has original identity and actual unsaved six reps',current.id==='active-oracle-1'&&current.log.hex_dl.reps[0]==='6');
    await mode(page,{});await key(page,statusButton(page,'Retry save'));const activeRetried=await snapshot(page);
    T('explicit active retry finally updates that same earlier identity',JSON.parse(activeRetried.active).id==='active-oracle-1'&&JSON.parse(activeRetried.active).log.hex_dl.reps[0]==='6'&&!activeRetried.activeError);
-   evidence.push({case:'2/5/12 combined import',earlierStored,earlier,rawBlocked,currentRaw,importFile,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,activeRetried,dialogs:h.dialogs});write();
+   evidence.push({case:'2/5/12 combined import',theme,earlierStored,earlier,rawBlocked,currentRaw,importFile,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,activeRetried,dialogs:h.dialogs});write();
   }finally{await h.ctx.close()}
  }
  // Case7: a second real tab acts as an external writer; original app must not replay P.

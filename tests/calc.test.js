@@ -1666,11 +1666,11 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   // Independent load fixtures need fresh application RAM: a prior unresolved raw copy
   // must not be silently abandoned just to inspect an unrelated normalization fixture.
   let loaded;
-  function load(){
+  const load=()=>{
     const ctx={localStorage:global.localStorage,window:{},navigator:{},structuredClone,console,Date,Math};
     ctx.global=ctx;require('node:vm').createContext(ctx);require('node:vm').runInContext(code,ctx);
     ctx.__X.setD({});ctx.load();loaded=ctx.__X;
-  }
+  };
   const getD=()=>loaded.getD(),getDropped=()=>loaded.getDropped();
   const store = {};
   const realLS = global.localStorage;
