@@ -67,11 +67,11 @@ module.exports=async function({browser,origin,T,baseStore}){
   if(nav)await assertNav(page,name+' after capture');
  };
  const ago=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
- async function open(store){
+ async function open(store,time=new Date()){
   const ctx=await browser.newContext({viewport:{width:390,height:844}}),page=await ctx.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('dialog',d=>d.accept());
   await page.addInitScript(s=>{if(!localStorage.getItem('recovery-test-seeded')){localStorage.setItem('rft-v12',JSON.stringify(s));localStorage.setItem('rft-v12-gen',String(s.gen||0));localStorage.setItem('recovery-test-seeded','1')}},store);
-  await page.clock.install({time:new Date()});
+  await page.clock.install({time});
   await page.goto(origin+'/index.html',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>WRITER_READY&&WRITER);return{ctx,page,errors};
  }
@@ -404,4 +404,5 @@ module.exports=async function({browser,origin,T,baseStore}){
  }
  await require('./original-resume.browser')({T,baseStore,open,keyActivate,tabActivate,settleLayout,screenshot,ago});
  await require('./import-text.browser')({T,baseStore,open,keyActivate,tabActivate,screenshot});
+ await require('./band-holds.browser')({T,baseStore,open,keyActivate,screenshot});
 };

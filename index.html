@@ -1830,8 +1830,8 @@ function originalResumeContext(ex){
 function originalResumeProblem(p=originalResumeContext()){return p?.invalid?'Your saved return settings need review.':p&&p.date>today()?`The saved return date (${p.date}) is ahead of this device’s date.`:''}
 function originalResumeRecoveryRoute(view=VIEW){return(view==='workout'?'Finish and save, or explicitly discard, the current workout first. Then open':'Open')+' Today or Settings, expand Recovery plan and routine choices, and start a new recovery plan before confirming a new return when ready.'}
 function easiestOriginalBand(ex,bands){
- const values=bands.filter(b=>BANDS.includes(b));if(!values.length)return '';
- return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...values.map(BAND_IDX))];
+ const ranks=bands.map(b=>typeof b==='string'?BAND_IDX(b):99).filter(i=>i<BANDS.length);if(!ranks.length)return '';
+ return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...ranks)];
 }
 function originalPractice(ex,p){
  return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today()&&!s.retro&&
@@ -3116,7 +3116,21 @@ if(ex.tp==='band'){
   const reps=effectiveReps(ex,last.reps);
   const hitTop=reps.length>=ex.s&&reps.slice(0,ex.s).every(r=>r>=ex.tg);
   const mnB=getRepMin(ex);
-  const performedBandPattern=bandPattern(last).filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
+  const countedBandPattern=bandPattern(last),performedBandPattern=countedBandPattern.filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
+  // Apply the existing discomfort veto before a mixed bridge can advance.
+  if(modDisc>=2&&hitTop){
+    let actual=countedBandPattern.map(b=>BANDS[BAND_IDX(b)]||b),requiresBandChoice=false;
+    // The tagged projection can omit opaque scalar labels; retain only that raw metadata.
+    if(resume){
+      const selected=D.sessions.filter(s=>s.id===last._sessionId),rows=selected.length===1?selected[0].ex.filter(e=>e.id===ex.id):[];
+      const raw=rows.length===1?bandPattern(rows[0]):null;
+      requiresBandChoice=!raw;
+      actual=raw?actual.map((b,i)=>raw[i]&&BAND_IDX(raw[i])===99?raw[i]:b):[]}
+    const known=easiestOriginalBand(ex,actual),opaque=actual.find(b=>b&&BAND_IDX(b)===99)||'';
+    const band=opaque||known,bands=Array.from({length:ex.s},(_,i)=>actual[i]||known);
+    const label=bandSetupLabel({band,bands,reps:Array(ex.s).fill(1)});
+    return{text:opaque||!known?'Hold — choose a band manually':`Stay on ${label} (hold)`,type:'stay',wt:null,band,bands,traj,...(requiresBandChoice?{requiresBandChoice:true}:{}),
+      detail:opaque||!known?'Some counted bands could not be identified. Keep those labels for review and choose a manageable band manually; progression stays held.':'Holding the actual band setup due to discomfort trend',regress:discWarn}}
   // Assisted transitions can use a harder band for the first sets and the familiar
   // band for back-offs. A mixed session is its own comparable setup: do not call it a
   // stall on the default band, and do not jump another rung until this exact bridge is
@@ -3143,9 +3157,6 @@ if(ex.tp==='band'){
   let regress=discWarn;if(!regress&&hist.length>=2){const prev=hist[hist.length-2];
     if(BAND_IDX(prev.band)===BAND_IDX(last.band)){const pT=effectiveReps(ex,prev.reps).reduce((a,b)=>a+b,0),cT=reps.reduce((a,b)=>a+b,0);
     if(cT<pT-2)regress=`Reps dropped ${pT}→${cT}`}}
-  // Repeated moderate discomfort holds band progression too — the weight path already did.
-  if(modDisc>=2&&hitTop){
-    return{text:`Stay on ${last.band||'band'} (hold)`,type:'stay',wt:null,traj,detail:'Holding due to discomfort trend',regress}}
   // FORM GATE — for assist bands this is the key save: hitting reps with negatives/
   // partials must NOT trigger "less assistance", or it pushes you off a cliff.
   if(hitTop&&!sessClean(last)){
@@ -3260,13 +3271,23 @@ function getSmartSugg(ex){
   const resume=originalResumeContext(ex),earned=resume?originalProgressionHist(ex,resume).at(-1):null;
   const anchor=resume?earned:last,held=resume?originalStartingSuggestion(ex,resume,anchor):null;
   const lastLoad=resume?held.wt:anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
-  const heldBand=resume&&ex.tp==='band'?held.band:anchor?.band||base.band;
-  const bandHold=resume&&ex.tp==='band'?{band:heldBand,bands:Array(ex.s).fill(heldBand)}:{band:heldBand};
+  const repeatBands=ex.tp==='band'&&!ex._short;
+  let actualBands=repeatBands?bandPattern(anchor).map(b=>BANDS[BAND_IDX(b)]||b):[],requiresBandChoice=false;
+  // Dereference this selected identity only; never choose a different history row.
+  if(repeatBands&&resume){
+    const selected=D.sessions.filter(s=>s.id===anchor?._sessionId),rows=selected.length===1?selected[0].ex.filter(e=>e.id===ex.id):[];
+    const raw=rows.length===1?bandPattern(rows[0]):null;
+    requiresBandChoice=!raw;
+    actualBands=raw?actualBands.map((b,i)=>raw[i]&&BAND_IDX(raw[i])===99?raw[i]:b):[]}
+  const actualBand=easiestOriginalBand(ex,actualBands),opaque=actualBands.find(b=>b&&BAND_IDX(b)===99)||'';
+  const heldBand=repeatBands?opaque||(resume&&actualBand?easiestOriginalBand(ex,[actualBand,BANDS[BAND_IDX(held.band)]||'']):actualBand):anchor?.band||base.band;
+  const bandHold=repeatBands?{band:heldBand,bands:Array.from({length:ex.s},(_,i)=>resume&&!opaque&&actualBand?heldBand:actualBands[i]||actualBand)}:{band:heldBand};
+  const bandLabel=repeatBands?bandSetupLabel({...bandHold,reps:Array(ex.s).fill(1)}):heldBand;
   const unit=ex.loadUnit==='per_db'?'/DB':'';
-  const text=ex.tp==='band'?`Stay on ${heldBand||'current band'} (recovery hold)`:
+  const text=ex.tp==='band'?repeatBands&&(opaque||!actualBand)?'Hold — choose a band manually (recovery hold)':`Stay on ${bandLabel||'current band'} (recovery hold)`:
     lastLoad?`→ ${lastLoad}kg${unit} (recovery hold)`:'Hold progression for recovery';
-  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:resume?lastLoad:lastLoad||base.wt,...bandHold,
-    detail:`Progression held: ${reasons.join('; ')}.${resume&&ex.tp==='band'?` Repeat ${heldBand||'an easy band'} for every set; no harder bridge is prescribed.`:base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
+  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:resume?lastLoad:lastLoad||base.wt,...bandHold,...(requiresBandChoice?{requiresBandChoice:true}:{}),
+    detail:`Progression held: ${reasons.join('; ')}.${repeatBands?opaque||!actualBand?' Some counted bands could not be identified. Keep those labels for review and choose a manageable band manually; no harder bridge is prescribed.':resume?` Repeat ${heldBand} for every set; no harder bridge is prescribed.`:' Repeat the actual band setup; additional sets use the easiest counted band. No harder bridge is prescribed.':base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
     regress:`⚠ ${reasons.join(' · ')}`}
 }
 
@@ -4337,7 +4358,7 @@ const defWt=ex.tp==='bb'||(ex.tp==='carry'&&ex.bar)?barOf(ex):'';
 // the last session had fewer sets than today prescribes (same id on a 3-set and a 4-set
 // day, or a set-count bump like floor press 3→4 in v21), rendering "undefined" in the
 // 4th input and mis-reading the exercise as done.
-LOG[ex.id]={wt:sg.wt||(resume?defWt:last?.wt||defWt),band:ex._short||resume?(sg.band||practicedBand||''):(last?.band||sg.band||''),
+LOG[ex.id]={wt:sg.wt||(resume?defWt:last?.wt||defWt),band:sg.requiresBandChoice?'':ex._short||resume?(sg.band||practicedBand||''):(last?.band||sg.band||''),
 reps:Array.from({length:ex.s},(_,i)=>{const r=ex._short?null:last?last.reps[i]:null;return r>0?String(r):''}),
 wts:Array(ex.s).fill(''), // per-set weight overrides; '' = inherit wt
 bands:Array.from({length:ex.s},(_,i)=>Array.isArray(sg.bands)?sg.bands[i]||'':!ex._short&&!resume&&last&&Array.isArray(last.bands)?last.bands[i]||'':''),
