@@ -76,6 +76,13 @@ module.exports=function({harness,test,plain,SK,AW,code}){
  test('M explicit untouched zero-rep template is distinct from meaningful legacy setup',()=>{
   const d=draft();d.notes='';d.wu=[];d.log={hex_dl:{wt:7,reps:[''],form:[0],setDone:[false],notes:'',touched:false,pf:false}};const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert.equal(h.ctx.awHasWork(d),false);assert.equal(h.ctx.pendingAW(),null);
  });
+ test('DATA04 legacy absent touched marker survives actual envelope export/import and Start cancellation',()=>{
+  const d=draft();d.notes='';d.wu=[];d.swaps={};d.ts=1;d.log={hex_dl:{wt:7,reps:['','',''],notes:''}};
+  const source=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert(source.ctx.pendingAW());const value=plain(source.ctx.completeBackupData());assert.equal(Object.hasOwn(value.activeWorkout.log.hex_dl,'touched'),false);
+  const destination=start({values:[[SK,JSON.stringify({...main(),sessions:[],originalResume:null})]]});destination.ctx.impD({target:{files:[{content:JSON.stringify(value)}],value:'x'}});
+  const raw=destination.values.get(AW);assert(destination.ctx.pendingAW(),'Restored legacy setup remains meaningful before Resume');assert(destination.ctx.checkResume(),'Stale legacy setup is not deleted or hidden as empty');
+  let prompted=false;destination.ctx.confirm=()=>{prompted=true;return false};destination.ctx.beginW('B');assert(prompted);assert.equal(destination.values.get(AW),raw);
+ });
  test('N occupied destination cancel and main/active quota retry keep one intended identity',()=>{
   const h=start(),incoming=draft();incoming.id='backup-imported-1';const file={target:{files:[{content:JSON.stringify({...main(),activeWorkout:incoming})}],value:'x'}};
   h.ctx.confirm=()=>false;h.ctx.impD(file);assert.equal(h.values.get(SK),F.MAIN_RAW);assert.equal(h.values.get(AW),F.DRAFT_RAW);
@@ -94,7 +101,8 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   ['omit persisted draft',()=>replace('function completeBackupData(){const stored=captureStoredBackup();','function completeBackupData(){return structuredClone(D);const stored=captureStoredBackup();'),()=>{const h=start({source:replace('function completeBackupData(){const stored=captureStoredBackup();','function completeBackupData(){return structuredClone(D);const stored=captureStoredBackup();')});assert.equal(h.ctx.completeBackupData().activeWorkout?.id,'backup-active-1')}],
   ['trust equal ID without raw baseline',()=>replace('ACTIVE_BASE_RAW!==null&&s.raw===ACTIVE_BASE_RAW&&',''),source=>{const h=start({source});h.api.setActive(draft());vm.runInContext("LOG.hex_dl.reps[0]='6'",h.ctx);assert.throws(()=>h.ctx.completeBackupData(),/Different unfinished/)}],
   ['accept changing reader pair',()=>replace('if(first.some((raw,i)=>raw!==second[i]))continue;','if(false)continue;'),source=>{let armed=false,n=0;const h=start({reader:true,source,afterGet:(key,values)=>{if(armed&&key===AW){const m=main();m.gen=++n;values.set(SK,JSON.stringify(m))}}});armed=true;assert.throws(()=>h.ctx.completeBackupData(),/changed during capture/)}],
-  ['lose notes-only work',()=>replace('function awHasWork(d){if(!d)return false;','function awHasWork(d){return awHasReps(d);if(!d)return false;'),source=>{const d=draft();d.log={};d.notes='Notes only keep';d.ts=1;const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert(h.ctx.checkResume())}]
+  ['lose notes-only work',()=>replace('function awHasWork(d){if(!d)return false;','function awHasWork(d){return awHasReps(d);if(!d)return false;'),source=>{const d=draft();d.log={};d.notes='Notes only keep';d.ts=1;const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert(h.ctx.checkResume())}],
+  ['erase absent legacy touched evidence',()=>replace("...(Object.prototype.hasOwnProperty.call(v,'touched')?{touched:v.touched===true}:{}),",'touched:v.touched===true,'),source=>{const d=draft();d.notes='';d.wu=[];d.ts=1;d.log={hex_dl:{wt:7,reps:['','',''],notes:''}};const h=start({source,values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=plain(h.ctx.completeBackupData());const destination=start({source,values:[[SK,JSON.stringify({...main(),sessions:[],originalResume:null})]]});destination.ctx.impD({target:{files:[{content:JSON.stringify(value)}],value:'x'}});assert(destination.ctx.pendingAW())}]
  ];
  for(const[name,mutate,oracle]of faults)test('R4 semantic fault rejected: '+name,()=>{const source=mutate();let error;try{oracle(source)}catch(e){error=e}assert.equal(error?.code,'ERR_ASSERTION','The named preservation oracle must reject the fault');evidence.push({mutation:name,rejected:true,actual:error.actual,expected:error.expected})});
  fs.writeFileSync(output,JSON.stringify(evidence,null,2));

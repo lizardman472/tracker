@@ -1742,7 +1742,7 @@ const ex=validSession({id:'active',date:today(),day:d.day,ex:[{...v,id:k}]})?.ex
 const n=Math.max(ex.reps.length,...['wts','bands','form','setDone','setTs'].map(key=>Array.isArray(v[key])?v[key].length:0));log[k]={...ex,reps:Array.from({length:n},(_,i)=>ex.reps[i]||0),wts:Array.from({length:n},(_,i)=>finiteNumber(v.wts?.[i])||''),
 bands:Array.from({length:n},(_,i)=>typeof v.bands?.[i]==='string'?v.bands[i]:''),
 setDone:Array.from({length:n},(_,i)=>v.setDone?.[i]===true),setTs:Array.from({length:n},(_,i)=>finiteNumber(v.setTs?.[i])||0),
-form:ex.form||Array(n).fill(0),touched:v.touched===true,pf:v.pf===true,wu:v.wu===true,
+form:ex.form||Array(n).fill(0),...(Object.prototype.hasOwnProperty.call(v,'touched')?{touched:v.touched===true}:{}),pf:v.pf===true,wu:v.wu===true,
 disc:['none','mild','moderate'].includes(v.disc)?v.disc:'none',discJoints:Array.isArray(v.discJoints)?v.discJoints.filter(j=>JOINTS.includes(j)):[]}}
 const swaps={};if(plainObject(d.swaps))for(const[k,v]of Object.entries(d.swaps))if(/^[\w-]{1,100}$/.test(k)&&typeof v==='string'&&/^[\w-]{1,100}$/.test(v))swaps[k]=v;
 const row={id,resetEpoch:state.resetEpoch||'0',day:d.day,log,start:Number(d.start),ts:Number(d.ts),cidx:Math.floor(finiteNumber(d.cidx)||0),
