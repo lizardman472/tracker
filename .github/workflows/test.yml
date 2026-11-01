@@ -30,6 +30,8 @@ jobs:
         run: node tests/render.smoke.js
       - name: Service-worker tests
         run: node tests/sw.test.js
+      - name: Cache-version guard regression tests
+        run: node tests/cache-version-guard.test.js
       - name: Install Chromium for the browser suite
         # The stubbed-DOM suites cannot catch "the markup builds and says nothing useful" —
         # that is how the return-ramp advisory shipped invisible with every other suite green
@@ -54,22 +56,4 @@ jobs:
       - name: Service-worker cache version must change when app files change
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          # If index.html changed since the base but sw.js's cache name didn't, stale
-          # clients would keep the old shell. This is a release invariant, so fail the job.
-          # Base = PR base for pull_request events, previous head for pushes. A zero/unknown
-          # SHA (new branch, force push) falls back to HEAD~1; if even that is missing, skip.
-          BASE="$BASE_SHA"
-          if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
-            BASE="HEAD~1"
-          fi
-          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
-            echo "no base commit to diff against — skip"
-          elif git diff --quiet "$BASE" -- index.html; then
-            echo "index.html unchanged — skip"
-          elif git diff "$BASE" -- sw.js | grep -q "^[+-]const C"; then
-            echo "cache version bumped ✓"
-          else
-            echo "::error::index.html changed but sw.js cache version (const C) did not — installed PWAs may serve the stale shell"
-            exit 1
-          fi
+        run: node .github/scripts/check-cache-version.cjs
