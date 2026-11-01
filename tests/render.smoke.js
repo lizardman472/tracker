@@ -183,7 +183,7 @@ T('partner home produced non-empty markup', R.getA().length > 200);
   tryRender('home (break detected)', () => R.go('home'));
   let card = R.getA();
   T('a 19-day gap surfaces the return-from-break offer', /19 days since your last session/.test(card));
-  T('...naming the runway it would plan', /19 days<\/b>, one day back per day out/.test(card));
+  T('...naming the same 19-day runway as an app heuristic', /19 days<\/b>/.test(card)&&/app heuristic/.test(card));
   T('...and offering both start dates', /startComeback\('/.test(card) && /Start tomorrow/.test(card));
   T('...dismissible on the last-session date, so it cannot nag daily', new RegExp(`dismissBanner\\('rtn','${iso(19)}'\\)`).test(card));
 

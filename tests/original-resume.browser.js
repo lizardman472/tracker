@@ -5,7 +5,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   const current=page.locator('#ex-cur');
   // The selected exercise is a group, not an exercise-selection button.
   if(await current.count()!==1||await current.getAttribute('data-exercise')!==ex.id)
-   await keyActivate(page,page.getByRole('button',{name:new RegExp(esc(ex.nm))}).first());
+   await keyActivate(page,page.locator('button.ex-row').filter({hasText:new RegExp(esc(ex.nm))}).first());
   const card=page.getByRole('group',{name:ex.nm+' exercise',exact:true});await card.waitFor({state:'visible'});
   const selected=await card.getAttribute('data-exercise');
   T('phone helper opens the requested exercise through its actual card: '+ex.id,selected===ex.id);
@@ -21,7 +21,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
    await card.getByLabel(`Set ${i} ${ex.inputLabel}`,{exact:true}).fill(String(ex.tg*(ex.perSide?2:1)));
    await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
-  await keyActivate(page,card.locator('.form-row1').getByRole('button',{name:'4',exact:true}));
+  await keyActivate(page,card.locator('.form-row1').getByRole('button',{name:'4 Solid · '+ex.nm+' · all sets',exact:true}));
   const effort=card.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true});
   T('reps-left input matches the actual routine: '+id,(await effort.count())===(ex._short?1:0));
   if(ex._short)await effort.selectOption(rir);

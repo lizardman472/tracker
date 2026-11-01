@@ -139,23 +139,23 @@ module.exports=async function({browser,origin,T,baseStore}){
    await keyActivate(page,control);
    T('warm-up selection and focus survive rerender '+name+' '+theme,await control.getAttribute('aria-pressed')==='true'&&await control.evaluate(el=>el===document.activeElement));
   }
-  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Hex Bar Deadlift/}).first());
   T('exercise navigation moves focus into the opened exercise '+theme,await page.locator('#ex-cur').evaluate(el=>el===document.activeElement));
   for(let i=1;i<=2;i++){
    await page.getByLabel(`Set ${i} weight, kilograms`,{exact:true}).fill('20');
    await page.getByLabel(`Set ${i} reps`,{exact:true}).fill('5');
    await keyActivate(page,page.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
-  await keyActivate(page,page.locator('.form-row1').getByRole('button',{name:'4',exact:true}));
+  await keyActivate(page,page.locator('.form-row1').getByRole('button',{name:'4 Solid · Hex Bar Deadlift · all sets',exact:true}));
   await page.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption('4');
-  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Pull-ups \(Comfortable Grip\)/}).first());
   await page.getByLabel('Band for Pull-ups (Comfortable Grip)',{exact:true}).selectOption('Purple');
   for(const [i,band]of ['Blue (heaviest)','Green'].entries()){
    await page.getByLabel(`Set ${i+1} band`,{exact:true}).selectOption(band);
    await page.getByLabel(`Set ${i+1} reps`,{exact:true}).fill('6');
    await keyActivate(page,page.getByRole('button',{name:`Set ${i+1} done`,exact:true}));
   }
-  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Hex Bar Deadlift/}).first());
   T('completed exercise can be revisited without losing actual lower weights '+theme,await page.getByLabel('Set 1 weight, kilograms',{exact:true}).inputValue()==='20');
   await page.getByLabel('Session Notes',{exact:true}).fill('Synthetic interrupted phone workout');await page.keyboard.press('Tab');
   await screenshot(page,'logged-recovery-'+theme);
@@ -167,7 +167,7 @@ module.exports=async function({browser,origin,T,baseStore}){
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
   T('cancelled discard preserves identity, ratings and notes across reload '+theme,await page.evaluate(v=>localStorage.getItem(AW_KEY)===v,draft));
   page.on('dialog',d=>d.accept());await keyActivate(page,page.getByRole('button',{name:'Resume',exact:true}));
-  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Pull-ups \(Comfortable Grip\)/}).first());
   await keyActivate(page,page.getByRole('button',{name:/^Next →/}));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
   await page.getByLabel('Why did you finish?',{exact:true}).selectOption('fatigue');

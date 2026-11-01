@@ -10,7 +10,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
  const regex=s=>new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
  async function exercise(page,id){
   const name=await page.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id);
-  if(await page.locator('#ex-cur').getAttribute('data-exercise')!==id)await keyActivate(page,page.getByRole('button',{name:regex(name)}).first());
+  if(await page.locator('#ex-cur').getAttribute('data-exercise')!==id)await keyActivate(page,page.locator('button.ex-row').filter({hasText:regex(name)}).first());
   return page.getByRole('group',{name:name+' exercise',exact:true});
  }
  for(const theme of ['light','dark'])for(const [label,options]of scenarios){
@@ -68,7 +68,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   for(let i=1;i<=4;i++){
    await card.getByLabel(`Set ${i} reps`,{exact:true}).fill('8');await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
-  await keyActivate(page,card.locator('.form-row1').getByRole('button',{name:'5',exact:true}));
+  await keyActivate(page,card.locator('.form-row1').getByRole('button',{name:'5 Strict · '+await page.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id)+' · all sets',exact:true}));
   const last=await page.evaluate(()=>dayExs(ADAY).at(-1).id);await exercise(page,last);
   await page.clock.setFixedTime(new Date(new Date(F.now).getTime()+12*60000));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
