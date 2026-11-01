@@ -338,4 +338,5 @@ test('cancel, reader, pending import and discarded failed repair preserve commit
 require('./raw-recovery.cases')({harness,test,plain,SK,AW,code});
 require('./backup.cases')({harness,test,plain,SK,AW,code});
 require('./backup-phase.cases')({harness,test,plain,SK,AW,code});
+require('./duration-preservation.cases')({harness,test,plain,SK,AW,code});
 console.log(`${passed} storage scenarios passed`);

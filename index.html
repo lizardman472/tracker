@@ -1372,7 +1372,7 @@ const TOMB_MAX=300;
 let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null,EXPRESS=false;
 const AW_KEY='rft-active';
 
-// Patch 8: migrateData — fix missing loc, volume=0, suspicious duration on load
+// Patch 8: migrateData — infer missing loc and rederive volume on load.
 function migrateData(d){
 const partnerIds=new Set(['db_rdl','db_floor_press','db_floor_press_v','db_ohp','db_row_a','db_row_b','db_row_c',
 'db_bss','db_lunge','db_carry','cb_mills','cb_shield','cb_arm_cast','dand_baithak_a','dand_baithak_b',
@@ -1385,7 +1385,7 @@ for(const s of d.sessions){
   // carries excluded; per_db ×2 where two dumbbells move together).
   {let tv=0;for(const e of s.ex){tv+=calcExVol(e.id,e.wt,e.reps,e.wts)}
    if(tv>0||s.volume!=null)s.volume=tv}
-  if(s.duration!=null&&s.duration<10&&s.ex.length>=3)s.duration=null}
+}
 return d}
 
 // v12 migration: reset phase clock for new program structure, clean up dead fields
