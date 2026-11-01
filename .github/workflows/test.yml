@@ -39,6 +39,9 @@ jobs:
         run: npm i -D playwright@1.56 && npx playwright install --with-deps chromium
       - name: Browser tests
         run: node tests/browser.test.js
+      - name: Service-worker mutation check
+        # Retain the semantic-fault report in the canonical screenshot/JSON artifact.
+        run: node tests/sw.mutate.js
       - name: Recovery layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -49,10 +52,6 @@ jobs:
             test-results/recovery-layout/*.json
           if-no-files-found: ignore
           retention-days: 3
-      - name: Service-worker mutation check
-        # Proves the battery above actually fails when the SW breaks — a new test file that
-        # passes on its first run has not yet demonstrated it can catch anything.
-        run: node tests/sw.mutate.js
       - name: Service-worker cache version must change when app files change
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

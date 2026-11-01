@@ -33,7 +33,7 @@
 // in Progress and no longer generate a corrective home-screen warning.
 // v120: Day C adds the two-set floor glute bridge with a conservative 31kg first-session estimate.
 // v121: assisted dips and pull-ups can bridge bands set by set, with form-gated progression.
-const C = 'rft-v164';
+const C = 'rft-v165';
 const CORE = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -83,21 +83,22 @@ self.addEventListener('fetch', e => {
     // Cache-first is unchanged; only a MISS is put on a deadline, and losing the race costs
     // nothing but a fallback typeface for one load.
     const FONT_TIMEOUT = 2500;
-    // Claimed synchronously (waitUntil is only legal while the event is active) so a font
-    // fetch that outlives the response still finishes writing to the cache.
+    // Register during dispatch; retain the complete refresh even if the deadline wins.
+    // User-agent lifetime limits still apply.
     let keepAlive;
     e.waitUntil(new Promise(res => { keepAlive = res }));
     e.respondWith(
       caches.match(req).then(hit => {
         if (hit) { keepAlive(); return hit; }
+        let write = Promise.resolve();
         const net = fetch(req).then(resp => {
           if (resp && (resp.ok || resp.type === 'opaque')) {
             const clone = resp.clone();
-            caches.open(C).then(c => c.put(req, clone)).catch(() => {});
+            write = caches.open(C).then(c => c.put(req, clone)).catch(() => {});
           }
           return resp;
         });
-        net.then(keepAlive, keepAlive);
+        net.then(() => write).then(keepAlive, keepAlive);
         return new Promise(resolve => {
           let settled = false;
           const done = v => { if (!settled) { settled = true; resolve(v); } };
@@ -105,7 +106,7 @@ self.addEventListener('fetch', e => {
           net.then(r => { clearTimeout(timer); done(r); })
              .catch(() => { clearTimeout(timer); done(new Response('', { status: 504 })); });
         });
-      })
+      }).catch(error => { keepAlive(); throw error; })
     );
     return;
   }
@@ -119,23 +120,26 @@ self.addEventListener('fetch', e => {
     // against a short timer and serve the cache if it wins.
     const NAV_TIMEOUT = 3000;
     const fromCache = () => caches.match(req).then(r => r || caches.match('./index.html'));
+    const goodCache = () => caches.match(req).then(r => r && r.ok ? r : caches.match('./index.html').then(shell => shell && shell.ok ? shell : undefined));
+    let write = Promise.resolve();
     const net = fetch(req)
       // Only cache a SUCCESSFUL same-origin shell. Caching an error (503 during a deploy,
       // edge 5xx/404) would overwrite the good cached shell and break the next offline load
       // — the exact failure this SW exists to prevent. Mirrors the asset branch's guard.
-      .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; });
-    // When the timer wins, respondWith settles from cache and the browser is then free to
-    // kill this worker — taking the still-in-flight refresh with it. waitUntil keeps the
-    // worker alive until the network settles, which is what actually makes "served from
-    // cache now, fresh shell next launch" true. The rejection is swallowed: a failed
-    // background refresh is expected offline and must not mark the fetch event as failed.
-    e.waitUntil(net.catch(() => {}));
+      .then(r => { if (r && r.ok && r.type === 'basic') { const c = r.clone(); write = caches.open(C).then(ch => ch.put(req, c)).catch(() => {}); } return r; });
+    // Retain network plus the complete cache write independently of the response race.
+    // Background failures are handled; this is not a shutdown durability guarantee.
+    e.waitUntil(net.then(() => write).catch(() => {}));
     e.respondWith(
       new Promise(resolve => {
         let settled = false;
         const done = v => { if (!settled) { settled = true; resolve(v); } };
         const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);
-        net.then(r => { clearTimeout(timer); done(r); })
+        net.then(r => { clearTimeout(timer);
+          if (r && r.status >= 500 && r.status <= 599 && r.type === 'basic' && new URL(req.url).origin === self.location.origin) {
+            done(goodCache().then(hit => hit || r, () => r));
+          } else done(r);
+        })
            // A slow network that eventually succeeds still refreshes the cache above, even
            // though the user was already served from cache — next load gets the new shell.
            .catch(() => { clearTimeout(timer); done(fromCache()); });
@@ -143,12 +147,12 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  e.respondWith(
-    caches.match(req).then(r => r || fetch(req).then(resp => {
+  let write = Promise.resolve();
+  const response = caches.match(req).then(r => r || fetch(req).then(resp => {
       // Same-origin assets only — fonts are handled by their dedicated branch above.
       if (resp && resp.status === 200 && resp.type === 'basic') {
         const clone = resp.clone();
-        caches.open(C).then(c => c.put(req, clone));
+        write = caches.open(C).then(c => c.put(req, clone)).catch(() => {});
       }
       return resp;
       // A failed asset fetch must NOT look like a successful one. `new Response('Offline')`
@@ -156,6 +160,7 @@ self.addEventListener('fetch', e => {
       // as a 200 whose body is the word "Offline" — CSS silently no-ops and JS throws a
       // syntax error, neither of which reads as "you are offline". 504 matches the fonts
       // branch above and lets the page tell the two apart.
-    }).catch(() => new Response('', { status: 504, statusText: 'Offline' })))
-  );
+    }).catch(() => new Response('', { status: 504, statusText: 'Offline' })));
+  e.waitUntil(response.then(() => write).catch(() => {}));
+  e.respondWith(response);
 });
