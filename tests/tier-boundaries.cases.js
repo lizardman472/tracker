@@ -1,0 +1,17 @@
+module.exports=function({harness,equal,ok}){
+ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),F=require('./fixtures/tier-and-rotation'),evidence=[];
+ function measure(d){const h=harness(F.now);h.state(d.sessions,d);const before=h.run('JSON.stringify(D)'),result=h.run('relStrength()');equal(h.run('JSON.stringify(D)'),before,'R9 metric does not mutate history/bodyweight');return{h,result}}
+ const main=measure(F.metrics());equal(JSON.parse(JSON.stringify(main.result.lifts[0])),{lbl:'Hex Bar Deadlift',ratio:1.1,e1rm:88.1,tier:'Beginner',tierIdx:0,color:'var(--slate)',pct:100,ladderPct:20,next:'Novice',nextKg:88.1},'R9 literal881/801 below1.1 uses lower tier with retained approximate formulas');evidence.push({case:'881/801',actual:main.result});
+ for(const[id,groups]of F.boundaries)for(const [i,loads]of groups.entries())for(const[j,wt]of loads.entries()){
+  const d=F.metrics();d.bodyLog[0].weight=100;d.sessions[0].ex=[F.ex(id,wt)];const r=measure(d).result.lifts[0],expected=F.tiers[i+(j===0?0:1)];equal(r.e1rm,wt,'R9 one-rep literal estimate '+id+wt);equal(r.tier,expected,'R9 exact tier below/at/above '+id+wt);evidence.push({case:'boundary',id,wt,bodyweight:100,expected,actual:r});
+ }
+ for(const[wt,reps,estimate,tier]of [[73.5,6,87.9,'Beginner'],[71.5,8,88,'Novice'],[75.5,5,88.1,'Novice']]){const d=F.metrics();d.bodyLog[0].weight=80;d.sessions[0].ex=[F.ex('hex_dl',wt,[reps])];const r=measure(d).result.lifts[0];equal(r.e1rm,estimate,'R9 existing rounded e1RM '+wt);equal(r.tier,tier,'R9 bodyweight80 boundary '+wt)}
+ for(const bodyLog of [[],[{date:'2026-10-30',weight:0}]]){const d=F.metrics();d.bodyLog=bodyLog;equal(measure(d).result,null,'R9 absent/zero bodyweight has no comparison')}
+ for(const kind of ['absent','zero']){const d=F.metrics();d.sessions[0].ex=kind==='absent'?[]:[F.ex('hex_dl',0,[0])];equal(measure(d).result,null,'R9 no valid lift '+kind)}
+ const outside=F.metrics();for(const[date,id]of [['2026-09-02','old'],['2026-11-02','future']])outside.sessions.push({...F.row(id,'A',[F.ex('hex_dl',500)]),date});equal(measure(outside).result.lifts[0].e1rm,88.1,'R9 future/out-of-window lift excluded');
+ const perSet=F.metrics();perSet.bodyLog[0].weight=80;perSet.sessions[0].ex=[{...F.ex('hex_dl',40,[1,1]),wts:[87.9,88]}];const p=measure(perSet).result.lifts[0];equal(p.e1rm,88,'R9 per-set max unchanged');equal(p.tier,'Novice','R9 per-set exact boundary');
+ const latest=F.metrics();latest.bodyLog.push({date:'2026-10-31',weight:0});equal(measure(latest).result.bw,80.1,'R9 latest nonzero bodyweight rule retained');
+ const markup=main.h.run("STAT_SEG='lifts';(()=>{const el={innerHTML:''};rStats(el);return el.innerHTML})()");ok(markup.includes('≈1.1×')&&markup.includes('Novice at ≈88.1kg')&&markup.includes('tiers use the ratio before display rounding')&&!markup.includes('+0kg to go'),'R9 existing panel explains approximate boundary display');
+ const h=main.h,original=h.run('relStrength.toString()');ok(original.includes('if(rawRatio>=th[i])'),'R9 fault anchor exists');h.run('relStrength='+original.replace('if(rawRatio>=th[i])','if(ratio>=th[i])'));assert.throws(()=>assert.equal(h.run('relStrength().lifts[0].tier'),'Beginner'),assert.AssertionError);evidence.push({case:'rounded tier predicate fault',rejected:true});
+ const output=path.join(__dirname,'..','test-results','recovery-layout');fs.mkdirSync(output,{recursive:true});fs.writeFileSync(path.join(output,'tier-boundary-unit-evidence.json'),JSON.stringify(evidence,null,2));
+};
