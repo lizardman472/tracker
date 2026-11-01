@@ -1830,8 +1830,8 @@ function originalResumeContext(ex){
 function originalResumeProblem(p=originalResumeContext()){return p?.invalid?'Your saved return settings need review.':p&&p.date>today()?`The saved return date (${p.date}) is ahead of this device’s date.`:''}
 function originalResumeRecoveryRoute(view=VIEW){return(view==='workout'?'Finish and save, or explicitly discard, the current workout first. Then open':'Open')+' Today or Settings, expand Recovery plan and routine choices, and start a new recovery plan before confirming a new return when ready.'}
 function easiestOriginalBand(ex,bands){
- const values=bands.filter(b=>BANDS.includes(b));if(!values.length)return '';
- return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...values.map(BAND_IDX))];
+ const ranks=bands.map(b=>typeof b==='string'?BAND_IDX(b):99).filter(i=>i<BANDS.length);if(!ranks.length)return '';
+ return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...ranks)];
 }
 function originalPractice(ex,p){
  return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today()&&!s.retro&&
@@ -3119,8 +3119,12 @@ if(ex.tp==='band'){
   const countedBandPattern=bandPattern(last),performedBandPattern=countedBandPattern.filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
   // Apply the existing discomfort veto before a mixed bridge can advance.
   if(modDisc>=2&&hitTop){
-    const source=resume?D.sessions.find(s=>s.id===last._sessionId)?.ex.find(e=>e.id===ex.id)||last:last;
-    const actual=bandPattern(source).map(b=>BANDS[BAND_IDX(b)]||b);
+    let actual=countedBandPattern.map(b=>BANDS[BAND_IDX(b)]||b);
+    // The tagged projection can omit opaque scalar labels; retain only that raw metadata.
+    if(resume){
+      const selected=D.sessions.filter(s=>s.id===last._sessionId),rows=selected.length===1?selected[0].ex.filter(e=>e.id===ex.id):[];
+      const raw=rows.length===1?bandPattern(rows[0]):null;
+      actual=raw?actual.map((b,i)=>raw[i]&&BAND_IDX(raw[i])===99?raw[i]:b):[]}
     const known=easiestOriginalBand(ex,actual),opaque=actual.find(b=>b&&BAND_IDX(b)===99)||'';
     const band=opaque||known,bands=Array.from({length:ex.s},(_,i)=>actual[i]||known);
     const label=bandSetupLabel({band,bands,reps:Array(ex.s).fill(1)});
@@ -3267,8 +3271,12 @@ function getSmartSugg(ex){
   const anchor=resume?earned:last,held=resume?originalStartingSuggestion(ex,resume,anchor):null;
   const lastLoad=resume?held.wt:anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
   const repeatBands=ex.tp==='band'&&!ex._short;
-  const source=repeatBands&&resume?D.sessions.find(s=>s.id===anchor?._sessionId)?.ex.find(e=>e.id===ex.id)||anchor:anchor;
-  const actualBands=repeatBands?bandPattern(source).map(b=>BANDS[BAND_IDX(b)]||b):[];
+  let actualBands=repeatBands?bandPattern(anchor).map(b=>BANDS[BAND_IDX(b)]||b):[];
+  // Dereference this selected identity only; never choose a different history row.
+  if(repeatBands&&resume){
+    const selected=D.sessions.filter(s=>s.id===anchor?._sessionId),rows=selected.length===1?selected[0].ex.filter(e=>e.id===ex.id):[];
+    const raw=rows.length===1?bandPattern(rows[0]):null;
+    actualBands=raw?actualBands.map((b,i)=>raw[i]&&BAND_IDX(raw[i])===99?raw[i]:b):[]}
   const actualBand=easiestOriginalBand(ex,actualBands),opaque=actualBands.find(b=>b&&BAND_IDX(b)===99)||'';
   const heldBand=repeatBands?opaque||(resume&&actualBand?easiestOriginalBand(ex,[actualBand,BANDS[BAND_IDX(held.band)]||'']):actualBand):anchor?.band||base.band;
   const bandHold=repeatBands?{band:heldBand,bands:Array.from({length:ex.s},(_,i)=>resume&&!opaque&&actualBand?heldBand:actualBands[i]||actualBand)}:{band:heldBand};

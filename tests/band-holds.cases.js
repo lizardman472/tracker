@@ -12,6 +12,15 @@ module.exports=function({R,context,test,json}){
   assert.deepEqual(json(resolved),expected);assert.deepEqual(json(R.getD().sessions),before);return {ex,c,s,l};
  }
  try{
+  test('shared easiest-band helper preserves canonical ranks, recognises aliases and ignores unknowns',()=>{
+   for(const mode of ['assist','resist']){
+    const ex={bandMode:mode},known=['Blue (heaviest)','Green','Purple+Red','Purple','Red','None'],before=[...known];
+    assert.equal(R.easiestOriginalBand(ex,known),mode==='assist'?'Blue (heaviest)':'None');assert.deepEqual(known,before);
+    assert.equal(R.easiestOriginalBand(ex,['Blue','Green']),mode==='assist'?'Blue (heaviest)':'Green');
+    assert.equal(R.easiestOriginalBand(ex,['Legacy band','',null,42]),'');
+    assert.equal(R.easiestOriginalBand(ex,['Legacy band','Blue','Red']),mode==='assist'?'Blue (heaviest)':'Red');
+   }
+  });
   for(const resume of [false,true]){
    test('mixed discomfort veto reaches core/final/LOG '+(resume?'fresh tagged':'ordinary'),()=>check(state({resume})));
    for(const count of [0,1])test('mixed bridge keeps earned single-set advance with '+count+' moderate dates '+resume,()=>{
