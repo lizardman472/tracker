@@ -188,7 +188,8 @@ module.exports=async function({browser,origin,T,baseStore}){
   await ctx.close();
  }
  {
-  const store=baseStore(),{ctx,page,errors}=await open(store);
+  // This pacing/RIR case deliberately exercises Day A; R9 separately covers retained B/C.
+  const store=baseStore();store.nextDay='A';const {ctx,page,errors}=await open(store);
   await page.getByText('Recovery plan and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Start deload today',exact:true}).click();
   T('deload setup preserves existing training history',await page.evaluate(n=>D.sessions.length===n,store.sessions.length));
