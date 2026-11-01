@@ -26,13 +26,13 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   T('reps-left input matches the actual routine: '+id,(await effort.count())===(ex._short?1:0));
   if(ex._short)await effort.selectOption(rir);
  }
- async function finishAndSave(page){
+ async function finishAndSave(page,effort=3){
   await openExercise(page,await page.evaluate(()=>dayExs(ADAY).at(-1)));
   // Give each synthetic session plausible elapsed time. Released migrateData
   // clears sub-ten-minute durations on rows with at least three exercises.
   await page.clock.setFixedTime(new Date(await page.evaluate(()=>Math.max(Date.now(),SS+12*60000))));
   await keyActivate(page,page.getByRole('button',{name:'Finish ✓',exact:true}));
-  await keyActivate(page,page.locator('.diff-pick').nth(2));
+  await keyActivate(page,page.locator('.diff-pick').nth(effort-1));
   await keyActivate(page,page.getByRole('button',{name:'Save ✓',exact:true}));
   await page.waitForFunction(()=>VIEW==='home'&&!PENDING_SAVE);
  }
@@ -65,12 +65,21 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   T('seven days off preserve all saved workout fields, phase clock and deload date after reload '+theme,afterRest.history===afterDeload.history&&afterRest.phase===afterDeload.phase&&afterRest.clock===afterDeload.clock&&afterRest.lastDeload===afterDeload.lastDeload,restDiagnostic);
   await page.getByText('Plan details and routine choices',{exact:true}).click();
   await page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}).scrollIntoViewIfNeeded();
-  await screenshot(page,'direct-original-choice-'+theme,{target:'button[onclick="resumeOriginalAfterRest()"]',text:'RESUME ORIGINAL A/B/C AFTER REST',top:false});
-  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await screenshot(page,'direct-original-choice-'+theme,{target:'#direct-original-choice',text:'RESUME ORIGINAL A/B/C AFTER REST',top:false});
   await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  T('new direct return reviews regular sources and unknown manual starters '+theme,await page.locator('#reference-review').innerText().then(t=>t.includes('Regular practice reference')&&t.includes('No eligible regular reference found')));
+  await screenshot(page,'direct-original-reference-preview-'+theme,{target:'#reference-review',text:'REVIEW STARTING LOADS',top:false});
+  await tabActivate(page,page.getByRole('button',{name:'Cancel',exact:true}));await settleLayout(page);
+  T('direct review Cancel restores visible focus inside the reopened routine choices '+theme,await page.locator('#direct-original-choice').evaluate(el=>{
+   const r=el.getBoundingClientRect(),edge=Math.max(document.getElementById('nav').getBoundingClientRect().bottom,document.querySelector('.hdr').getBoundingClientRect().bottom);
+   return el===document.activeElement&&el.closest('details').open&&r.top>=edge-1&&r.bottom<=innerHeight;
+  }));
+  await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
+  await tabActivate(page,page.getByRole('button',{name:'Confirm original return',exact:true}));
   T('declining direct return preserves the recovery stage and history '+theme,await page.evaluate(b=>D.trainingPlan.stage==='deload'&&!D.originalResume&&JSON.stringify(normalizeState(D).W.sessions)===b.history,afterDeload));
-  T('keyboard cancel keeps focus on the direct-return choice '+theme,await page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}).evaluate(el=>el===document.activeElement));
-  page.on('dialog',d=>d.accept());await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
+  T('native confirmation cancel keeps focus on the review confirmation '+theme,await page.getByRole('button',{name:'Confirm original return',exact:true}).evaluate(el=>el===document.activeElement));
+  page.on('dialog',d=>d.accept());await tabActivate(page,page.getByRole('button',{name:'Confirm original return',exact:true}));
   // Settle paint without scrolling or moving focus: corrective screenshot helpers
   // must not hide a failed transition's keyboard or sticky-header behavior.
   await settleLayout(page);
@@ -186,4 +195,5 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   T('direct original route has no browser errors or phone overflow '+theme,errors.length===0&&restored.errors.length===0&&await restored.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),[...errors,...restored.errors].join('\n'));
   await restored.ctx.close();await ctx.close();
  }
+ await require('./normal-reference.browser')({T,baseStore,open,keyActivate,tabActivate,settleLayout,screenshot,ago,enterExercise,finishAndSave,setDay});
 };

@@ -7,7 +7,8 @@ module.exports=function({R,context,test,json}){
   d.trainingPlan={stage:'deload',start:ago(7),stageStart:ago(7),loads:{hex_dl:80,floor_press:50},bands:{pullup_a:'Purple',rear_delt:'Blue (heaviest)'}};
   d.sessions=[{id:'before-rest',date:ago(10),day:'A',loc:'home',phase,ex:[
    {id:'hex_dl',wt:80,reps:[5,5,5],form:[5,5,5]},
-   {id:'floor_press',wt:50,reps:[10,10,10,10],form:[5,5,5,5]}]},
+   {id:'floor_press',wt:50,reps:[10,10,10,10],form:[5,5,5,5]},
+   {id:'pullup_a',band:'Green',reps:[8,8,8,8]}, {id:'rear_delt',band:'Purple',reps:[15,15,15]}]},
    {id:'one-real-deload',date:ago(7),day:'A',loc:'home',phase,trainingStage:'deload',trainingPlanStart:ago(7),ex:[
     {id:'hex_dl',wt:80,reps:[0,5,5],wts:[80,40,42]},
     {id:'floor_press',wt:40,reps:[8]},
@@ -82,15 +83,15 @@ module.exports=function({R,context,test,json}){
   assert.match(R.trainingPlanCard(),/Finish or cancel the existing return-from-break ramp in Settings/);
  });
  test('starting weights and bands use counted practice, including lower overrides and unused harder defaults',()=>{
-  const d=resumed();assert.equal(d.originalResume.loads.hex_dl,40);
-  assert.equal(R.getSmartSugg(def('hex_dl')).wt,40);assert.equal(R.getSmartSugg(def('hex_dl')).type,'stay');
-  assert.equal(R.getSmartSugg(def('pullup_a')).band,'Green');assert.equal(R.getSmartSugg(def('rear_delt')).band,'Red');
+  const d=resumed();assert.equal(d.originalResume.loads.hex_dl,80);
+  assert.equal(R.getSmartSugg(def('hex_dl')).wt,80);assert.equal(R.getSmartSugg(def('hex_dl')).type,'stay');
+  assert.equal(R.getSmartSugg(def('pullup_a')).band,'Green');assert.equal(R.getSmartSugg(def('rear_delt')).band,'Purple');
   R.beginW('A',true);assert.equal(R.activeRecord().originalResumeId,d.originalResume.id);
-  assert.equal(R.getLOG().hex_dl.wt,40);assert.equal(R.getLOG().pullup_a.band,'Green');
+  assert.equal(R.getLOG().hex_dl.wt,80);assert.equal(R.getLOG().pullup_a.band,'Green');
   assert(R.getLOG().pullup_a.bands.every(b=>b===''));assert(R.getLOG().hex_dl.setDone.every(v=>v===false));
  });
  test('resistance entry uses a visible uniform scalar without hidden mixed overrides',()=>{
-  resumed();R.beginW('B',true);assert.equal(R.getLOG().rear_delt.band,'Red');assert(R.getLOG().rear_delt.bands.every(b=>b===''));
+  resumed();R.beginW('B',true);assert.equal(R.getLOG().rear_delt.band,'Purple');assert(R.getLOG().rear_delt.bands.every(b=>b===''));
  });
  test('a fatigue veto replaces an earned harder bridge in both the suggestion and initialized inputs',()=>{
   const d=resumed(),ex=def('pullup_a'),bands=Array.from({length:ex.s},(_,i)=>i===0?'Purple':'Green');
@@ -124,7 +125,7 @@ module.exports=function({R,context,test,json}){
    assert.notEqual(s.type,'up');assert.equal(R.originalProgressionHist(def('hex_dl'),R.getD().originalResume).length,0);
   });
  test('zero-rep rows do not earn credit; lower non-credit practice protects the starting load',()=>{
-  let d=resumed();practice(d,'hex_dl',{ex:[{id:'hex_dl',wt:20,reps:[0,0,0]}]});R.setD(d);assert.equal(R.getSmartSugg(def('hex_dl')).wt,40);
+  let d=resumed();practice(d,'hex_dl',{ex:[{id:'hex_dl',wt:20,reps:[0,0,0]}]});R.setD(d);assert.equal(R.getSmartSugg(def('hex_dl')).wt,80);
   d=resumed();practice(d,'hex_dl',{noProg:true,wt:30});R.setD(d);assert.equal(R.getSmartSugg(def('hex_dl')).wt,30);
  });
  test('same-day untagged and additive imports cannot become fresh progression evidence',()=>{
@@ -143,6 +144,7 @@ module.exports=function({R,context,test,json}){
    const d=resumed();Object.assign(d.originalResume,bad);assert.equal(R.normalizeState(d).W.originalResume.invalid,true);
   }
   const d=resumed();d.originalResume.loads={hex_dl:Infinity,foreign:30,floor_press:1001,lm_squat:30};
+  for(const key of ['referenceVersion','recoveryStart','sources','unresolved'])delete d.originalResume[key];
   d.originalResume.bands={pullup_a:'invalid',foreign:'Green'};const p=R.normalizeState(d).W.originalResume;
   assert.deepEqual(json(p.loads),{lm_squat:30});assert.deepEqual(json(p.bands),{});
   const row=R.validSession({id:'bad-tag',day:'A',date:now(),originalResumeId:'bad<script>',ex:[]});assert.equal(row.originalResumeId,undefined);
@@ -157,7 +159,7 @@ module.exports=function({R,context,test,json}){
   const d=resumed();damage(d.originalResume);const normalized=R.normalizeState(d).W;R.setD(normalized);
   let s=R.getSmartSugg(def('floor_press'));assert.equal(s.type,'stay');assert.match(s.detail,/Progression is held/);
   assert.match(R.trainingPlanCard(),/Starting loads and progression stay held/);
-  R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=40);assert(R.getLOG().pullup_a.bands.every(b=>b===''));
+  R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=50);assert(R.getLOG().pullup_a.bands.every(b=>b===''));
   const exported=json(R.getD()),restored=R.mergeImport(R.freshState(),exported).W;R.setD(restored);
   s=R.getSmartSugg(def('floor_press'));assert.equal(s.type,'stay');assert.match(s.detail,/Progression is held/);
   assert(R.startTrainingPlan());assert.equal(R.getD().originalResume,null);assert(R.resumeOriginalAfterRest());
@@ -167,7 +169,7 @@ module.exports=function({R,context,test,json}){
   const d=resumed();d.sessions=[];const marker=json(d.originalResume),clock=d.phaseStart;
   const old=interrupted(2);old.trainingPlan=null;old.originalResume=null;old.phaseStart=ago(90);
   const merged=R.mergeImport(d,old).W;assert.deepEqual(json(merged.originalResume),marker);assert.equal(merged.phase,d.phase);assert.equal(merged.phaseStart,clock);
-  R.setD(merged);assert.equal(R.getSmartSugg(def('floor_press')).type,'stay');R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=40);
+  R.setD(merged);assert.equal(R.getSmartSugg(def('floor_press')).type,'stay');R.beginW('A',true);assert(Number(R.getLOG().floor_press.wt)<=50);
  });
  for(const [id,day]of [['pullup_a','A'],['rear_delt','B']])for(const hit of [false,true])test(id+' initialized band remains actual and visible after fresh '+(hit?'target':'repeat')+' practice',()=>{
   const d=resumed(),ex=def(id),band=id==='pullup_a'?'Green':'Red',reps=Array(ex.s).fill(hit?ex.tg:1);

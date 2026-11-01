@@ -263,7 +263,7 @@ test('post-commit view errors cannot turn a durable write into a pending retry',
   assert.equal(JSON.parse(h.values.get(SK)).theme,'dark'); assert.equal(h.api.getPending(),null); assert.match(h.alerts.at(-1),/Data was saved/);
   h.values.set(AW,'draft'); assert.equal(h.ctx.clearAW(()=>{throw Error('Synthetic render failure')}),true); assert.equal(h.values.has(AW),false);
 });
-function interruptedOriginal(){const d=fixture();d.dismissed={rtn:'2019-12-30',warmup:'keep-warmup'};d.trainingPlan={stage:'deload',start:'2020-01-01',stageStart:'2020-01-01',loads:{hex_dl:80},bands:{}};return d}
+function interruptedOriginal(){const d=fixture();d.dismissed={rtn:'2019-12-30',warmup:'keep-warmup'};d.trainingPlan={stage:'deload',start:'2020-01-03',stageStart:'2020-01-03',loads:{hex_dl:80},bands:{}};return d}
 test('direct original resume failure keeps committed recovery and an atomic retryable proposal',()=>{
   const h=harness(interruptedOriginal()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
   assert.equal(h.ctx.resumeOriginalAfterRest(),false);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
@@ -312,5 +312,21 @@ test('failed real post-return save keeps captured provenance through retry witho
   assert.equal(JSON.parse(h.values.get(AW)).originalResumeId,id);h.fail(false);assert(h.ctx.retrySave());
   assert.equal(h.api.getD().sessions.filter(s=>s.id===sessionId).length,1);
   assert.equal(h.api.getD().sessions.find(s=>s.id===sessionId).originalResumeId,id);assert.equal(h.values.has(AW),false);
+});
+function legacyReferenceStore(){const d=fixture();d.trainingPlan=null;d.originalResume={id:'original-storage',date:'2020-01-10',phase:1,loads:{hex_dl:20},bands:{}};
+ d.sessions.push({id:'recovery',date:'2020-01-03',day:'A',loc:'home',phase:1,trainingStage:'deload',trainingPlanStart:'2020-01-03',ex:[{id:'hex_dl',wt:20,reps:[5,5]}]});return d}
+test('reviewed reference repair commits atomically with the same marker and no duplicated history after retry',()=>{
+ const h=harness(legacyReferenceStore()),before=plain(h.api.getD()),raw=h.values.get(SK);h.fail(true);
+ assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);assert.deepEqual(plain(h.api.getD()),before);assert.equal(h.values.get(SK),raw);
+ const pending=plain(h.api.getPending());assert.equal(pending.originalResume.id,before.originalResume.id);assert.equal(pending.originalResume.date,before.originalResume.date);
+ assert.equal(pending.originalResume.loads.hex_dl,40);assert.equal(pending.originalResume.sources.hex_dl.id,'old');assert.equal(pending.originalResume.referenceVersion,1);
+ assert.deepEqual(pending.sessions,before.sessions);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.fail(false);assert(h.ctx.retrySave());
+ assert.deepEqual(plain(h.api.getD().originalResume),pending.originalResume);assert.deepEqual(plain(h.api.getD().sessions),before.sessions);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);
+});
+test('cancel, reader, pending import and discarded failed repair preserve committed legacy references',()=>{
+ const h=harness(legacyReferenceStore()),before=plain(h.api.getD());h.ctx.confirm=()=>false;assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.ctx.confirm=()=>true;
+ h.api.owner(false);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.api.owner(true);
+ vm.runInContext('PENDING_ACTIVE={id:"pending-import"}',h.ctx);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);vm.runInContext('PENDING_ACTIVE=null',h.ctx);
+ assert.deepEqual(plain(h.api.getD()),before);h.fail(true);assert.equal(h.ctx.applyOriginalReferenceCorrection(),false);h.ctx.discardPendingSave();assert.equal(h.api.getPending(),null);assert.deepEqual(plain(h.api.getD()),before);
 });
 console.log(`${passed} storage scenarios passed`);

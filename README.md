@@ -237,14 +237,33 @@ does not require completing the easy return week or the separate gradual-return 
 Full remains an optional workout choice. Readiness is the user's explicit choice; dates
 and missed sessions never create completed workouts or earned load increases.
 
-This direct choice saves a unique return marker with conservative load and band references.
-Initial suggestions are held at the reference or lower actual same-phase Home practice,
-rounded down to an available load. If the apparatus minimum exceeds that reference, the
+This direct choice previews each Essentials starter before confirmation and saves a unique
+return marker. Reference policy version 1 selects the latest unambiguous counted regular
+Home practice in the same phase before the recovery plan's start. Held recovery stages,
+ignored/future/foreign/zero-rep records cannot supply that normal reference. Regular shorter
+practice is labelled as such, without claiming the original set count was performed.
+Missing references require a manageable manual start. Initial suggestions stay held, rounded
+down to an available load; the deload is not carried forward as a new normal baseline.
+Genuine lower post-return practice remains protective, including valid noncredit attempts.
+If the apparatus minimum exceeds the reference, the
 exercise explains it. Only counted sets supply per-set weights and bands; resistance-band
 starters use one visible easiest band without hidden mixed overrides. Reduce the setup
 whenever needed. A new workout captures its marker at Start and carries it through the
 unfinished draft, summary and save. An older or imported draft does not acquire that tag
 just by being saved after the choice.
+
+Older saved markers remain unchanged on load and import. **Review starting loads** on Today
+or Settings shows affected saved references, regular sources (date/phase), current advice and
+the effective setup after Apply. Correction requires an unambiguous historical recovery
+boundary. A saved setup that does not match either regular or recovery evidence remains held
+for manual review. Apply preserves the marker ID/date, real history, next day and phase clock;
+existing fresh progression is retained. The validated policy, recovery-start and per-exercise
+source identities round-trip with exports. Apply is blocked by any active/raw stored draft,
+including stale notes-only/malformed work, read failures, reader tabs and pending save/import.
+Current workouts keep every entered scalar, set override, rating and note. Finish/save first,
+or adjust a set manually using the existing controls. Raw hidden backups can be downloaded
+for recovery before any separate explicit discard. A failed correction is a retryable atomic
+proposal; cancel/discard leaves the committed references intact.
 
 Only real, matching Home sessions after that choice supply original progression credit.
 Earlier successes, future/foreign sessions, retroactive entries, ignored rows and recovery
