@@ -3,7 +3,9 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
  const fs=require('fs'),path=require('path'),F=require('./fixtures/band-holds'),evidence=[];
  const scenarios=[['moderate',{}],['moderate-tagged',{resume:true}],['effort',{discomfort:false,effort:5}],
   ['effort-tagged',{resume:true,discomfort:false,effort:5}],['rep-drop',{discomfort:false}],
-  ['partner-press',{discomfort:false,id:'dips',day:'B'}],['earned-advance',{discomfort:false}],['blank-counted',{}]];
+  ['partner-press',{discomfort:false,id:'dips',day:'B'}],['earned-advance',{discomfort:false}],['blank-counted',{}],
+  ['alias',{}],['alias-tagged',{resume:true}],['alias-effort',{discomfort:false,effort:5}],['alias-effort-tagged',{resume:true,discomfort:false,effort:5}],
+  ['opaque-effort',{discomfort:false,effort:5}],['opaque-tagged',{resume:true}]];
  const regex=s=>new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
  async function exercise(page,id){
   const name=await page.evaluate(id=>dayExs(ADAY).find(e=>e.id===id).nm,id);
@@ -14,10 +16,15 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   const store=Object.assign(baseStore(),F.fixture(options),{theme});
   if(label==='rep-drop')store.sessions[0].ex[0].reps=[10,10,10,10];
   if(label==='blank-counted'){store.sessions[1].ex[0].band='';store.sessions[1].ex[0].bands=['','Purple+Red','Green','Green']}
+  if(label.startsWith('alias'))store.sessions.forEach(s=>{s.ex[0].band='Blue';s.ex[0].bands=['','','Green','Green']});
+  if(label.startsWith('opaque')){store.sessions[1].ex[0].band='Legacy band';store.sessions[1].ex[0].bands=['','Purple+Red','Green','Green']}
   if(label==='partner-press')store.sessions.push({id:'partner-press',date:'2026-11-01',day:'A',loc:'partner',phase:1,
    ex:[{id:'db_floor_press',wt:10,reps:[8,8,8],form:[5,5,5]}]});
   const id=options.id||'pullup_a',day=options.day||'A',tag=label+'-'+theme;
-  const expected=label==='blank-counted'?['Green','Purple+Red','Green','Green']:label==='earned-advance'?F.advance:options.resume&&label==='effort-tagged'?['Green','Green','Green','Green']:F.actual;
+  const opaque=label.startsWith('opaque'),alias=label.startsWith('alias');
+  const expected=opaque?['Legacy band','Purple+Red','Green','Green']:alias?label==='alias-effort-tagged'?Array(4).fill('Blue (heaviest)'):['Blue (heaviest)','Blue (heaviest)','Green','Green']:
+   label==='blank-counted'?['Green','Purple+Red','Green','Green']:label==='earned-advance'?F.advance:options.resume&&label==='effort-tagged'?['Green','Green','Green','Green']:F.actual;
+  const loggedExpected=opaque?['Green','Purple+Red','Green','Green']:expected;
   const {ctx,page,errors}=await open(store,new Date(F.now));
   const previous=await page.evaluate(()=>structuredClone(D.sessions));
   const advice=await page.evaluate(({id,day})=>{const e=dayExs(day,{},true).find(e=>e.id===id);return{core:getSmartSuggCore(e),final:getSmartSugg(e)}},{id,day});
@@ -28,17 +35,22 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   await keyActivate(page,page.getByRole('button',{name:`Day ${day}1 Essentials anyway`,exact:true}));
   let card=await exercise(page,id);
   async function visiblePattern(){
-   const values=[];for(let i=1;i<=4;i++)values.push(await card.getByLabel(`Set ${i} band`,{exact:true}).evaluate(el=>el.selectedOptions[0].textContent.trim()));return values;
+   const values=[];for(let i=1;i<=4;i++)values.push(await card.getByLabel(`Set ${i} band`,{exact:true}).evaluate(el=>el.value||(el.selectedOptions[0].textContent.trim()==='Blue'?'Blue (heaviest)':el.selectedOptions[0].textContent.trim())));return values;
   }
   const visible=await visiblePattern(),prefill=await page.evaluate(id=>structuredClone(LOG[id]),id),cardText=await card.innerText();
   T('actual initialized band inputs agree with advice '+tag,JSON.stringify(visible)===JSON.stringify(expected)&&JSON.stringify(prefill.bands)===JSON.stringify(expected),JSON.stringify({visible,prefill}));
-  T('hold guidance and actual bands agree '+tag,label==='earned-advance'?cardText.includes('Bridge: 2×'):cardText.includes('hold')&&!advice.final.detail.includes('Move one more'),cardText);
-  await card.scrollIntoViewIfNeeded();await screenshot(page,'band-hold-'+tag,{target:'#ex-cur',text:label==='earned-advance'?'Bridge:':'hold',top:false});
+  T('hold guidance and actual bands agree '+tag,opaque?cardText.includes('choose a band manually')&&advice.final.detail.includes('could not be identified'):label==='earned-advance'?cardText.includes('Bridge: 2×'):cardText.includes('hold')&&!advice.final.detail.includes('Move one more'),cardText);
+  await card.scrollIntoViewIfNeeded();await screenshot(page,'band-hold-'+tag,{target:'#ex-cur',text:opaque?'choose a band manually':label==='earned-advance'?'Bridge:':'hold',top:false});
   // Interrupt and resume the actual persisted draft before making any input changes.
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>WRITER_READY&&WRITER);
   await keyActivate(page,page.getByRole('button',{name:/^Resume/}).first());card=await exercise(page,id);
   const resumedLog=await page.evaluate(id=>structuredClone(LOG[id]),id),resumedVisible=await visiblePattern();
   T('reload and Resume retain every effective band '+tag,JSON.stringify(resumedVisible)===JSON.stringify(expected)&&JSON.stringify(resumedLog.bands.map(b=>b||resumedLog.band))===JSON.stringify(expected),JSON.stringify({resumedVisible,resumedLog}));
+  let manualChoice=null;
+  if(opaque){
+   await card.getByLabel('Set 1 band',{exact:true}).selectOption('Green');manualChoice={set:1,from:'Legacy band',to:'Green'};
+   T('only explicit user choice replaces the opaque counted band '+tag,JSON.stringify(await visiblePattern())===JSON.stringify(loggedExpected));
+  }
   for(let i=1;i<=4;i++){
    await card.getByLabel(`Set ${i} reps`,{exact:true}).fill('8');await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
@@ -50,7 +62,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   await page.waitForFunction(()=>VIEW==='home'&&!PENDING_SAVE);
   const saved=await page.evaluate(previous=>D.sessions.find(s=>!previous.some(p=>p.id===s.id)),previous);
   T('real save adds exactly one counted band record '+tag,!!saved&&saved.ex.length===1&&saved.ex[0].id===id&&JSON.stringify(saved.ex[0].reps)==='[8,8,8,8]'&&
-   JSON.stringify(saved.ex[0].bands||Array(4).fill(saved.ex[0].band))===JSON.stringify(expected),JSON.stringify(saved));
+   JSON.stringify(saved.ex[0].bands||Array(4).fill(saved.ex[0].band))===JSON.stringify(loggedExpected),JSON.stringify(saved));
   T('real save preserves the captured return identity '+tag,options.resume?saved.originalResumeId===store.originalResume.id:!saved.originalResumeId);
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>WRITER_READY&&WRITER);
   const after=await page.evaluate(()=>structuredClone(D.sessions));
@@ -58,10 +70,10 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   await keyActivate(page,page.getByRole('button',{name:'History',exact:true}));
   await keyActivate(page,page.locator('#history-'+saved.id));
   const history=await page.locator('#history-'+saved.id).locator('..').innerText();
-  const historyExpected=label==='blank-counted'?'Green×8, Purple+Red×8, Green×8, Green×8':label==='earned-advance'?'Purple+Red×8, Purple+Red×8, Green×8, Green×8':label==='effort-tagged'?'[8,8,8,8] Green':'Purple+Red×8, Green×8, Green×8, Green×8';
+  const historyExpected=alias?label==='alias-effort-tagged'?'[8,8,8,8] Blue (heaviest)':'Blue×8, Blue×8, Green×8, Green×8':opaque||label==='blank-counted'?'Green×8, Purple+Red×8, Green×8, Green×8':label==='earned-advance'?'Purple+Red×8, Purple+Red×8, Green×8, Green×8':label==='effort-tagged'?'[8,8,8,8] Green':'Purple+Red×8, Green×8, Green×8, Green×8';
   T('saved History displays the independently expected counted pattern '+tag,history.includes(historyExpected),history);
   T('band-hold route has no page errors or horizontal overflow '+tag,errors.length===0&&await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),errors.join('\n'));
-  evidence.push({theme,label,expected,advice,visible,prefill,cardText,resumedVisible,resumedLog,saved,history,oldHistoryUnchanged:previous.every(p=>JSON.stringify(after.find(s=>s.id===p.id))===JSON.stringify(p)),errors});
+  evidence.push({theme,label,expected,loggedExpected,advice,visible,prefill,cardText,resumedVisible,resumedLog,manualChoice,saved,history,oldHistoryUnchanged:previous.every(p=>JSON.stringify(after.find(s=>s.id===p.id))===JSON.stringify(p)),errors});
   fs.writeFileSync(path.join(__dirname,'..','test-results','recovery-layout','band-hold-evidence.json'),JSON.stringify(evidence,null,2));
   await ctx.close();
  }

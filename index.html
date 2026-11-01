@@ -3119,11 +3119,13 @@ if(ex.tp==='band'){
   const countedBandPattern=bandPattern(last),performedBandPattern=countedBandPattern.filter(Boolean),uniqueBandPattern=[...new Set(performedBandPattern)];
   // Apply the existing discomfort veto before a mixed bridge can advance.
   if(modDisc>=2&&hitTop){
-    const band=easiestOriginalBand(ex,countedBandPattern)||last.band||'';
-    const bands=Array.from({length:ex.s},(_,i)=>countedBandPattern[i]||band);
+    const source=resume?D.sessions.find(s=>s.id===last._sessionId)?.ex.find(e=>e.id===ex.id)||last:last;
+    const actual=bandPattern(source).map(b=>BANDS[BAND_IDX(b)]||b);
+    const known=easiestOriginalBand(ex,actual),opaque=actual.find(b=>b&&BAND_IDX(b)===99)||'';
+    const band=opaque||known,bands=Array.from({length:ex.s},(_,i)=>actual[i]||known);
     const label=bandSetupLabel({band,bands,reps:Array(ex.s).fill(1)});
-    return{text:`Stay on ${label||'band'} (hold)`,type:'stay',wt:null,band,bands,traj,
-      detail:'Holding the actual band setup due to discomfort trend',regress:discWarn}}
+    return{text:opaque||!known?'Hold — choose a band manually':`Stay on ${label} (hold)`,type:'stay',wt:null,band,bands,traj,
+      detail:opaque||!known?'Some counted bands could not be identified. Keep those labels for review and choose a manageable band manually; progression stays held.':'Holding the actual band setup due to discomfort trend',regress:discWarn}}
   // Assisted transitions can use a harder band for the first sets and the familiar
   // band for back-offs. A mixed session is its own comparable setup: do not call it a
   // stall on the default band, and do not jump another rung until this exact bridge is
@@ -3264,16 +3266,18 @@ function getSmartSugg(ex){
   const resume=originalResumeContext(ex),earned=resume?originalProgressionHist(ex,resume).at(-1):null;
   const anchor=resume?earned:last,held=resume?originalStartingSuggestion(ex,resume,anchor):null;
   const lastLoad=resume?held.wt:anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
-  const repeatBands=ex.tp==='band'&&!ex._short,actualBands=repeatBands?bandPattern(anchor):[];
-  const heldBand=resume&&ex.tp==='band'?held.band:repeatBands?
-    easiestOriginalBand(ex,actualBands)||anchor?.band||base.band:anchor?.band||base.band;
-  const bandHold=repeatBands?{band:heldBand,bands:Array.from({length:ex.s},(_,i)=>resume?heldBand:actualBands[i]||heldBand)}:{band:heldBand};
+  const repeatBands=ex.tp==='band'&&!ex._short;
+  const source=repeatBands&&resume?D.sessions.find(s=>s.id===anchor?._sessionId)?.ex.find(e=>e.id===ex.id)||anchor:anchor;
+  const actualBands=repeatBands?bandPattern(source).map(b=>BANDS[BAND_IDX(b)]||b):[];
+  const actualBand=easiestOriginalBand(ex,actualBands),opaque=actualBands.find(b=>b&&BAND_IDX(b)===99)||'';
+  const heldBand=repeatBands?opaque||(resume&&actualBand?easiestOriginalBand(ex,[actualBand,BANDS[BAND_IDX(held.band)]||'']):actualBand):anchor?.band||base.band;
+  const bandHold=repeatBands?{band:heldBand,bands:Array.from({length:ex.s},(_,i)=>resume&&!opaque&&actualBand?heldBand:actualBands[i]||actualBand)}:{band:heldBand};
   const bandLabel=repeatBands?bandSetupLabel({...bandHold,reps:Array(ex.s).fill(1)}):heldBand;
   const unit=ex.loadUnit==='per_db'?'/DB':'';
-  const text=ex.tp==='band'?`Stay on ${bandLabel||'current band'} (recovery hold)`:
+  const text=ex.tp==='band'?repeatBands&&(opaque||!actualBand)?'Hold — choose a band manually (recovery hold)':`Stay on ${bandLabel||'current band'} (recovery hold)`:
     lastLoad?`→ ${lastLoad}kg${unit} (recovery hold)`:'Hold progression for recovery';
   return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:resume?lastLoad:lastLoad||base.wt,...bandHold,
-    detail:`Progression held: ${reasons.join('; ')}.${repeatBands?resume?` Repeat ${heldBand||'an easy band'} for every set; no harder bridge is prescribed.`:' Repeat the actual band setup; additional sets use the easiest counted band. No harder bridge is prescribed.':base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
+    detail:`Progression held: ${reasons.join('; ')}.${repeatBands?opaque||!actualBand?' Some counted bands could not be identified. Keep those labels for review and choose a manageable band manually; no harder bridge is prescribed.':resume?` Repeat ${heldBand} for every set; no harder bridge is prescribed.`:' Repeat the actual band setup; additional sets use the easiest counted band. No harder bridge is prescribed.':base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
     regress:`⚠ ${reasons.join(' · ')}`}
 }
 

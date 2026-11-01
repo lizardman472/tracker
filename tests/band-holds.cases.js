@@ -54,8 +54,20 @@ module.exports=function({R,context,test,json}){
   for(const resume of [false,true])for(const first of ['','Legacy band'])test('counted '+(first?'unknown':'blank')+' label cannot shift the known second-slot band '+resume,()=>{
    const d=state({resume}),e=d.sessions[1].ex[0];e.band=first;e.bands=['','Purple+Red','Green','Green'];
    // Supported legacy scalars can be unknown; validation rejects unknown overrides.
-   // Tagged history already replaces its scalar with the easiest counted known band.
-   check(d,{expected:[resume?'Green':first||'Green','Purple+Red','Green','Green']});
+   const {s}=check(d,{expected:[first||'Green','Purple+Red','Green','Green']});
+   if(first)assert.match(s.text,/manually/);
+  });
+  for(const resume of [false,true])for(const discomfort of [false,true])test('recognized Blue alias stays canonical and conservative in a hold '+resume+' '+discomfort,()=>{
+   const d=state({resume,discomfort,effort:5});d.sessions.forEach(s=>{s.ex[0].band='Blue';s.ex[0].bands=['','','Green','Green']});
+   const expected=resume&&!discomfort?['Blue (heaviest)','Blue (heaviest)','Blue (heaviest)','Blue (heaviest)']:['Blue (heaviest)','Blue (heaviest)','Green','Green'];
+   // Tagged core sees the historical scalar projection; ordinary core sees the mix.
+   check(d,{core:discomfort?'stay':'up',expected});
+  });
+  for(const resume of [false,true])for(const discomfort of [false,true])test('all-unknown counted bands stay held for manual review '+resume+' '+discomfort,()=>{
+   const d=state({resume,discomfort,effort:5});d.sessions.forEach(s=>{s.ex[0].band='Legacy band';delete s.ex[0].bands});
+   R.setD(d);const before=json(R.getD().sessions),ex=R.dayExs('A').find(e=>e.id==='pullup_a'),s=R.getSmartSugg(ex);
+   assert.equal(s.type,'stay');assert.match(s.text,/manually/);assert.match(s.detail,/could not be identified/);assert.equal(s.band,'Legacy band');assert.deepEqual(json(s.bands),['Legacy band','Legacy band','Legacy band','Legacy band']);
+   R.ensureLog(ex);const l=R.getLOG().pullup_a;assert(!l.bands.includes('None'));assert(!l.bands.some(b=>b&&b!=='Legacy band'));assert.deepEqual(json(R.getD().sessions),before);
   });
   test('fewer counted sets pad with easiest actual band, not unused default',()=>{
    const d=state({discomfort:false,effort:5}),e=d.sessions[1].ex[0];e.band='None';e.reps=[8,0,8,8];e.bands=['Purple+Red','None','Green','Green'];
@@ -74,6 +86,10 @@ module.exports=function({R,context,test,json}){
   test('resistance-band effort veto restores actual mixed inputs',()=>{
    const d=state({id:'rear_delt',day:'B',discomfort:false,effort:5});d.sessions.forEach(s=>{s.ex[0].band='Red';s.ex[0].bands=['Purple','Red','Red','Red'];s.ex[0].reps=[20,20,20,20]});
    check(d,{id:'rear_delt',day:'B',core:'up',expected:['Purple','Red','Red','Red']});
+  });
+  test('resistance blank counted slot uses the easiest actual resistance without moving Purple',()=>{
+   const d=state({id:'rear_delt',day:'B'});d.sessions.forEach(s=>{s.ex[0].band='';s.ex[0].bands=['','Purple','Red','Red'];s.ex[0].reps=[20,20,20,20]});
+   check(d,{id:'rear_delt',day:'B',expected:['Red','Purple','Red','Red']});
   });
   test('unrated uniform assistance still requires explicit form to unlock a bridge',()=>{
    const d=state({discomfort:false});d.sessions.forEach(s=>{delete s.ex[0].bands;delete s.ex[0].form});
