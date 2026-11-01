@@ -150,7 +150,7 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
         return value;
       });
       await page.locator('#import-backup').setInputFiles({name:'recovery.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
-      await page.getByRole('button',{name:'Download imported workout',exact:true}).waitFor();
+      await page.locator('#save-status').getByRole('button',{name:'Download imported workout',exact:true}).waitFor();
       const before=await page.evaluate(()=>({pending:JSON.stringify(PENDING_ACTIVE),stored:localStorage.getItem(AW_KEY),saved:localStorage.getItem(SK)}));
       T('pending import disables competing UI and announces recovery actions',await page.locator('#app').evaluate(el=>el.inert)&&await page.getByRole('button',{name:'Discard imported workout',exact:true}).isVisible());
       const blocked=await page.evaluate(()=>{
@@ -165,7 +165,7 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
       });
       T('all replacement boundaries retain the pending identity and earlier stored draft',JSON.stringify(before)===JSON.stringify(blocked));
       T('warning cannot disappear when incidental AW_ERROR clears',await page.getByRole('button',{name:'Retry save',exact:true}).isVisible());
-      const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download imported workout',exact:true}).click();
+      const download=page.waitForEvent('download');await page.locator('#save-status').getByRole('button',{name:'Download imported workout',exact:true}).click();
       const downloaded=await download,stream=await downloaded.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
       T('download retains the exact pending imported draft',JSON.stringify(JSON.parse(raw).activeWorkout)===before.pending);
       page.removeAllListeners('dialog');page.once('dialog',d=>d.dismiss());
@@ -200,7 +200,7 @@ module.exports = async function storageBrowser({ browser, origin, T, errors, bas
         AW_ERROR===error&&ACTIVE_ID===identity&&Number(LOG[id].reps[0])===6&&localStorage.getItem(AW_KEY)===original&&!PENDING_ACTIVE,setup)&&
         await page.getByText(/Current workout is not saved on this device/).isVisible());
       T('earlier failure retains beforeunload protection',await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented}));
-      const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download current workout',exact:true}).click();
+      const download=page.waitForEvent('download');await page.locator('#save-status').getByRole('button',{name:'Download current workout',exact:true}).click();
       const file=await download,stream=await file.createReadStream();let raw='';for await(const chunk of stream)raw+=chunk;
       const recovered=JSON.parse(raw).activeWorkout;
       T('restored current-workout download keeps six reps and original identity',recovered.id===setup.identity&&Number(recovered.log[setup.id].reps[0])===6);
