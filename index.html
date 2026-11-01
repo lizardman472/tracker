@@ -2482,7 +2482,7 @@ for(const[id,v] of Object.entries(log||{})){
     if(!done[i]||!(r>0))continue;sets++;
     vol+=calcExVol(id,Number(v.wts?.[i])>0?Number(v.wts[i]):(Number(v.wt)||null),[r])}}
 return{sets,vol:Math.round(vol)}}
-// "Previous" column label for set i of the last session's entry (Hevy-style).
+// Plain-text "Previous" column label for set i; HTML callers escape it once.
 function prevSetLbl(last,i){if(!last)return'—';
 const r=Number((last.reps||[])[i]);if(!(r>0))return'—';
 const w=setWt(last,i),b=bandAt(last,i);
@@ -4734,7 +4734,7 @@ const pl=prevSetLbl(last,i);
 h+=`<div class="set-gr set-row${dn?' done':''}">
 <span class="set-num">${i+1}</span>
 ${pl==='—'?`<span class="set-prev">—</span>`
-:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${pl}" onclick="usePrev('${ex.id}',${i})">${pl}</button>`}
+:`<button type="button" class="set-prev" title="Use previous" aria-label="Use previous set ${i+1}: ${esc(pl)}" onclick="usePrev('${ex.id}',${i})">${esc(pl)}</button>`}
 ${weighted?`<input type="number" step="0.5" class="swi" value="${log.wts[i]??''}" placeholder="${log.wt||'—'}" aria-label="Set ${i+1} weight, kilograms" oninput="setSetWt('${ex.id}',${i},this.value)" inputmode="decimal">`
 :banded?`<select class="set-band" aria-label="Set ${i+1} band" onchange="setSetBand('${ex.id}',${i},this.value)"><option value="">${esc((log.band||'Default').replace(' (heaviest)',''))}</option>${BANDS.map(b=>`<option value="${esc(b)}"${log.bands[i]===b?' selected':''}>${esc(b.replace(' (heaviest)',''))}</option>`).join('')}</select>`
 :`<span class="dm" style="text-align:center">—</span>`}

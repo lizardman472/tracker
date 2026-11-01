@@ -1,4 +1,4 @@
-// DATA-01: real downloaded-file import and all three fmtSets HTML sinks.
+// DATA-01: real downloaded-file import, fmtSets sinks and Previous text/aria.
 // Entirely invented records; expected text is independent of production helpers.
 module.exports=async function({T,baseStore,open,keyActivate,tabActivate,screenshot}){
  const fs=require('fs'),path=require('path'),evidence=[];
@@ -43,17 +43,29 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,screensh
   await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
   const card=page.getByRole('group',{name:'Pull-ups (Comfortable Grip) exercise',exact:true});
   const lastText=await card.getByText(/^Last: /).innerText();
-  T('workout Last displays the same literal text without imported elements '+theme,lastText.includes(expected)&&!lastText.includes('&lt;span')&&await page.locator('[data-audit-marker="band-text"]').count()===0);
+  const lastMarkerElements=await page.locator('[data-audit-marker="band-text"]').count();
+  T('workout Last displays the same literal text without imported elements '+theme,lastText.includes(expected)&&!lastText.includes('&lt;span')&&lastMarkerElements===0,JSON.stringify({lastText,lastMarkerElements}));
+  const previous=card.locator('button.set-prev').nth(1),previousText=await previous.innerText(),previousName=await previous.getAttribute('aria-label');
+  T('previous-set button retains literal marker and quotes in text and accessible name '+theme,
+   previousText===marker+' ×6'&&previousName==='Use previous set 2: '+marker+' ×6'&&await card.getByRole('button',{name:'Use previous set 2: '+marker+' ×6',exact:true}).count()===1&&lastMarkerElements===0,
+   JSON.stringify({previousText,previousName,lastMarkerElements}));
+  await previous.scrollIntoViewIfNeeded();await screenshot(page,'import-text-previous-'+theme,{target:'.set-tbl .set-row:nth-child(3) button.set-prev',text:marker+' ×6',top:false});
+  // Explicit entry exercises the completed-row sink without assuming prefill policy.
+  for(let i=1;i<=4;i++)await card.getByLabel(`Set ${i} band`,{exact:true}).selectOption(i===1?'Green':'');
   for(let i=1;i<=4;i++){
    await card.getByLabel(`Set ${i} reps`,{exact:true}).fill('6');await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
+  const draft=await page.evaluate(()=>({band:LOG.pullup_a.band,bands:LOG.pullup_a.bands,reps:LOG.pullup_a.reps}));
+  T('entered draft retains explicit opening band and scalar fallback slots '+theme,draft.band===marker&&JSON.stringify(draft.bands)==='["Green","","",""]'&&JSON.stringify(draft.reps)==='["6","6","6","6"]',JSON.stringify(draft));
   await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
   const done=page.locator('button.done-row').filter({hasText:'Pull-ups (Comfortable Grip)'}),doneText=await done.innerText();
   const doneExpected=expected+', '+marker+'×6, '+marker+'×6';
-  T('completed workout row escapes its formatter text exactly once '+theme,doneText.includes(doneExpected)&&!doneText.includes('&lt;span')&&await page.locator('[data-audit-marker="band-text"]').count()===0);
+  const doneMarkerElements=await page.locator('[data-audit-marker="band-text"]').count();
+  T('completed workout row escapes its formatter text exactly once '+theme,doneText.includes(doneExpected)&&!doneText.includes('&lt;span')&&doneMarkerElements===0,JSON.stringify({doneExpected,doneText,doneMarkerElements}));
+  await done.scrollIntoViewIfNeeded();await screenshot(page,'import-text-done-'+theme,{target:'button.done-row',text:'Pull-ups (Comfortable Grip)',top:false});
   T('reading History/Last and completing draft sets do not rewrite imported history '+theme,await page.evaluate(saved=>JSON.stringify(D.sessions.find(s=>s.id===saved.id))===JSON.stringify(saved),stored));
   T('import-text phone route has no page errors or horizontal overflow '+theme,errors.length===0&&await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),errors.join('\n'));
-  evidence.push({theme,marker,expected,stored,historyText,lastText,doneText,markerElements:await page.locator('[data-audit-marker="band-text"]').count(),errors});
+  evidence.push({theme,marker,expected,stored,historyText,lastText,lastMarkerElements,previousText,previousName,draft,doneExpected,doneText,doneMarkerElements,errors});
   fs.writeFileSync(path.join(__dirname,'..','test-results','recovery-layout','import-text-evidence.json'),JSON.stringify(evidence,null,2));
   await ctx.close();
  }
