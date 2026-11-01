@@ -116,6 +116,10 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   let armed=false,changed=false;const h=start({reader:true,afterGet:(key,values)=>{if(armed&&!changed&&key===AW){const m=main();m.sessions.push({id:'backup-active-1',date:'2026-11-01',day:'A',ex:[{id:'hex_dl',wt:40,reps:[5]}]});values.set(SK,JSON.stringify(m));changed=true}}});armed=true;
   const value=h.ctx.completeBackupData();assert.equal(value.sessions.filter(s=>s.id==='backup-active-1').length,1);assert.equal(value.activeWorkout,undefined);assert.equal(h.operations.length,0);
  });
+ test('O reset during pair capture retries to empty current epoch without old resume',()=>{
+  let armed=false,changed=false;const h=start({reader:true,afterGet:(key,values)=>{if(armed&&!changed&&key===AW){const m=main();m.sessions=[];m.originalResume=null;m.resetEpoch='new-reset-epoch';m.phaseStart='2026-11-01';m.gen=2;values.set(SK,JSON.stringify(m));changed=true}}});armed=true;
+  const value=h.ctx.completeBackupData();assert.equal(value.resetEpoch,'new-reset-epoch');assert.equal(value.sessions.length,0);assert.equal(value.originalResume,null);assert.equal(value.activeWorkout,undefined);assert.equal(h.values.get(AW),F.DRAFT_RAW);assert.equal(h.operations.length,0);
+ });
  const replace=(from,to)=>{assert(code.includes(from),'Semantic fault target must exist');return code.replace(from,to)};
  const faults=[
   ['omit persisted draft',()=>replace('function completeBackupData(){const stored=captureStoredBackup();','function completeBackupData(){return structuredClone(D);const stored=captureStoredBackup();'),()=>{const h=start({source:replace('function completeBackupData(){const stored=captureStoredBackup();','function completeBackupData(){return structuredClone(D);const stored=captureStoredBackup();')});assert.equal(h.ctx.completeBackupData().activeWorkout?.id,'backup-active-1')}],
