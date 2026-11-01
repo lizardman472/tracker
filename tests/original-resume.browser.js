@@ -115,8 +115,8 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   // Exercise the existing recovery-file UI with the actual unfinished record.
   await page.evaluate(()=>{window.originalResumeSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===AW_KEY)throw Error('Synthetic active-write failure');return window.originalResumeSetItem.call(this,k,v)}});
   await page.getByLabel('Set 1 reps',{exact:true}).fill(String(draft.log.hex_squat_b.reps[0]));
-  await page.getByRole('button',{name:'Download current workout',exact:true}).waitFor();
-  const activeDownload=page.waitForEvent('download');await keyActivate(page,page.getByRole('button',{name:'Download current workout',exact:true}));
+  await page.locator('#save-status').getByRole('button',{name:'Download current workout',exact:true}).waitFor();
+  const activeDownload=page.waitForEvent('download');await keyActivate(page,page.locator('#save-status').getByRole('button',{name:'Download current workout',exact:true}));
   const activeFile=await activeDownload,activeStream=await activeFile.createReadStream();let activeRaw='';for await(const chunk of activeStream)activeRaw+=chunk;
   const activeBackup=JSON.parse(activeRaw);T('unfinished recovery download retains captured context and real draft identity '+theme,
    activeBackup.activeWorkout.id===draft.id&&activeBackup.activeWorkout.originalResumeId===marker.id);

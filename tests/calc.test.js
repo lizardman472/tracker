@@ -1614,9 +1614,9 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('3h-old blob WITH reps survives, flagged stale', r && r.stale === true, JSON.stringify(r));
   T('3h-old blob WITH reps not deleted from storage', store3['rft-active'] != null);
 
-  store3['rft-active'] = mkBlob({ log: { hex_dl: { reps: ['', '', ''], wt: 61 } } }); // 3h old, zero reps
+  store3['rft-active'] = mkBlob({ log: { hex_dl: { reps: ['', '', ''], wt: 61, touched:false } } }); // explicitly untouched zero-rep template
   r = checkResume();
-  T('3h-old blob with NO reps is purged', r === null && store3['rft-active'] == null);
+  T('3h-old explicitly untouched empty template is purged', r === null && store3['rft-active'] == null);
 
   store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, exIds: ['some_removed_ex'] }); // drifted, has reps
   r = checkResume();
@@ -1644,8 +1644,8 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3 });
   T('pendingAW reports a matching blob with no mismatch reason', (() => { const p = pendingAW(); return p && p.hasReps === true && p.why === null })(), JSON.stringify(pendingAW()));
   // An untouched blob must never nag — starting fresh costs the user nothing.
-  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, log: { hex_dl: { reps: ['', '', ''], wt: 61 } } });
-  T('pendingAW ignores a blob with no logged reps', pendingAW() === null);
+  store3['rft-active'] = mkBlob({ ts: Date.now() - 10 * 60e3, log: { hex_dl: { reps: ['', '', ''], wt: 61, touched:false } } });
+  T('pendingAW ignores an explicitly untouched empty template', pendingAW() === null);
   delete store3['rft-active'];
   T('pendingAW is null with no blob at all', pendingAW() === null);
   // Lock in that beginW actually asks pendingAW — guarding on checkResume is the bug.
