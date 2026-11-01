@@ -2500,10 +2500,10 @@ function sameJointFamily(exId,row){if(row.exId===exId)return true;
   const want=LOWER_JOINTS.has(row.joint)?'lower':'upper';
   return jointFamily(exId)===want&&jointFamily(row.exId)===want}
 function getDiscomfortRecent(exId,n=3){
-const cut=daysAgoStr(30);
+const asOf=today(),cut=dayAfter(asOf,-30);
 const rank={none:0,mild:1,moderate:2};
 const byDate={};
-for(const r of D.discomfort){if(!sameJointFamily(exId,r)||r.date<cut)continue;
+for(const r of D.discomfort){if(!sameJointFamily(exId,r)||r.date<cut||r.date>asOf)continue;
   if(!byDate[r.date]||(rank[r.level]||0)>(rank[byDate[r.date].level]||0))byDate[r.date]=r}
 return Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)).slice(-n)}
 
@@ -3464,7 +3464,7 @@ const cvw=lm?vw:(bar===HEXBAR?VWH_C:bar===BAR?VW_C:vw);
 const s=[{wt:bar,reps:8,l:'Bar only'}];const w60=snapW(bar+(wt-bar)*.5,cvw),w80=snapW(bar+(wt-bar)*.8,cvw);if(w60>bar&&w60<wt)s.push({wt:w60,reps:5,l:fmtPl(w60,bar,lm)});if(w80>w60&&w80<wt)s.push({wt:w80,reps:3,l:fmtPl(w80,bar,lm)});return s}
 
 // Discomfort analysis
-function getDiscomfortTrend(exId,joint){const recent=D.discomfort.filter(d=>d.exId===exId&&d.joint===joint).slice(-5);
+function getDiscomfortTrend(exId,joint){const asOf=today(),recent=D.discomfort.filter(d=>d.exId===exId&&d.joint===joint&&d.date<=asOf).slice(-5);
 return{count:recent.length,recent3:recent.slice(-3).filter(d=>d.level!=='none').length}}
 
 // Bar chart for weekly series; data=[{v,lbl}], optional target line
