@@ -6,6 +6,8 @@ module.exports=async function({browser,origin,T,errors}){
  const key=async(page,control)=>{await control.focus();await page.keyboard.press('Enter')};
  async function create({main=F.R,legacy=null,stored=null,active=F.A0,fault={set:[C]},label='raw',theme='light'}={}){
   const ctx=await browser.newContext({viewport:{width:390,height:844},colorScheme:theme}),dialogs=[];
+  ctx.setDefaultTimeout(20000);ctx.setDefaultNavigationTimeout(20000);
+  console.log('RAW_CASE_START',label);
   await ctx.addInitScript(({origin,main,legacy,stored,active,fault})=>{
    if(location.origin!==origin)return;
    const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem,control='raw-test-controls';
@@ -111,13 +113,16 @@ module.exports=async function({browser,origin,T,errors}){
     await mode(page,{remove:[C]});await key(page,statusButton(page,'Discard stored raw copy'));const removalFailed=await snapshot(page);
     T('actual raw removal failure remains visible and preserves C0/P/A0 '+theme,removalFailed.stored===F.C0&&pendingId(removalFailed)&&removalFailed.active===F.A0&&removalFailed.rawError.includes('could not be removed'));
     await capture(page,'raw-remove-failed-'+theme,'could not be removed');
-    await mode(page,{});await key(page,statusButton(page,'Discard stored raw copy'));const resolved=await snapshot(page);
+    await mode(page,{remove:[C+'-n']});await key(page,statusButton(page,'Discard stored raw copy'));const cleanupFailed=await snapshot(page);
+    T('payload removal and optional cleanup failure have separate truthful status '+theme,cleanupFailed.stored===null&&cleanupFailed.raw===original&&pendingId(cleanupFailed)&&cleanupFailed.rawNotice.includes('stored raw copy was discarded, but recovery counts'));
+    await capture(page,'raw-cleanup-failed-'+theme,'Retry recovery cleanup');
+    await mode(page,{});await key(page,statusButton(page,'Retry recovery cleanup'));const resolved=await snapshot(page);
     T('confirmed writer resolves only stored scope and retains current original/P '+theme,resolved.stored===null&&resolved.raw===original&&pendingId(resolved)&&resolved.active===F.A0);
     await key(page,statusButton(page,'Retry save'));await reader.waitForFunction(()=>D.sessions.some(s=>s.id==='recovery-save-1'));
     const committed=await snapshot(page);T('after scoped resolution original R parks before P commits '+theme,committed.stored===original&&committed.pending===null&&committed.callbacks===1&&committed.active===F.A0);
     await key(reader,statusButton(reader,'Use this tab'));await reader.waitForFunction(()=>canWriteStore());
     T('real lock transfer reloads committed identity without losing raw/A0 '+theme,await reader.evaluate(({raw,active})=>D.sessions.filter(s=>s.id==='recovery-save-1').length===1&&__rawGet('rft-v12-corrupt')===raw&&__rawGet('rft-active')===active,{raw:original,active:F.A0}));
-    evidence.push({case:'8/9/10/11',theme,loaded,blocked,currentFile,storedFile,readerBefore,readerAfter,cancelled,removalFailed,resolved,committed,dialogs:h.dialogs});write();
+    evidence.push({case:'8/9/10/11',theme,loaded,blocked,currentFile,storedFile,readerBefore,readerAfter,cancelled,removalFailed,cleanupFailed,resolved,committed,dialogs:h.dialogs});write();
    }finally{await h.ctx.close()}
   }
  }

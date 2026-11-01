@@ -104,6 +104,19 @@ module.exports=function({harness,test,plain,SK,AW,code}){
   h.faults.set.delete(SK);assert(h.ctx.retrySave());assert.equal(h.values.get(AW),F.A0);assert.equal(h.ctx.recoveryExportData().activeWorkout.id,'incoming-active');
   assert(h.ctx.discardPendingActive());assert.equal(h.api.getAWError(),'Earlier active failure');assert.equal(h.values.get(AW),F.A0);
  });
+ for(const suffix of ['-n','-repaired'])for(const newCopy of [false,true])test('metadata removal succeeds but readback fails '+suffix+'; new payload before retry='+newCopy,()=>{
+  const h=start({values:[[SK,F.R],[C,F.C0],[C+'-n','7'],[C+'-repaired','2'],[AW,F.A0]],set:[],afterRemove:(key,faults)=>{if(key===C+suffix)faults.get.add(key)}});
+  vm.runInContext('AW_ERROR="Earlier independent active failure"',h.ctx);
+  let calls=0;assert.equal(h.ctx.save(proposal(),{after:()=>calls++}),false);const pending=plain(h.api.getPending()),mainError=h.api.getError();
+  assert(h.ctx.discardRecoveryCopy('stored'));h.snap('payload removed; metadata removal returned; metadata readback failed');
+  assert.equal(h.values.has(C),false);assert.equal(h.values.has(C+suffix),false);assert(h.faults.get.has(C+suffix));
+  assert(h.api.getRawCleanup());assert.match(h.api.getRawNotice(),/stored raw copy was discarded, but recovery counts/);
+  blocked(h);assert.equal(h.api.getRaw(),F.R);assert.deepEqual(plain(h.api.getPending()),pending);assert.equal(h.api.getError(),mainError);assert.equal(h.api.getAWError(),'Earlier independent active failure');assert.equal(calls,0);
+  h.faults.get.clear();
+  if(newCopy){h.values.set(C,'new raw payload');h.values.set(C+'-n','99');h.values.set(C+'-repaired','88');assert.equal(h.ctx.cleanupRecoveryCounts(),false);assert.equal(h.values.get(C),'new raw payload');assert.equal(h.values.get(C+'-n'),'99');assert.equal(h.values.get(C+'-repaired'),'88')}
+  else{assert(h.ctx.cleanupRecoveryCounts());assert.equal(h.values.has(C+'-n'),false);assert.equal(h.values.has(C+'-repaired'),false)}
+  assert.equal(h.api.getRawCleanup(),false);assert.equal(h.api.getRaw(),F.R);assert.deepEqual(plain(h.api.getPending()),pending);assert.equal(h.values.get(AW),F.A0);assert.equal(h.api.getAWError(),'Earlier independent active failure');assert.equal(calls,0);
+ });
  const replace=(text,from,to)=>{assert(text.includes(from),'Fault target must exist');return text.replace(from,to)};
  const mutants=[
   ['main before raw preservation',()=>replace(replace(code,"if(RECOVERY_RAW&&!keepRecovery(RECOVERY_RAW))throw Error('recovery');",''),'localStorage.setItem(SK,encoded);',"localStorage.setItem(SK,encoded);if(RECOVERY_RAW&&!keepRecovery(RECOVERY_RAW))throw Error('recovery');"),h=>{h.ctx.save(proposal());assert.equal(readMain(h),F.R)},{}],

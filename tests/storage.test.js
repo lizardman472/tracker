@@ -27,7 +27,7 @@ function harness(initial = fixture(), options = {}) {
     if (faults.set.has(k)||(failMain && k === SK) || (failActive && k === AW)) throw new Error('Synthetic quota failure');
     values.set(k, String(v));
     if(options.afterSet)options.afterSet(k,faults);
-  }, removeItem(k) { operations.push({op:'remove',key:k});if(faults.remove.has(k)||(failRemove && k === AW))throw new Error('Synthetic remove failure');values.delete(k) } };
+  }, removeItem(k) { operations.push({op:'remove',key:k});if(faults.remove.has(k)||(failRemove && k === AW))throw new Error('Synthetic remove failure');values.delete(k);if(options.afterRemove)options.afterRemove(k,faults) } };
   class CapturedBlob extends Blob {constructor(parts,opts){super(parts,opts);this.parts=parts}}
   const ctx = { localStorage: storage, structuredClone, console, Date, Math, Blob:CapturedBlob, navigator: {},
     setTimeout: () => 0, clearTimeout() {}, clearInterval() {}, scrollTo() {}, confirm: () => true, alert: x => alerts.push(x),
