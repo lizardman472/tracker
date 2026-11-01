@@ -2456,8 +2456,17 @@ function advancePhaseSafe(){if(D.trainingPlan){alert('Use the phase choice in yo
 function setPhase(p){
  if(D.trainingPlan?.stage==='progress')return setShorterPhase(p);
  if(D.trainingPlan){alert('Phase changes are held during recovery and gradual return. Choose Linear or Hypertrophy when the easy return week is complete, or before starting the optional original-routine return.');return false}
- if(!changeTrainingPlanAllowed()||!PHASES[p]||p===D.phase)return false;
- if(!confirm(`Switch to Phase ${p} (${PHASES[p].name})? Rep targets change; the routine list and set counts stay the same. Weights are re-anchored from logged performance where targets change. The phase review clock restarts today. Saved workouts stay in History.`))return false;
+ if(!PHASES[p]||p===D.phase)return false;
+ const blocked=()=>!canWriteStore()||D.trainingPlan||ADAY||PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY||SAVE_ERROR||AW_ERROR||AW_CLEANUP||RECOVERY_RAW||RECOVERY_ERROR||RECOVERY_CLEANUP;
+ let matching=null;
+ try{const raw=localStorage.getItem(AW_KEY);if(raw!==null){const parsed=JSON.parse(raw),inventory=backupDraftSources(D,{activeRaw:raw},false),draft=inventory.sources[0]?.active;
+  if(!inventory.issues.length&&draft&&draft.phase===p&&draft.loc===D.location&&awHasWork(parsed))matching={main:localStorage.getItem(SK),active:raw,phase:D.phase,loc:D.location}}}
+ catch(_){alert('Saved data could not be checked. No phase change was made.');return false}
+ if(matching){if(blocked()||matching.main!==STORE_RAW){updateSaveStatus();alert('Resolve save, recovery or editing conflicts before changing phase for this unfinished workout.');return false}}
+ else if(!changeTrainingPlanAllowed())return false;
+ if(!confirm(`Switch to Phase ${p} (${PHASES[p].name})? Rep targets change; the routine list and set counts stay the same. Weights are re-anchored from logged performance where targets change. The phase review clock restarts today and the current original-return plan clears. Saved workouts stay in History.${matching?' This phase matches the saved unfinished workout; its entered setup and identity will be kept so you can Resume.':''}`))return false;
+ if(matching){try{if(blocked()||D.phase!==matching.phase||D.location!==matching.loc||localStorage.getItem(SK)!==matching.main||localStorage.getItem(AW_KEY)!==matching.active){alert('The editing state or saved workout changed during confirmation. Nothing was changed; review and retry.');return false}}
+ catch(_){alert('Saved data could not be rechecked. No phase change was made.');return false}}
  const W=structuredClone(D);W.phase=p;W.phaseStart=today();W.originalResume=null;return save(W,{after:renderTrainingPlanChange});
 }
 // One home/partner switch used by Home, Log Past and Settings — replaces three

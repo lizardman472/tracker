@@ -29,7 +29,7 @@ function harness(initial = fixture(), options = {}) {
     if(options.afterSet)options.afterSet(k,faults);
   }, removeItem(k) { operations.push({op:'remove',key:k});if(faults.remove.has(k)||(failRemove && k === AW))throw new Error('Synthetic remove failure');values.delete(k);if(options.afterRemove)options.afterRemove(k,faults) } };
   class CapturedBlob extends Blob {constructor(parts,opts){super(parts,opts);this.parts=parts}}
-  const ctx = { localStorage: storage, structuredClone, console, Date, Math, Blob:CapturedBlob, navigator: {},
+  const ctx = { localStorage: storage, structuredClone, console, Date:options.Date||Date, Math, Blob:CapturedBlob, navigator: {},
     setTimeout: () => 0, clearTimeout() {}, clearInterval() {}, scrollTo() {}, confirm: () => true, alert: x => alerts.push(x),
     URL: { createObjectURL: blob => { downloads.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
     FileReader: class { readAsText(file) { this.onload({ target: { result: file.content } }); } },
@@ -337,4 +337,5 @@ test('cancel, reader, pending import and discarded failed repair preserve commit
 });
 require('./raw-recovery.cases')({harness,test,plain,SK,AW,code});
 require('./backup.cases')({harness,test,plain,SK,AW,code});
+require('./backup-phase.cases')({harness,test,plain,SK,AW,code});
 console.log(`${passed} storage scenarios passed`);
