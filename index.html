@@ -2154,7 +2154,7 @@ function recoveryPlanFromHistory(start=today(),stage='deload'){
 function startTrainingPlan(start=today()){
  if(!changeTrainingPlanAllowed()||!validISODate(start)||start<today())return false;
  if(D.comeback){alert('Finish or cancel the existing return-from-break ramp in Settings before starting this plan.');return false}
- const W=structuredClone(D);W.trainingPlan=recoveryPlanFromHistory(start);W.originalResume=null;W.nextDay='A';
+ const W=structuredClone(D);W.trainingPlan=recoveryPlanFromHistory(start);W.originalResume=null;
  return save(W,{after:renderTrainingPlanChange});
 }
 function setRecoveryMode(mode,phase){
@@ -5333,8 +5333,8 @@ for(const[id,lbl] of lifts){const def=ALL_EX.find(e=>e.id===id);let best=0;
 for(const h of getHist(id,200)){if(!dateInWindow(h.date,win))continue;
 const v=exSetE1RMMax(def,h);if(v>best)best=v}
 if(!best)continue;
-const ratio=Math.round(best/bw*100)/100,th=STD[id];
-let ti=0;for(let i=0;i<th.length;i++)if(ratio>=th[i])ti=i+1;
+const rawRatio=best/bw,ratio=Math.round(rawRatio*100)/100,th=STD[id];
+let ti=0;for(let i=0;i<th.length;i++)if(rawRatio>=th[i])ti=i+1;
 const lo=ti===0?0:th[ti-1],hi=ti<th.length?th[ti]:th[th.length-1];
 const pct=ti>=th.length?100:Math.max(2,Math.min(100,Math.round((ratio-lo)/(hi-lo)*100)));
 const nextKg=ti<th.length?Math.round(th[ti]*bw*10)/10:null;
@@ -5825,11 +5825,11 @@ for(const r of rel.lifts){
 const toGo=r.nextKg!=null?Math.max(0,Math.round((r.nextKg-r.e1rm)*10)/10):null;
 h+=`<div class="std-row">
 <div class="std-top"><span class="std-lift">${r.lbl} <span class="dm" style="font-weight:500">· estimated max ${r.e1rm}kg</span></span>
-<span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">${r.ratio}×</span><span class="std-tier" style="color:${r.color};background:${TIER_BG[r.tierIdx]}">${r.tier}</span></span></div>
+<span style="display:flex;align-items:center;gap:7px"><span class="std-ratio">≈${r.ratio}×</span><span class="std-tier" style="color:${r.color};background:${TIER_BG[r.tierIdx]}">${r.tier}</span></span></div>
 <div class="std-bar"><div class="std-fill" style="width:${r.ladderPct}%;background:${r.color}"></div>
 ${[20,40,60,80].map(t=>`<div class="std-tick" style="left:${t}%"></div>`).join('')}</div>
-<div class="std-sub">${r.next?`${esc(r.next)} at ${r.nextKg}kg estimated max${toGo?` · +${toGo}kg to go`:''}`:'Top tier — Elite 🏆'}</div></div>`}
-h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best estimated one-rep maximum in the last 60 days ÷ your logged bodyweight. These are app reference bands, not validated standards or a diagnosis of training status.</div></div></details>`}
+<div class="std-sub">${r.next?`${esc(r.next)} at ≈${r.nextKg}kg estimated max${toGo?` · +${toGo}kg to go`:''}`:'Top tier — Elite 🏆'}</div></div>`}
+h+=`<div class="dm" style="margin-top:8px;font-size:9px">Best estimated one-rep maximum in the last 60 days ÷ your logged bodyweight. Displayed ratios and targets are approximate; tiers use the ratio before display rounding. These are app reference bands, not validated standards or a diagnosis of training status.</div></div></details>`}
 
 }else if(STAT_SEG==='balance'){
 // ═══ BALANCE — is the volume going to the right places? ═══

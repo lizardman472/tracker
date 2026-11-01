@@ -139,4 +139,5 @@ try {
 } finally {
   if (originalTZ == null) delete process.env.TZ; else process.env.TZ = originalTZ;
 }
+require('./tier-boundaries.cases')({harness,equal,ok});
 console.log(`${assertions} analytics assertions passed`);
