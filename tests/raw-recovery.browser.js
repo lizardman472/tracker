@@ -46,6 +46,18 @@ module.exports=async function({browser,origin,T,errors}){
  }
  const pendingId=s=>s.pending?.sessions.filter(x=>x.id==='recovery-save-1').length===1;
  const statusButton=(page,name)=>page.locator('#save-status').getByRole('button',{name,exact:true});
+ async function restoreActiveFile(file,id,reps,theme){
+  const h=await create({main:JSON.stringify({...F.P,sessions:[],theme}),active:null,fault:{},label:'restore-'+id,theme}),{page}=h;
+  try{
+   await key(page,page.getByRole('button',{name:'Settings',exact:true}));
+   const chooser=page.waitForEvent('filechooser');await key(page,page.getByRole('button',{name:'↑ Import',exact:true}));
+   await(await chooser).setFiles({name:file.name,mimeType:'application/json',buffer:Buffer.from(file.bytes)});
+   await page.waitForFunction(()=>!IMPORT_BUSY&&!PENDING_SAVE&&!PENDING_ACTIVE);
+   const imported=await snapshot(page);await key(page,page.getByRole('button',{name:'Resume',exact:true}));const resumed=await snapshot(page);
+   T('actual downloaded active file imports and Resumes its promised identity/values '+id+' '+theme,await page.evaluate(({id,reps})=>ACTIVE_ID===id&&LOG.hex_dl.reps[0]===reps&&LOG.hex_dl.setDone[0]===true&&LOG.hex_dl.notes==='A0 keep'&&SNOTES==='A0 session keep',{id,reps}));
+   return{imported,resumed};
+  }finally{await h.ctx.close()}
+ }
  for(const theme of ['light','dark']){
   const original=theme==='dark'?F.R_DARK:F.R;
   // Cases1/6/12/13: selective payload failure, actual stable save, bytes and retry.
@@ -54,6 +66,11 @@ module.exports=async function({browser,origin,T,errors}){
    try{
     const loaded=await snapshot(page);T('raw-only failure is visible before an edit '+theme,loaded.main===original&&loaded.raw===original&&loaded.active===F.A0&&loaded.status.includes('raw original'));
     T('raw-only unresolved state requests exit protection '+theme,await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);return e.defaultPrevented}));
+    const rawReader=await h.tab(false);await key(rawReader,statusButton(rawReader,'Use this tab'));
+    await rawReader.waitForFunction(()=>SAVE_ERROR.includes('other tab has an unfinished workout'));
+    const rawOnlyHandover=await snapshot(rawReader),ownerBeforeEdit=await snapshot(page);
+    T('real reader handover is refused when owner has only unresolved raw recovery '+theme,!rawOnlyHandover.writer&&ownerBeforeEdit.writer&&ownerBeforeEdit.raw===original&&ownerBeforeEdit.pending===null&&ownerBeforeEdit.main===original&&ownerBeforeEdit.active===F.A0);
+    await rawReader.close();
     await past(page);const blocked=await snapshot(page);
     T('actual past save is pending/inert with exact original and stable identity '+theme,blocked.main===original&&blocked.active===F.A0&&blocked.inert&&pendingId(blocked)&&blocked.callbacks===0&&blocked.stored===null);
     T('warning controls remain outside inert app '+theme,await statusButton(page,'Retry save').evaluate(el=>!el.closest('#app')&&!el.closest('[inert]')));
@@ -72,7 +89,7 @@ module.exports=async function({browser,origin,T,errors}){
     T('repeated retry cannot duplicate stable save or callback '+theme,await page.evaluate(()=>retrySave()===false&&window.__rawCallbacks===1));
     await capture(page,'raw-retried-'+theme,'History','#app');await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>canWriteStore());
     const reopened=await snapshot(page);T('successful raw/main commit survives real reload '+theme,reopened.stored===original&&reopened.active===F.A0&&JSON.parse(reopened.main).sessions.filter(s=>s.id==='recovery-save-1').length===1);
-    evidence.push({case:'1/6/12/13',theme,loaded,blocked,rawFile,pendingFile,retried,reopened,dialogs:h.dialogs});write();
+    evidence.push({case:'1/6/12/13',theme,loaded,rawOnlyHandover,ownerBeforeEdit,blocked,rawFile,pendingFile,retried,reopened,dialogs:h.dialogs});write();
    }finally{await h.ctx.close()}
   }
   // Cases8/9/10/11: actual owner/reader, separate C0, cancel and removal faults.
@@ -122,6 +139,7 @@ module.exports=async function({browser,origin,T,errors}){
    await capture(page,'raw-import-blocked-'+theme,'Pending changes are not saved');
    const currentRaw=await download(page,'Download current raw original'),importFile=await download(page,'Download imported workout');
    T('combined files retain exact unreadable original and named imported active identity',currentRaw.bytes===F.L0&&JSON.parse(importFile.bytes).activeWorkout.id==='incoming-active-oracle');
+   const importedRestore=await restoreActiveFile(importFile,'incoming-active-oracle','5',theme);
    await mode(page,{set:[SK,AW]});await key(page,statusButton(page,'Retry save'));const mainBlocked=await snapshot(page);
    T('raw success cannot clear independent main or active failure',mainBlocked.stored===F.L0&&mainBlocked.main===F.L0&&pendingId(mainBlocked)&&mainBlocked.active===earlierStored.active&&mainBlocked.activeError===earlier.activeError);
    await capture(page,'raw-import-main-failed-'+theme,'Not saved on this device');
@@ -135,9 +153,10 @@ module.exports=async function({browser,origin,T,errors}){
    T('discard imported copy restores the independent earlier six-rep warning',restored.pendingActive===null&&restored.activeError===earlier.activeError&&restored.active===earlierStored.active&&await page.evaluate(()=>LOG.hex_dl.reps[0]==='6'));
    const currentFile=await download(page,'Download current workout');const current=JSON.parse(currentFile.bytes).activeWorkout;
    T('current-workout file still has original identity and actual unsaved six reps',current.id==='active-oracle-1'&&current.log.hex_dl.reps[0]==='6');
+   const currentRestore=await restoreActiveFile(currentFile,'active-oracle-1','6',theme);
    await mode(page,{});await key(page,statusButton(page,'Retry save'));const activeRetried=await snapshot(page);
    T('explicit active retry finally updates that same earlier identity',JSON.parse(activeRetried.active).id==='active-oracle-1'&&JSON.parse(activeRetried.active).log.hex_dl.reps[0]==='6'&&!activeRetried.activeError);
-   evidence.push({case:'2/5/12 combined import',theme,setupLimit:'Settings view selected directly after real Resume/edit; active-screen navigation does not expose Settings. Import chooser and all failure/retry/download/discard controls are real.',earlierStored,earlier,rawBlocked,currentRaw,importFile,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,activeRetried,dialogs:h.dialogs});write();
+   evidence.push({case:'2/5/12 combined import',theme,setupLimit:'Settings view selected directly after real Resume/edit; active-screen navigation does not expose Settings. Import chooser and all failure/retry/download/discard controls are real.',earlierStored,earlier,rawBlocked,currentRaw,importFile,importedRestore,mainBlocked,activeBlocked,storedRaw,rawResolved,restored,currentFile,currentRestore,activeRetried,dialogs:h.dialogs});write();
   }finally{await h.ctx.close()}
  }
  // Case7: a second real tab acts as an external writer; original app must not replay P.
