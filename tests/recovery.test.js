@@ -418,4 +418,5 @@ test('new recovery anchors use mixed counted bands through the actual finish and
 });
 require('./original-resume.cases')({R,context,test,json});
 require('./original-reference.cases')({R,context,test,json});
+require('./band-holds.cases')({R,context,test,json});
 console.log(`\n${passed} recovery tests passed`);
