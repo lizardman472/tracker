@@ -22,7 +22,9 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   const advice=await page.evaluate(({id,day})=>{const e=dayExs(day,{},true).find(e=>e.id===id);return{core:getSmartSuggCore(e),final:getSmartSugg(e)}},{id,day});
   T('band-hold final advice has the independently expected array '+tag,JSON.stringify(advice.final.bands)===JSON.stringify(expected)&&advice.final.type===(label==='earned-advance'?'up':'stay'),JSON.stringify(advice));
   await keyActivate(page,page.locator('.dpick').getByRole('button',{name:day+'1',exact:true}));
-  await keyActivate(page,page.getByRole('button',{name:/^Start Essentials/}));
+  // The frozen latest practice is yesterday (or today for partner work).
+  T('frozen fixture exposes the explicit rest-day override '+tag,(await page.locator('#app').innerText()).includes('Rest Day'));
+  await keyActivate(page,page.getByRole('button',{name:`Day ${day}1 Essentials anyway`,exact:true}));
   let card=await exercise(page,id);
   async function visiblePattern(){
    const values=[];for(let i=1;i<=4;i++)values.push(await card.getByLabel(`Set ${i} band`,{exact:true}).inputValue());return values;
