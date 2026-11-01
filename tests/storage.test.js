@@ -59,12 +59,11 @@ test('calendar validation rejects impossible dates and keeps leap days', () => {
   assert.equal(ctx.validISODate('2024-02-29'), true);
   for (const d of ['2025-02-29','2026-99-99','2026-04-31','2026-01-01<script>']) assert.equal(ctx.validISODate(d), false);
 });
-test('history/import/merge preserve legacy Core without moving rotation', () => {
+test('history/import preserve legacy Core without moving rotation', () => {
   const s=fixture(); s.sessions[0].day='X'; s.nextDay='C'; const { ctx, api }=harness(s);
   assert.equal(api.getD().sessions[0].day,'X'); assert.equal(api.getD().nextDay,'C');
   const back=ctx.mergeImport(ctx.freshState(),plain(api.getD())).W;
   assert.equal(back.sessions[0].day,'X'); assert.equal(back.nextDay,'C');
-  assert.equal(ctx.mergeStores(back,ctx.freshState()).sessions[0].day,'X');
   assert.equal(ctx.validSession({...s.sessions[0],day:'Z'}),null);
 });
 test('session metadata and exercise fields cannot retain arbitrary executable markup', () => {
@@ -81,7 +80,6 @@ test('shared normalizer salvages good rows from malformed auxiliary logs and res
   assert.equal(d.sessions.length,1); assert.equal(d.bodyLog.length,1); assert.equal(d.discomfort.length,1);
   assert.ok(h.api.getIssues().repaired>=3); assert.equal(h.values.get(SK+'-corrupt'),JSON.stringify(s));
   const imported=h.ctx.mergeImport(h.ctx.freshState(),s); assert.equal(imported.W.cardioLog.length,0); assert.ok(imported.skipped>=3);
-  assert.equal(h.ctx.mergeStores(h.ctx.freshState(),s).cardioLog.length,0);
 });
 test('explicit save proposal leaves live and stored state unchanged on quota failure', () => {
   const h=harness(), before=JSON.stringify(h.api.getD()), raw=h.values.get(SK), proposal=plain(h.api.getD());

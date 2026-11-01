@@ -1366,8 +1366,7 @@ const SEED=freshState();
 
 // ═══════════════ STATE ═══════════════
 const SK='rft-v12';const OLD_KEYS=['rft-v11','rft-v10','rft-v9','rft-v8','rft-v7','rft-v6','rft-v5'];
-// How many deleted-session tombstones D.deleted keeps (see mergeStores). ~20 bytes each; the
-// list only needs to outlive another tab's stale in-memory snapshot, so this is generous.
+// Maximum retained deleted-session IDs in normalized state.
 const TOMB_MAX=300;
 let D,VIEW='home',ADAY=null,LOG={},EXP=null,TIMER=null,TIV=null,ALARM_IV=null,WL=null,SS=null,SDIFF=0,CIDX=0,STAT_EX='hex_dl',STAT_ALL=false,STAT_SEG='overview',STAT_PRS_ALL=false,STAT_MG='chest',STAT_MONTH=null,WU_CHECKS=[false,false,false],SNOTES='',PICK_DAY=null,SWAP={},SWAP_OPEN=null,SWAP_FILTER='all',FORM_EXP=null,NOTE_EXP=null,EXPRESS=false;
 const AW_KEY='rft-active';
@@ -1720,7 +1719,7 @@ window.addEventListener('storage',event=>{if(event.key===SK&&!WRITER&&!PENDING_S
 // Stop known mutation controls before their inline handlers run. The save boundary is
 // still guarded, so a missed control cannot write or keep a misleading local mutation.
 document.addEventListener('click',event=>{if(WRITER)return;const control=event.target.closest?.('[onclick]');if(!control)return;
-if(/\b(save|saveAW|saveSumm|saveCardio|saveBod|savePast|beginW|resumeW|clearAW|discardActiveWorkout|discardRecoveryCopy|cleanupRecoveryCounts|cancelW|resetAll|delS|delBod|delCardio|toggleNoProg|setPhase|advancePhase|setLocation|setLoc|advancePhaseSafe|reqNotify|startComeback|endComeback|dismissBanner|toggleNotify|toggleNotifyRest|toggleWake)\s*\(/.test(control.getAttribute('onclick')||'')){
+if(/\b(save|saveAW|saveSumm|saveCardio|saveBod|savePast|beginW|resumeW|clearAW|discardActiveWorkout|discardRecoveryCopy|cleanupRecoveryCounts|cancelW|resetAll|delS|delBod|delCardio|toggleNoProg|setPhase|setLocation|setLoc|advancePhaseSafe|reqNotify|startComeback|endComeback|dismissBanner|toggleNotify|toggleNotifyRest|toggleWake)\s*\(/.test(control.getAttribute('onclick')||'')){
 event.preventDefault();event.stopImmediatePropagation();updateSaveStatus()}},true);
 window.addEventListener('beforeunload',event=>{if(PENDING_SAVE||PENDING_ACTIVE||AW_ERROR||RECOVERY_RAW||IMPORT_BUSY){event.preventDefault();event.returnValue=''}});
 requestWriter()}
@@ -1754,7 +1753,6 @@ if(['home','partner'].includes(d.loc))row.loc=d.loc;if([1,2,3].includes(d.phase)
 if(validOriginalResumeId(d.originalResumeId))row.originalResumeId=d.originalResumeId;
 if(Array.isArray(d.exIds))row.exIds=d.exIds.filter(x=>typeof x==='string'&&/^[\w-]{1,100}$/.test(x));
 return row}
-function validActiveRecord(d){return normalizeActiveRecord(d)!==null}
 function awHasReps(d){return !!(d&&d.log&&typeof d.log==='object'&&Object.values(d.log).some(v=>v&&Array.isArray(v.reps)&&v.reps.some(r=>Number(r)>0)))}
 function awHasWork(d){if(!d)return false;
 if(awHasReps(d)||typeof d.notes==='string'&&d.notes.trim()||(d.wu||[]).some(Boolean)||Object.keys(d.swaps||{}).length)return true;
@@ -2470,7 +2468,6 @@ const stallDue=stalledMajor>=2;
 const recommend=timerDue&&stallDue?'due':timerDue&&!stallDue?'timer_only':!timerDue&&stallDue?'early_stall':'not_due';
 return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSince,
   recommend,stalledEx,stalledMajor,progressingEx,totalEx,timerDue,stallDue}}
-function advancePhase(){const next=D.phase>=3?1:D.phase+1;D.phase=next;D.phaseStart=today();D.originalResume=null;save()}
 // Guarded mutators for phase/location. Both invalidate a pending resumable workout
 // (checkResume rejects on loc/phase mismatch), so warn before silently orphaning one;
 // re-tapping the active phase must NOT reset the phase clock.
@@ -3936,7 +3933,7 @@ if(D.comeback)w.push(D.comeback);
 return w}
 // Which ramp a given date was trained under, or null. Derived from the window rather than
 // stamped on the session: the window is fixed once the ramp opens, and deriving keeps the
-// session shape, imports and the two-tab merge completely untouched by this feature.
+// session shape and imports completely untouched by this feature.
 // `ws` lets a caller hoist the window list out of a per-row loop — rHist badges every session
 // on screen, and rebuilding the list once per row is the kind of quiet O(rows x ramps) that
 // only shows up years later with a long log.
@@ -5195,7 +5192,7 @@ const IC={Rowing:'🚣',Walking:'🚶',Cycling:'🚴',Stretching:'🧘',Other:'�
 const ICOL={easy:'var(--gr)',moderate:'var(--am)',hard:'var(--rd)'};
 for(const c of[...cl].reverse().slice(0,20)){
 // Cardio ids reach an inline onclick. Every WRITER already constrains the charset
-// (saveCardio mints 'c'+Date.now(), mergeImport and mergeStores strip anything else), but
+// (saveCardio mints 'c'+Date.now(), and imports validate the ID character set), but
 // the render site refuses to emit a row it cannot address rather than trusting that.
 const cid=String(c.id==null?'':c.id);
 if(!/^[\w.-]{1,64}$/.test(cid))continue;
@@ -5278,8 +5275,7 @@ return fitDateTrend(pts,now)}
 // ── Band-lift progression helpers. BANDS (index 0 = heaviest band) is the ladder:
 // for ASSIST lifts a higher index = less assistance = progress; for RESIST lifts a
 // heavier band (lower index) = progress. Combo strings like 'Purple+Red' are their
-// own rung; unknown/legacy strings → -1 (untracked, render as plain label). ──
-function bandRank(band){return BANDS.indexOf(band)}
+// own rung. ──
 // Compare only the latest uninterrupted run at the same known band, recorded
 // set slots and completed-set count. A band/set change starts a new series.
 // The log cannot establish equal tempo, range of motion or actual effort.
@@ -5383,19 +5379,6 @@ return{wk:k,partial:k===cw,vol:Math.round(b.vol),sets:b.sets,sessions:b.sessions
 rpe:b.rpe.length?Math.round(b.rpe.reduce((a,x)=>a+x,0)/b.rpe.length*10)/10:null,dur:b.dur,
 lbl:new Date(k+'T00:00:00').toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}});
 }
-// ── Straight-line e1RM projection: the next 5kg milestone above the latest e1RM
-// and its ETA at the current 8-week slope. Null when the trend is flat/negative
-// or the ETA is >12 weeks out — beyond ~3 months a linear extrapolation is fiction. ──
-function e1rmProjection(exId){
-if(!strengthTrendEligible(ALL_EX.find(e=>e.id===exId)))return null;
-const s=e1rmSlope(exId,56);
-if(!s||s.slope<=0||s.ageDays>MOMENTUM_MAX_AGE_DAYS)return null;
-const milestone=Math.floor(s.latest/5)*5+5;
-const wks=(milestone-s.latest)/s.slope;
-if(wks>12)return null;
-const d=new Date();d.setDate(d.getDate()+Math.round(wks*7));
-return{kg:milestone,wks:Math.round(wks*10)/10,date:d.toLocaleDateString('en-NZ',{day:'numeric',month:'short'}),
-  range:[Math.max(1,Math.floor(wks*.75)),Math.max(2,Math.ceil(wks*1.5))]}}
 // ── Big-4 combined e1RM (the STD strength-tier lifts): weekly sum of each lift's
 // best-session e1RM. A week a lift wasn't trained carries FORWARD its last known
 // e1RM — a missed exposure is not strength loss. The series starts at the first
@@ -6315,8 +6298,7 @@ if(!confirm(`End the return ramp now? It goes into your history as ${r.sess} ses
 archiveComeback('early');save();render()};
 let DEL_ARMED=null;
 function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);DEL_ARMED=null;
-// Tombstone the id so the two-tab conflict merge can't union the row back in from a stale
-// tab's store. See mergeStores.
+// Retain the deleted ID in stored metadata; an explicit import clears its marker.
 if(!Array.isArray(D.deleted))D.deleted=[];
 if(/^[\w.-]{1,64}$/.test(String(id)))D.deleted=[...D.deleted.filter(x=>x!==String(id)),String(id)].slice(-TOMB_MAX);
 {const last=lastRotSession(D.sessions);
@@ -6620,67 +6602,6 @@ if(d.comeback!=null&&!W.comeback)issues.dropped++;
 if(d.comebackLog!=null&&(!Array.isArray(d.comebackLog)||W.comebackLog.length!==d.comebackLog.length))issues.dropped++;
 if(d.seeded===true)W.seeded=true;
 return{W,issues}}
-// Two-tab conflict merge (pure): union the append-only logs from another tab's store
-// into ours — sessions by id, cardio by id, body by date, discomfort by composite key —
-// while every scalar (phase, location, nextDay, prefs) keeps THIS tab's in-memory value.
-// Their rows pass the same validSession guard as imports so a mangled store can't
-// smuggle malformed sessions past the load-path validation.
-function mergeStores(mine,theirs){const W=normalizeState(mine).W;
-if(!plainObject(theirs))return W;theirs=normalizeState(theirs).W;
-// Deletion is the one thing a pure union cannot express. Deleting a session in this tab and
-// then saving anything at all in the other one — dismissing a banner, tapping a theme, logging
-// cardio — used to union the still-present row straight back in, and the deleted session
-// reappeared with no interaction that could have caused it. D.deleted is a tombstone list
-// (session ids only, capped); it is unioned from both stores and applied to both sides, so a
-// delete in either tab wins and then propagates on the next write.
-const tomb=new Set([...(Array.isArray(W.deleted)?W.deleted:[]),...(Array.isArray(theirs.deleted)?theirs.deleted:[])]
-  .filter(x=>typeof x==='string'&&/^[\w.-]{1,64}$/.test(x)));
-W.sessions=W.sessions.filter(s=>!tomb.has(s.id));
-const sIds=new Map(W.sessions.map(s=>[s.id,s]));
-for(const s of(Array.isArray(theirs.sessions)?theirs.sessions:[])){const v=validSession(s);if(!v)continue;
-  if(tomb.has(v.id))continue;
-  const mine=sIds.get(v.id);
-  // On an id collision the local row wins — EXCEPT for noProg, which marks a session the user
-  // deliberately excluded from progression. Dropping it silently re-admitted that session to
-  // the engine, so the flag is sticky: set in either tab, it survives.
-  if(mine){if(v.noProg)mine.noProg=true;continue}
-  sIds.set(v.id,v);W.sessions.push(v)}
-W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
-const cIds=new Set(W.cardioLog.map(c=>c.id));
-// Cardio ids reach a delete-button onclick (the same sink cue keys do), and this branch
-// adopted whatever the other tab's store held. Apply mergeImport's charset guard here too —
-// guard both entrances identically rather than trusting that one of them is safe.
-for(const c of(Array.isArray(theirs.cardioLog)?theirs.cardioLog:[])){
-  if(!c||typeof c!=='object')continue;
-  const cid=String(c.id==null?'':c.id).replace(/[^\w.-]/g,'');
-  if(!cid||cIds.has(cid))continue;
-  cIds.add(cid);W.cardioLog.push({...c,id:cid})}
-W.cardioLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-const bKeys=new Set(W.bodyLog.map(x=>x.date));
-for(const x of(Array.isArray(theirs.bodyLog)?theirs.bodyLog:[])){if(x&&typeof x==='object'&&x.date&&!bKeys.has(x.date))W.bodyLog.push(x)}
-W.bodyLog.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-// Completed ramps are an append-only log keyed by start date — union them like body rows, so
-// a ramp archived in the other tab is not lost when this one saves. The LIVE ramp (W.comeback)
-// is deliberately not merged: it is current state, and every scalar in this merge keeps THIS
-// tab's value. Their rows pass the same guard the load path uses.
-{const rKeys=new Set((Array.isArray(W.comebackLog)?W.comebackLog:[]).map(x=>x.start));
- const add=validComebackLog(theirs.comebackLog).filter(x=>!rKeys.has(x.start));
- W.comebackLog=validComebackLog([...(Array.isArray(W.comebackLog)?W.comebackLog:[]),...add]);}
-const dKeys=new Set(W.discomfort.map(x=>x.date+x.exId+x.joint));
-for(const x of(Array.isArray(theirs.discomfort)?theirs.discomfort:[])){if(x&&typeof x==='object'&&!dKeys.has(x.date+x.exId+x.joint))W.discomfort.push(x)}
-// Cues had no branch here at all, so a coaching cue typed in one tab was dropped the moment
-// the other tab saved. Union by key, local wins a conflict (this tab is the live one), and
-// apply the SAME charset guard load() and mergeImport use — cue keys are interpolated into a
-// delete-button onclick, and this is the third entrance to that sink.
-if(!W.cues||typeof W.cues!=='object')W.cues={};
-if(theirs.cues&&typeof theirs.cues==='object'){
-  for(const[k,v] of Object.entries(theirs.cues))
-    if(typeof v==='string'&&/^[\w-]{1,60}$/.test(k)&&!(k in W.cues))W.cues[k]=v}
-// Carry the union forward (newest last, capped) so the delete keeps propagating until every
-// tab has seen it. TOMB_MAX is a bound on unbounded growth, not a correctness knob: a
-// tombstone only has to outlive the other tab's stale in-memory snapshot.
-W.deleted=[...tomb].slice(-TOMB_MAX);
-return W}
 // Pure merge core for imports — extracted from impD so the export→clear→import
 // round-trip is provable in the Node test harness (impD itself is FileReader/DOM-bound).
 // Takes the current state `cur` and a parsed backup `d`; returns {W,added,replaced,skipped}
@@ -6704,9 +6625,8 @@ let added=0,replaced=0;
 for(const s of d.sessions){if(existingMap.has(s.id))replaced++;else added++;existingMap.set(s.id,s)}
 W.sessions=[...existingMap.values()];
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
-// An import is an explicit, reported act — unlike the silent cross-tab union — so it is
-// allowed to bring back a session this device once deleted. Lift the tombstone for anything
-// the backup actually carries, or the next two-tab merge would immediately re-delete it.
+// An explicit import may restore a session previously deleted on this device.
+// Clear deletion markers only for records carried by this backup.
 {const back=new Set(d.sessions.map(s=>s.id));
  W.deleted=(Array.isArray(W.deleted)?W.deleted:[]).filter(x=>!back.has(x));}
 // Merge cardio, discomfort, body logs (additive) — re-sort body log so date-ordered

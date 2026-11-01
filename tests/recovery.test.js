@@ -9,7 +9,7 @@ const context={console,Date,Math,structuredClone,Blob,confirm:()=>true,alert:x=>
  document:{getElementById:()=>null,createElement:()=>({style:{},textContent:'',get innerHTML(){return String(this.textContent).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')},setAttribute(){},click(){}})}};
 context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
-globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStores,validSession,
+globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,validSession,
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
  advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,finishW,saveSumm,bandPattern,AW_KEY,
  resumeOriginalAfterRest,validOriginalResume,originalProgressionHist,normalizeActiveRecord,activeRecord,resumeW,getHist,recoveryExportData,getSmartSuggCore,getBreak,bannerDismissed,
@@ -125,7 +125,6 @@ test('plan and self-reported RIR survive validation and fresh restore',()=>{
  const d=state();d.sessions=[{id:'easy',date:'2020-02-02',day:'A',trainingStage:'deload',trainingPlanStart:'2020-02-01',ex:[{id:'hex_dl',wt:60,reps:[5,5],rir:4,form:[5,5]}]}];
  const restored=R.mergeImport(R.freshState(),d).W;assert.equal(restored.trainingPlan.stage,'deload');assert.equal(restored.sessions[0].ex[0].rir,4);assert.equal(restored.sessions[0].noProg,true);
  const busy=json(R.freshState());busy.sessions=[{id:'own',date:'2020-01-01',day:'A',ex:[]}];assert.equal(R.mergeImport(busy,d).W.trainingPlan,null);
- assert.equal(R.mergeStores(state('return'),state('progress')).trainingPlan.stage,'return');
 });
 test('easy-stage suggestions hold lighter loads without old rep prefill',()=>{
  R.setD(state('deload',R.today()));const ex=R.dayExs('A')[0],s=R.shortSuggestion(ex);assert(s.wt<=80*.82);assert.equal(s.type,'stay');R.ensureLog(ex);
