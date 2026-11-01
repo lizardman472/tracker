@@ -2375,7 +2375,7 @@ function shortSuggestion(ex){
  const disc=getDiscomfortRecent(ex.id,3).some(d=>d.date<=today()&&d.level==='moderate');
  const check=early?null:shortDeloadStatus(),hold=!!(check?.due||check?.hold||disc);
  const actual=latestPlanPractice(ex,[p.stage]),recovery=latestPlanPractice(ex,['deload','return'],p.start);
- const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3';
+ const effort=early?(p.stage==='deload'?'4–5':'3'):'2–3',fresh=!early&&!hold&&interruption&&!hist.length;
  let detail=`Leave ${effort} clean reps available. ${early?'Loads are held; these easy sessions do not count toward progression.':hold?'Hold progression; take an easier session or rest and reassess. '+(check?.reason||'Adjust for recent discomfort.'):'Keep the load; try one extra total rep within '+ex.rp+' only when control and 2–3 clean reps remain. Rate form and reps left.'}`;
  const confirmed=candidate&&rated(candidate)&&(ex.tp==='band'?bandPattern(candidate).every(b=>BANDS.includes(b)):candidate.reps.every((r,i)=>!(r>0)||wEq(setWt(candidate,i),sessLoad(candidate,ex.s))));
  if(ex.tp==='bw')return{text:'Unloaded — control first',action:hold?'Hold progression':'Control first',type:'stay',wt:null,traj:[],detail,regress:''};
@@ -2397,9 +2397,9 @@ function shortSuggestion(ex){
    if(next){const plan=[...pattern],i=mixed?indices.indexOf(back):0;plan[i]=next;
     return{text:'Advance one set on the band ladder',action:'Advance one band set',type:'up',wt:null,band:b,bands:plan,traj:[],detail:'Two confirmed sessions. Advance only the indicated set; keep the other sets on their shown bands. Leave 2–3 clean reps.',regress:''}}
   }
-  const action=early?'Hold recovery load':hold?'Hold progression':confirmed?'Repeat target (1/2)':'Add reps when ready';
+  const action=early?'Hold recovery load':hold?'Hold progression':fresh?'Hold load · fresh confirmations':confirmed?'Repeat target (1/2)':'Add reps when ready';
   if(!early&&!hold&&confirmed)detail='One confirmation. Repeat the shown band setup at every target with Solid/Strict form and at least two reps left in a complete workout on another date.';
-  if(interruption&&!hist.length)detail+=' An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
+  if(fresh)detail='An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
   return{text:mixed?'Repeat the mixed-band setup':b?`Stay on ${b}`:'Choose an easy band',action,type:'stay',wt:null,band:b,
    ...(mixed?{bands:pattern}:{}),traj:[],detail,regress:disc?'Hold progression; adjust for discomfort.':''};
  }
@@ -2412,12 +2412,12 @@ function shortSuggestion(ex){
   hist.every(e=>e.reps.every((r,i)=>!(r>0)||wEq(setWt(e,i),anchor)))&&!disc;
  const wt=match?nxUp(anchor,vw):anchor,increase=match&&wt>anchor;
  const atTarget=last&&effectiveReps(ex,last.reps).length===ex.s&&effectiveReps(ex,last.reps).every(r=>r>=ex.tg);
- const action=early?'Hold recovery load':hold?'Hold progression':increase?'Increase weight':match?'Hold weight · equipment limit':confirmed?'Repeat target (1/2)':atTarget?'Hold weight · check ratings':'Add reps when ready';
+ const action=early?'Hold recovery load':hold?'Hold progression':fresh?'Hold load · fresh confirmations':increase?'Increase weight':match?'Hold weight · equipment limit':confirmed?'Repeat target (1/2)':atTarget?'Hold weight · check ratings':'Add reps when ready';
  if(increase)detail=`Two confirmed sessions. Small increase from ${anchor}kg; build within ${ex.rp} again with 2–3 clean reps left.`;
  else if(!early&&!hold&&confirmed)detail=`One confirmation at this load. Repeat every set at ${ex.tg}${ex.perSide?'/side':''} with Solid/Strict form and at least two reps left in a complete workout on another date.`;
  else if(!early&&!hold&&atTarget)detail='Top reps alone do not confirm an increase. Repeat with controlled form, at least two recorded reps left and a complete, manageable workout.';
  if(match&&!increase)detail='At the available equipment limit. Repeat controlled targets; extra sets are not required.';
- if(interruption&&!hist.length)detail+=' An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
+ if(fresh)detail='An unfinished attempt does not count toward progression. Log two fresh qualifying workouts before adding load.';
  return{text:`${wt}kg · ${action}`,action,type:increase?'up':'stay',wt,traj:[],detail,
   regress:disc?'Hold progression; reduce load or stop if discomfort rises.':''};
 }

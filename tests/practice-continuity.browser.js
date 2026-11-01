@@ -39,7 +39,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
     T('R6 earlier history remains unchanged after actual save '+tag,await p.evaluate(old=>old.every(s=>JSON.stringify(D.sessions.find(x=>x.id===s.id))===JSON.stringify(s)),old));
     const file=await roundtrip(p,tag);await day(p,'2026-11-03');await start(p);card=await exercise(p,id);const reopened=await log(p,id);
     T('R6 actual rest-separated new entry retains lower practice or interruption hold '+tag,kind==='band'?equal(reopened.log.bands,F.assistance)&&equal(reopened.dom.bands,F.assistance)&&reopened.dom.text.includes('Hold'):Number(reopened.log.wt)===(kind==='weighted'?20:40)&&equal(reopened.dom.weights,kind==='weighted'?[20,20]:[40,40])&&reopened.dom.text.includes(kind==='weighted'?'20kg':'40kg'),JSON.stringify(reopened));
-    if(kind==='interrupted')T('R6 interrupted visible guidance requires fresh confirmations '+tag,(await card.innerText()).includes('two fresh qualifying workouts'));
+    if(kind==='interrupted')T('R6 interrupted visible guidance requires fresh confirmations, not missing ratings '+tag,[initial,reopened].every(r=>r.dom.text.includes('Hold load · fresh confirmations')&&r.dom.text.includes('two fresh qualifying workouts')&&!/check ratings|Top reps alone/.test(r.dom.text)),JSON.stringify({initial:initial.dom,reopened:reopened.dom}));
     await capture(p,'lower-'+tag,kind==='band'?'Hold':kind==='weighted'?'20kg':'40kg');
     T('R6 phone has no errors/overflow '+tag,h.errors.length===0&&await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),h.errors.join('\n'));evidence.push({tag,kind,theme,initial,saved,file,reopened,old,errors:h.errors});write();
    }finally{await h.ctx.close()}
