@@ -1,0 +1,8 @@
+// Invented R11 history and literal dates; never loaded by the application.
+const now='2026-11-01T12:00:00';
+function state(){return{sessions:[],bodyLog:[],cardioLog:[],discomfort:[],cues:{},phase:2,phaseStart:'2026-10-01',nextDay:'B',location:'home',programVersion:21,gen:1,theme:'light',notify:{enabled:false,rest:true},trainingPlan:null,originalResume:null,comeback:null,lastDeload:null}}
+function row(id,date,day='A',difficulty=3,extra={}){return{id,date,day,loc:'home',phase:2,difficulty,duration:20,warmup:2,volume:250,notes:'Synthetic R11 history',ex:[{id:'hex_dl',wt:50,reps:[5],form:[5],rir:3,band:'',notes:'Invented practice'}],...extra}}
+function rotation(){const d=state();d.sessions=[row('r11-current','2026-10-28'),row('r11-future','2026-11-02','C',5)];return d}
+function effort(current=3,future=5,date='2026-10-31'){const d=state();d.lastDeload='2026-08-23';d.sessions=[row('r11-effort-current',date,'A',current),row('r11-effort-future','2026-11-02','C',future)];return d}
+function quota(stage='deload',count=0,future=true){const d=state();d.trainingPlan={stage,start:stage==='return'?'2026-10-19':'2026-10-26',stageStart:'2026-10-26',loads:{hex_dl:50},bands:{}};d.sessions=['2026-10-26','2026-10-28','2026-10-30'].slice(0,count).map((date,i)=>row('r11-quota-current-'+i,date,'A',3,{trainingPlanStart:d.trainingPlan.start,trainingStage:stage,noProg:true,trainingComplete:false}));if(future)d.sessions.push(...['2026-11-02','2026-11-03','2026-11-04'].map((date,i)=>row('r11-quota-future-'+i,date,'C',5,{trainingPlanStart:d.trainingPlan.start,trainingStage:stage})));return d}
+module.exports={now,state,row,rotation,effort,quota};
