@@ -408,4 +408,5 @@ module.exports=async function({browser,origin,T,baseStore}){
  await require('./current-discomfort.browser')({T,baseStore,open,keyActivate,screenshot});
  await require('./practice-continuity.browser')({T,baseStore,open,keyActivate,screenshot});
  await require('./duration-preservation.browser')({T,open,keyActivate,screenshot});
+ await require('./tier-and-rotation.browser')({T,open,keyActivate,screenshot});
 };

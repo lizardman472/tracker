@@ -444,7 +444,7 @@ R.render();
 const liftsSeg = R.getA();
 T('strength card renders the hex deadlift tier', /Hex Bar Deadlift/.test(liftsSeg));
 T('strength bars share one ladder scale (ticks at fixed 20/40/60/80)', /std-tick" style="left:20%"/.test(liftsSeg) && /std-tick" style="left:80%"/.test(liftsSeg));
-T('strength rows show current e1RM and next-tier target', /· estimated max [\d.]+kg/.test(liftsSeg) && / at [\d.]+kg estimated max/.test(liftsSeg));
+T('strength rows show current e1RM and approximate next-tier target', /· estimated max [\d.]+kg/.test(liftsSeg) && / at ≈[\d.]+kg estimated max/.test(liftsSeg));
 // Guard the guard: if the rolling-window rows above ever stop landing inside the windows, the
 // three assertions they feed would go quiet again rather than failing loudly. Assert the
 // precondition itself, so the next rot is reported as rot.
