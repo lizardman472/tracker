@@ -22,7 +22,7 @@ const src = fs.readFileSync(SW, 'utf8').replace(/\r\n/g, '\n');
 // Each mutation: a description, and a transform that must make the battery fail.
 const MUTATIONS = [
   ['drops waitUntil, so a hung refresh can be killed mid-flight',
-    s => s.replace('e.waitUntil(net.catch(() => {}));', '')],
+    s => s.replace('e.waitUntil(net.then(() => write).catch(() => {}));', '')],
 
   ['reverts the navigation to plain network-first with no deadline',
     s => s.replace(/e\.respondWith\(\s*new Promise\(resolve => \{[\s\S]*?\}\)\s*\);/,
@@ -41,8 +41,8 @@ const MUTATIONS = [
   // `net.then(r => { clearTimeout(timer)…` string patches whichever branch comes first in the
   // file and silently stops testing the other one.
   ['leaves the NAVIGATION deadline timer pending after the network wins',
-    s => s.replace('const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => { clearTimeout(timer); done(r); })',
-      'const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => { done(r); })')],
+    s => s.replace('const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => { clearTimeout(timer);',
+      'const timer = setTimeout(() => done(fromCache()), NAV_TIMEOUT);\n        net.then(r => {')],
 
   ['leaves the FONT deadline timer pending after the network wins',
     s => s.replace("const timer = setTimeout(() => done(new Response('', { status: 504 })), FONT_TIMEOUT);\n          net.then(r => { clearTimeout(timer); done(r); })",
@@ -69,8 +69,8 @@ const MUTATIONS = [
     s => s.replace("resp && (resp.ok || resp.type === 'opaque')", 'resp && resp.ok')],
 
   ['makes the asset branch network-first, losing instant cached loads',
-    s => s.replace(/e\.respondWith\(\s*caches\.match\(req\)\.then\(r => r \|\| fetch\(req\)\.then\(resp => \{\s*\/\/ Same-origin/,
-      'e.respondWith(\n    fetch(req).then(resp => {\n      // Same-origin')],
+    s => s.replace('const response = caches.match(req).then(r => r || fetch(req).then(resp => {',
+      'const response = Promise.resolve().then(() => fetch(req).then(resp => {')],
 
   // The pre-v77 behaviour: a failed asset fetch resolved as a 200 whose body was the word
   // "Offline", so a dead stylesheet was indistinguishable from a live one.
@@ -100,29 +100,48 @@ const MUTATIONS = [
 
   ['intercepts non-GET requests',
     s => s.replace("if (req.method !== 'GET') return;", '')],
+  ['restores direct 5xx passthrough despite a good cached shell',
+    s => s.replace("r && r.status >= 500 && r.status <= 599 && r.type === 'basic' && new URL(req.url).origin === self.location.origin",'false'),/FAIL: R12 5xx uses good cached shell/],
+  ['detaches only navigation put while retaining network lifetime',
+    s => s.replace('write = caches.open(C).then(ch => ch.put(req, c)).catch(() => {});','caches.open(C).then(ch => ch.put(req, c)).catch(() => {});'),/FAIL: R12 retains complete write navigation put/],
+  ['detaches font put while retaining network lifetime',
+    s => s.replace('write = caches.open(C).then(c => c.put(req, clone)).catch(() => {});','caches.open(C).then(c => c.put(req, clone)).catch(() => {});'),/FAIL: R12 retains complete write font put/],
+  ['detaches asset put while retaining response lifetime',
+    s => {const i=s.indexOf('  let write = Promise.resolve();\n  const response =');return s.slice(0,i)+s.slice(i).replace('write = caches.open(C).then(c => c.put(req, clone)).catch(() => {});','caches.open(C).then(c => c.put(req, clone)).catch(() => {});')},/FAIL: R12 retains complete write asset put/],
+  ['waits for cache put before returning the navigation foreground',
+    s => s.replace('} return r; });','} return write.then(() => r); });'),/FAIL: R12 foreground prompt while navigation/],
 ];
+
+// Retain each original fault's intent. A syntax error or an unrelated failure is not a catch.
+const TARGETS=[/FAIL: the navigation keeps the worker alive/,/FAIL: suite exited before finishing/,/FAIL: \.\.\.but never overwrites the cached shell/,/FAIL: a non-basic navigation response is not cached/,/FAIL: offline navigation falls back/,/FAIL: \.\.\.and its timer is cleared/,/FAIL: \.\.\.and the font deadline timer is cleared/,/FAIL: suite exited before finishing/,/FAIL: an OPAQUE font response is still cached/,/FAIL: a cached asset is served without a network call/,/FAIL: \.\.\.and does not masquerade/,/FAIL: a 404 asset is not cached/,/FAIL: install precaches the app shell/,/FAIL: install calls skipWaiting/,/FAIL: activate deletes caches from previous releases/,/FAIL: activate preserves unrelated caches/,/FAIL: activate claims open clients/,/FAIL: a rest-done tap focuses/,/FAIL: a POST is passed straight through/];
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'swmut-'));
 let caught = 0, escaped = 0;
+const evidence=[];
 
-for (const [desc, mutate] of MUTATIONS) {
+for (const [index, [desc, mutate, target]] of MUTATIONS.entries()) {
   const broken = mutate(src);
   if (broken === src) {
     escaped++;
     console.log('NOT APPLIED:', desc, '(the pattern no longer matches sw.js — update this mutation)');
     continue;
   }
+  try{new (require('vm').Script)(broken)}catch(error){escaped++;console.log('INVALID:',desc,error.message);evidence.push({desc,applied:true,compiled:false,caught:false});continue}
   const file = path.join(tmp, 'sw.js');
   fs.writeFileSync(file, broken);
-  let failed = false;
+  let failed = false, output = '';
   try {
-    execFileSync(process.execPath, [path.join(__dirname, 'sw.test.js')],
-      { env: { ...process.env, SW_PATH: file }, stdio: 'pipe' });
-  } catch (_) { failed = true; }   // non-zero exit = the battery caught it
-  if (failed) { caught++; }
-  else { escaped++; console.log('ESCAPED:', desc); }
+    execFileSync(process.execPath, [...process.execArgv,path.join(__dirname, 'sw.test.js')],
+      { env: { ...process.env, SW_PATH: file, SW_MUTATION:'1' }, stdio: 'pipe' });
+  } catch (error) { failed = true; output=String(error.stdout||'')+'\n'+String(error.stderr||''); }
+  const intended=failed&&(target||TARGETS[index]).test(output);
+  if (intended) { caught++; }
+  else { escaped++; console.log('ESCAPED OR UNRELATED:', desc,output.slice(-700)); }
+  evidence.push({desc,applied:true,compiled:true,caught:intended,intendedFailure:String(target||TARGETS[index]),failures:output.split('\n').filter(l=>l.startsWith('FAIL:'))});
 }
 
+if(path.dirname(path.resolve(tmp))!==path.resolve(os.tmpdir())||!path.basename(tmp).startsWith('swmut-'))throw Error('Unsafe mutation temporary directory');
 fs.rmSync(tmp, { recursive: true, force: true });
+const artifact=path.join(__dirname,'..','test-results','recovery-layout');fs.mkdirSync(artifact,{recursive:true});fs.writeFileSync(path.join(artifact,'sw-mutation-evidence.json'),JSON.stringify(evidence,null,2));
 console.log(`\n${caught}/${MUTATIONS.length} mutations caught, ${escaped} escaped`);
 if (escaped) process.exit(1);

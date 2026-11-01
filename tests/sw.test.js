@@ -15,8 +15,8 @@
 //   • Cache Storage keys on the request URL, so cache.addAll(['./index.html']) does NOT match
 //     a navigation to /some/path. That mismatch is precisely why sw.js needs its explicit
 //     './index.html' fallback, and the stub must reproduce it rather than paper over it.
-//   • resp.clone() returns a body-consumable copy; caching a response the handler also returns
-//     must not disturb what the page receives.
+//   • The basic Response double exposes scalar bodies. sw-lifetime.cases also checks native
+//     Response streams, consuming the foreground before releasing the held cache consumer.
 //   • A fake clock drives setTimeout so the 3s navigation deadline is exercised instantly and
 //     deterministically. It is NOT a shortcut around the timeout — the timeout still has to
 //     fire on its own schedule; the test just controls when "now" advances.
@@ -67,14 +67,15 @@ const Req = (url, { method = 'GET', mode = 'same-origin', accept = '' } = {}) =>
 // sw.js uses for CORE and for the shell fallback) key on themselves.
 const keyOf = r => (typeof r === 'string' ? r : r && r.url);
 
-function makeCaches() {
+function makeCaches(controls = {}) {
   const store = new Map(); // cacheName -> Map(urlKey -> Res)
   const api = {
-    open: name => Promise.resolve(cacheFor(name)),
+    open: name => Promise.resolve().then(() => controls.open?.(name)).then(() => cacheFor(name)),
     keys: () => Promise.resolve([...store.keys()]),
     delete: name => Promise.resolve(store.delete(name)),
     // caches.match() searches every cache, as the real API does.
-    match: req => {
+    match: async req => {
+      await controls.match?.(req);
       for (const c of store.values()) { const hit = c.get(keyOf(req)); if (hit) return Promise.resolve(hit) }
       return Promise.resolve(undefined);
     },
@@ -86,7 +87,7 @@ function makeCaches() {
     const m = store.get(name);
     return {
       addAll: urls => { urls.forEach(u => m.set(keyOf(u), new Res('core:' + u))); return Promise.resolve() },
-      put: (req, resp) => { m.set(keyOf(req), resp); return Promise.resolve() },
+      put: (req, resp) => Promise.resolve().then(() => controls.put?.(req, resp)).then(() => { m.set(keyOf(req), resp) }),
       match: req => Promise.resolve(m.get(keyOf(req))),
     };
   }
@@ -113,15 +114,16 @@ function makeClock() {
 const flush = () => new Promise(r => setImmediate(r));
 
 // ── load sw.js into a fresh sandbox ─────────────────────────────────────────────────────────
-function loadSW({ fetchImpl = () => Promise.reject(new Error('no network')), clients = [] } = {}) {
+function loadSW({ fetchImpl = () => Promise.reject(new Error('no network')), clients = [], controls = {}, ResponseImpl = Res } = {}) {
   const handlers = {};
   const clock = makeClock();
-  const caches = makeCaches();
+  const caches = makeCaches(controls);
   const opened = [];      // windows opened via clients.openWindow
   const focused = [];     // clients focused
   let claimed = false, skipped = false;
   const ctx = {
     self: {
+      location: { origin: 'https://app' },
       addEventListener: (k, f) => { handlers[k] = f },
       skipWaiting: () => { skipped = true },
       clients: {
@@ -132,7 +134,7 @@ function loadSW({ fetchImpl = () => Promise.reject(new Error('no network')), cli
     },
     caches,
     fetch: (...a) => fetchImpl(...a),
-    Response: Res,
+    Response: ResponseImpl,
     URL,
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
@@ -145,14 +147,16 @@ function loadSW({ fetchImpl = () => Promise.reject(new Error('no network')), cli
     state: () => ({ claimed, skipped, opened, focused }),
     // Drive a fetch event and return { response, waitUntil[] }.
     fetchEvent(req) {
-      let response, called = false;
+      let response, called = false, dispatching = true, pending = 0;
       const waits = [];
-      handlers.fetch({
+      const retain = p => { pending++; Promise.resolve(p).then(() => { pending-- }, () => { pending-- }); };
+      const event = {
         request: req,
-        respondWith: p => { called = true; response = p },
-        waitUntil: p => { waits.push(p) },
-      });
-      return { responded: called, response, waits };
+        respondWith: p => { if (!dispatching) throw Error('respondWith outside dispatch'); called = true; response = Promise.resolve(p); retain(response); },
+        waitUntil: p => { if (!dispatching && !pending) throw Error('InvalidStateError: inactive event'); waits.push(p); retain(p); },
+      };
+      handlers.fetch(event); dispatching = false;
+      return { responded: called, response, waits, extend: p => event.waitUntil(p), active: () => pending > 0, pending: () => pending };
     },
     async lifecycle(name, extra = {}) {
       const waits = [];
@@ -322,13 +326,12 @@ const CACHE = SW_SRC.match(/const C = '([^']+)'/)[1];
     T('the navigation keeps the worker alive via waitUntil', ev.waits.length === 1, String(ev.waits.length));
   }
   {
-    // The deploy guard: a 503 must be returned to the page but NEVER cached, or the next
-    // offline load serves an error page instead of the app.
+    // A transient same-origin 503 uses the good cached shell without poisoning it.
     const sw = loadSW({ fetchImpl: () => Promise.resolve(new Res('down', { status: 503 })) });
     await sw.caches.open(CACHE).then(c => c.put('./index.html', new Res('good-shell')));
     const r = await sw.fetchEvent(navReq()).response;
     await flush();
-    T('a 503 during a deploy is passed to the page', r.status === 503);
+    T('a 503 during a deploy uses the good cached shell', r.status === 200 && r.body === 'good-shell');
     T('...but never overwrites the cached shell', !sw.caches._dump(CACHE).includes('https://app/workout'), JSON.stringify(sw.caches._dump(CACHE)));
   }
   {
@@ -429,6 +432,7 @@ const CACHE = SW_SRC.match(/const C = '([^']+)'/)[1];
   }
 
   // ── cache version hygiene ─────────────────────────────────────────────────────────────────
+  await require('./sw-lifetime.cases')({loadSW,Res,Req,CACHE,T,flush});
   T('the cache name is versioned so activate can evict old releases', /^rft-v\d+$/.test(CACHE), CACHE);
 
   finished = true;
