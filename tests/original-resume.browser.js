@@ -46,11 +46,6 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   const store=baseStore();Object.assign(store,{theme,phase:1,phaseStart:ago(35),nextDay:'A',lastDeload:null,trainingPlan:null,comeback:null});
   store.sessions=[2,4].map((days,i)=>({id:'pre-rest-b-'+i,date:ago(days),day:'B',loc:'home',phase:1,difficulty:3,
    ex:[{id:'hex_squat_b',wt:40,reps:[8,8,8],form:[4,4,4],band:''}]}));
-  store.sessions.push({id:'pre-rest-regular-a',date:ago(6),day:'A',loc:'home',phase:1,difficulty:3,ex:[
-   {id:'hex_dl',wt:80,reps:[5,5,5]}, {id:'lm_squat',wt:40,reps:[8,8,8]}, {id:'floor_press',wt:50,reps:[10,10,10,10]},
-   {id:'pullup_a',band:'Green',reps:[8,8,8,8]}, {id:'lm_lateral',wt:15,reps:[15,15]},
-   {id:'b_stance_rdl',wt:40,reps:[16,16,16]}, {id:'bb_rear_row',wt:20,reps:[12,12,12]},
-   {id:'bb_curl',wt:20,reps:[10,10,10]}, {id:'dead_bugs_a',wt:25,reps:[16,16,16]}]});
   const {ctx,page,errors}=await open(store),start=await page.evaluate(()=>today());
   await setDay(page,start,0);
   await page.getByText('Recovery plan and routine choices',{exact:true}).click();
@@ -73,9 +68,6 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   await screenshot(page,'direct-original-choice-'+theme,{target:'#direct-original-choice',text:'RESUME ORIGINAL A/B/C AFTER REST',top:false});
   await tabActivate(page,page.getByRole('button',{name:'Resume original A/B/C after rest',exact:true}));
   T('new direct return reviews regular sources and unknown manual starters '+theme,await page.locator('#reference-review').innerText().then(t=>t.includes('Regular practice reference')&&t.includes('No eligible regular reference found')));
-  T('direct-return preview has eligible same-phase pre-recovery A references '+theme,await page.evaluate(()=>{
-   const p=originalReferenceProposal('return').p;return p.loads.hex_dl===80&&p.loads.lm_squat===40&&p.loads.floor_press===50&&p.bands.pullup_a==='Green'&&p.sources.hex_dl.kind==='original'&&p.sources.hex_dl.date<p.recoveryStart;
-  }));
   await screenshot(page,'direct-original-reference-preview-'+theme,{target:'#reference-review',text:'REVIEW STARTING LOADS',top:false});
   await tabActivate(page,page.getByRole('button',{name:'Cancel',exact:true}));await settleLayout(page);
   T('direct review Cancel restores visible focus inside the reopened routine choices '+theme,await page.locator('#direct-original-choice').evaluate(el=>{

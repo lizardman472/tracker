@@ -39,7 +39,8 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   await review(page);
   T('legacy preview separates saved recovery, regular source and effective protected setups '+theme,await page.locator('#reference-review').innerText().then(t=>
    t.includes('Saved starting setup: 40 kg')&&t.includes('Regular practice reference: 80 kg')&&t.includes('Starting setup after Apply: 80 kg')&&t.includes('Fresh practice and its progression are retained')&&t.includes('No eligible regular reference found')));
-  await screenshot(page,'normal-reference-preview-'+theme,{target:'#reference-review',text:'REVIEW STARTING LOADS',top:false});
+  // The Rest Day host does not apply .start-hero h3's uppercase transform.
+  await screenshot(page,'normal-reference-preview-'+theme,{target:'#reference-review',text:'Review starting loads',top:false});
   await tabActivate(page,page.getByRole('button',{name:'Cancel',exact:true}));
   T('review Cancel preserves marker/history and returns focus '+theme,await page.evaluate(b=>JSON.stringify(D.originalResume)===JSON.stringify(b.marker)&&JSON.stringify(normalizeState(D).W.sessions)===b.history&&document.activeElement.id==='review-original-references',before));
   await review(page);
