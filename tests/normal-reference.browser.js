@@ -75,10 +75,13 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   T('49.6 per-set input, notes and checked work survive reload without reference repair '+theme,await active.page.evaluate(raw=>
    localStorage.getItem(AW_KEY)===raw&&Number(LOG.hex_dl.wts[0])===49.6&&LOG.hex_dl.setDone[0]&&SNOTES==='Synthetic draft — preserve exact values',draft));
   await screenshot(active.page,'normal-reference-active-manual-route-'+theme,{target:'#ex-cur',text:'Your current workout keeps its entered loads',top:false});
-  await keyActivate(active.page,active.page.getByRole('button',{name:'Today',exact:true}));const beforeReview=await active.page.evaluate(()=>localStorage.getItem(AW_KEY));await review(active.page);
-  T('active review disables Apply and preserves raw stored entries '+theme,await active.page.getByRole('button',{name:'Apply starting loads',exact:true}).isDisabled()&&await active.page.evaluate(raw=>localStorage.getItem(AW_KEY)===raw&&Number(LOG.hex_dl.wts[0])===49.6,beforeReview));
-  await screenshot(active.page,'normal-reference-active-block-'+theme,{target:'#reference-review',text:'Your current workout keeps its entered loads',top:false});
-  await keyActivate(active.page,active.page.getByRole('button',{name:'Cancel',exact:true}));await keyActivate(active.page,active.page.getByRole('button',{name:'Resume',exact:true}));await finishAndSave(active.page);
+  await active.page.reload({waitUntil:'domcontentloaded'});await active.page.waitForFunction(()=>canWriteStore());
+  const beforeReview=await active.page.evaluate(()=>localStorage.getItem(AW_KEY));await review(active.page);
+  T('stored-draft review disables Apply and preserves raw entries on Home '+theme,await active.page.getByRole('button',{name:'Apply starting loads',exact:true}).isDisabled()&&await active.page.evaluate(raw=>ADAY===null&&localStorage.getItem(AW_KEY)===raw,beforeReview));
+  await screenshot(active.page,'normal-reference-stored-draft-block-'+theme,{target:'#reference-review',text:'A stored unfinished workout backup blocks Apply',top:false});
+  await keyActivate(active.page,active.page.getByRole('button',{name:'Cancel',exact:true}));await keyActivate(active.page,active.page.getByRole('button',{name:'Resume',exact:true}));
+  T('Resume after cancelling review retains the entered 49.6 value and notes '+theme,await active.page.evaluate(raw=>localStorage.getItem(AW_KEY)===raw&&Number(LOG.hex_dl.wts[0])===49.6&&LOG.hex_dl.setDone[0]&&SNOTES==='Synthetic draft — preserve exact values',beforeReview));
+  await finishAndSave(active.page);
   await review(active.page);await tabActivate(active.page,active.page.getByRole('button',{name:'Apply starting loads',exact:true}));await active.page.waitForFunction(()=>D.originalResume.referenceVersion===1);
   T('finishing before repair preserves actual 49.6 history and the lower resolved setup '+theme,await active.page.evaluate(()=>{
    const e=D.sessions.at(-1).ex.find(e=>e.id==='hex_dl');return e.wts[0]===49.6&&getSmartSugg(dayExs('A',{},true).find(e=>e.id==='hex_dl')).wt<=49.6;

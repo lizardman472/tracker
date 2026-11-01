@@ -96,6 +96,13 @@ module.exports=function({R,context,test,json}){
   const label=R.referenceSetup(ex('pullup_a'),value);assert.match(label,/Set 1: Purple\+Red assistance/);assert.match(label,/Set 2: Green assistance/);
   R.reviewOriginalReferences('repair');assert(R.trainingPlanCard().includes(label));
  });
+ test('known uniform below-target band preview matches the initialized practice fallback',()=>{
+  R.setD(legacy());const d=tagged(legacy(),'pullup_a',{kg:null,band:'Green',reps:[5,5,5,5]});R.setD(d);
+  const value=R.getSmartSugg(ex('pullup_a'));assert.equal(value.type,'stay');assert.equal(value.band,undefined);assert.equal(value.bands,undefined);
+  assert.equal(R.referenceSetup(ex('pullup_a'),value,true),'Green assistance');R.reviewOriginalReferences('repair');
+  const preview=R.trainingPlanCard();assert(preview.includes('Current suggestion: Green assistance'));assert(preview.includes('Starting setup after Apply: Green assistance'));
+  R.beginW('A',true);assert.equal(R.getLOG().pullup_a.band,'Green');
+ });
  for(const mode of ['repair','return'])test(mode+' rechecks a draft that appears during confirmation',()=>{
   const d=legacy();if(mode==='return'){d.originalResume=null;d.trainingPlan={stage:'deload',start:ago(9),stageStart:ago(9),loads:{hex_dl:80},bands:{}}}R.setD(d);
   const before=json(R.getD()),raw=JSON.stringify({id:'arrived-during-confirm',log:{hex_dl:{wt:49.6,wts:[49.6,48],reps:[5,0]}},notes:'Preserve exact bytes'});

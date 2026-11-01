@@ -1916,10 +1916,12 @@ function focusOriginalReferenceTarget(id){const target=document.getElementById(i
  target.style.scrollMarginTop=(Math.max(0,document.getElementById('nav')?.getBoundingClientRect().bottom||0,document.querySelector('.hdr')?.getBoundingClientRect().bottom||0)+8)+'px';target.scrollIntoView({block:'nearest',behavior:'auto'});target.focus({preventScroll:true})}
 function cancelOriginalReferenceReview(){const mode=ORIGINAL_REFERENCE_REVIEW;ORIGINAL_REFERENCE_REVIEW=null;render();const id=mode==='return'?'direct-original-choice':'review-original-references';
  const target=document.getElementById(id);if(target?.closest('details'))target.closest('details').open=true;focusOriginalReferenceTarget(id)}
-function referenceSetup(ex,value){
+function referenceSetup(ex,value,usePractice=false){
  const unit=ex.bandMode==='assist'?' assistance':' resistance',pattern=Array.isArray(value?.bands)?value.bands.map(b=>BANDS.includes(b)?b:value.band).filter(b=>BANDS.includes(b)):[];
  if(new Set(pattern).size>1)return pattern.map((b,i)=>`Set ${i+1}: ${b}${unit}`).join('; ');
- const band=pattern[0]||value?.band;return band?band+unit:value?.wt?value.wt+' kg'+(ex.loadUnit==='per_db'?' per dumbbell':''):'Unknown — choose a manageable setup manually';
+ const p=usePractice&&ex.tp==='band'?originalResumeContext(ex):null;
+ const practiced=p?easiestOriginalBand(ex,bandPattern(originalProgressionHist(ex,p).at(-1))):'';
+ const band=pattern[0]||value?.band||practiced;return band?band+unit:value?.wt?value.wt+' kg'+(ex.loadUnit==='per_db'?' per dumbbell':''):'Unknown — choose a manageable setup manually';
 }
 function originalReferenceReviewH(){
  const mode=ORIGINAL_REFERENCE_REVIEW;if(!mode)return '';
@@ -1927,7 +1929,7 @@ function originalReferenceReviewH(){
  let h='<section id="reference-review"><h3 id="reference-review-title" tabindex="-1">Review starting loads</h3><p>Recovery off and a held starting reference are different. Regular practice before recovery supplies a reference; fresh workouts still earn increases. Applying keeps history, phase, next day and progression credit.</p>';
  if(proposal?.error)h+='<p role="status">'+esc(proposal.error)+'</p>';
  const renderRow=r=>{const old=mode==='repair'?{wt:D.originalResume.loads[r.ex.id],band:D.originalResume.bands[r.ex.id]}:null;
-  return `<div class="cd"><b>${esc(r.ex.nm)}</b>${old?`<p>Saved starting setup: ${esc(referenceSetup(r.ex,old))}<br>Current suggestion: ${esc(referenceSetup(r.ex,r.before))}</p>`:''}<p>Regular practice reference: ${r.ref?esc(referenceSetup(r.ex,r.ref))+` · ${r.ref.source.date} · Phase ${proposal.p.phase} · ${r.ref.source.kind==='shorter'?'shorter regular routine (not proof of original sets)':'original routine'}`:'No eligible regular reference found'}</p><p>Starting setup after Apply: ${esc(referenceSetup(r.ex,r.after))}<br>${r.unresolved?'Saved reference does not match the recorded recovery setup; retained for manual review.':r.earned?'Fresh practice and its progression are retained.':'A lower actual post-return setup stays lower. Bands use a conservative uniform setup where needed.'}</p></div>`;
+  return `<div class="cd"><b>${esc(r.ex.nm)}</b>${old?`<p>Saved starting setup: ${esc(referenceSetup(r.ex,old))}<br>Current suggestion: ${esc(referenceSetup(r.ex,r.before,true))}</p>`:''}<p>Regular practice reference: ${r.ref?esc(referenceSetup(r.ex,r.ref))+` · ${r.ref.source.date} · Phase ${proposal.p.phase} · ${r.ref.source.kind==='shorter'?'shorter regular routine (not proof of original sets)':'original routine'}`:'No eligible regular reference found'}</p><p>Starting setup after Apply: ${esc(referenceSetup(r.ex,r.after,r.earned))}<br>${r.unresolved?'Saved reference does not match the recorded recovery setup; retained for manual review.':r.earned?'Fresh practice and its progression are retained.':'A lower actual post-return setup stays lower. Bands use a conservative uniform setup where needed.'}</p></div>`;
  };
  const essentials=new Set(Object.values(originalEssentials()).flat().map(e=>e.id)),main=[],other=[];
  for(const r of proposal?.rows||[]){const id=r.ex.id,changed=mode==='repair'&&(D.originalResume.loads[id]!==proposal.p.loads[id]||D.originalResume.bands[id]!==proposal.p.bands[id]);
