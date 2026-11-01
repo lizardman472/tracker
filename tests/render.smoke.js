@@ -888,31 +888,27 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   const vm=require('node:vm');
   function isolated(raw){
     const storage=memoryStorage();storage.setItem(R.SK,raw);
-    const ctx={document:global.document,window:global.window,navigator:global.navigator,localStorage:storage,
+    const ctx={document:global.document,window:{...global.window},navigator:global.navigator,localStorage:storage,
       structuredClone,console,Blob:global.Blob,URL:global.URL,setInterval:()=>0,clearInterval(){},setTimeout:()=>0,clearTimeout(){},confirm:()=>true,alert(){}};
     ctx.global=ctx;vm.createContext(ctx);vm.runInContext(code+'\nWRITER=true;WRITER_READY=true;',ctx);
     ctx.__R.load();ctx.__R.go('home');return{ctx,storage,api:ctx.__R};
   }
-  const store = {};
-  const realLS = global.localStorage;
-  global.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } };
   const good = { id: 'ok1', date: '2026-06-01', day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt: 40, reps: [5, 5, 5], band: '' }] };
-  store[R.SK] = JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
-  R.load();
-  tryRender('home renders after a partial-drop load', () => R.go('home'));
-  const partial = R.getA();
+  const firstRaw=JSON.stringify({ sessions: [good, { id: 'bad', date: '2026-06-03', day: 'B' }], phase: 1, phaseStart: '2026-06-01', location: 'home', programVersion: 17 });
+  const conflict=isolated(firstRaw),store=conflict.storage,api=conflict.api;
+  tryRender('home renders after a partial-drop load', () => api.go('home'));
+  const partial = api.getA();
   T('partial drop names the count, not an empty reset', /1 stored record needed recovery/.test(partial) && !/fresh empty state/.test(partial), partial.slice(partial.indexOf('⚠'), partial.indexOf('⚠') + 200));
   T('partial-drop banner offers the explicitly scoped stored raw download', /dlCorrupt\('stored'\)/.test(partial) && /Download stored raw copy/.test(partial));
-  const firstRaw=store[R.SK+'-corrupt'];
   // Unparseable store → the original total-loss wording.
-  store[R.SK] = '{not json';
-  R.load();
-  tryRender('home renders after an unparseable load', () => R.go('home'));
-  const total = R.getA();
+  store.setItem(R.SK,'{not json');
+  api.load();
+  tryRender('home renders after an unparseable load', () => api.go('home'));
+  const total = api.getA();
   T('total loss explains the fresh empty fallback', /Stored data was corrupted/.test(total) && /fresh empty state/.test(total));
-  T('new total loss preserves the different earlier raw copy and its counts', store[R.SK+'-corrupt']===firstRaw&&Number(store[R.SK+'-corrupt-n'])===1);
+  T('new total loss preserves the different earlier raw copy and its counts', store.getItem(R.SK+'-corrupt')===firstRaw&&Number(store.getItem(R.SK+'-corrupt-n'))===1);
   T('raw conflict offers current and stored originals separately', /Download current raw original/.test(total)&&/Download stored raw copy/.test(total));
-  T('conflict retains the exact new main original alongside the earlier parked original',store[R.SK]==='{not json'&&store[R.SK+'-corrupt']===firstRaw);
+  T('conflict retains the exact new main original alongside the earlier parked original',store.getItem(R.SK)==='{not json'&&store.getItem(R.SK+'-corrupt')===firstRaw);
   const malformed=isolated('{isolated not json');
   T('isolated unreadable main parks its own literal original and total-loss count',malformed.storage.getItem(R.SK)==='{isolated not json'&&malformed.storage.getItem(R.SK+'-corrupt')==='{isolated not json'&&malformed.storage.getItem(R.SK+'-corrupt-n')==='-1');
   T('isolated unreadable fallback names empty state and stored download',/fresh empty state/.test(malformed.api.getA())&&/dlCorrupt\('stored'\)/.test(malformed.api.getA()));
@@ -929,8 +925,6 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   T('boot 2 still reports the partial drop, not a demo reset',
     /1 stored record needed recovery/.test(boot2) && !/fresh\/demo state/.test(boot2),
     boot2.slice(boot2.indexOf('\u26a0'), boot2.indexOf('\u26a0') + 150));
-  global.localStorage = realLS;
-  R.setD(D);
 }
 // ── audit fix: esc() must be safe in ATTRIBUTE position, not just text position ──
 // esc() is createElement→textContent→innerHTML, which escapes & < > but NOT quotes. The
