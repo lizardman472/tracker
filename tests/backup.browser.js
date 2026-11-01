@@ -88,7 +88,7 @@ module.exports=async function({browser,origin,T,errors}){
   try{
    await p.evaluate(()=>{recordId=()=> 'backup-ui-active-1'});await key(p,p.locator('button[onclick="beginW(\'A\',true)"]').first());await p.waitForFunction(()=>ADAY==='A'&&VIEW==='workout');const start=await p.evaluate(()=>SS);
    await key(p,p.locator('#activation-toggle'));for(const i of [0,1])await key(p,p.locator('#wu-check-'+i));await exercise(p,'hex_dl');
-   await p.locator('#ex-cur input.stp-hero-in').fill('40');for(const[i,kg]of [35,45].entries())await p.getByLabel('Set '+(i+1)+' weight, kilograms',{exact:true}).fill(String(kg));
+   T('A starts hex bar at declared 40kg load '+theme,await p.evaluate(()=>Number(LOG.hex_dl.wt)===40));for(const[i,kg]of [35,45].entries())await p.getByLabel('Set '+(i+1)+' weight, kilograms',{exact:true}).fill(String(kg));
    for(const[i,reps]of [5,7].entries())await p.getByLabel('Set '+(i+1)+' reps',{exact:true}).fill(String(reps));await key(p,p.getByRole('button',{name:'Set 1 done',exact:true}));
    await key(p,p.locator('.form-row1').getByRole('button',{name:'4',exact:true}));await p.getByLabel('Clean reps left after your hardest set (estimate)',{exact:true}).selectOption('2');await p.getByLabel('Notes for Hex Bar Deadlift',{exact:true}).fill('UI Hex keep');await p.keyboard.press('Tab');
    await key(p,p.getByRole('button',{name:'Mild',exact:true}));await key(p,p.getByRole('button',{name:'Knee',exact:true}));await exercise(p,'pullup_a');
