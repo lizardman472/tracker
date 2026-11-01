@@ -57,8 +57,9 @@ module.exports=async function({browser,origin,T,errors}){
    await page.waitForFunction(()=>!IMPORT_BUSY&&!PENDING_SAVE&&!PENDING_ACTIVE);
    const imported=await snapshot(page);await key(page,page.getByRole('button',{name:'Today',exact:true}));
    await key(page,page.getByRole('button',{name:'Resume',exact:true}));const resumed=await snapshot(page);
-   T('actual downloaded active file imports and Resumes its promised identity/values '+id+' '+theme,await page.evaluate(({id,reps})=>ACTIVE_ID===id&&LOG.hex_dl.reps[0]===reps&&LOG.hex_dl.setDone[0]===true&&LOG.hex_dl.notes==='A0 keep'&&SNOTES==='A0 session keep',{id,reps}));
-   return{imported,resumed};
+   const values=await page.evaluate(()=>({id:ACTIVE_ID,reps:LOG.hex_dl.reps[0],checked:LOG.hex_dl.setDone[0],rowNotes:LOG.hex_dl.notes,notes:SNOTES}));
+   T('actual downloaded active file imports and Resumes its promised identity/values '+id+' '+theme,values.id===id&&Number(values.reps)===Number(reps)&&values.checked===true&&values.rowNotes==='A0 keep'&&values.notes==='A0 session keep',JSON.stringify(values));
+   return{imported,resumed,values};
   }finally{await h.ctx.close()}
  }
  for(const theme of ['light','dark']){
