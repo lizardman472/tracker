@@ -1664,11 +1664,11 @@ return{day:d.day,hasReps:true,why:d.loc&&d.loc!==D.location?'venue':d.phase&&d.p
 function checkResume(){try{const s=localStorage.getItem(AW_KEY);if(!s)return null;const d=normalizeActiveRecord(JSON.parse(s));
 if(!d)return null;
 const hasReps=awHasReps(d);
-if(Date.now()-d.ts>7200000){if(!hasReps){clearAW();return null}d.stale=true}
+if(Date.now()-d.ts>7200000){if(!hasReps){if(!D.originalResume&&!D.trainingPlan)clearAW();return null}d.stale=true}
 if(d.loc&&d.loc!==D.location)return null;
 if(d.phase&&d.phase!==D.phase)return null;
 if(Array.isArray(d.exIds)&&d.day){const cur=dayExs(d.day,d.swaps||{}).map(e=>e.id);
-if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){clearAW();return null}d.drifted=true}}
+if(d.exIds.length!==cur.length||d.exIds.some((id,i)=>id!==cur[i])){if(!hasReps){if(!D.originalResume&&!D.trainingPlan)clearAW();return null}d.drifted=true}}
 return d}catch(e){return null}}
 // textContent→innerHTML escapes & < > but leaves QUOTES alone, which is fine in text position
 // and broken in attribute position: the notes input interpolates esc() into value="...", so a
@@ -1810,6 +1810,16 @@ function validOriginalResume(v){
  const out={id:v.id,date:v.date,phase:v.phase,loads:{},bands:{}},ids=new Set(originalHomeExercises(v.phase).map(e=>e.id));
  for(const[id,kg]of Object.entries(plainObject(v.loads)?v.loads:{}))if(ids.has(id)&&finiteNumber(kg)>0&&Number(kg)<=1000)out.loads[id]=Number(kg);
  for(const[id,b]of Object.entries(plainObject(v.bands)?v.bands:{}))if(ids.has(id)&&BANDS.includes(b))out.bands[id]=b;
+ if(v.referenceVersion!=null||v.recoveryStart!=null||v.sources!=null||v.unresolved!=null){
+  if(v.referenceVersion!==1||!validISODate(v.recoveryStart)||v.recoveryStart>v.date||!plainObject(v.sources))return{invalid:true,loads:{},bands:{}};
+  if(v.unresolved!=null&&(!Array.isArray(v.unresolved)||v.unresolved.some(id=>!ids.has(id))))return{invalid:true,loads:{},bands:{}};
+  out.referenceVersion=1;out.recoveryStart=v.recoveryStart;out.sources={};out.unresolved=[...new Set(v.unresolved||[])];
+  for(const[id,s]of Object.entries(v.sources)){
+   if(!ids.has(id)||!plainObject(s)||!safeId(s.id)||!validISODate(s.date)||s.date>=v.recoveryStart||!['original','shorter'].includes(s.kind))return{invalid:true,loads:{},bands:{}};
+   out.sources[id]={id:safeId(s.id),date:s.date,kind:s.kind};
+  }
+  if([...Object.keys(out.loads),...Object.keys(out.bands)].some(id=>!out.sources[id]&&!out.unresolved.includes(id)))return{invalid:true,loads:{},bands:{}};
+ }
  return out;
 }
 function originalResumeContext(ex){
@@ -1824,29 +1834,114 @@ function easiestOriginalBand(ex,bands){
  return BANDS[(ex.bandMode==='assist'?Math.min:Math.max)(...values.map(BAND_IDX))];
 }
 function originalPractice(ex,p){
- return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today())
-  .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0)).at(-1);
+ return D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today()&&!s.retro&&
+  (!s.trainingStage||s.trainingStage==='progress')&&(s.originalResumeId===p.id||!s.originalResumeId&&s.date>p.date))
+  .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0).map(e=>({...e,date:s.date,_sessionId:s.id}))).at(-1);
 }
 function originalProgressionHist(ex,p){
  if(p.invalid||p.date>today())return [];
  return D.sessions.filter(s=>s.originalResumeId===p.id&&!s.retro&&!s.noProg&&!s.trainingStage&&
   (s.loc||'home')==='home'&&s.phase===p.phase&&s.date>=p.date&&s.date<=today())
   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0).map(e=>
-   ({...e,...(ex.tp==='band'?{band:easiestOriginalBand(ex,bandPattern(e))}:{}),date:s.date,phase:s.phase,loc:'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup}))).slice(-8);
+   ({...e,...(ex.tp==='band'?{band:easiestOriginalBand(ex,bandPattern(e))}:{}),date:s.date,_sessionId:s.id,phase:s.phase,loc:'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup}))).slice(-8);
 }
-function originalStartingSuggestion(ex,p){
- const last=originalPractice(ex,p),problem=originalResumeProblem(p),detail=problem?`${problem} Progression is held. Check the device date or restore a reviewed backup on a fresh device. ${originalResumeRecoveryRoute()} Earlier successes cannot earn increases.`:'Original routine after rest. Start from this held setup, reduce it if needed, and log fresh practice. Earlier successes do not earn a new increase; later suggestions use the original progression rules.';
+function originalStartingSuggestion(ex,p,anchor=null){
+ const last=originalPractice(ex,p),problem=originalResumeProblem(p),source=p.sources?.[ex.id];
+ const detail=problem?`${problem} Progression is held. Check the device date or restore a reviewed backup on a fresh device. ${originalResumeRecoveryRoute()} Earlier successes cannot earn increases.`:
+  (p.referenceVersion?p.unresolved?.includes(ex.id)?'The saved starting setup could not be verified as recovery practice. It stays held for manual review. ':source?`Regular ${source.kind==='shorter'?'shorter-routine':'original-routine'} Home practice on ${source.date}, Phase ${p.phase}. This is a setup reference, not credit for today's sets. `:'No eligible regular reference found. Choose a manageable manual starting setup. ':
+   'These saved starting loads may still use recovery references. Review starting loads on Today or Settings. ')+
+  (VIEW==='workout'?'Your current workout keeps its entered loads. Adjust a set weight or band manually if you choose; finish and save before applying new starting loads. ':'')+
+  'Hold the starting setup, reduce it if needed, and log fresh practice. Lower actual post-return practice stays protected. Earlier successes do not earn a new increase.';
  if(ex.tp==='band'){
-  const band=easiestOriginalBand(ex,[p.bands[ex.id],...bandPattern(last)]);
+  const band=easiestOriginalBand(ex,[...(anchor?bandPattern(anchor):[p.bands[ex.id]]),...bandPattern(last)]);
   return{text:band?`Hold ${band}`:'Choose an easy band',type:'stay',wt:null,band,traj:[],detail,regress:''};
  }
  if(ex.tp==='bw'||ex.tp==='club')return{text:'Control first — fresh practice',type:'stay',wt:ex.fixedKg||null,traj:[],detail,regress:''};
  const practice=last?sessLoad(last,last.reps.filter(r=>r>0).length):0;
- const known=[p.loads[ex.id],practice].filter(w=>w>0),raw=known.length?Math.min(...known):0;
+ const seed=anchor?sessLoad(anchor,anchor.reps.filter(r=>r>0).length):p.loads[ex.id];
+ const known=[seed,practice].filter(w=>w>0),raw=known.length?Math.min(...known):0;
  const ladder=ex.tp==='db'?dbwOf(ex):ex.tp==='bb'?vwOf(ex):null;
  const wt=raw?(ladder?ladder.filter(w=>w<=raw).at(-1)||ladder[0]:raw):null;
  const floor=raw&&wt>raw?` The lightest available setup is ${wt}kg, above the ${raw}kg practice reference. Choose a manageable alternative if needed.`:'';
  return{text:ex.manualLoad?'Choose load for control':wt?`${wt}kg · held starting load`:'Choose a light starting load',type:'stay',wt,traj:[],detail:detail+floor,regress:''};
+}
+function regularOriginalReference(ex,phase,start){
+ const rows=D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===phase&&!s.noProg&&s.date<start&&s.date<=today()&&
+  (!s.trainingStage||s.trainingStage==='progress')&&s.ex.some(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0));
+ const date=rows.at(-1)?.date,candidates=rows.filter(s=>s.date===date);if(candidates.length!==1)return null;
+ const s=candidates[0],e=s.ex.find(e=>e.id===ex.id),wt=sessLoad(e,e.reps.filter(r=>r>0).length),band=easiestOriginalBand(ex,bandPattern(e));
+ return{source:{id:s.id,date:s.date,kind:s.trainingStage==='progress'?'shorter':'original'},wt:wt>0&&wt<=1000?wt:null,band};
+}
+function originalRecoveryBoundary(p){
+ const rows=D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===p.phase&&s.trainingStage&&s.trainingStage!=='progress'&&
+  validISODate(s.trainingPlanStart)&&s.trainingPlanStart<=s.date&&s.date<=p.date&&s.date<=today()&&s.ex.some(e=>e.reps.some(r=>r>0)));
+ const last=rows.at(-1);if(!last)return null;
+ const starts=new Set(rows.filter(s=>s.date>=last.trainingPlanStart).map(s=>s.trainingPlanStart));return starts.size===1?last.trainingPlanStart:null;
+}
+function originalReferenceProposal(mode){
+ const old=mode==='return'?{id:'original-preview',date:today(),phase:D.phase,loads:{},bands:{}}:originalResumeContext();
+ if(!old||originalResumeProblem(old)||mode==='repair'&&old.referenceVersion)return null;
+ const start=mode==='return'?D.trainingPlan?.start:originalRecoveryBoundary(old);
+ if(!validISODate(start)||start>old.date)return{error:'Recovery boundary needs review. No starting loads can be changed from ambiguous or missing history. Choose a manageable setup manually.'};
+ const p={...old,loads:{},bands:{},referenceVersion:1,recoveryStart:start,sources:{},unresolved:[]},rows=[];
+ for(const ex of [...new Map(originalHomeExercises().map(e=>[e.id,e])).values()]){
+  const ref=regularOriginalReference(ex,p.phase,start);
+  const recovery=mode==='repair'?D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===old.phase&&s.trainingPlanStart===start&&s.trainingStage&&s.trainingStage!=='progress'&&s.date<=old.date&&s.date<=today())
+   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0)).at(-1):null;
+  const unresolved=mode==='repair'&&((old.loads[ex.id]&&!wEq(old.loads[ex.id],ref?.wt||0)&&!wEq(old.loads[ex.id],recovery?sessLoad(recovery,recovery.reps.filter(r=>r>0).length):0))||
+   (old.bands[ex.id]&&old.bands[ex.id]!==ref?.band&&old.bands[ex.id]!==easiestOriginalBand(ex,bandPattern(recovery))));
+  if(unresolved){p.unresolved.push(ex.id);if(old.loads[ex.id])p.loads[ex.id]=old.loads[ex.id];if(old.bands[ex.id])p.bands[ex.id]=old.bands[ex.id]}
+  else if(ref){p.sources[ex.id]=ref.source;if(ref.wt)p.loads[ex.id]=ref.wt;if(ref.band)p.bands[ex.id]=ref.band}
+  const earned=mode==='repair'?originalProgressionHist(ex,old).at(-1):null;
+  const before=mode==='repair'?getSmartSugg(ex):null,after=earned?before:originalStartingSuggestion(ex,p);
+  rows.push({ex,ref,before,after,earned:!!earned,unresolved});
+ }
+ return{p,rows};
+}
+function originalReferenceBlock(){
+ if(!WRITER)return 'This tab is read-only. Use the editing tab before applying starting loads.';
+ if(PENDING_SAVE||PENDING_ACTIVE||IMPORT_BUSY)return 'Resolve the pending save or import before applying starting loads.';
+ if(ADAY||window._S)return 'Your current workout keeps its entered loads. Adjust them manually if you choose, then finish and save before applying starting loads.';
+ try{if(localStorage.getItem(AW_KEY)!==null)return 'A stored unfinished workout backup blocks Apply, including hidden or notes-only work. Resume it if available, or download the backup before explicitly discarding it.'}
+ catch(_){return 'Cannot check the stored unfinished workout backup. Keep this tab open and restore storage access before applying starting loads.'}
+ return '';
+}
+let ORIGINAL_REFERENCE_REVIEW=null,ORIGINAL_REFERENCE_STATUS='';
+function reviewOriginalReferences(mode){
+ if(!['return','repair'].includes(mode)||mode==='return'&&!['deload','return'].includes(D.trainingPlan?.stage))return false;
+ ORIGINAL_REFERENCE_REVIEW=mode;ORIGINAL_REFERENCE_STATUS='';render();
+ focusOriginalReferenceTarget('reference-review-title');return true;
+}
+function focusOriginalReferenceTarget(id){const target=document.getElementById(id);if(!target)return;
+ target.style.scrollMarginTop=(Math.max(0,document.getElementById('nav')?.getBoundingClientRect().bottom||0,document.querySelector('.hdr')?.getBoundingClientRect().bottom||0)+8)+'px';target.scrollIntoView({block:'nearest',behavior:'auto'});target.focus({preventScroll:true})}
+function cancelOriginalReferenceReview(){const mode=ORIGINAL_REFERENCE_REVIEW;ORIGINAL_REFERENCE_REVIEW=null;render();document.getElementById(mode==='return'?'direct-original-choice':'review-original-references')?.focus()}
+function referenceSetup(ex,value){return value?.band?value.band+(ex.bandMode==='assist'?' assistance':' resistance'):value?.wt?value.wt+' kg'+(ex.loadUnit==='per_db'?' per dumbbell':''):'Unknown — choose a manageable setup manually'}
+function originalReferenceReviewH(){
+ const mode=ORIGINAL_REFERENCE_REVIEW;if(!mode)return '';
+ const proposal=originalReferenceProposal(mode),block=originalReferenceBlock(),hasSource=proposal?.rows?.some(r=>r.ref&&!r.unresolved),disabled=block||!proposal?.p||mode==='repair'&&!hasSource;
+ let h='<section id="reference-review"><h3 id="reference-review-title" tabindex="-1">Review starting loads</h3><p>Recovery off and a held starting reference are different. Regular practice before recovery supplies a reference; fresh workouts still earn increases. Applying keeps history, phase, next day and progression credit.</p>';
+ if(proposal?.error)h+='<p role="status">'+esc(proposal.error)+'</p>';
+ const renderRow=r=>{const old=mode==='repair'?{wt:D.originalResume.loads[r.ex.id],band:D.originalResume.bands[r.ex.id]}:null;
+  return `<div class="cd"><b>${esc(r.ex.nm)}</b>${old?`<p>Saved starting setup: ${esc(referenceSetup(r.ex,old))}<br>Current suggestion: ${esc(referenceSetup(r.ex,r.before))}</p>`:''}<p>Regular practice reference: ${r.ref?esc(referenceSetup(r.ex,r.ref))+` · ${r.ref.source.date} · Phase ${proposal.p.phase} · ${r.ref.source.kind==='shorter'?'shorter regular routine (not proof of original sets)':'original routine'}`:'No eligible regular reference found'}</p><p>Starting setup after Apply: ${esc(referenceSetup(r.ex,r.after))}<br>${r.unresolved?'Saved reference does not match the recorded recovery setup; retained for manual review.':r.earned?'Fresh practice and its progression are retained.':'A lower actual post-return setup stays lower. Bands use a conservative uniform setup where needed.'}</p></div>`;
+ };
+ const essentials=new Set(Object.values(originalEssentials()).flat().map(e=>e.id)),main=[],other=[];
+ for(const r of proposal?.rows||[]){const id=r.ex.id,changed=mode==='repair'&&(D.originalResume.loads[id]!==proposal.p.loads[id]||D.originalResume.bands[id]!==proposal.p.bands[id]);
+  const visible=mode==='return'?essentials.has(id):changed||r.earned||r.unresolved;(visible?main:other).push(r);
+ }
+ h+=main.map(renderRow).join('');if(other.length)h+=`<details><summary>Other exercises (${other.length} unchanged or optional Full)</summary>${other.map(renderRow).join('')}</details>`;
+ if(block)h+='<p role="status">'+esc(block)+'</p>';
+ if(!hasSource&&!proposal?.error)h+='<p>No eligible regular reference found. '+(mode==='repair'?'No rows can change; choose a manageable setup manually.':'The original routine needs a manageable manual starting setup.')+'</p>';
+ h+=`<button class="btn btn-pr"${disabled?' disabled':''} onclick="${mode==='return'?'resumeOriginalAfterRest()':'applyOriginalReferenceCorrection()'}">${mode==='return'?'Confirm original return':'Apply starting loads'}</button><button class="btn btn-wh" onclick="cancelOriginalReferenceReview()">Cancel</button>`;
+ if(block&&!ADAY&&!window._S&&WRITER&&!PENDING_SAVE&&!PENDING_ACTIVE&&!IMPORT_BUSY)h+='<button class="btn btn-wh" onclick="downloadStoredReferenceDraft()">Download stored workout backup</button><button class="btn btn-wh" onclick="discardActiveWorkout()">Discard stored unfinished workout</button>';
+ return h+'</section>';
+}
+function downloadStoredReferenceDraft(){try{const raw=localStorage.getItem(AW_KEY);if(raw!==null)downloadJSON({rawActiveWorkout:raw},'unfinished-workout-raw-backup.json')}catch(_){alert('Cannot read the stored workout backup. Keep this tab open.')}}
+function applyOriginalReferenceCorrection(){
+ const blocked=originalReferenceBlock();if(blocked){alert(blocked);return false}
+ const proposal=originalReferenceProposal('repair');if(!proposal?.p||!proposal.rows.some(r=>r.ref&&!r.unresolved))return false;
+ if(!confirm('Apply the reviewed regular-practice starting references? Actual workouts, lower post-return practice, current phase, next day and earned progression stay saved.'))return false;
+ const W=structuredClone(D);W.originalResume=validOriginalResume(proposal.p);
+ return save(W,{after:()=>{ORIGINAL_REFERENCE_REVIEW=null;ORIGINAL_REFERENCE_STATUS='Starting references updated. Actual lower practice and fresh progression are retained; missing or unverified references still need manual review.';renderTrainingPlanChange();focusOriginalReferenceTarget('original-reference-status')}});
 }
 function resumeOriginalAfterRest(){
  if(!changeTrainingPlanAllowed()||D.location!=='home'||!['deload','return'].includes(D.trainingPlan?.stage))return false;
@@ -1855,20 +1950,15 @@ function resumeOriginalAfterRest(){
  // preserve any stored draft, including notes-only work or unknown storage state.
  try{if(localStorage.getItem(AW_KEY)!==null){alert('Resume or explicitly discard the stored unfinished workout before returning to the original routine.');return false}}
  catch(_){AW_ERROR='Cannot check the unfinished workout backup. Keep this tab open and restore device storage access before changing the routine.';updateSaveStatus();return false}
- if(!confirm(`Resume your usual original A/B/C Essentials after rest? Confirm only if you feel ready. This restores eight or nine exercises and 24–26 working sets per day, in your current ${PHASES[D.phase].name} phase, with Day ${D.nextDay} next. The phase clock and history stay saved. Starting loads are held at reference or lower logged practice; only new workouts earn future increases. Full remains a separate optional choice.`))return false;
- const W=structuredClone(D),p={id:recordId('original-'),date:today(),phase:D.phase,loads:{},bands:{}};
- for(const ex of originalHomeExercises()){
-  const e=D.sessions.filter(s=>(s.loc||'home')==='home'&&s.phase===D.phase&&s.date<=today())
-   .flatMap(s=>s.ex.filter(e=>e.id===ex.id&&effectiveReps(ex,e.reps).length>0)).at(-1);
-  const practice=e?sessLoad(e,e.reps.filter(r=>r>0).length):0;
-  const known=[D.trainingPlan.loads[ex.id],practice].filter(w=>w>0);if(known.length)p.loads[ex.id]=Math.min(...known);
-  const band=easiestOriginalBand(ex,[D.trainingPlan.bands[ex.id],...bandPattern(e)]);if(band)p.bands[ex.id]=band;
- }
+ const proposal=originalReferenceProposal('return');if(!proposal?.p)return false;
+ if(!confirm(`Resume your usual original A/B/C Essentials after rest? Confirm only if you feel ready. Eight or nine exercises and 24–26 sets, current ${PHASES[D.phase].name} phase and Day ${D.nextDay} next. Starting setups use the reviewed regular Home practice before recovery; missing references need a manual light start. Historical successes earn no new increase. Full stays optional.`))return false;
+ const W=structuredClone(D),p={...proposal.p,id:recordId('original-')};
  W.trainingPlan=null;W.originalResume=validOriginalResume(p);
  // The confirmed choice resolves this break offer, using its existing signature.
  // A later real session changes that signature and allows a new break offer.
  const last=lastSessDate();if(!D.seeded&&last&&dayDiff(today(),last)>=RTN_MIN_GAP)W.dismissed.rtn=last;
  return save(W,{after:()=>{
+  ORIGINAL_REFERENCE_REVIEW=null;ORIGINAL_REFERENCE_STATUS='';
   if(AW_ERROR==='Cannot check the unfinished workout backup. Keep this tab open and restore device storage access before changing the routine.')AW_ERROR='';
   updateSaveStatus();renderTrainingPlanChange();
   const title=document.getElementById('training-plan')?.querySelector('.routine-title');
@@ -2076,6 +2166,9 @@ function trainingPlanCard(view='home'){
   st.stage==='progress'?'5 exercises · 11 working sets · build reps first':`${st.stage==='original1'?'Two sets per exercise · up to 90%':st.stage==='original2'?'Original Essentials sets · up to 95%':'Original Essentials sets · held reference'} loads · ${effort} clean reps left`;
  let h=`<div class="routine-control" id="training-plan"><div class="routine-title">${cue}</div><div class="routine-meta">${instruction}${st&&st.stage!=='progress'?`<br>${st.pending?'Starts '+fmtD(st.stageStart):st.resting?'Rest until '+fmtD(st.restUntil||st.review):'Review from '+fmtD(st.review)}${orig?' · A/B/C completed: '+st.completed.length+'/3':''}`:''}</div>`;
  h+=`<div class="routine-state"><span>Recovery: ${st&&['deload','return'].includes(st.stage)?st.pending?'Scheduled':'On':'Off'}</span><span>Load: ${trainingLoadContext(st)}</span></div>`;
+ if(originalResumeContext()&&!originalResumeProblem()&&!D.originalResume.referenceVersion)h+='<p>Recovery is off. These saved starting loads may still use recovery references. Review them against your regular training.</p>'+(view==='workout'?'<p>Keep your current entries; finish and save before applying new starting loads.</p>':'<button id="review-original-references" class="btn btn-wh" onclick="reviewOriginalReferences(\'repair\')">Review starting loads</button>');
+ if(ORIGINAL_REFERENCE_STATUS)h+='<p id="original-reference-status" role="status" tabindex="-1">'+esc(ORIGINAL_REFERENCE_STATUS)+'</p>';
+ if(view!=='workout')h+=originalReferenceReviewH();
  if(originalResumeProblem())h+=`<p role="status">${esc(originalResumeProblem())} Starting loads and progression stay held. Check the device date or restore a reviewed backup on a fresh device. ${originalResumeRecoveryRoute(view)}</p>`;
  h+=`<div class="routine-meta"><b>Current phase:</b> ${ctx.label}${D.location==='partner'?`<br>Active Partner phase: ${PHASES[D.phase].name}`:''}</div>`;
  h+=shortDeloadGuidanceH(check,view);
@@ -2086,7 +2179,7 @@ function trainingPlanCard(view='home'){
   h+=`<div class="routine-actions"><button class="btn btn-pr" onclick="advanceTrainingPlan(${st.stage==='return'?"Number(document.getElementById('phase-after-recovery').value)":''})">${st.stage==='deload'?'I feel ready — start easy return week':st.stage==='return'?'I feel ready — use shorter routine':st.stage==='original3'?'I feel ready — resume original progression':'I feel ready — next return step'}</button><button class="btn btn-wh" onclick="restTrainingPlan()">Still tired — take two more rest days</button></div>`;
  }
  h+=`<details${view==='settings'?' open':''}><summary>${st?'Plan details and routine choices':'Recovery plan and routine choices'}</summary>`;
- if(D.location==='home'&&['deload','return'].includes(st?.stage))h+='<p><b>Ready for your usual routine after rest?</b> Return directly to original A/B/C Essentials: eight or nine exercises, 24–26 working sets. Keep the current phase, its clock and the next day. Starting loads use reference or lower logged practice, with fresh workouts required for increases.</p><div class="routine-actions"><button class="btn btn-wh" onclick="resumeOriginalAfterRest()">Resume original A/B/C after rest</button></div>';
+ if(D.location==='home'&&['deload','return'].includes(st?.stage))h+='<p><b>Ready for your usual routine after rest?</b> Original A/B/C Essentials: eight or nine exercises, 24–26 working sets, current phase, clock and next day. Review starting setups from regular Home practice before recovery. Unknown references need a manual light start; only fresh workouts earn increases.</p><div class="routine-actions"><button id="direct-original-choice" class="btn btn-wh" onclick="reviewOriginalReferences(\'return\')">Resume original A/B/C after rest</button></div>';
  if(D.location==='home'&&['deload','return'].includes(st?.stage)&&D.comeback)h+='<p role="status">Finish or cancel the existing return-from-break ramp in Settings before choosing direct original return. Your recovery plan and history stay saved.</p>';
  h+=recoveryModeControlsH(st);
  if(st?.stage==='progress')h+=phaseChoiceH('shorter-phase','Phase for shorter A/B/C',st.phase||'')+'<div class="routine-actions"><button class="btn btn-wh" onclick="setShorterPhase(Number(document.getElementById(\'shorter-phase\').value))">Apply training phase</button></div>';
@@ -3130,6 +3223,11 @@ function safetyHist(ex){let h=getHist(ex.id,8).filter(x=>!x.noProg&&effectiveRep
   return h.slice(-5)}
 function getSmartSugg(ex){
   const base=shortSuggestion(ex)||getSmartSuggCore(ex);
+  const context=originalResumeContext(ex),fresh=context?originalProgressionHist(ex,context).at(-1):null,practice=context?originalPractice(ex,context):null;
+  if(fresh&&practice&&practice._sessionId!==fresh._sessionId){
+   const held=originalStartingSuggestion(ex,context,fresh),load=sessLoad(fresh,fresh.reps.filter(r=>r>0).length),band=easiestOriginalBand(ex,bandPattern(fresh));
+   if(held.wt&&load&&held.wt<load||ex.tp==='band'&&held.band&&band&&held.band!==band)return{...held,detail:'A lower actual post-return setup is retained. '+held.detail};
+  }
   if(base.type!=='up')return base;
   const hist=safetyHist(ex),last=hist[hist.length-1],reasons=[];
   if(last&&Number(last.difficulty)===5)reasons.push('last session effort was 5/5');
@@ -3148,13 +3246,14 @@ function getSmartSugg(ex){
   if(PARTNER_PRESS_IDS.has(ex.id)){const r=recentOtherVenueWork(ex,HOME_PRESS_IDS,'home','home pressing work was logged after this lift');if(r)reasons.push(r)}
   if(!reasons.length)return base;
   const resume=originalResumeContext(ex),earned=resume?originalProgressionHist(ex,resume).at(-1):null;
-  const anchor=earned||last,lastLoad=anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
-  const heldBand=resume&&ex.tp==='band'?easiestOriginalBand(ex,bandPattern(anchor)):anchor?.band||base.band;
+  const anchor=resume?earned:last,held=resume?originalStartingSuggestion(ex,resume,anchor):null;
+  const lastLoad=resume?held.wt:anchor?sessLoad(anchor,Math.min(ex.s,(anchor.reps||[]).length||ex.s)):0;
+  const heldBand=resume&&ex.tp==='band'?held.band:anchor?.band||base.band;
   const bandHold=resume&&ex.tp==='band'?{band:heldBand,bands:Array(ex.s).fill(heldBand)}:{band:heldBand};
   const unit=ex.loadUnit==='per_db'?'/DB':'';
   const text=ex.tp==='band'?`Stay on ${heldBand||'current band'} (recovery hold)`:
     lastLoad?`→ ${lastLoad}kg${unit} (recovery hold)`:'Hold progression for recovery';
-  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:lastLoad||base.wt,...bandHold,
+  return{...base,type:'stay',text,...(base.action?{action:'Hold progression'}:{}),wt:resume?lastLoad:lastLoad||base.wt,...bandHold,
     detail:`Progression held: ${reasons.join('; ')}.${resume&&ex.tp==='band'?` Repeat ${heldBand||'an easy band'} for every set; no harder bridge is prescribed.`:base.action?' Reassess before adding reps or weight.':base.detail?` ${base.detail}`:''}`,
     regress:`⚠ ${reasons.join(' · ')}`}
 }

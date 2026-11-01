@@ -13,9 +13,10 @@ globalThis.R={freshState,validTrainingPlan,normalizeState,mergeImport,mergeStore
  trainingPlanStatus,shortProgram,shortSuggestion,getSmartSugg,shortDeloadStatus,getDeload,dayAfter,today,dayExs,startTrainingPlan,
  advanceTrainingPlan,restTrainingPlan,stopTrainingPlan,keepShorterRoutine,setShorterPhase,setRecoveryMode,trainingLoadContext,trainingStartButton,setPhase,getPhaseInfo,trainingPhaseContext,originalEssentials,trainingPlanCard,ensureLog,beginW,finishW,saveSumm,bandPattern,AW_KEY,
  resumeOriginalAfterRest,validOriginalResume,originalProgressionHist,normalizeActiveRecord,activeRecord,resumeW,getHist,recoveryExportData,getSmartSuggCore,getBreak,bannerDismissed,
+ originalReferenceProposal,applyOriginalReferenceCorrection,reviewOriginalReferences,cancelOriginalReferenceReview,originalReferenceBlock,checkResume,
  setFinishReason:r=>{window._S.finishReason=r},
  getD:()=>D,getADAY:()=>ADAY,getLOG:()=>LOG,
- setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};
+ setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;ADAY=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};ORIGINAL_REFERENCE_REVIEW=null;ORIGINAL_REFERENCE_STATUS='';window._S=null;
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
  setActive:v=>{ADAY=v},setConfirm:v=>{confirm=()=>v}};`,context);
 const R=context.R,json=v=>JSON.parse(JSON.stringify(v));let passed=0;
@@ -416,4 +417,5 @@ test('new recovery anchors use mixed counted bands through the actual finish and
  }
 });
 require('./original-resume.cases')({R,context,test,json});
+require('./original-reference.cases')({R,context,test,json});
 console.log(`\n${passed} recovery tests passed`);
