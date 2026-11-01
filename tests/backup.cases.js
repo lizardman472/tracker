@@ -76,6 +76,18 @@ module.exports=function({harness,test,plain,SK,AW,code}){
  test('M explicit untouched zero-rep template is distinct from meaningful legacy setup',()=>{
   const d=draft();d.notes='';d.wu=[];d.log={hex_dl:{wt:7,reps:[''],form:[0],setDone:[false],notes:'',touched:false,pf:false}};const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert.equal(h.ctx.awHasWork(d),false);assert.equal(h.ctx.pendingAW(),null);
  });
+ for(const[field,value]of [['form',99],['form',1.5],['rir',99],['rir',1.5]])test('malformed known '+field+'='+value+' cannot claim complete capture after repair',()=>{
+  const d=draft();if(field==='form')d.log.hex_dl.form=[value,0,4];else d.log.hex_dl.rir=value;const raw=JSON.stringify(d),h=start({values:[[SK,F.MAIN_RAW],[AW,raw]]});
+  assert.equal(h.ctx.expD(),false);assert.equal(h.downloads.length,0);assert.equal(h.values.get(SK),F.MAIN_RAW);assert.equal(h.values.get(AW),raw);assert.match(h.alerts.at(-1),/without repairs/);assert(h.ctx.exportRawWorkout());assert.equal(h.downloads.at(-1).parts.join(''),raw);
+ });
+ for(const rating of [0,'4'])test('valid integer zero/numeric-string rating is retained '+JSON.stringify(rating),()=>{
+  const d=draft();d.log.hex_dl.form=[rating,0,4];d.log.hex_dl.rir=rating;const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=h.ctx.completeBackupData();assert.equal(value.activeWorkout.log.hex_dl.form[0],Number(rating));assert.equal(value.activeWorkout.log.hex_dl.rir,Number(rating));
+ });
+ test('zero-rep per-slot band setup survives supported export and actual envelope import independently',()=>{
+  const d=draft();d.notes='';d.wu=[];d.log={pullup_a:{wt:null,band:'Green',bands:['Green','Blue (heaviest)','Purple'],reps:['','',''],form:[0,0,0],setDone:[false,false,false],notes:'',touched:true}};
+  const h=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]}),value=plain(h.ctx.completeBackupData());assert.deepEqual(value.activeWorkout.log.pullup_a.bands,['Green','Blue (heaviest)','Purple']);
+  const destination=start({values:[[SK,JSON.stringify({...main(),sessions:[],originalResume:null})]]});destination.ctx.impD({target:{files:[{content:JSON.stringify(value)}],value:'x'}});const restored=destination.ctx.checkResume();assert.deepEqual(plain(restored.log.pullup_a.bands),['Green','Blue (heaviest)','Purple']);assert(destination.ctx.pendingAW());
+ });
  test('DATA04 legacy absent touched marker survives actual envelope export/import and Start cancellation',()=>{
   const d=draft();d.notes='';d.wu=[];d.swaps={};d.ts=1;d.log={hex_dl:{wt:7,reps:['','',''],notes:''}};
   const source=start({values:[[SK,F.MAIN_RAW],[AW,JSON.stringify(d)]]});assert(source.ctx.pendingAW());const value=plain(source.ctx.completeBackupData());assert.equal(Object.hasOwn(value.activeWorkout.log.hex_dl,'touched'),false);

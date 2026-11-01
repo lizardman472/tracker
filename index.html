@@ -1629,6 +1629,8 @@ const add=(kind,record,raw=null)=>{
  const malformed=!active||record.notes!=null&&typeof record.notes!=='string'||Object.values(record.log||{}).some(v=>!plainObject(v)||!Array.isArray(v.reps)||v.reps.some(r=>r!==''&&r!=null&&finiteNumber(r)===null)||
   ['wt','rir'].some(k=>v[k]!==''&&v[k]!=null&&finiteNumber(v[k])===null)||['notes','band'].some(k=>v[k]!=null&&typeof v[k]!=='string')||
   ['wts','form','setTs'].some(k=>v[k]!=null&&(!Array.isArray(v[k])||v[k].some(x=>x!==''&&x!=null&&finiteNumber(x)===null)))||
+  v.form!=null&&Array.isArray(v.form)&&v.form.some(x=>x!==''&&x!=null&&(!Number.isInteger(finiteNumber(x))||Number(x)>5))||
+  v.rir!==''&&v.rir!=null&&(!Number.isInteger(finiteNumber(v.rir))||Number(v.rir)>5)||
   v.bands!=null&&(!Array.isArray(v.bands)||v.bands.some(b=>typeof b!=='string')));
  if(malformed)issues.push('The '+kind+' unfinished workout could not be captured without repairs. Keep its separately named copy.');
  else sources.push({kind,active,raw});
