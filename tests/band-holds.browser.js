@@ -28,7 +28,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   await keyActivate(page,page.getByRole('button',{name:`Day ${day}1 Essentials anyway`,exact:true}));
   let card=await exercise(page,id);
   async function visiblePattern(){
-   const values=[];for(let i=1;i<=4;i++)values.push(await card.getByLabel(`Set ${i} band`,{exact:true}).inputValue());return values;
+   const values=[];for(let i=1;i<=4;i++)values.push(await card.getByLabel(`Set ${i} band`,{exact:true}).evaluate(el=>el.selectedOptions[0].textContent.trim()));return values;
   }
   const visible=await visiblePattern(),prefill=await page.evaluate(id=>structuredClone(LOG[id]),id),cardText=await card.innerText();
   T('actual initialized band inputs agree with advice '+tag,JSON.stringify(visible)===JSON.stringify(expected)&&JSON.stringify(prefill.bands)===JSON.stringify(expected),JSON.stringify({visible,prefill}));
@@ -37,7 +37,8 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   // Interrupt and resume the actual persisted draft before making any input changes.
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>WRITER_READY&&WRITER);
   await keyActivate(page,page.getByRole('button',{name:/^Resume/}).first());card=await exercise(page,id);
-  T('reload and Resume retain every initialized band '+tag,JSON.stringify(await visiblePattern())===JSON.stringify(expected));
+  const resumedLog=await page.evaluate(id=>structuredClone(LOG[id]),id),resumedVisible=await visiblePattern();
+  T('reload and Resume retain every effective band '+tag,JSON.stringify(resumedVisible)===JSON.stringify(expected)&&JSON.stringify(resumedLog.bands.map(b=>b||resumedLog.band))===JSON.stringify(expected),JSON.stringify({resumedVisible,resumedLog}));
   for(let i=1;i<=4;i++){
    await card.getByLabel(`Set ${i} reps`,{exact:true}).fill('8');await keyActivate(page,card.getByRole('button',{name:`Set ${i} done`,exact:true}));
   }
@@ -60,7 +61,7 @@ module.exports=async function({T,baseStore,open,keyActivate,screenshot}){
   const historyExpected=label==='blank-counted'?'Green×8, Purple+Red×8, Green×8, Green×8':label==='earned-advance'?'Purple+Red×8, Purple+Red×8, Green×8, Green×8':label==='effort-tagged'?'[8,8,8,8] Green':'Purple+Red×8, Green×8, Green×8, Green×8';
   T('saved History displays the independently expected counted pattern '+tag,history.includes(historyExpected),history);
   T('band-hold route has no page errors or horizontal overflow '+tag,errors.length===0&&await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),errors.join('\n'));
-  evidence.push({theme,label,expected,advice,visible,prefill,cardText,saved,history,oldHistoryUnchanged:previous.every(p=>JSON.stringify(after.find(s=>s.id===p.id))===JSON.stringify(p)),errors});
+  evidence.push({theme,label,expected,advice,visible,prefill,cardText,resumedVisible,resumedLog,saved,history,oldHistoryUnchanged:previous.every(p=>JSON.stringify(after.find(s=>s.id===p.id))===JSON.stringify(p)),errors});
   fs.writeFileSync(path.join(__dirname,'..','test-results','recovery-layout','band-hold-evidence.json'),JSON.stringify(evidence,null,2));
   await ctx.close();
  }
