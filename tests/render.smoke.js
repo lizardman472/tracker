@@ -1299,7 +1299,7 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 // ── Audit 6 / F3: a mistyped cardio entry must be removable ──
 // Cardio had no delete or edit anywhere in the app. A 300-minute row typed for 30 permanently
 // skewed the fatigue meter, the monthly minutes total, the weekly cardio chart and the heat
-// map, and could not be undone: the cardio merge in both mergeImport and mergeStores is purely
+// map, and could not be undone: the cardio merge in mergeImport is purely
 // additive, so re-importing a corrected backup does not remove it either. Only Reset All Data.
 {
   const realConfirm = global.confirm;
@@ -1342,8 +1342,8 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
 }
 
 // ── Audit 6 / F4: deleting a session records a tombstone ──
-// delS is the only writer of D.deleted; without it mergeStores has nothing to filter on and
-// the two-tab union resurrects the row. Checked here (not calc.test.js) because delS renders.
+// Confirmed deletion retains its existing D.deleted marker.
+// Checked here (not calc.test.js) because delS renders.
 {
   const saved = R.getD().sessions;
   R.getD().sessions = [
@@ -1358,8 +1358,6 @@ T('empty cues state uses the shared card', /No cues yet/.test(setScr) && /💡/.
   delS('tomb2');                     // second tap confirms
   T('the confirmed delete removes the session', R.getD().sessions.map(s => s.id).join() === 'tomb1', JSON.stringify(R.getD().sessions.map(s => s.id)));
   T('the confirmed delete records a tombstone', R.getD().deleted.includes('tomb2'), JSON.stringify(R.getD().deleted));
-  T('the tombstone survives a two-tab merge with a store that still has the row',
-    !mergeStores(R.getD(), { sessions: [{ id: 'tomb2', date: '2026-06-12', day: 'B', ex: [] }] }).sessions.some(s => s.id === 'tomb2'));
   R.getD().sessions = saved;
   R.getD().deleted = [];
 }

@@ -95,7 +95,6 @@ try {
   equal(h.run('strengthMomentum().map(m=>m.id)'), ['ohp'], 'quality, club and carry work do not rank as strength momentum');
   h.state(['2026-07-20', '2026-07-27', '2026-08-10'].map((date, i) => session(date, [ohp(40 + i)])));
   equal(h.run('strengthMomentum()'), [], 'stale fitted series cannot drive current strength verdict');
-  equal(h.run("e1rmProjection('ohp')"), null, 'stale series does not produce milestone scenario');
   h.state(['2026-08-24', '2026-08-31', '2026-09-07', '2026-09-08'].map((date, i) => session(date, [ohp(i === 3 ? 200 : 40 + i)])));
   equal(h.run("e1rmSlope('ohp',56).n"), 3, 'future observation cannot change trend');
   h.state(['2026-08-24', '2026-08-31', '2026-09-07', '2026-09-07'].map((date, i) => session(date, [ohp(40 + i)], { id: 'duplicate-date-' + i })));

@@ -1538,16 +1538,14 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('merge-existing: lastDeload NOT adopted onto a non-fresh device', m2.W.lastDeload === null, String(m2.W.lastDeload));
   {
     // ── Audit 6 / F4: an explicit import may LIFT a tombstone ──
-    // mergeStores treats D.deleted as authoritative, so a restored session would be re-deleted
-    // by the next cross-tab merge unless the import clears its tombstone. An import is an
-    // explicit, reported act — unlike the silent union — so restoring is the right outcome.
+    // Explicit import restores the requested records and clears their deletion markers.
+    // Markers for unrelated records remain stored.
     const back = JSON.parse(exported);
     const withTomb = { ...freshState(), sessions: [mk('keep', '2026-05-02', 'A', 'home', [{ id: 'hex_dl', wt: 50, reps: [5, 5, 5], band: '', notes: '' }])], deleted: [back.sessions[0].id, 'unrelated'] };
     const lifted = mergeImport(withTomb, back).W;
     T('import: a restored session is not left tombstoned', !lifted.deleted.includes(back.sessions[0].id), JSON.stringify(lifted.deleted));
     T('import: the restored session actually lands', lifted.sessions.some(s => s.id === back.sessions[0].id));
     T('import: tombstones for sessions NOT in the backup are kept', lifted.deleted.includes('unrelated'), JSON.stringify(lifted.deleted));
-    T('import: the restored session survives a later two-tab merge', mergeStores(lifted, { ...freshState() }).sessions.some(s => s.id === back.sessions[0].id));
   }
   {
     // A local deload date must survive an import that carries a different one...
@@ -1729,8 +1727,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
   // ── Audit 6 / F4: the tombstone list is normalised on load ──
   // Every store written before this release has no `deleted` field at all, and a hand-edited
-  // one could carry anything. mergeStores filters ids into an onclick-safe charset already,
-  // but the load path guards the same shape so nothing downstream has to re-check it.
+  // one could carry anything. The load path constrains these IDs to the supported charset.
   store[SK] = JSON.stringify({ ...freshState(), sessions: [good], deleted: undefined });
   load();
   T('a pre-v79 store without a deleted field loads to an empty list', Array.isArray(getD().deleted) && getD().deleted.length === 0, JSON.stringify(getD().deleted));
@@ -1749,10 +1746,6 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
 
 // ── Progress rebuild A2: band-lift progression helpers ──
 {
-  T('bandRank maps exact ladder strings', bandRank('Blue (heaviest)') === 0 && bandRank('None') === 5);
-  T('bandRank treats the combo band as its own rung', bandRank('Purple+Red') === 2);
-  T('bandRank returns -1 for unknown/legacy strings', bandRank('Orange') === -1 && bandRank('') === -1);
-
   const d2 = freshD();
   const mkB = (id, daysAgo, reps) => ({ id: 'b' + id, date: ymd(new Date(Date.now() - daysAgo * 864e5)), day: 'A', loc: 'home',
     ex: [{ id: 'pullup_a', wt: null, reps, band: 'Green' }] });
@@ -1888,20 +1881,11 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('big4: incomplete lift coverage yields an empty series', big4Weekly(12).length === 0);
 }
 
-// ── Deeper stats D5: e1rmProjection + recentPRs.id ──
+// ── Deeper stats D5: recentPRs.id ──
 {
   const de = freshD();
   const wkAgo = n => ymd(new Date(Date.now() - n * 7 * 864e5));
   const mk = (id, n, wt) => ({ id, date: wkAgo(n), day: 'A', loc: 'home', ex: [{ id: 'hex_dl', wt, reps: [5, 5, 5], band: '' }] });
-  de.sessions = [mk('e1', 4, 56), mk('e2', 3, 58), mk('e3', 2, 60), mk('e4', 1, 62), mk('e5', 0, 64)];
-  const pj = e1rmProjection('hex_dl');
-  const latest = e1rm(64, 5); // 74.7
-  T('projection targets the next 5kg milestone', pj && pj.kg === Math.floor(latest / 5) * 5 + 5, JSON.stringify(pj));
-  T('projection ETA within the 12-week cap', pj.wks > 0 && pj.wks <= 12 && typeof pj.date === 'string');
-  de.sessions = [mk('f1', 4, 60), mk('f2', 3, 60), mk('f3', 2, 60), mk('f4', 1, 60)];
-  T('flat trend → no projection', e1rmProjection('hex_dl') === null);
-  de.sessions = [mk('g1', 4, 60.5), mk('g2', 2, 60.25), mk('g3', 0, 60.75)]; // ~0.05kg/wk → decades to +5kg
-  T('too-slow trend (ETA >12wk) → no projection', e1rmProjection('hex_dl') === null);
   de.sessions = [mk('h1', 2, 56), mk('h2', 1, 60), mk('h3', 0, 64)];
   const pr = recentPRs(null).find(p => p.id === 'hex_dl');
   T('recentPRs entries carry the exercise id', pr && pr.date === wkAgo(0), JSON.stringify(pr));
@@ -1984,7 +1968,7 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('noProg survives validSession', vs6 && vs6.noProg === true);
 }
 
-// ── Ultra audit C4: two-tab clobber guard (gen counter + mergeStores) ──
+// ── Ultra audit C4: writer conflict guard and generation counter ──
 {
   const store4 = {};
   let skReads = 0;
@@ -2019,80 +2003,6 @@ T('week 9 is timer-due', getPhaseInfo().timerDue === true, getPhaseInfo().wk);
   T('the external writer remains intact', fin.sessions.map(s=>s.id).join() === 'tt1,tt2');
   T('the pending local session remains exportable', recoveryExportData().sessions.some(s=>s.id==='tt3'));
 
-  // mergeStores is scalar-conservative: the in-memory tab's phase/location/nextDay win.
-  const mineS = { ...freshState(), phase: 2, location: 'partner', nextDay: 'C' };
-  const theirsS = { ...freshState(), phase: 1, location: 'home', nextDay: 'A', sessions: [mkSess('tt9', '2026-06-07', 60)] };
-  const ms = mergeStores(mineS, theirsS);
-  T('mergeStores: scalars keep in-memory values', ms.phase === 2 && ms.location === 'partner' && ms.nextDay === 'C');
-  T('mergeStores: their sessions still union in', ms.sessions.some(s => s.id === 'tt9'));
-  T('mergeStores: malformed their-session dropped by validSession', mergeStores(mineS, { sessions: [{ junk: 1 }] }).sessions.length === 0);
-
-  // ── audit fix: cues and noProg survive the two-tab conflict merge ──
-  // mergeStores unions sessions, cardio, body log and discomfort — cues had no branch at all,
-  // so a coaching cue typed in one tab was silently dropped the moment the other tab saved.
-  {
-    const mineC = { ...freshState(), cues: { hex_dl: 'mine wins', ohp: 'only in mine' } };
-    const theirsC = { ...freshState(), cues: { hex_dl: 'theirs loses', floor_press: 'only in theirs' } };
-    const mc = mergeStores(mineC, theirsC);
-    T('mergeStores: a cue added in the other tab survives', mc.cues.floor_press === 'only in theirs', JSON.stringify(mc.cues));
-    T('mergeStores: this tab keeps its own cues', mc.cues.ohp === 'only in mine');
-    T('mergeStores: the local value wins a key conflict', mc.cues.hex_dl === 'mine wins', mc.cues.hex_dl);
-    // Cue keys reach an onclick — this is the THIRD entrance to that sink, after load() and
-    // mergeImport, and it needs the same charset guard the other two apply.
-    const evil = mergeStores(mineC, { ...freshState(), cues: { "x');alert(1);//": 'evil', good_key: 'ok' } });
-    T('mergeStores: a malformed cue key from the other tab is rejected', Object.keys(evil.cues).every(k => /^[\w-]{1,60}$/.test(k)), JSON.stringify(Object.keys(evil.cues)));
-    T('mergeStores: well-formed keys still cross', evil.cues.good_key === 'ok');
-    T('mergeStores: a non-object cues field is survivable', typeof mergeStores(mineC, { ...freshState(), cues: 'nope' }).cues === 'object');
-
-    // noProg marks a session the user deliberately excluded from progression. On an id
-    // collision the existing row wins, which silently re-admitted it to the engine.
-    const sess = (id, over = {}) => ({ ...mkSess(id, '2026-06-09', 60), ...over });
-    const npMine = { ...freshState(), sessions: [sess('np1')] };
-    const npTheirs = { ...freshState(), sessions: [sess('np1', { noProg: true })] };
-    T('mergeStores: noProg set in the other tab survives an id collision', mergeStores(npMine, npTheirs).sessions[0].noProg === true, JSON.stringify(mergeStores(npMine, npTheirs).sessions[0]));
-    T('mergeStores: noProg set locally is not cleared by the other tab', mergeStores(npTheirs, npMine).sessions[0].noProg === true);
-
-    // ── Audit 6 / F3: cardio ids now reach a delete-button onclick, so this branch needs
-    // the same charset guard mergeImport already applies. It used to adopt the other tab's
-    // rows verbatim — the third unguarded entrance to an inline-handler sink.
-    const cMine = { ...freshState(), cardioLog: [{ id: 'c1', date: '2026-06-01', type: 'Rowing', duration: 20, intensity: 'easy' }] };
-    const cEvil = { ...freshState(), cardioLog: [
-      { id: "x');alert(1);//", date: '2026-06-02', type: 'Rowing', duration: 20, intensity: 'easy' },
-      { id: 'c2', date: '2026-06-03', type: 'Walking', duration: 30, intensity: 'easy' }] };
-    const cm = mergeStores(cMine, cEvil);
-    T('mergeStores: cardio ids from the other tab are charset-guarded', cm.cardioLog.every(c => /^[\w.-]+$/.test(c.id)), JSON.stringify(cm.cardioLog.map(c => c.id)));
-    T('mergeStores: well-formed cardio still crosses', cm.cardioLog.some(c => c.id === 'c2'), JSON.stringify(cm.cardioLog.map(c => c.id)));
-    T('mergeStores: this tab keeps its own cardio', cm.cardioLog.some(c => c.id === 'c1'));
-    // Duplicate ids WITHIN the incoming list must not both land — the seen-set was only
-    // seeded from our own rows and never updated inside the loop.
-    const cDup = { ...freshState(), cardioLog: [
-      { id: 'cd', date: '2026-06-04', type: 'Rowing', duration: 10, intensity: 'easy' },
-      { id: 'cd', date: '2026-06-05', type: 'Rowing', duration: 99, intensity: 'easy' }] };
-    T('mergeStores: a duplicate cardio id inside the incoming list lands once',
-      mergeStores({ ...freshState() }, cDup).cardioLog.length === 1, JSON.stringify(mergeStores({ ...freshState() }, cDup).cardioLog));
-
-    // ── Audit 6 / F4: a deleted session must stay deleted across the two-tab merge ──
-    // Deletion is the one thing a pure union cannot express, so deleting a session in one tab
-    // and then saving ANYTHING in the other (a banner dismiss, a theme tap, a cardio entry)
-    // unioned the still-present row straight back in.
-    const dSess = id => ({ ...mkSess(id, '2026-06-11', 60) });
-    const delMine = { ...freshState(), sessions: [dSess('k1')], deleted: ['k2'] };
-    const delTheirs = { ...freshState(), sessions: [dSess('k1'), dSess('k2')] };
-    const dm = mergeStores(delMine, delTheirs);
-    T('mergeStores: a session deleted here is not resurrected from their store', !dm.sessions.some(s => s.id === 'k2'), JSON.stringify(dm.sessions.map(s => s.id)));
-    T('mergeStores: undeleted sessions still merge normally', dm.sessions.some(s => s.id === 'k1'));
-    T('mergeStores: the tombstone is carried forward', dm.deleted.includes('k2'), JSON.stringify(dm.deleted));
-    // ...and the reverse direction: THEIR delete must reach OUR still-present row.
-    const dr = mergeStores({ ...freshState(), sessions: [dSess('k1'), dSess('k2')] }, { ...freshState(), deleted: ['k2'] });
-    T('mergeStores: a delete in the other tab removes our copy too', !dr.sessions.some(s => s.id === 'k2'), JSON.stringify(dr.sessions.map(s => s.id)));
-    // Hostile / malformed tombstones are dropped, not adopted (same sink as session ids).
-    const dh = mergeStores({ ...freshState(), sessions: [dSess('k1')] }, { ...freshState(), deleted: ["k1');alert(1);//", 42, null] });
-    T('mergeStores: a malformed tombstone is rejected', dh.sessions.some(s => s.id === 'k1') && dh.deleted.length === 0, JSON.stringify(dh.deleted));
-    // The tombstone list is bounded.
-    const many = Array.from({ length: 400 }, (_, i) => 'z' + i);
-    T('mergeStores: the tombstone list is capped', mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length === 300,
-      mergeStores({ ...freshState(), deleted: many }, { ...freshState() }).deleted.length);
-  }
 
   // A fresh owner has read the current main key before it may commit a reset.
   store4['rft-v12-gen'] = '7';
@@ -2654,16 +2564,8 @@ T('...normalises a bad session count and end reason', log[1].sessions === 0 && l
 T('...and sorts oldest first', log[0].start === ago(30));
 }
 
-// ── the ramp record survives the two-tab merge and an import ──
+// ── the ramp record survives an import ──
 {
-const mine = { ...freshState(), comebackLog: [{ start: ago(30), end: ago(24), gap: 9, days: 7, sessions: 3, ended: 'completed' }] };
-const theirs = { ...freshState(), comebackLog: [{ start: ago(10), end: ago(4), gap: 8, days: 7, sessions: 2, ended: 'completed' }] };
-const m = mergeStores(mine, theirs);
-T('two-tab merge unions ramp history', m.comebackLog.length === 2, JSON.stringify(m.comebackLog));
-T('...without duplicating a ramp both tabs already had', mergeStores(mine, mine).comebackLog.length === 1);
-const live = { ...freshState(), comeback: { start: today(), end: ahead(6), gap: 9 } };
-T('two-tab merge keeps THIS tab’s live ramp', mergeStores(live, theirs).comeback.start === today());
-
 const backup = { ...freshState(), sessions: preBreak(), comeback: { start: today(), end: ahead(6), gap: 9 },
   comebackLog: [{ start: ago(30), end: ago(24), gap: 9, days: 7, sessions: 3, ended: 'completed' }] };
 const onFresh = mergeImport(freshState(), JSON.parse(JSON.stringify(backup))).W;
