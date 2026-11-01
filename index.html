@@ -710,10 +710,10 @@ const PHASE_ADJ_IDS=new Set(Object.values(PHASES).flatMap(p=>Object.keys(p.adj))
 const BASE_PR={A:[
 {id:'hex_dl',nm:'Hex Bar Deadlift',s:3,rp:'5',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load. ⚠ Hex bar is 7kg (light) — loads sit lower than a straight bar. Confirm → ↑ weight.',note:'Confirm lift — default +0.5kg by design. If your top set hits 9-10+, the load is too light: take a bigger manual jump (+2-3kg) and do hard 5s. Micro-jumps are for grinding near your limit, not when you have reps in reserve.',tg:5,rstS:60,tempo:'3-1-2-0',isoWU:'Mid-pull hold 2×10s',perSide:false},
 {id:'lm_squat',nm:'Landmine Squat',s:3,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Hold the bar end in one hand. Raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only (the app tracks single-end load; leverage makes it feel lighter — that\'s fine). Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Follow the current card prescription and progression cue.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
 {id:'b_stance_rdl',nm:'B-Stance RDL (weak side leads)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Front foot 70%, back foot kickstand. Start at 60% of bilateral RDL.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:true},
 {id:'floor_press',nm:'Floor Press',s:4,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',rl:'Confirm → ↑ weight. Wrist wraps.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:false},
-{id:'pullup_a',nm:'Pull-ups (Comfortable Grip)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Use a shoulder-width or slightly wider overhand grip; choose the pain-free width. Control the bottom — no dead hang or forced end range.',note:'Step down ONE band rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Earn a clean 4×8 (the programmed target) before dropping assistance. Keep every rep strict; if the bottom position loses control, use more assistance or shorten to the controlled range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_a',nm:'Pull-ups (Comfortable Grip)',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'Use a shoulder-width or slightly wider overhand grip; choose the pain-free width. Control the bottom — no dead hang or forced end range.',note:'Assistance changes use ONE band rung at a time — Green to Purple+Red is a smaller drop than Green to Purple. Follow the current card prescription and assistance cue. Keep every rep strict; if the bottom position loses control, use more assistance or shorten to the controlled range.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_rear_row',nm:'Bent-Over Barbell Rear-Delt Row',s:3,rp:'12-15',rst:'1:00',rir:'2-3',tp:'bb',rl:'Bent-over hinge, flat back. Row the bar to chest / upper-sternum, elbows high and wide. Squeeze rear delts at the top — don\'t shrug or use the lats. Confirm → ↑ weight.',note:'Keep this LIGHT and strict — about 21-24kg for 12-15 reps. Elbows high and wide, squeeze the rear delts, no swinging. Grinding under 8 reps means it is too heavy: this slot is for the rear delts, not a strength row (do heavy rowing on the Day-B row).',tg:15,rstS:60,tempo:'2-1-2-1',perSide:false},
 {id:'bb_curl',nm:'Barbell Curl',s:2,rp:'8-12',rst:'1:00',rir:'2',tp:'bb',rl:'Pull-day finisher — direct elbow flexion to back up the pull-ups + rows. Straight bar, elbows pinned to the sides, minimal swing, controlled lower. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'2-0-2-1',perSide:false,xp:true},
 {id:'dead_bugs_a',nm:'Dead Bugs (Barbell)',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',rl:'Hold the bar at arm\'s length over the chest (floor-press lockout), both arms locked while the legs alternate. Ribs pinned down, slow lower. Control first — anti-extension focus. ⚠ Empty bar is 11kg (heavier than the old KB). Own every rep → add the smallest load step.',note:'Control over load — same rule as the partner loaded dead bug. Stay at bar-only (11kg) until the slow lower is rock-solid with the ribs pinned; only then add plates. If your lower back arches or the legs speed up, the load is too high.',tg:8,rstS:60,tempo:'3-0-3-1',perSide:true,xp:true,qualityLoad:true}],
@@ -723,14 +723,14 @@ B:[
 {id:'ohp',nm:'Barbell OHP',s:4,rp:'5-7',rst:'1:00',rir:'1-2',tp:'bb',rl:'Your only overhead press — 4 sets for vertical-press strength. Confirm → ↑ weight (slow!). Full ROM, soft top — not bouncy lockout.',tg:7,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'dips',nm:'Dips',s:4,rp:'4-8',rst:'1:00',rir:'1-2',tp:'band',rl:'4×8 strict → less assistance. Lower only to the deepest pain-free, controlled position; upper-arm parallel is a cap, not a depth target.',note:'Strict only — a clean 6 beats a bouncy 10. Earn a clean 4×8 (the programmed target) before reducing the band. No bounce. If elbow or front-shoulder discomfort rises during a set, stop and use more assistance or less range on the next set.',tg:8,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'bb_rollout',nm:'Barbell Rollout',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bw',rl:'Anti-extension, and the movement that replaced the side plank (v19) — dynamic, not a hold. Kneel behind a loaded barbell, hands shoulder-width, ribs pinned down and glutes squeezed. Roll out only as far as you can go WITHOUT the lower back arching, then pull the bar back with the abs, not the hips. ⚠ Range is the load here: stop where the brace holds, every rep.',note:'Bodyweight — progress by LEVERAGE, not plates. Ladder: knees with a short roll → knees to full extension → a 2s pause at the far position → from the feet. Bigger plates make it EASIER (the bar starts higher), so if you want it harder use smaller plates before you try standing. The moment your lower back arches you have gone past your range — shorten it and keep the reps.',tg:12,rstS:60,tempo:'2-1-2-0',perSide:false},
-{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — 2 sets in Essentials, 4 in Full. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Confirm → ↑ weight.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
-{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'⚡ Superset with Landmine Lateral. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Hit target → thicker band.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false,xp:true},
+{id:'lm_lateral',nm:'Landmine Lateral Raise',s:4,rp:'12-15/side',rst:'1:00',rir:'1-2',tp:'bb',lm:true,rl:'Primary delt slot — use the current card prescription. Hold the bar end, raise out to the side leading with the elbow, controlled lower. Stop at shoulder height. Load plates on the FREE end only. Log reps PER SIDE: 15 means 15 each side. Match both sides; enter the lower count if unequal. Follow the current card prescription and progression cue.',tg:15,rstS:60,tempo:'2-0-1-1',perSide:false,repsPerSide:true,xp:true,xpSets:2},
+{id:'rear_delt',nm:'Band Rear-Delt (High Face Pull)',s:4,rp:'15-20',rst:'1:00',rir:'2-3',tp:'band',rl:'Pair with Landmine Lateral only when it is listed in this workout. 2nd weekly rear-delt exposure — wide/high pull, elbows flare, squeeze rear delts. Follow the current card prescription and progression cue.',tg:20,rstS:60,tempo:'2-1-2-1',bandMode:'resist',perSide:false,xp:true},
 {id:'band_leg_curl',nm:'Band Hamstring Curl',s:2,rp:'10-15',rst:'1:00',rir:'2',tp:'band',bandMode:'resist',tg:15,rstS:60,tempo:'2-1-2-0',perSide:false,xp:true,rl:'Secure the band to a low anchor and around both ankles. Lie face down and curl both heels toward your glutes, keeping hips still. Use a comfortable range with band tension throughout. Start with about 2 reps in reserve. Reach 2×15 controlled reps before increasing band resistance.',note:'Dedicated knee-flexion work alongside your RDLs. Check the anchor before each set. Log the resistance band used; reps are simultaneous, not per side.'},
 {id:'bird_dog',nm:'Bird Dog',s:2,rp:'8/side',rst:'1:00',rir:'2',tp:'bw',rl:'Extensor endurance — the trunk quality best correlated with back resilience, and the axis the program had no slot for once the Zerchers left (AUDIT §15 logged it as an accepted gap; this slot fills it). On all fours, extend the opposite arm and leg to a straight line and HOLD 3s at full extension. Hips stay square — no rotation, no arching.',note:'Progress by longer holds, not more reps or load. Reactivated from its retired stub in v19, so any pre-v16 bird dog history you have still feeds the suggestion.',tg:8,rstS:60,tempo:'2-0-2-3',perSide:true,xp:true}],
 C:[
 {id:'hex_rdl',nm:'Hex Bar Romanian DL',s:3,rp:'8-10',rst:'1:00',rir:'2',tp:'bb',bar:7,rl:'Neutral grip, centered load — easier on the lower back & grip than the straight bar. ⚠ Hex bar is 7kg (light). Soft knees, hinge back, flat back, feel the hamstring stretch. Confirm → ↑ weight.',tg:10,rstS:60,tempo:'3-1-2-0',isoWU:'Hinge hold at knee 2×10s',perSide:false},
 {id:'hex_floor_press',nm:'Hex Bar Floor Press',s:3,rp:'8-12',rst:'1:00',rir:'1-2',tp:'bb',bar:7,rl:'3rd weekly chest exposure. Lie on the floor inside the hex bar, neutral grip on the handles, press straight up, control to a light triceps-to-floor touch. ⚠ Hex bar is 7kg, and it is awkward to get into position loaded — set up carefully (roll under it, or rest it on low blocks). Neutral grip is shoulder-friendly. Confirm → ↑ weight.',tg:12,rstS:60,tempo:'3-1-1-0',perSide:false},
-{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. Use the same shoulder-width or slightly wider pain-free overhand grip as Day A. 3×10 strict → less assistance. Control the bottom; no dead hang.',note:'Volume slot — strict reps drive it. Build 3×10 clean before dropping a band; never kip or force a wider grip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
+{id:'pullup_c',nm:'Pull-ups (Volume)',s:3,rp:'6-10',rst:'1:00',rir:'2',tp:'band',rl:'Higher-rep vertical pull. Use the same shoulder-width or slightly wider pain-free overhand grip as Day A. Use the current card for sets, reps and assistance changes. Control the bottom; no dead hang.',note:'Volume slot — strict reps drive it. Follow the current card prescription and assistance cue; never kip or force a wider grip to hit the number.',tg:10,rstS:60,tempo:'3-1-2-1',bandMode:'assist',perSide:false},
 {id:'lm_squat',nm:'Landmine Squat',s:4,rp:'6-8',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'2nd weekly quad exposure (front-loaded — replaces the Zercher). Hold the bar end at your chest with both hands, sit straight down, drive up tall. Same front-load core brace, none of the bar-in-the-elbows pain. Load plates on the FREE end only. ⚠ Leverage makes it feel lighter than the number — expect to climb fast. Confirm → ↑ weight.',tg:8,rstS:60,tempo:'3-1-2-0',isoWU:'Front-load squat hold at 90° 2×10s',perSide:false},
 {id:'lm_press',nm:'Landmine Press (two-hand)',s:3,rp:'10-12',rst:'1:00',rir:'2-3',tp:'bb',lm:true,rl:'Two-hand landmine press — the long-pending landmine press lands here (Day-B OHP stays barbell). Hold the bar end at the sternum with both hands, press up and slightly forward along the arc, soft lockout. Load plates on the FREE end only. ⚠ The pivot offloads part of the weight — judge by RIR, not the plate number. Confirm → ↑ weight.',note:'Finding session — start at OHP load. Judge by RIR, not the plate number (the pivot offloads part of the weight). Target RIR 2-3 for 10-12 first session; if 12 reps with 3+ in reserve, next session go to ~30-31 kg. Expect to settle ~26-32 kg.',tg:12,rstS:60,tempo:'3-1-2-0',perSide:false},
 {id:'lm_lateral_squat',nm:'Landmine Lateral Squat',s:3,rp:'8/side',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Frontal-plane quad/adductor slot — replaces the Loaded Cossack (easier to groove and to load progressively). Front-rack the bar end at the shoulder or hold it in the crook of the arm, feet wide and parallel, and shift side to side: sit into one hip with that knee tracking over the toes while the other leg stays long, drive back to center, switch. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session — front-rack the landmine or hold it in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). Easier to load than the Cossack was — once you own the depth with 2-3 reps in reserve, add to the free end.',tg:8,rstS:60,tempo:'3-1-2-0',perSide:true},
@@ -3802,45 +3802,16 @@ const t=document.getElementById('xp-rem');if(t)t.textContent=essentialsBudgetLab
 const f=document.getElementById('xp-fill');if(f)f.style.width=`${b.pct}%`}
 
 // ═══════════════ RETURN FROM BREAK ═══════════════
-// A layoff — illness, travel, life — was the one interruption this app could not see. The
-// deload machinery next door is signal-driven (session effort, repeated compound stalls) and fires on
-// FATIGUE; a break is the opposite state. After a week off you are not fatigued, you are
-// de-adapted, and the correct prescription (submaximal loads, trimmed volume, a fixed
-// runway back to normal) only LOOKS like a deload. It means something different, it is
-// triggered by something different, and it has to be recorded as something different —
-// hence its own object rather than a second use of lastDeload.
-//
-// Where the numbers come from:
-//   • Graduated return of 2–3 days per missed training unit, and "one day back per day
-//     out" — the return-to-play rules of thumb, e.g. the ACC 2022 expert consensus decision
-//     pathway (Gluckman et al., J Am Coll Cardiol 79:17). Consensus practice, not RCT dosing.
-//   • Volume is restored BEFORE intensity: connective tissue re-adapts slower than muscle,
-//     and the classic comeback injury is a lifter whose muscle recovered faster than the
-//     tendon attached to it.
-//   • The ramp rebuilds to the PRE-BREAK load rather than re-earning it, because a short
-//     layoff does not cost the machinery: myonuclei persist through months of detraining
-//     (Cumming et al. 2024, J Physiol 602:4171) and the first-session deficit is largely
-//     neural. Re-testing from scratch would throw away work that is still there.
-//
-// Because the dosing is consensus rather than evidence-grade, the ramp is ADVISORY
-// everywhere: it never blocks a session, never rewrites a prescription, never edits a
-// weight suggestion. It changes exactly one mechanical thing — progression memory, see
-// getSmartSugg — and otherwise it talks.
-
-// A gap this long stops being a rest day and starts being a layoff. Fixed at 7 rather than
-// derived from the lifter's own cadence: at any sane training frequency a full week off is
-// two or more missed sessions, which is where graduated-return advice starts to apply — and
-// a cadence-derived threshold would be dragged upward by the very breaks it exists to catch.
+// Optional app heuristic based on the recorded gap, separate from the deload signal.
+// The 7–21-day window and first two logged sessions are app policies, not individual
+// readiness measurements or clinical clearance. Reduced-load advice precedes pre-break
+// guidance. The plan also excludes its first-stage sessions from progression memory;
+// it is not merely a display label. Dosing and memory rules below remain explicit.
+// A recorded gap of at least seven days makes the optional plan available.
 const RTN_MIN_GAP=7;
-// Ramp length in days = the gap, clamped. Floor 7 because a runway shorter than a week
-// cannot hold two sessions at a normal cadence, so there would be no stage 1 to speak of.
-// Ceiling 21 because past three weeks off this is no longer a ramp back into a block, it is
-// a new block — the phase clock and the deload timer are the right tools at that point.
+// App policy: the rounded gap, clamped to 7–21 calendar days.
 const RTN_MIN_DAYS=7,RTN_MAX_DAYS=21;
-// Sessions spent in stage 1 before the ramp moves to stage 2. Staged on SESSIONS rather
-// than days because the thing that re-adapts is the tissue that actually trained: two
-// calendar days into a ramp you may have trained twice or not at all, and the prescription
-// ("first two sessions reduced, then rebuild") is written in sessions for that reason.
+// App policy: stage 1 covers the first two logged sessions, rather than two days.
 const RTN_STAGE1_SESS=2;
 // Completed ramps kept. They are ~80 bytes each and only the last few are ever read, but the
 // record is the point of the feature, so the cap is generous.
@@ -4202,12 +4173,12 @@ function sgClass(t){return t==='up'?'sg-up':t==='dn'?'sg-dn':t==='cf'?'sg-cf':t=
 // Training-cycle position + rest-day gaps for the home cue.
 // Walks all sessions (both locations) to show where you are in the A→B→C rotation
 // and how many rest days fell between recent sessions.
-function getCycleInfo(){
+function getCycleInfo(asOf=today()){
 const order=['A','B','C'];
 // The cycle view answers "where am I in A→B→C" — off-rotation core blocks are not part of
 // that answer, and leaving them in made the timeline's rest-day gaps lie (a core block on a
 // rest day read as "b2b" training). Filtered out here, so every consumer below is clean.
-const ss=[...D.sessions].filter(s=>isRotDay(s.day)).sort((a,b)=>a.date.localeCompare(b.date));
+const ss=[...D.sessions].filter(s=>s.date<=asOf&&isRotDay(s.day)).sort((a,b)=>a.date.localeCompare(b.date));
 // recent timeline: last up to 5 sessions; gap = calendar days from the previous session
 const recent=ss.slice(-5).map((s,i,arr)=>{const prev=arr[i-1];
 const gap=prev?Math.round((new Date(s.date+'T00:00:00')-new Date(prev.date+'T00:00:00'))/864e5):null;
@@ -4219,7 +4190,7 @@ const next=D.nextDay||'A';
 if(next==='A')done=new Set(); // a fresh A→B→C cycle is about to start
 // days since last session + average gap across all sessions
 const last=ss[ss.length-1];
-const sinceLast=last?Math.round((new Date(today()+'T00:00:00')-new Date(last.date+'T00:00:00'))/864e5):null;
+const sinceLast=last?Math.round((new Date(asOf+'T00:00:00')-new Date(last.date+'T00:00:00'))/864e5):null;
 let gaps=[];for(let i=1;i<ss.length;i++)gaps.push((new Date(ss[i].date+'T00:00:00')-new Date(ss[i-1].date+'T00:00:00'))/864e5);
 const avgGap=gaps.length?Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length*10)/10:null;
 return{order,recent,done,next,sinceLast,avgGap}}
@@ -4317,7 +4288,7 @@ if(bk&&!bannerDismissed('rtn',bk.last)){
 h+=`<div class="cd" style="border:1px solid var(--am);background:var(--aml);position:relative">
 <button onclick="dismissBanner('rtn','${bk.last}')" aria-label="Dismiss return-from-break suggestion" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:16px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">🔄 ${bk.gap} days since your last session</div>
-<div class="dm" style="margin-bottom:8px">A gap this long is a layoff, not a rest day. A staged return — reduced load for the first ${RTN_STAGE1_SESS} sessions back, then straight to your pre-break loads — is what return-to-training guidance recommends, and it keeps those light sessions from being read as a stall. Planned runway: <b>${bk.days} days</b>, one day back per day out.</div>
+<div class="dm" style="margin-bottom:8px">Optional app return plan: <b>${bk.days} days</b>, based on the recorded gap within a 7–21-day window. The first ${RTN_STAGE1_SESS} logged sessions use reduced-load guidance before pre-break guidance resumes and stay outside progression memory. This schedule is an app heuristic, not individualized clinical clearance.</div>
 <div style="display:flex;gap:6px">
 <button class="btn btn-pr btn-md" style="flex:1" onclick="startComeback('${today()}')">Start today</button>
 <button class="btn btn-wh btn-md" style="flex:1" onclick="startComeback('${dayAfter(today())}')">Start tomorrow</button></div></div>`}}
@@ -4331,7 +4302,7 @@ h+=`<div class="cd" style="border:2px solid var(--pr)">
 <div style="font-size:13px;font-weight:700;color:var(--pr)">🔄 ${r.pending?`Return ramp · starts ${fmtD(r.start)}`:`Return ramp · day ${r.day} of ${r.days}`}</div>
 <button class="btn-sm btn-wh" style="flex-shrink:0" onclick="endComeback()">${r.pending?'Cancel':'End early'}</button></div>
 ${r.pending?'':`<div class="fg-bar"><div class="fg-fill" style="width:${r.pct}%;background:var(--pr)"></div></div>`}
-<div class="dm" style="margin-top:4px">${ad.detail}</div>
+<div class="dm" style="margin-top:4px">Optional app heuristic. ${ad.detail}</div>
 <div class="dm" style="margin-top:7px;padding-top:6px;border-top:1px solid var(--cb)">${r.pending
 ?`Starts in ${r.until} day${r.until===1?'':'s'} · ${r.days}-day runway after ${r.gap} days off · normal progression resumes ${fmtD(r.resumes)}`
 :`Session ${r.sess+1} of the ramp next · ${r.sess} logged so far · ${r.left===0?'last day':`${r.left} day${r.left===1?'':'s'} left`} · normal progression resumes ${fmtD(r.resumes)}`}</div>
@@ -4415,7 +4386,7 @@ h+=`<div class="cyc-node"><span class="bg bg-${s.day.toLowerCase()}" style="font
 h+=`<div class="cyc-gap"><div class="cyc-dash"></div>${ci.sinceLast===0?'today':ci.sinceLast+'d'}</div>`;
 h+=`<div class="cyc-node"><span class="cyc-d next" style="min-width:30px;width:30px;height:30px;font-size:13px;border-radius:9px">${ci.next}</span><span class="dm" style="font-size:9px;margin-top:2px">next</span></div></div>`;
 h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d between sessions · `:''}${ci.sinceLast===0?'trained today':ci.sinceLast===1?'last trained yesterday':`last trained ${ci.sinceLast}d ago`}</div>`;
-}else{h+=`<div class="dm" style="margin-top:2px">No sessions yet — Day A kicks off your first A→B→C cycle.</div>`}
+}else{h+=`<div class="dm" style="margin-top:2px">No A/B/C sessions through today.</div>`}
 h+=`</div>`;}
 
 // Preview mirrors the default lifting action: Essentials remains the complete default even
@@ -4920,13 +4891,13 @@ const worst=rated.length?Math.min(...rated):0;
 const mixed=rated.length>0&&!uniform;
 h+=`<div class="form-rate"><div class="form-row1">
 <span class="form-lbl">Form</span><div class="form-btns">`;
-for(let s=5;s>=1;s--)h+=`<button class="form-b${uniform===s?' on':''}" style="${uniform===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormAll('${ex.id}',${s})">${s}</button>`;
+for(let s=5;s>=1;s--)h+=`<button class="form-b${uniform===s?' on':''}" aria-label="${s} ${FORM_LABELS[s]} · ${esc(ex.nm)} · all sets" aria-pressed="${uniform===s}" style="${uniform===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormAll('${ex.id}',${s})">${s}</button>`;
 h+=`</div></div>
 <div class="form-cap">${rated.length?(mixed?`<span style="color:${FORM_C[worst]||'var(--mu)'}">Mixed · worst ${FORM_LABELS[worst]}</span>`:`<span style="color:${FORM_C[uniform]}">${FORM_LABELS[uniform]}</span>${uniform<FORM_MIN?' · holds progression':''}`):'<span class="dm">5 strict → 1 negatives · optional</span>'}
-<button class="btn-ghost" style="font-size:9px;margin-left:6px" onclick="FORM_EXP=FORM_EXP==='${ex.id}'?null:'${ex.id}';render()">${FORM_EXP===ex.id?'Hide per-set':'Per-set'}</button></div>`;
-if(FORM_EXP===ex.id){h+=`<div class="form-perset">`;
+<button class="btn-ghost" aria-label="Per-set form for ${esc(ex.nm)}" aria-expanded="${FORM_EXP===ex.id}"${FORM_EXP===ex.id?` aria-controls="form-sets-${ex.id}"`:''} style="font-size:9px;margin-left:6px" onclick="FORM_EXP=FORM_EXP==='${ex.id}'?null:'${ex.id}';render()">${FORM_EXP===ex.id?'Hide per-set':'Per-set'}</button></div>`;
+if(FORM_EXP===ex.id){h+=`<div class="form-perset" id="form-sets-${ex.id}">`;
 for(let i=0;i<nSets;i++){const fv=farr[i]||0;h+=`<div class="form-prow"><span class="form-ps-lbl">S${i+1}</span><div class="form-btns">`;
-for(let s=5;s>=1;s--)h+=`<button class="form-b sm${fv===s?' on':''}" style="${fv===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormSet('${ex.id}',${i},${s})">${s}</button>`;
+for(let s=5;s>=1;s--)h+=`<button class="form-b sm${fv===s?' on':''}" aria-label="${s} ${FORM_LABELS[s]} · ${esc(ex.nm)} · set ${i+1}" aria-pressed="${fv===s}" style="${fv===s?`background:${FORM_C[s]};border-color:${FORM_C[s]};color:var(--ink)`:''}" onclick="setFormSet('${ex.id}',${i},${s})">${s}</button>`;
 h+=`</div></div>`}
 h+=`</div>`}
 h+=`</div>`}
@@ -5646,7 +5617,7 @@ h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Your last 4 weeks<
 <div class="estrip-cell"><div class="estrip-num">${pc.cur.sessions}</div><div class="estrip-lbl">Sessions ${dAbs(pc.cur.sessions,pc.prev.sessions)}</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--bl)">${pc.cur.sets}</div><div class="estrip-lbl">Sets ${dAbs(pc.cur.sets,pc.prev.sets)}</div></div>
 <div class="estrip-cell"><div class="estrip-num" style="color:var(--am)">${pc.cur.rpe!=null?pc.cur.rpe:'—'}</div><div class="estrip-lbl">Avg effort ${dRpe(pc.cur.rpe,pc.prev.rpe)}</div></div>
-</div><div class="dm" style="margin-top:8px">Changes compare with the previous 4 weeks. Load × reps is recorded lifting volume, in tonnes; more is not automatically better. Avg effort is your session rating out of 10.</div></div>`}}
+</div><div class="dm" style="margin-top:8px">Changes compare with the previous 4 weeks. Load × reps is recorded lifting volume, in tonnes; more is not automatically better. Avg effort is your session rating out of 5.</div></div>`}}
 
 const rprs=recentPRs(30);
 if(rprs.length){h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Personal bests · last 30 days</div>`;
@@ -5958,8 +5929,8 @@ h+=`<div class="cd"><div class="estrip">
 if(con.wuRate!=null){h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span class="mu">Warm-up compliance</span><span style="color:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'};font-weight:700">${con.wuRate}%</span></div>
 <div class="fg-bar"><div class="fg-fill" style="width:${con.wuRate}%;background:${con.wuRate>=70?'var(--gr)':con.wuRate>=40?'var(--am)':'var(--rd)'}"></div></div>`}
 // Cardio is logged but was never surfaced anywhere on this tab
-{const ccut=daysAgoStr(7);
-const c7=D.cardioLog.filter(c=>c.date>=ccut);
+{const cwin=calendarWindow(7);
+const c7=D.cardioLog.filter(c=>dateInWindow(c.date,cwin));
 const cMin=c7.reduce((a,c)=>a+(c.duration||0),0);
 h+=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span class="mu">Cardio · last 7 days</span><span style="color:${cMin>=60?'var(--gr)':'var(--mu)'};font-weight:700">${cMin?`${cMin} min · ${c7.length} session${c7.length===1?'':'s'}`:'—'}</span></div>`}
 h+=`</div>`;
@@ -6460,6 +6431,7 @@ else h+=`<div class="cd"><div class="dm">This browser can't keep the screen awak
 // which is precisely the thing the ramp is meant to precede.
 {const rSt=getComeback(),rBk=rSt?null:getBreak();
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Return From Break</div><div class="cd">`;
+h+=`<div class="dm" style="margin-bottom:8px">Optional app heuristic: a 7–21-day window based on the recorded gap, with reduced-load guidance for the first ${RTN_STAGE1_SESS} logged sessions before pre-break guidance resumes. This schedule is not individualized clinical clearance.</div>`;
 if(rSt)h+=`<div style="font-size:12px;margin-bottom:6px">${rSt.pending?`Scheduled to start <strong>${fmtD(rSt.start)}</strong>`:`<strong>Day ${rSt.day} of ${rSt.days}</strong> · stage ${rSt.stage} · ${rSt.sess} session${rSt.sess===1?'':'s'} logged`}</div>
 <div class="dm" style="margin-bottom:8px">Runs to ${fmtD(rSt.end)}; normal progression resumes ${fmtD(rSt.resumes)}. The first ${RTN_STAGE1_SESS} sessions back are held out of weight suggestions.</div>
 <button class="btn btn-wh btn-md" onclick="endComeback()">${rSt.pending?'Cancel ramp':'End ramp early'}</button>`;

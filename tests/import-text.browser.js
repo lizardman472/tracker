@@ -40,7 +40,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,screensh
   await keyActivate(page,page.getByRole('button',{name:'Today',exact:true}));
   await keyActivate(page,page.locator('.dpick').getByRole('button',{name:'A1',exact:true}));
   await keyActivate(page,page.getByRole('button',{name:/^Start Essentials/}));
-  await keyActivate(page,page.getByRole('button',{name:/Pull-ups \(Comfortable Grip\)/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Pull-ups \(Comfortable Grip\)/}).first());
   const card=page.getByRole('group',{name:'Pull-ups (Comfortable Grip) exercise',exact:true});
   const lastText=await card.getByText(/^Last: /).innerText();
   const lastMarkerElements=await page.locator('[data-audit-marker="band-text"]').count();
@@ -57,7 +57,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,screensh
   }
   const draft=await page.evaluate(()=>({band:LOG.pullup_a.band,bands:LOG.pullup_a.bands,reps:LOG.pullup_a.reps}));
   T('entered draft retains explicit opening band and scalar fallback slots '+theme,draft.band===marker&&JSON.stringify(draft.bands)==='["Green","","",""]'&&JSON.stringify(draft.reps)==='["6","6","6","6"]',JSON.stringify(draft));
-  await keyActivate(page,page.getByRole('button',{name:/Hex Bar Deadlift/}).first());
+  await keyActivate(page,page.locator('button.ex-row').filter({hasText:/Hex Bar Deadlift/}).first());
   const done=page.locator('button.done-row').filter({hasText:'Pull-ups (Comfortable Grip)'}),doneText=await done.innerText();
   const doneExpected=expected+', '+marker+'×6, '+marker+'×6';
   const doneMarkerElements=await page.locator('[data-audit-marker="band-text"]').count();
