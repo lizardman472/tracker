@@ -21,7 +21,7 @@ const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 // function definitions — including the render-layer helpers (recentPRs, getPRs…)
 // whose bodies only touch the DOM when called, which the tests never do.
 const code = script.slice(0, script.indexOf('// ═══════════════ INIT')) +
-  '\n;global.__X={ALL_EX,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
+  '\n;global.__X={ALL_EX,SHORT_ABC,SEED,JOINTS,PHASE_ADJ_IDS,AW_KEY,SK,VW,DBW_PAIR,DBW_SINGLE,MG,MG_INFO,BODY_REGIONS_F,BODY_REGIONS_B,HEAT_PAL,RTN_MIN_GAP,RTN_MIN_DAYS,RTN_MAX_DAYS,RTN_STAGE1_SESS,setD:d=>{D=d;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_AFTER=null;SAVE_ERROR=AW_ERROR=\"\";AW_CLEANUP=false;rememberCommitted(localStorage.getItem(SK))},getD:()=>D,getDropped:()=>LOAD_DROPPED,setADAY:v=>{ADAY=v}};';
 
 global.localStorage = memoryStorage();
 // `global.navigator = {...}` is a SILENT NO-OP on Node 18+ — navigator is a getter-only
@@ -478,7 +478,7 @@ d.location = 'home';
 const essentialPlan = {
   A: { ids:['hex_dl','lm_squat','lm_lateral','b_stance_rdl','floor_press','pullup_a','bb_curl','dead_bugs_a'], sets:24, control:['dead_bugs_a'] },
   B: { ids:['hex_squat_b','hex_row','ohp','dips','lm_lateral','rear_delt','band_leg_curl','bird_dog'], sets:26, control:['rear_delt','bird_dog'] },
-  C: { ids:['hex_rdl','hex_floor_press','pullup_c','lm_squat','lm_press','lm_pallof','band_er','floor_glute_bridge','bb_skullcr'], sets:25, control:['lm_pallof','band_er'] }
+  C: { ids:['hex_rdl','deficit_pushup','pullup_c','lm_squat','lm_press','lm_pallof','band_er','floor_glute_bridge','bb_skullcr'], sets:24, control:['lm_pallof','band_er'] }
 };
 for (const day of ['A', 'B', 'C']) {
   const full = dayExs(day, {}, false), xp = dayExs(day, {}, true);
@@ -501,7 +501,7 @@ for (const day of ['A', 'B', 'C']) {
   const changed = xp.filter(e => { const f = full.find(x => x.id === e.id); return f && ((e.id === 'lm_lateral' ? e.s !== 2 || f.s !== 4 : f.s !== e.s) || f.tg !== e.tg); });
   T(`Essentials Day ${day} preserves prescriptions except the agreed two-set lateral raise`, changed.length === 0, changed.map(e => e.id).join(','));
 }
-T('Essentials excludes the optional Day C deficit push-up', !dayExs('C', {}, true).some(e => e.id === 'deficit_pushup'));
+T('Essentials keeps the Day C deficit push-up in the press slot', dayExs('C', {}, true)[1].id === 'deficit_pushup');
 // A swapped-in isolation lift must still be dropped — otherwise a swap smuggles the tail back.
 {
   const slot = dayExs('A', {}, false).find(e => e.id === 'floor_press');
@@ -1045,7 +1045,9 @@ const activeProgIds = new Set();
 // A/B/C is the whole program again since v20 — the off-rotation day X is gone and its
 // movements (lm_pallof included) are back on the lifting days.
 for (const loc of ['home', 'partner']) for (const day of ['A', 'B', 'C']) for (const ex of getProgram(1, loc)[day]) activeProgIds.add(ex.id);
-T('no dead PHASE_ADJ entries (all map to an active lift)', [...PA].every(id => activeProgIds.has(id)), [...PA].filter(id => !activeProgIds.has(id)).join(','));
+// Include the active shorter/recovery list when checking phase-map reachability.
+for (const rows of Object.values(global.__X.SHORT_ABC)) for (const [id] of rows) activeProgIds.add(id);
+T('no dead PHASE_ADJ entries (all map to an active original or shorter lift)', [...PA].every(id => activeProgIds.has(id)), [...PA].filter(id => !activeProgIds.has(id)).join(','));
 // Landmine swap periodization restored on the current ids.
 T('lm_lateral periodizes (restored from lateral_raise)', PA.has('lm_lateral'));
 T('lm_pallof periodizes (restored from pallof_press, back on Day C since v20)', PA.has('lm_pallof'));

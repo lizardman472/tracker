@@ -40,6 +40,14 @@ Activation, exercise navigation, swaps, History details and Import use keyboard-
 buttons. Opening an exercise moves focus into its card; warm-up and History buttons retain
 focus after changing their state.
 
+Home original Day C uses **Deficit Push-ups (Low Bars)** in place of the hex-bar floor
+press, in both Essentials and Full: **2 × 8–15**, about **2 clean reps left**, and
+**2 minutes rest**. Use low bars with feet on the ground, consistent controlled depth,
+and only a comfortable chest stretch. Build reps before adding secure resistance;
+record any resistance and setup in exercise notes. Day A floor press, Day B dips,
+the shorter/deload/easy-return lists and Partner are unchanged. Existing hex-bar
+floor-press records remain available in History.
+
 ## Run locally
 
 Serve the repository root over HTTP; service workers do not run correctly from `file://`.
