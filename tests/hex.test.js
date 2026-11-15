@@ -80,7 +80,8 @@ T('Day B: hex_squat_b replaces zercher_b', B.some(e => e.id === 'hex_squat_b') &
 T('Day C: hex_carry replaces suitcase_march', C.some(e => e.id === 'hex_carry') && !C.some(e => e.id === 'suitcase_march'));
 T('Day C: lm_squat (landmine) replaces Zercher Moderate', C.some(e => e.id === 'lm_squat') && C.find(e => e.id === 'lm_squat').lm === true && !C.some(e => e.id === 'zercher_a'));
 T('Day C: hex_rdl replaces straight RDL', C.some(e => e.id === 'hex_rdl') && C.find(e => e.id === 'hex_rdl').bar === 7 && !C.some(e => e.id === 'rdl'));
-T('Day C: hex_floor_press replaces push-ups', C.some(e => e.id === 'hex_floor_press') && C.find(e => e.id === 'hex_floor_press').bar === 7 && !C.some(e => e.id === 'pushups'));
+T('Day C replaces hex floor press with one regular low-bar push-up slot', C[1].id === 'deficit_pushup' && C.filter(e => e.id === 'deficit_pushup').length === 1 && !C.some(e => e.id === 'hex_floor_press'));
+for(const phase of [1,2,3]){const e=getProgram(phase,'home').C[1];T('low-bar push-ups keep the agreed prescription in phase '+phase,e.tp==='bw'&&e.s===2&&e.rp==='8-15'&&e.tg===15&&e.rir==='2'&&e.rstS===120&&e.rst==='2:00'&&!e.optional&&e.xp===true);}
 T('Day C adds the floor glute bridge at 2×10-20', (() => { const e = C.find(e => e.id === 'floor_glute_bridge'); return e && e.s === 2 && e.rp === '10-20' && e.tg === 20 && e.rir === '2'; })());
 T('Day C squat went to the landmine, not a hex squat variant', !ALL_EX.some(e => e.id === 'hex_squat_c') && !C.some(e => /^hex_squat/.test(e.id)));
 T('hex_dl carries bar:7', A.find(e => e.id === 'hex_dl').bar === 7);
@@ -111,7 +112,7 @@ sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_carry'));
 T('hex_carry seeds at 30kg', sg.type === 'new' && sg.wt === 30);
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_rdl'));
 T('hex_rdl seeds at 43kg (valid hex weight)', sg.type === 'new' && sg.wt === 43 && VWH.includes(43));
-sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'hex_floor_press'));
+sg = getSmartSugg(ALL_EX.find(e => e.id === 'hex_floor_press'));
 T('hex_floor_press seeds at 28kg (valid hex weight)', sg.type === 'new' && sg.wt === 28 && VWH.includes(28));
 sg = getSmartSugg(getProgram(1, 'home').C.find(e => e.id === 'floor_glute_bridge'));
 T('floor glute bridge seeds at a buildable 31kg', sg.type === 'new' && sg.wt === 31 && VW.includes(31), JSON.stringify(sg));
@@ -361,7 +362,7 @@ T('partner Day B dips are eccentric-only bodyweight, not band-assisted',
 T('pb_dips has a chest+triceps MG map (full triceps like home dips)', (MG.pb_dips || {}).chest === 1 && (MG.pb_dips || {}).triceps === 1);
 T('dips still train at both venues (home Day B assisted + partner Day B negatives)', homePr.B.some(e => e.id === 'dips') && partPr.B.some(e => e.id === 'pb_dips'));
 T('pb_dips seeds cleanly with no dangling peer', (() => { freshD(); const sg = getSmartSugg(partPr.B.find(e => e.id === 'pb_dips')); return sg.type === 'new' && !/undefined/.test(JSON.stringify(sg)); })());
-T('Day C carries a chest exposure (hex floor press)', homePr.C.some(e => e.id === 'hex_floor_press') && (MG.hex_floor_press || {}).chest > 0);
+T('Day C carries a chest exposure (deficit push-ups)', homePr.C.some(e => e.id === 'deficit_pushup') && (MG.deficit_pushup || {}).chest > 0);
 const chestFreq = ['A', 'B', 'C'].filter(d => homePr[d].some(e => (MG[e.id] || {}).chest > 0)).length;
 T('chest now above MEV with 3× frequency', wkVol.chest > mevOf('chest') && chestFreq === 3, `${wkVol.chest} sets, ${chestFreq}×`);
 
@@ -545,7 +546,7 @@ T('home core slots are back on the lifting days', homePr.A.some(e => e.id === 'd
 T('partner core is one slot on every day (side_plank in the shared base)',
   PROG_DAYS.every(d => partPr[d].some(e => e.id === 'side_plank')) &&
   !PROG_DAYS.some(d => partPr[d].some(e => e.id === 'db_dead_bug' || e.id === 'bird_dog')));
-T('home days are A=9, B=9, C=12 after the Day-C glute bridge addition', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 12 && homePr.C.find(e => e.id === 'deficit_pushup').optional === true);
+T('home Day C has 11 movements after replacing the press and removing the duplicate finisher', homePr.A.length === 9 && homePr.B.length === 9 && homePr.C.length === 11);
 // v21 day counts: 7 shared base movements + a rotating finisher (A gets a superset pair,
 // B and C get one each) + one optional clubbell per day.
 T('partner days are A=10, B=9, C=9 (7 shared base + finisher + optional clubbell)',
@@ -642,7 +643,7 @@ T('home B: hex bar → straight bar → landmine, one setup each', loadedSeq(hom
 // after the landmine block. Bought deliberately — the carry is a finisher, and running it
 // before a 4-set landmine squat would tax the trunk and grip that squat needs. The two
 // straight-bar floor accessories then share the final bar setup.
-T('home C: hex → landmine → hex → one straight-bar block', loadedSeq(homePr.C) === 'hex,hex,lm,lm,lm,lm,hex,bar,bar', loadedSeq(homePr.C));
+T('home C: hex → landmine → hex → one straight-bar block', loadedSeq(homePr.C) === 'hex,lm,lm,lm,lm,hex,bar,bar', loadedSeq(homePr.C));
 // v21: the shared base is 5 dumbbell lifts with two zero-setup bodyweight slots interleaved
 // (inv_rows_a, side_plank) — 'free' is filtered out above precisely because those cost no
 // re-rig. Every day still ends on its clubbell, which is the only implement change.

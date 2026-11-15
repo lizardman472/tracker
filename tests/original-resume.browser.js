@@ -168,7 +168,7 @@ module.exports=async function({T,baseStore,open,keyActivate,tabActivate,settleLa
   },marker.id));
   await screenshot(restored.page,'direct-original-earned-'+theme,{target:'#training-plan',text:'Original A/B/C Essentials'});
   for(const damage of ['future','corrupt']){
-   const bad=structuredClone(backup);if(damage==='future'){const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+8);bad.originalResume.date=d.toISOString().slice(0,10)}else bad.originalResume.id='broken';
+   const bad=structuredClone(backup);if(damage==='future'){const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+8);bad.originalResume.date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}else bad.originalResume.id='broken';
    const check=await open({...fresh,theme});await setDay(check.page,start,7);
    await keyActivate(check.page,check.page.getByRole('button',{name:'Settings',exact:true}));
    await check.page.locator('#import-backup').setInputFiles({name:'unusable-boundary.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(bad))});

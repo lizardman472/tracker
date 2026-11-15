@@ -103,7 +103,12 @@ module.exports=function({harness,test,plain,SK,AW,code}){
  });
  test('existing whole-exercise form stamps never add sets to a resumed shorter workout',()=>{
   const m=main();m.originalResume=null;m.trainingPlan={stage:'return',start:'2026-11-01',stageStart:'2026-11-01',loads:{hex_dl:60},bands:{pullup_a:'Purple'}};
-  const h=start({values:[[SK,JSON.stringify(m)]]});h.ctx.beginW('A',true);
+  // Keep this workout inside its easy-return week rather than aging into the review gate.
+  class PracticeDate extends Date{
+   constructor(...args){super(...(args.length?args:['2026-11-01T12:00:00']))}
+   static now(){return new Date('2026-11-01T12:00:00').getTime()}
+  }
+  const h=start({Date:PracticeDate,values:[[SK,JSON.stringify(m)]]});h.ctx.beginW('A',true);
   vm.runInContext("for(const id of ['hex_dl','pullup_a']){LOG[id].reps=['5','5'];LOG[id].setDone=[true,true];setFormAll(id,4)}LOG.hex_dl.wts=[20,20];LOG.pullup_a.bands=['Blue (heaviest)','Green'];WU_CHECKS=[true,true,false];saveAW();ADAY=null;resumeW();finishW();",h.ctx);
   const rows=plain(h.api.getSummary().exs);assert.deepEqual(rows.find(e=>e.id==='hex_dl').reps,[5,5]);assert.deepEqual(rows.find(e=>e.id==='hex_dl').wts,[20,20]);assert.deepEqual(rows.find(e=>e.id==='hex_dl').form,[4,4,4]);assert.deepEqual(rows.find(e=>e.id==='pullup_a').bands,['Blue (heaviest)','Green']);assert.deepEqual(rows.find(e=>e.id==='pullup_a').form,[4,4,4,4]);
  });

@@ -1,11 +1,11 @@
 // R6 literal oracles transcribed before app edits; invented values only.
 const now='2026-11-01T12:00:00',cycle='2026-10-01',stageStart='2026-10-20';
 const assistance=['Green','Blue (heaviest)'],resistance=['Purple','Red'];
-// Phase2 original Essentials counts/targets inspected in the protected manifest.
+// Phase2 original Essentials counts/targets; Day C press updated by the approved low-bar swap.
 const days={
  A:[['hex_dl',3,8],['lm_squat',3,10],['lm_lateral',2,20],['b_stance_rdl',3,20],['floor_press',4,12],['pullup_a',4,8],['bb_curl',2,15],['dead_bugs_a',3,16]],
  B:[['hex_squat_b',4,8],['hex_row',4,12],['ohp',4,10],['dips',4,8],['lm_lateral',2,20],['rear_delt',4,20],['band_leg_curl',2,15],['bird_dog',2,8]],
- C:[['hex_rdl',3,12],['hex_floor_press',3,15],['pullup_c',3,10],['lm_squat',4,10],['lm_press',3,12],['lm_pallof',3,24],['band_er',2,20],['floor_glute_bridge',2,20],['bb_skullcr',2,15]]};
+ C:[['hex_rdl',3,12],['deficit_pushup',2,15],['pullup_c',3,10],['lm_squat',4,10],['lm_press',3,12],['lm_pallof',3,24],['band_er',2,20],['floor_glute_bridge',2,20],['bb_skullcr',2,15]]};
 function state(stage='original1',phase=2){return{phase:phase||2,phaseStart:stageStart,nextDay:'A',location:'home',comeback:null,originalResume:null,lastDeload:null,discomfort:[],sessions:[],
  trainingPlan:{stage,start:cycle,stageStart,...(phase?{phase,phaseStart:stageStart}:{}),loads:{hex_dl:80},phaseLoads:phase?{hex_dl:80}:{},returnLoads:{hex_dl:stage==='original1'?72:stage==='original2'?76:80},bands:{pullup_a:'Purple',band_leg_curl:'Green'},returnBands:{pullup_a:'Purple',band_leg_curl:'Green'}}}}
 function row(id,date,stage,ex,over={}){return{id,date,day:'A',loc:'home',phase:2,difficulty:3,trainingStage:stage,trainingPlanStart:cycle,trainingComplete:false,finishReason:'time',noProg:true,notes:'Invented practice continuity',ex,...over}}
