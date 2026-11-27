@@ -71,7 +71,7 @@ Working sets exclude warm-ups. For unilateral movements, a set means the prescri
 | 2 | Push-up: floor or feet suspended in TRX, whichever permits controlled challenging pressing | 3 × 8–20 | Chest; suspension is optional rather than a performance requirement |
 | 3 | TRX high row, through a comfortable elbow path | 3 × 10–20 | Upper back and rear delts; use a more upright angle if needed |
 | 4 | Supported sissy squat | 3 × 8–15 | Quad-focused accessory, after the main push/pull work |
-| 5 | Band lateral raise | 2 × 12–25 | Side delts; without a band use 2 × 10–15 easy-angle TRX Y flyes for scapular/shoulder work, without crediting these as equivalent side-delt sets |
+| 5 | Band lateral raise | 2 × 12–25 | Side delts; without a band use floor pike push-ups 2 × 6–12; this provides a second shoulder-press exposure rather than equivalent isolated side-delt work |
 | 6 | Side plank | 2 × 20–40 seconds per side | Direct lateral trunk work |
 | 7 optional | TRX hamstring curl | 2 × 8–15 | Extra hamstring volume if recovery and time permit |
 
@@ -86,8 +86,8 @@ These figures describe scheduled work, not measured effective sets for every mus
 | Chest, including clavicular region | 8 horizontal-press sets across A/B/C | No separate chest isolation needed initially | No specifically validated upper-chest optimisation; add appropriate incline pressing when weights/bench arrive |
 | Lats | 6 primary low-row sets across A/B | Some contribution to C high rows | No true pull-up/pulldown pattern; do not credit every high-row set fully to the lats |
 | Upper/mid back | 9 total rowing sets, with 3 high-row sets | T/Y flyes if no band | Different regions do not receive identical stimulus from each variation |
-| Rear delts | High rows and contribution to low rows | A T fly without a band; additional Y work on C is not equivalent rear-delt isolation | No need to add all possible fly variations simultaneously |
-| Front delts | 2 pike-press sets | 8 chest-press sets contribute | No claim that pike presses have the same longitudinal evidence as conventional loaded overhead presses |
+| Rear delts | High rows and contribution to low rows | A T fly without a band; C high rows continue the upper-back/rear-delt exposure | No need to add all possible fly variations simultaneously |
+| Front delts | 2 pike-press sets with a band, 4 without | 8 chest-press sets contribute | No claim that pike presses have the same longitudinal evidence as conventional loaded overhead presses |
 | Side delts | 6 direct band-raise sets if available | Some contribution to pressing | TRX-only version has no dedicated lateral-raise slot; T/Y flyes do not solve this identically |
 | Quads/vasti | 5 split-squat sets plus 3 sissy-squat sets | 2 lateral-lunge sets, whose quad contribution depends on execution | Progression may become load-limited |
 | Rectus femoris | Sissy-squat choice is intended to add knee-extension emphasis | Not assumed fully developed by split squats alone | Specific growth from this exact sissy implementation is uncertain |
@@ -96,7 +96,7 @@ These figures describe scheduled work, not measured effective sets for every mus
 | Adductors | 2 lateral-lunge sets provide lateral-plane loading | Compound contribution in split squats | No claim of isolated or maximised adductor hypertrophy |
 | Hip abductors/gluteus medius | Stabilisation during unilateral/lateral work | Optional side-lying hip abduction 2 × 12–25 per side if specifically prioritised | Stabilisation is not equivalent to dedicated dynamic abduction training; replace an optional accessory rather than continually expanding sessions |
 | Biceps | Optional 2 curl sets | 9 row sets contribute | Direct curls are not the only elbow-flexor stimulus |
-| Triceps | Optional 2 extension sets | 8 horizontal-press and 2 pike-press sets contribute | Avoid treating each indirect set as a full isolation set |
+| Triceps | Optional 2 extension sets | 8 horizontal-press and 2–4 pike-press sets contribute | Avoid treating each indirect set as a full isolation set |
 | Abdominals/obliques | 4 direct trunk sets across A/C | Bracing during presses, rows and unilateral legs | Isometric involvement alone does not prove optimal abdominal hypertrophy |
 | Spinal erectors | Trunk support during compound exercises | Loaded RDL option when feasible | No heavy extensor strength practice; do not invent direct heavy-hinge coverage |
 | Calves | No prescribed direct work, respecting preference | Ordinary activity is not equivalent calf hypertrophy training | If complete calf development becomes a goal, add 2–4 weekly straight/bent-knee calf-raise sets by replacing optional work |
@@ -155,6 +155,24 @@ Maintaining muscle generally requires less work than initially building it, but 
 - TRX's official exercise library gives useful movement examples [12]. Its circuit formats often use short timed rests and sometimes mix straps with weights. These are coaching resources, not head-to-head evidence for a best hypertrophy routine.
 - The Bodyweight Fitness Recommended Routine offers a useful push/pull/leg/core framework and progressive exercise difficulty [16]. Its standard version also needs equipment for vertical pulling/dips and can be long. Its hinge progression includes Nordics, although Nordics mechanically train knee flexion rather than loaded hip hinging.
 - Their common useful feature is repeated progressive basic movements. Neither requires copying every exercise or adopting a five-day split for this three-day hotel period. Advanced atomic push-ups, jump combinations, single-arm power pulls and pistol squats are optional skills, not automatic upgrades for muscle growth.
+
+## No-band shoulder update
+
+No band is required. Leave the long-band option unchecked. A uses 2 × 10–20 T flyes;
+B and C each have 2 × 6–12 floor pike push-ups. C's high rows also cover upper-back
+and rear-shoulder work. This preserves full no-band session totals of 17/16/17 sets.
+Y flyes remain an optional shoulder swap. If two equally filled, sealed containers can
+be gripped securely, Filled-Bottle Lateral Raise is another Swap: 2 × 15–30, recording
+the actual resistance in notes. If 30 reps are still easy, use another suitable option;
+do not assume a small water bottle supplies enough resistance for an experienced lifter.
+
+This is a practical bodyweight shoulder-press allocation. EMG research on conventional
+shoulder pressing supports medial-deltoid involvement, but does not prove that pike
+push-ups, bottles and band raises produce equal hypertrophy. Source:
+https://pmc.ncbi.nlm.nih.gov/articles/PMC7706677/
+
+Earlier saved workouts retain their previous shoulder choices. New workouts use this
+no-band route unless the optional band setting is enabled.
 
 ## References and access notes
 

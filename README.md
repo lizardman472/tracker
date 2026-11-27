@@ -63,7 +63,7 @@ with a long band, or 17/16/17 without one. A/C each have one optional finisher; 
 two. The screen calculates these labels from the actual day's list.
 
 A long band enables six weekly side-delt sets. Without one, A uses T flyes, C uses
-Y flyes and B omits the lateral-raise slot; these are not equivalent side-delt exercises.
+floor pike push-ups and B omits the lateral-raise slot; these are not equivalent side-delt exercises. The no-band route has four weekly pike-press sets across B/C. Filled-bottle lateral raises are available through Swap only when suitable containers and resistance are available; record their actual load in notes.
 Enable **I have a secure Nordic ankle anchor** only with a suitable restraint: A uses
 2 x 4-8 assisted Nordics, otherwise 2 x 8-15 TRX curls. B has three curl sets and C
 has two optional sets. Introduce new movements with one easy set before building up.

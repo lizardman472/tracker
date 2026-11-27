@@ -57,7 +57,7 @@ test('revised days distribute the agreed movements and keep only finishers optio
  assert.equal(sets(['hotel_ham_curl']),7);assert.equal(week.reduce((n,e)=>n+e.s,0),52);
  assert.deepEqual(json(R.getProgram(1,'hotel')),json(R.getProgram(3,'hotel')));
  assert(R.setHotelBand(false));assert.equal(R.dayExs('A',{},false)[4].id,'hotel_reverse_fly');
- assert.equal(R.dayExs('C',{},false)[4].id,'hotel_y_fly');
+ assert.equal(R.dayExs('C',{},false)[4].id,'hotel_pike_press');
  assert.equal(R.dayExs('B',{},false).length,7);assert.equal(R.dayExs('B',{},false).reduce((n,e)=>n+e.s,0),16);
  assert(!R.dayExs('B',{},false).some(e=>e.id==='hotel_lateral'));
  assert.match(R.hotelStartLabel('A'),/6 main \+ 1 optional/);assert.match(R.hotelStartLabel('B'),/5 main \+ 2 optional/);
@@ -179,7 +179,7 @@ test('unfinished earlier hotel workouts retain their exact prescription through 
  const active=R.activeRecord();assert.equal(active.hotelVersion,1);assert(R.saveAW());
  assert.equal(R.normalizeActiveRecord(active,R.getD()).hotelVersion,1);
  R.setActive(null);R.setConfirm(true);R.beginW('C');
- assert.equal(R.activeRecord().hotelVersion,2);assert.equal(R.dayExs('C')[0].id,'hotel_lateral_lunge');
+ assert.equal(R.activeRecord().hotelVersion,3);assert.equal(R.dayExs('C')[0].id,'hotel_lateral_lunge');
  assert.equal(R.dayExs('C')[3].s,3);assert(!R.dayExs('C')[3].optional);
  assert.equal(R.normalizeActiveRecord({...R.activeRecord(),hotelVersion:99},R.getD()),null);
 });
@@ -187,10 +187,30 @@ test('revised workouts resume with their selected day and new prescriptions',()=
  const d={...state(),location:'hotel',hotelBand:false,hotelNordic:true};R.setD(d);R.beginW('B');
  assert.equal(R.workoutBudgetTarget(),65*60);
  R.getLOG().hotel_pike_press.reps[0]='8';R.getLOG().hotel_pike_press.setDone[0]=true;assert(R.saveAW());
- const active=JSON.parse(values.get(R.AW_KEY));assert.equal(active.hotelVersion,2);
- const restored=R.normalizeActiveRecord(active,R.getD());assert.equal(restored.hotelVersion,2);
+ const active=JSON.parse(values.get(R.AW_KEY));assert.equal(active.hotelVersion,3);
+ const restored=R.normalizeActiveRecord(active,R.getD());assert.equal(restored.hotelVersion,3);
  R.setActive(null);assert(!R.checkResume().drifted);R.resumeW();
  assert.equal(R.dayExs('B')[0].s,3);assert.equal(R.getLOG().hotel_pike_press.reps[0],8);
  assert.equal(R.dayExs('B').length,7);assert(R.dayExs('B').slice(-2).every(e=>e.optional));
+});
+test('no-band shoulders use T flyes and two pike exposures; bottles are optional swaps',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:false});
+ const week=['A','B','C'].flatMap(day=>R.dayExs(day,{},false));
+ assert(!week.some(e=>e.tp==='band'));assert.equal(week.filter(e=>e.id==='hotel_pike_press').reduce((n,e)=>n+e.s,0),4);
+ assert.equal(week.reduce((n,e)=>n+e.s,0),50);
+ R.setActive('C');assert(R.swapCandidates('hotel_pike_press','hotel_pike_press','all').some(e=>e.id==='hotel_bottle_lateral'));
+ const alt=R.dayExs('C',{hotel_pike_press:'hotel_bottle_lateral'},false)[4];
+ assert.equal(alt.s,2);assert.equal(alt.optional,false);assert.equal(R.getSmartSugg(alt).type,'stay');assert.equal(R.getSmartSugg(alt).wt,null);
+ assert.match(alt.note,/not assumed equipment/);
+});
+test('an unfinished version-two C retains its Y fly and then new C uses pike presses',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:false});
+ const exs=R.hotelProgram(false,false,2).C;
+ assert.equal(exs[4].id,'hotel_y_fly');
+ const draft={id:'before-no-band-update',loc:'hotel',hotelVersion:2,phase:3,day:'C',start:Date.now(),ts:Date.now(),exIds:exs.map(e=>e.id),log:{hotel_y_fly:{reps:[12,11],setDone:[true,true],notes:'old Y setup'}}};
+ values.set(R.AW_KEY,JSON.stringify(draft));assert(!R.checkResume().drifted);R.resumeW();
+ assert.equal(R.dayExs('C')[4].id,'hotel_y_fly');assert.equal(R.activeRecord().hotelVersion,2);
+ assert.equal(R.getLOG().hotel_y_fly.notes,'old Y setup');assert.equal(R.normalizeActiveRecord(R.activeRecord(),R.getD()).hotelVersion,2);
+ R.setActive(null);R.beginW('C');assert.equal(R.dayExs('C')[4].id,'hotel_pike_press');assert.equal(R.activeRecord().hotelVersion,3);
 });
 console.log(`\n${count} hotel mode tests passed`);
