@@ -9,10 +9,10 @@ const context={console,Date,Math,structuredClone,Blob,confirm:()=>true,alert:m=>
  document:{getElementById:()=>null,querySelector:()=>null,createElement:()=>({style:{},textContent:'',get innerHTML(){return String(this.textContent).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')},setAttribute(){},click(){}})}};
 context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
-globalThis.R={freshState,normalizeState,mergeImport,validSession,normalizeActiveRecord,activeRecord,hotelProgram,dayExs,getProgram,getCurPR,
+globalThis.R={freshState,normalizeState,mergeImport,validSession,normalizeActiveRecord,activeRecord,hotelProgram,hotelProgramLegacy,hotelDayExs,hotelStartLabel,resumeW,saveAW,workoutBudgetTarget,dayExs,getProgram,getCurPR,
  setLoc,setHotelBand,setHotelNordic,nextTrainingDay,hotelCard,trainingPlanCard,getSmartSugg,beginW,saveSumm,ensureLog,repInputLabel,repUnit,effectiveReps,dayBadge,
  lastRotSession,getPhaseInfo,getComeback,getBreak,getDeload,checkResume,AW_KEY,today,ALL_EX,MG,swapCandidates,retrySave,
- setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_ACTIVE=null;ADAY=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};SAVE_ERROR=AW_ERROR='';
+ setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_ACTIVE=null;ADAY=null;ACTIVE_HOTEL_VERSION=null;EXPRESS=false;ACTIVE_ORIGINAL_RESUME=null;LOG={};SAVE_ERROR=AW_ERROR='';
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
  getD:()=>D,getLOG:()=>LOG,getPending:()=>PENDING_SAVE,setActive:v=>ADAY=v,setWriter:v=>WRITER=v,
  setSummary:s=>{window._S=s},setConfirm:v=>confirm=()=>v,
@@ -35,18 +35,32 @@ test('partner entry remembers its return target without changing the shared norm
  const d=state();d.location='partner';R.setD(d);assert(R.setLoc('hotel'));assert.equal(R.getD().hotelReturnLoc,'partner');
  assert.match(R.hotelCard(),/Back to Partner's routine/);assert(R.setLoc('partner'));assert.equal(R.nextTrainingDay(),'C');
 });
-test('main exercises precede the two skippable extras on every day and short mode is eight sets',()=>{
- R.setD({...state(),location:'hotel'});
+test('revised days distribute the agreed movements and keep only finishers optional',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:true});
+ const expected={A:['hotel_split_squat','hotel_chest_press','hotel_row','hotel_ham_curl','hotel_lateral','hotel_fallout','hotel_biceps'],
+ B:['hotel_ham_curl','hotel_pike_press','hotel_row','hotel_split_squat','hotel_chest_press','hotel_lateral','hotel_glute_bridge','hotel_triceps'],
+ C:['hotel_lateral_lunge','hotel_floor_pushup','hotel_high_row','hotel_sissy_squat','hotel_lateral','hotel_side_plank','hotel_ham_curl']};
  for(const day of ['A','B','C']){
-  const full=R.dayExs(day,{},false),short=R.dayExs(day,{},true);
-  assert.equal(full.length,7);assert.deepEqual(json(full.slice(0,4).map(e=>e.id)),['hotel_split_squat','hotel_chest_press','hotel_row','hotel_ham_curl']);
-  assert(full.slice(-2).every(e=>e.optional));assert(full.slice(0,5).every(e=>!e.optional));
+  const full=R.dayExs(day,{},false),short=R.dayExs(day,{},true),n=day==='B'?2:1;
+  assert.deepEqual(json(full.map(e=>e.id)),expected[day]);
+  assert(full.slice(-n).every(e=>e.optional));assert(full.slice(0,-n).every(e=>!e.optional));
+  assert.equal(full.reduce((a,e)=>a+e.s,0),day==='B'?18:17);
   assert.equal(short.length,4);assert.equal(short.reduce((n,e)=>n+e.s,0),8);
   assert(full.every(e=>R.ALL_EX.some(x=>x.id===e.id)&&R.MG[e.id]));
  }
+ const week=['A','B','C'].flatMap(d=>R.dayExs(d,{},false));
+ const sets=ids=>week.filter(e=>ids.includes(e.id)).reduce((n,e)=>n+e.s,0);
+ assert.equal(sets(['hotel_chest_press','hotel_floor_pushup']),8);
+ assert.equal(sets(['hotel_row']),6);assert.equal(sets(['hotel_high_row']),3);
+ assert.equal(sets(['hotel_lateral']),6);assert.equal(sets(['hotel_fallout','hotel_side_plank']),4);
+ assert.equal(sets(['hotel_split_squat']),5);assert.equal(sets(['hotel_sissy_squat']),3);
+ assert.equal(sets(['hotel_ham_curl']),7);assert.equal(week.reduce((n,e)=>n+e.s,0),52);
  assert.deepEqual(json(R.getProgram(1,'hotel')),json(R.getProgram(3,'hotel')));
- assert(R.setHotelBand(true));assert.equal(R.dayExs('A',{},false)[5].id,'hotel_lateral');
- assert(!R.dayExs('A',{},false).some(e=>e.id==='hotel_reverse_fly'));
+ assert(R.setHotelBand(false));assert.equal(R.dayExs('A',{},false)[4].id,'hotel_reverse_fly');
+ assert.equal(R.dayExs('C',{},false)[4].id,'hotel_y_fly');
+ assert.equal(R.dayExs('B',{},false).length,7);assert.equal(R.dayExs('B',{},false).reduce((n,e)=>n+e.s,0),16);
+ assert(!R.dayExs('B',{},false).some(e=>e.id==='hotel_lateral'));
+ assert.match(R.hotelStartLabel('A'),/6 main \+ 1 optional/);assert.match(R.hotelStartLabel('B'),/5 main \+ 2 optional/);
 });
 test('hotel suggestions never award automatic leverage or band increases from a high rep count',()=>{
  const d=state();d.location='hotel';d.hotelBand=true;
@@ -93,23 +107,15 @@ test('hotel days do not satisfy normal phase-session or comeback-session counts'
  const d=state();d.sessions.push({id:'hotel-count',date:R.today(),day:'A',loc:'hotel',phase:3,ex:[{id:'hotel_row',reps:[10]}]});R.setD(d);
  assert.equal(R.getPhaseInfo().sess,before);R.setLoc('hotel');assert.equal(R.getBreak(),null);assert.equal(R.getDeload(),null);assert.equal(R.getComeback(),null);
 });
-test('Nordic setup is opt-in, persists, replaces only A curls and stays in short A',()=>{
- R.setD({...state(),location:'hotel'});
- assert.equal(R.getD().hotelNordic,false);
- assert.equal(R.dayExs('A',{},true)[3].id,'hotel_ham_curl');
- assert(R.setHotelNordic(true));
- assert.equal(JSON.parse(values.get('rft-v12')).hotelNordic,true);
- for(const day of ['A','B','C']){
-  const full=R.dayExs(day,{},false),short=R.dayExs(day,{},true);
-  assert.equal(full[3].id,day==='A'?'hotel_nordic':'hotel_ham_curl');
-  assert.equal(full.length,7);assert.equal(full.reduce((n,e)=>n+e.s,0),17);
-  assert.equal(short.length,4);assert.equal(short.reduce((n,e)=>n+e.s,0),8);
-  assert.equal(short[3].id,full[3].id);
- }
- assert.equal(R.dayExs('C',{},false).at(-1).id,'hotel_sissy_squat');
- assert(R.dayExs('C',{},false).at(-1).optional);
- assert(!R.dayExs('C',{},true).some(e=>e.id==='hotel_sissy_squat'));
- assert.equal(R.dayExs('A',{},false).at(-1).id,'hotel_glute_bridge');
+test('Nordic setup is opt-in and only replaces A curls, including short A',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:true});
+ assert.equal(R.getD().hotelNordic,false);assert.equal(R.dayExs('A',{},true)[3].id,'hotel_ham_curl');
+ assert(R.setHotelNordic(true));assert.equal(JSON.parse(values.get('rft-v12')).hotelNordic,true);
+ assert.equal(R.dayExs('A',{},true)[3].id,'hotel_nordic');
+ assert.equal(R.dayExs('B',{},false)[0].id,'hotel_ham_curl');assert.equal(R.dayExs('B',{},false)[0].s,3);
+ assert.equal(R.dayExs('C',{},false).at(-1).id,'hotel_ham_curl');
+ assert.equal(R.dayExs('C',{},true)[3].id,'hotel_sissy_squat');assert.equal(R.dayExs('C',{},true)[3].s,2);
+ assert(!R.dayExs('C',{},false)[3].optional);assert.equal(R.dayExs('C',{},false)[3].s,3);
  assert(R.setHotelNordic(false));assert.equal(R.dayExs('A',{},false)[3].id,'hotel_ham_curl');
 });
 test('anchor changes cannot replace unfinished work and failed preference saves are atomic',()=>{
@@ -145,5 +151,46 @@ test('new movements never earn automatic assistance or load changes and normal s
  R.setD({...state(),location:'home'});R.setActive('B');
  assert(R.swapCandidates('band_leg_curl','band_leg_curl','all').some(e=>e.id==='nordic_curl'));
  R.setActive('C');assert(R.swapCandidates('lm_lateral_squat','lm_lateral_squat','all').some(e=>e.id==='sissy_squat'));
+});
+test('hotel swaps preserve the slot volume and optional status',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:true});R.setActive('B');
+ const press=R.dayExs('B',{hotel_chest_press:'hotel_floor_pushup'},false).find(e=>e._slot==='hotel_chest_press');
+ assert.equal(press.id,'hotel_floor_pushup');assert.equal(press.s,2);assert.equal(press.optional,false);
+ const hinge=R.dayExs('B',{hotel_glute_bridge:'hotel_bstance_rdl'},false).find(e=>e._slot==='hotel_glute_bridge');
+ assert.equal(hinge.s,2);assert.equal(hinge.optional,true);assert.equal(R.repInputLabel(hinge),'reps per side');
+ R.setActive('C');
+ const split=R.dayExs('C',{hotel_lateral_lunge:'hotel_split_squat'},false)[0];assert.equal(split.s,2);
+ assert(R.swapCandidates('hotel_lateral_lunge','hotel_lateral_lunge','all').some(e=>e.id==='hotel_split_squat'));
+ R.setActive('A');assert(R.swapCandidates('hotel_fallout','hotel_fallout','all').some(e=>e.id==='hotel_reverse_crunch'));
+ for(const id of ['hotel_pike_press','hotel_high_row','hotel_lateral_lunge','hotel_fallout','hotel_reverse_crunch','hotel_y_fly','hotel_bstance_rdl']){
+  const ex=R.ALL_EX.find(e=>e.id===id);assert(ex&&R.MG[id]);assert.equal(R.getSmartSugg(ex).type,'stay');assert.equal(R.getSmartSugg(ex).wt,null);
+ }
+});
+test('unfinished earlier hotel workouts retain their exact prescription through resume and backup',()=>{
+ R.setD({...state(),location:'hotel',hotelBand:true,hotelNordic:true});
+ const ids=R.hotelProgramLegacy().C.map(e=>e.id);
+ const draft={id:'before-revision',loc:'hotel',phase:3,day:'C',start:Date.now(),ts:Date.now(),xp:false,exIds:ids,
+ log:{hotel_sissy_squat:{reps:[9,8],setDone:[true,true],notes:'original two sets'},hotel_chest_press:{reps:[12],setDone:[true]}},notes:'keep this workout'};
+ values.set(R.AW_KEY,JSON.stringify(draft));
+ const found=R.checkResume();assert(found);assert.equal(found.hotelVersion,1);assert(!found.drifted);
+ R.resumeW();assert.deepEqual(json(R.dayExs('C').map(e=>e.id)),json(ids));
+ assert.equal(R.dayExs('C').at(-1).s,2);assert(R.dayExs('C').at(-1).optional);
+ assert.equal(R.getLOG().hotel_sissy_squat.reps[0],9);assert.equal(R.getLOG().hotel_sissy_squat.notes,'original two sets');
+ const active=R.activeRecord();assert.equal(active.hotelVersion,1);assert(R.saveAW());
+ assert.equal(R.normalizeActiveRecord(active,R.getD()).hotelVersion,1);
+ R.setActive(null);R.setConfirm(true);R.beginW('C');
+ assert.equal(R.activeRecord().hotelVersion,2);assert.equal(R.dayExs('C')[0].id,'hotel_lateral_lunge');
+ assert.equal(R.dayExs('C')[3].s,3);assert(!R.dayExs('C')[3].optional);
+ assert.equal(R.normalizeActiveRecord({...R.activeRecord(),hotelVersion:99},R.getD()),null);
+});
+test('revised workouts resume with their selected day and new prescriptions',()=>{
+ const d={...state(),location:'hotel',hotelBand:false,hotelNordic:true};R.setD(d);R.beginW('B');
+ assert.equal(R.workoutBudgetTarget(),65*60);
+ R.getLOG().hotel_pike_press.reps[0]='8';R.getLOG().hotel_pike_press.setDone[0]=true;assert(R.saveAW());
+ const active=JSON.parse(values.get(R.AW_KEY));assert.equal(active.hotelVersion,2);
+ const restored=R.normalizeActiveRecord(active,R.getD());assert.equal(restored.hotelVersion,2);
+ R.setActive(null);assert(!R.checkResume().drifted);R.resumeW();
+ assert.equal(R.dayExs('B')[0].s,3);assert.equal(R.getLOG().hotel_pike_press.reps[0],8);
+ assert.equal(R.dayExs('B').length,7);assert(R.dayExs('B').slice(-2).every(e=>e.optional));
 });
 console.log(`\n${count} hotel mode tests passed`);

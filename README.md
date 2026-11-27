@@ -56,27 +56,28 @@ exercise records; the normal rotation, phase, phase start and recovery plan rema
 Finish or discard an unfinished workout before entering/leaving Hotel or changing its
 packed-band option. Failed mode saves use the existing atomic save/retry flow.
 
-Each day starts with supported split squats, TRX chest presses, rows and hamstring curls,
-then the day's accessory. Two optional exercises come last: reverse flyes (or band lateral
-raises if enabled) and single-leg glute bridges on A/B or supported sissy squats on C. Stop before those extras whenever needed.
-**Short hotel session** uses only the four main movements, two sets each. Only checked,
-performed work is saved; omitted extras do not become completed sets.
+Hotel A emphasises split squats, chest presses and low rows; B hamstrings and floor
+pike presses; C lateral lunges, push-ups, high rows and supported sissy squats. Direct
+core work appears on A/C before optional finishers. Full sessions have 17/18/17 sets
+with a long band, or 17/16/17 without one. A/C each have one optional finisher; B has
+two. The screen calculates these labels from the actual day's list.
 
-Hotel uses fixed hypertrophy ranges and manual setup progression, independent of the normal
-phase. Record strap length, foot position, range, assistance and any resistance in exercise
-notes; the last setup notes are carried forward for editing. Rep counts alone never earn
-automatic leverage, load or band increases. Split-squat and bridge entries are reps per leg;
-the hotel side plank records seconds per side. Hotel sessions are labelled **H** in History.
-Hotel preferences and records survive backup/restore; additive imports keep local settings.
+A long band enables six weekly side-delt sets. Without one, A uses T flyes, C uses
+Y flyes and B omits the lateral-raise slot; these are not equivalent side-delt exercises.
+Enable **I have a secure Nordic ankle anchor** only with a suitable restraint: A uses
+2 x 4-8 assisted Nordics, otherwise 2 x 8-15 TRX curls. B has three curl sets and C
+has two optional sets. Introduce new movements with one easy set before building up.
 
-Day C's sissy squat is 2 x 8-15, introduced with 1 easy set. Enable **I have a secure
-Nordic ankle anchor** to replace A's TRX curl with 2 x 4-8 assisted Nordics (initially
-1 x 4-6); B/C retain TRX curls. This preference is saved and included in backups.
-Without a suitable ankle restraint, leave it off. Short sessions retain A's Nordic
-when enabled, while optional sissy squats stay outside the short session. Both new
-movements use manual assistance/range progression; previous curl/bridge records stay
-separate. The normal exercise Swap library also includes both exercises; this does
-not replace the normal home programme or recovery plan.
+**Short hotel session** retains the first four movements, two sets each. Swap provides
+grounded pressing/core alternatives, split squats for lateral lunges and an optional
+loaded B-stance RDL for B bridges when sufficient secure resistance is available. Swaps
+keep the original slot's set count and optional status. Log literal reps per side and
+record assistance, range and load in notes; no automatic leverage or resistance increases.
+
+Only checked performed work is saved. Existing exercise histories retain their identities.
+An unfinished hotel workout from the earlier release resumes its original prescription;
+the revision starts with the next new workout. The saved workout version survives backup
+and import. Hotel still has its own rotation, phase-independent ranges and preferences.
 
 The trainer requires a suitable verified anchor. Neither a hotel room nor its door is
 assumed to be suitable. See [the routine and its evidence](docs/hotel-workout.md).
