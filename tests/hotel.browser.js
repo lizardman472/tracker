@@ -91,6 +91,14 @@ module.exports=async({browser,origin,T,errors,baseStore})=>{
  await old.page.evaluate(()=>finishW());await old.page.getByRole('button',{name:'Save ✓',exact:true}).click();
  T('saving an old hotel draft retains literal historical reps',await old.page.evaluate(()=>D.sessions.at(-1).ex.find(e=>e.id==='hotel_sissy_squat').reps.join(',')==='9,8'));
  await old.page.evaluate(()=>beginW('B'));
- T('the next workout uses revised B with shoulder pressing and the band slot',await old.page.evaluate(()=>activeRecord().hotelVersion===2&&dayExs(ADAY).length===8&&dayExs(ADAY)[1].id==='hotel_pike_press'&&dayExs(ADAY)[0].s===3));
+ T('the next workout uses revised B with shoulder pressing and the band slot',await old.page.evaluate(()=>activeRecord().hotelVersion===3&&dayExs(ADAY).length===8&&dayExs(ADAY)[1].id==='hotel_pike_press'&&dayExs(ADAY)[0].s===3));
  await old.ctx.close();
+ const bare=await open(320);await bare.page.getByRole('button',{name:'🏨 Hotel',exact:true}).click();
+ await bare.page.evaluate(()=>{D.hotelNextDay='C';save();render();beginW('C');CIDX=4;render()});
+ T('no-band C presents pike presses and offers a bottle-raise alternative',await bare.page.getByRole('button',{name:'Swap Floor Pike Push-up',exact:true}).count()===1);
+ await bare.page.getByRole('button',{name:'Swap Floor Pike Push-up',exact:true}).click();
+ T('bottle raise is visibly available without requiring a band',await bare.page.getByText('Filled-Bottle Lateral Raise',{exact:true}).count()>0);
+ await bare.page.evaluate(()=>doSwap('hotel_pike_press','hotel_bottle_lateral'));
+ T('bottle swap keeps two main sets and manual setup notes',await bare.page.evaluate(()=>dayExs(ADAY)[4].id==='hotel_bottle_lateral'&&dayExs(ADAY)[4].s===2&&!dayExs(ADAY)[4].optional&&getSmartSugg(dayExs(ADAY)[4]).type==='stay'));
+ await bare.ctx.close();
 };

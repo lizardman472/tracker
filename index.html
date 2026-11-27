@@ -1060,6 +1060,7 @@ const HOTEL_ALTS=[
 // this revision. Existing exercise IDs continue to resolve unchanged in History.
 function hotelProgramLegacy(band=D.hotelBand===true,nordic=D.hotelNordic===true){return Object.fromEntries(['A','B','C'].map(day=>[day,[...HOTEL_BASE.map(e=>day==='A'&&nordic&&e.id==='hotel_ham_curl'?HOTEL_NORDIC:e),HOTEL_ACCESS[day],band?HOTEL_LATERAL:HOTEL_REVERSE,day==='C'?HOTEL_SISSY:HOTEL_BRIDGE].map(e=>({...e}))]));}
 const HOTEL_NEW=[
+{id:'hotel_bottle_lateral',nm:'Filled-Bottle Lateral Raise',s:2,rp:'15-30',tg:30,rst:'1:30',rstS:90,rir:'1-3',tp:'bw',hotel:true,rl:'Use only if you have two equally filled, sealed containers you can grip securely. With soft elbows, raise the arms out to the sides through a comfortable range, then lower under control without swinging or shrugging.',note:'Optional no-band shoulder-slot alternative, not assumed equipment. Record container weight or water volume and the setup in notes. Choose enough resistance for challenging controlled reps; if 30 reps remain easy, the containers are too light for this purpose. No automatic resistance increase.'},
 {id:'hotel_high_row',nm:'TRX High Row',s:3,rp:'10-20',tg:20,rst:'2:00',rstS:120,rir:'1-3',tp:'bw',hotel:true,rl:'Face the anchor and row towards the upper chest with a comfortable wider elbow path. Keep the body aligned and avoid shrugging or forcing shoulder range. Start more upright than your low row.',note:'Upper-back and rear-delt emphasis; not an equivalent full lat set. Record strap length, foot position and elbow path. Increase difficulty manually only when range and control are repeatable.'},
 {id:'hotel_pike_press',nm:'Floor Pike Push-up',s:2,rp:'6-12',tg:12,rst:'2:00',rstS:120,rir:'1-3',tp:'bw',hotel:true,rl:'Hands and feet on the floor, hips raised. Bend the elbows and lower the head under control through a comfortable path, then press back. Choose a body position allowing at least 6 clean reps without grinding.',note:'A shoulder-press pattern, not the feet-suspended TRX abdominal pike. Start with 1 easy practice set if unfamiliar. Swap to a controlled floor push-up if unsuitable; do not force overhead range or balance.'},
 {id:'hotel_lateral_lunge',nm:'TRX-Assisted Lateral Lunge',s:2,rp:'8-15/side',tg:15,rst:'2:00',rstS:120,rir:'1-3',tp:'bw',hotel:true,repsPerSide:true,rl:'Face the anchor and step to the side. Bend the working knee in line with the foot and sit into that hip, keeping a controlled trunk. Use the straps for necessary support and push back to the start.',note:'Begin with 1 easy set and a modest step/range. This is not a demand for a deep Cossack squat. Log reps per side, step width and assistance; match sides. Swap to supported split squats if this pattern is unsuitable.'},
@@ -1069,7 +1070,7 @@ const HOTEL_NEW=[
 {id:'hotel_bstance_rdl',nm:'Loaded B-Stance RDL (Hotel)',s:2,rp:'10-20/side',tg:20,rst:'2:00',rstS:120,rir:'1-3',tp:'bw',hotel:true,optional:true,repsPerSide:true,rl:'Use only when sufficient secure external resistance is available. Front foot carries most of the load, rear foot is a kickstand. Hinge at the hips with the load close and return without twisting.',note:'Optional replacement for B glute bridges. Record the actual secure backpack/band resistance and setup in notes; this card never infers kilograms or increases load automatically. An easy unloaded hinge is not equivalent heavy RDL practice.'}
 ];
 const hotelNew=id=>HOTEL_NEW.find(e=>e.id===id);
-function hotelActiveVersion(){return ADAY&&D.location==='hotel'&&ACTIVE_HOTEL_VERSION===1?1:2}
+function hotelActiveVersion(){return ADAY&&D.location==='hotel'&&[1,2].includes(ACTIVE_HOTEL_VERSION)?ACTIVE_HOTEL_VERSION:3}
 function hotelProgram(band=D.hotelBand===true,nordic=D.hotelNordic===true,version=hotelActiveVersion()){
  if(version===1)return hotelProgramLegacy(band,nordic);
  const [split,press,row,curl]=HOTEL_BASE;
@@ -1080,7 +1081,7 @@ function hotelProgram(band=D.hotelBand===true,nordic=D.hotelNordic===true,versio
  return Object.fromEntries(Object.entries({
  A:[split,press,lowRow,nordic?HOTEL_NORDIC:curl,shoulder||tFly,hotelNew('hotel_fallout'),{...HOTEL_ACCESS.A,optional:true}],
  B:[{...curl,s:3},hotelNew('hotel_pike_press'),lowRow,{...split,s:2,rp:'10-20/leg'}, {...press,s:2},shoulder,HOTEL_BRIDGE,{...HOTEL_ACCESS.B,optional:true}],
- C:[hotelNew('hotel_lateral_lunge'),HOTEL_ALTS[0],hotelNew('hotel_high_row'),sissy,shoulder||hotelNew('hotel_y_fly'),HOTEL_ACCESS.C,{...curl,optional:true}]
+ C:[hotelNew('hotel_lateral_lunge'),HOTEL_ALTS[0],hotelNew('hotel_high_row'),sissy,shoulder||hotelNew(version===2?'hotel_y_fly':'hotel_pike_press'),HOTEL_ACCESS.C,{...curl,optional:true}]
  }).map(([day,rows])=>[day,rows.filter(Boolean).map(e=>({...e}))]));
 }
 function hotelDayExs(day,sw={},short=false,version=hotelActiveVersion()){
@@ -1091,17 +1092,17 @@ function hotelDayExs(day,sw={},short=false,version=hotelActiveVersion()){
 }
 function hotelStartLabel(day){const rows=hotelProgram()[day]||[];return 'Start Hotel Workout · '+rows.filter(e=>!e.optional).length+' main + '+rows.filter(e=>e.optional).length+' optional'}
 function hotelSwapIds(slotId,day=ADAY){
- const groups=[['hotel_chest_press','hotel_floor_pushup','hotel_suspended_pushup'],['hotel_pike_press','hotel_floor_pushup','hotel_chest_press'],['hotel_lateral_lunge','hotel_split_squat'],['hotel_fallout','hotel_reverse_crunch'],['hotel_glute_bridge','hotel_bstance_rdl'],['hotel_ham_curl',...(day==='A'&&D.hotelNordic?['hotel_nordic']:[])]];
+ const groups=[['hotel_reverse_fly','hotel_y_fly','hotel_pike_press','hotel_bottle_lateral'],['hotel_chest_press','hotel_floor_pushup','hotel_suspended_pushup'],['hotel_pike_press','hotel_floor_pushup','hotel_chest_press'],['hotel_lateral_lunge','hotel_split_squat'],['hotel_fallout','hotel_reverse_crunch'],['hotel_glute_bridge','hotel_bstance_rdl'],['hotel_ham_curl',...(day==='A'&&D.hotelNordic?['hotel_nordic']:[])]];
  return [...new Set(groups.filter(g=>g.includes(slotId)).flat())];
 }
 function nextTrainingDay(){return (D.location==='hotel'?D.hotelNextDay:D.nextDay)||'A'}
 function hotelCard(view='home'){
- if(hotelActiveVersion()===1)return '<div class="routine-control" id="hotel-mode"><div class="routine-title">Earlier hotel workout</div><p>Finish your saved workout with its original exercise order and sets. New sessions use the revised A/B/C routine.</p></div>';
+ if(hotelActiveVersion()<3)return '<div class="routine-control" id="hotel-mode"><div class="routine-title">Earlier hotel workout</div><p>Finish your saved workout with its original exercise order and sets. New sessions use the revised A/B/C routine.</p></div>';
  const active=!!ADAY,back=D.hotelReturnLoc==='partner'?'partner':'home';
  return `<div class="routine-control" id="hotel-mode"><div class="routine-title">Hotel mode on</div>
  <p class="routine-meta">Three full-body days, with rest days between. Fixed hypertrophy ranges; your usual phase and next Day ${D.nextDay||'A'} stay saved. Hotel mode stays on until you switch back.</p>
  <p class="dm">A: thighs, chest and low rows. B: hamstrings and shoulder pressing. C: lateral leg work, quads and upper back. Core and shoulder accessories come before optional finishers. Budget 55-65 minutes for strength, then 20-25 minutes brisk cardio; short sessions use the first four movements, two sets each. Rest longer when needed. Introduce unfamiliar movements with one easy set and about 3 clean reps left, then build gradually.</p>
- <details><summary>Setup and progression</summary><p>Use a sound solid door opening away from the exercise area, firmly closed and preferably locked, with the proper door anchor. Inspect and test gradually; no hollow doors or improvised hotel fixtures. If no suitable anchor exists, use another training space.</p><p>Warm up about 5 minutes with easy movement and practice sets. Record strap length, foot position, range and band/assistance in exercise notes. Usually leave 1-3 controlled reps. Add reps at the same setup; at the top of every set, manually increase difficulty slightly. Main exercises usually rest about 2 minutes, Nordics 2-3, accessories 60-90 seconds. No automatic leverage, weight or band increases. Optional isometric holds are not required finishers.</p><p>Weekly main work: 8 chest-press sets, 6 low-row + 3 high-row sets, 5 split-squat + 3 sissy-squat sets and 2 lateral-lunge sets, 5 hamstring-curl/Nordic sets, 2 pike-press sets and 4 direct core sets. Optional C curls add 2 hamstring sets. A long band supplies 6 direct side-delt sets; without one, A uses T flyes, C uses Y flyes and B omits that slot. These are different shoulder exercises, not equivalent side-delt loading. Heavy hinges and vertical pulling remain equipment limitations. Add brisk walks for cardio.</p></details>
+ <details><summary>Setup and progression</summary><p>Use a sound solid door opening away from the exercise area, firmly closed and preferably locked, with the proper door anchor. Inspect and test gradually; no hollow doors or improvised hotel fixtures. If no suitable anchor exists, use another training space.</p><p>Warm up about 5 minutes with easy movement and practice sets. Record strap length, foot position, range and band/assistance in exercise notes. Usually leave 1-3 controlled reps. Add reps at the same setup; at the top of every set, manually increase difficulty slightly. Main exercises usually rest about 2 minutes, Nordics 2-3, accessories 60-90 seconds. No automatic leverage, weight or band increases. Optional isometric holds are not required finishers.</p><p>Weekly main work: 8 chest-press sets, 6 low-row + 3 high-row sets, 5 split-squat + 3 sissy-squat sets and 2 lateral-lunge sets, 5 hamstring-curl/Nordic sets, ${D.hotelBand?2:4} pike-press sets and 4 direct core sets. Optional C curls add 2 hamstring sets. A long band supplies 6 direct side-delt sets; without one, A uses T flyes, C uses floor pike push-ups and B omits that slot. For the no-band routine, floor pike presses train shoulders on B and C and T flyes cover rear-shoulder work on A. Filled-bottle lateral raises are an optional Swap if suitable containers are available. These choices are not proven equivalent to dedicated lateral-raise training. Heavy hinges and vertical pulling remain equipment limitations. Add brisk walks for cardio.</p></details>
  ${view==='workout'?'':`<label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="hotel-band" type="checkbox"${D.hotelBand?' checked':''}${active?' disabled':''} onchange="setHotelBand(this.checked)">I have a long band - include lateral raises</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="hotel-nordic" type="checkbox"${D.hotelNordic?' checked':''}${active?' disabled':''} onchange="setHotelNordic(this.checked)">I have a secure Nordic ankle anchor - use assisted Nordics on A</label><button class="btn btn-wh"${active?' disabled':''} onclick="setLoc('${back}')">Back to ${back==='partner'?"Partner's routine":'Home routine'}</button>`}</div>`;
 }
 function setHotelBand(on){if(!changeTrainingPlanAllowed())return false;const W=structuredClone(D);W.hotelBand=on===true;return save(W,{after:render})}
@@ -1226,7 +1227,7 @@ const JOINTS=['Shoulder','Elbow','Wrist','Lower Back','Hip','Knee','Ankle'];
 const MG={
   hotel_split_squat:{quads:1,glutes:0.5},hotel_chest_press:{chest:1,triceps:0.5,fdelt:0.5},
   hotel_floor_pushup:{chest:1,triceps:0.5,fdelt:0.5},hotel_suspended_pushup:{chest:1,triceps:0.5,fdelt:0.5},
-  hotel_row:{back:1,biceps:0.5,reardelt:0.5},hotel_ham_curl:{hams:1},hotel_nordic:{hams:1},hotel_sissy_squat:{quads:1},hotel_high_row:{back:1,reardelt:1,biceps:0.5},hotel_pike_press:{fdelt:1,triceps:0.5,sidedelt:0.5},hotel_lateral_lunge:{quads:0.5,glutes:0.5},hotel_fallout:{core:1},hotel_reverse_crunch:{core:1},hotel_y_fly:{back:1,reardelt:0.5},hotel_bstance_rdl:{hams:1,glutes:1,back:0.5},nordic_curl:{hams:1},sissy_squat:{quads:1},
+  hotel_row:{back:1,biceps:0.5,reardelt:0.5},hotel_ham_curl:{hams:1},hotel_nordic:{hams:1},hotel_sissy_squat:{quads:1},hotel_high_row:{back:1,reardelt:1,biceps:0.5},hotel_pike_press:{fdelt:1,triceps:0.5,sidedelt:0.5},hotel_lateral_lunge:{quads:0.5,glutes:0.5},hotel_fallout:{core:1},hotel_reverse_crunch:{core:1},hotel_bottle_lateral:{sidedelt:1},hotel_y_fly:{back:1,reardelt:0.5},hotel_bstance_rdl:{hams:1,glutes:1,back:0.5},nordic_curl:{hams:1},sissy_squat:{quads:1},
   hotel_biceps:{biceps:1},hotel_triceps:{triceps:1},hotel_side_plank:{core:1},hotel_lateral:{sidedelt:1},hotel_reverse_fly:{reardelt:1,back:0.5},hotel_glute_bridge:{glutes:1},
   // Home compounds
   deadlift:{back:0.5,hams:1,glutes:1},
@@ -1693,7 +1694,7 @@ return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;ACTIVE_ORIGINAL_RES
 function activeRecord(){if(!ADAY)return null;
 if(!ACTIVE_ID)ACTIVE_ID=recordId();
 return{id:ACTIVE_ID,owner:WRITER_ID,resetEpoch:D.resetEpoch||'0',day:ADAY,log:LOG,start:SS,cidx:CIDX,ts:Date.now(),
-loc:D.location,phase:D.phase,...(D.location==='hotel'?{hotelVersion:ACTIVE_HOTEL_VERSION||2}:{}),...(ACTIVE_ORIGINAL_RESUME?{originalResumeId:ACTIVE_ORIGINAL_RESUME}:{}),exIds:dayExs(ADAY).map(e=>e.id),swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}}
+loc:D.location,phase:D.phase,...(D.location==='hotel'?{hotelVersion:ACTIVE_HOTEL_VERSION||3}:{}),...(ACTIVE_ORIGINAL_RESUME?{originalResumeId:ACTIVE_ORIGINAL_RESUME}:{}),exIds:dayExs(ADAY).map(e=>e.id),swaps:SWAP,notes:SNOTES,wu:WU_CHECKS,xp:EXPRESS}}
 function saveAW(){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}if(!ADAY)return false;if(PENDING_SAVE&&VIEW==='workout'){updateSaveStatus();return false}if(!WRITER){AW_ERROR='Workout changes cannot be saved from this read-only tab.';updateSaveStatus();return false}
 try{const raw=JSON.stringify(activeRecord());localStorage.setItem(AW_KEY,raw);ACTIVE_BASE_RAW=raw;AW_CLEANUP=false;AW_CLEANUP_AFTER=null;AW_ERROR='';updateSaveStatus();return true}
 catch(e){AW_ERROR='Current workout is not saved on this device. Keep this tab open. Retry or download the workout.';updateSaveStatus();return false}}
@@ -1839,7 +1840,7 @@ const swaps={};if(plainObject(d.swaps))for(const[k,v]of Object.entries(d.swaps))
 const row={id,resetEpoch:state.resetEpoch||'0',day:d.day,log,start:Number(d.start),ts:Number(d.ts),cidx:Math.floor(finiteNumber(d.cidx)||0),
 notes:typeof d.notes==='string'?d.notes:'',wu:Array.from({length:3},(_,i)=>d.wu?.[i]===true),xp:d.xp===true,swaps};
 if(['home','partner','hotel'].includes(d.loc))row.loc=d.loc;if([1,2,3].includes(d.phase))row.phase=d.phase;
-if(d.loc==='hotel'){if(d.hotelVersion!=null&&![1,2].includes(d.hotelVersion))return null;row.hotelVersion=d.hotelVersion||1;}
+if(d.loc==='hotel'){if(d.hotelVersion!=null&&![1,2,3].includes(d.hotelVersion))return null;row.hotelVersion=d.hotelVersion||1;}
 if(validOriginalResumeId(d.originalResumeId))row.originalResumeId=d.originalResumeId;
 if(Array.isArray(d.exIds))row.exIds=d.exIds.filter(x=>typeof x==='string'&&/^[\w-]{1,100}$/.test(x));
 return row}
@@ -4661,7 +4662,7 @@ return ALL_EX.filter(e=>{
   if(D.location==='hotel'&&!hotelAllowed.includes(e.id))return false;
   if(!okTp.includes(e.tp))return false;
   if(tpFilter!=='all'&&e.tp!==tpFilter)return false;
-  const m=MG[e.id];return m&&pset.some(x=>m[x])})
+  const m=MG[e.id];const shoulderSwap=D.location==='hotel'&&['hotel_reverse_fly','hotel_y_fly','hotel_pike_press','hotel_bottle_lateral'].includes(slotId)&&['hotel_reverse_fly','hotel_y_fly','hotel_pike_press','hotel_bottle_lateral'].includes(e.id);return m&&(shoulderSwap||pset.some(x=>m[x]))})
 .map(e=>({e,ov:pset.reduce((a,x)=>a+((MG[e.id]||{})[x]||0),0)}))
 .sort((a,b)=>b.ov-a.ov).slice(0,12).map(x=>x.e)}
 
@@ -4696,7 +4697,7 @@ if(pend?.unreadable){alert('The saved unfinished workout could not be checked. K
 if(pend&&typeof confirm==='function'){
   const where=pend.why==='venue'?` from a different venue (${pend.loc})`:pend.why==='phase'?` from phase ${pend.phase}`:'';
   if(!confirm(`You have an unfinished workout${where} waiting to resume — starting a new one discards it. Continue?`))return}
-ACTIVE_ID=recordId();ACTIVE_BASE_RAW=null;ACTIVE_ORIGINAL_RESUME=originalResumeContext()?.id||null;ACTIVE_HOTEL_VERSION=D.location==='hotel'?2:null;ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
+ACTIVE_ID=recordId();ACTIVE_BASE_RAW=null;ACTIVE_ORIGINAL_RESUME=originalResumeContext()?.id||null;ACTIVE_HOTEL_VERSION=D.location==='hotel'?3:null;ADAY=day;WU_CHECKS=[false,false,false];SNOTES='';SWAP={};SWAP_OPEN=null;
 // Set before dayExs — it reads EXPRESS when no explicit flag is passed. Express is
 // home-only, so a venue switch mid-flight can never leave a partner day filtered.
 EXPRESS=shortHomePlan()||!!xp&&expressAvailable();
