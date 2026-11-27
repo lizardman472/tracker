@@ -26,6 +26,8 @@ jobs:
         run: node tests/recovery.test.js
       - name: Analytics boundary and comparability regressions
         run: node tests/analytics.test.js
+      - name: Hotel mode and independent rotation regressions
+        run: node tests/hotel.test.js
       - name: Render smoke tests
         run: node tests/render.smoke.js
       - name: Service-worker tests

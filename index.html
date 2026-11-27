@@ -671,7 +671,7 @@ const NEXT_DAY={A:'B',B:'C',C:'A'};
 // they are load-bearing for existing data, not dead code. Every site that derives nextDay
 // from history filters through them.
 const isRotDay=d=>Object.prototype.hasOwnProperty.call(NEXT_DAY,d);
-const lastRotSession=(ss,asOf=today())=>{for(let i=ss.length-1;i>=0;i--)if(ss[i].date<=asOf&&isRotDay(ss[i].day))return ss[i];return null};
+const lastRotSession=(ss,asOf=today())=>{for(let i=ss.length-1;i>=0;i--)if(ss[i].loc!=='hotel'&&ss[i].date<=asOf&&isRotDay(ss[i].day))return ss[i];return null};
 const PHASES={1:{name:'Linear',wk:8,desc:'Build strength. Add weight with confirmation sessions.',
   adj:{hex_dl:{rp:'5',tg:5},b_stance_rdl:{rp:'8/side',tg:8},hex_squat_b:{rp:'5-6',tg:6},lm_squat:{rp:'6-8',tg:8},ohp:{rp:'5-7',tg:7},floor_press:{rp:'8-10',tg:10},hex_row:{rp:'8-10',tg:10},hex_rdl:{rp:'8-10',tg:10},hex_floor_press:{rp:'8-12',tg:12},lm_lateral_squat:{rp:'8/side',tg:8},lm_lateral:{rp:'12-15/side',tg:15},bb_rear_row:{rp:'12-15',tg:15},bb_curl:{rp:'8-12',tg:12},bb_skullcr:{rp:'8-12',tg:12},lm_pallof:{rp:'10/side',tg:10},band_er:{rp:'15/side',tg:15},
   db_rdl:{rp:'8-10',tg:10},db_floor_press:{rp:'8-10',tg:10},db_ohp:{rp:'8-10',tg:10},db_bss:{rp:'8/leg',tg:8},db_lateral:{rp:'12-15',tg:15},db_rear_fly:{rp:'15-20',tg:20},db_curl:{rp:'8-12',tg:12}}},
@@ -1030,8 +1030,53 @@ C:[...PARTNER_BASE,
 {id:'db_carry',nm:'DB Farmer\'s Carry',s:3,rp:'40m',rst:'0:45',rir:'—',tp:'carry',dbLoad:true,loadUnit:'per_db',rl:'Tall posture, shoulders packed, brace. One bell per hand — log kg PER HAND and METRES per set. ⚠ AT THE MATCHED-PAIR CEILING (18.5kg/bell) — progress by DISTANCE once there.',note:'v21 re-seeded this to "22kg, top of the single-bell rack" — corrected in v21.3, because 22kg is the ceiling when ONE bell gets the whole plate pool (that is db_bss, the goblet split squat). A farmer\'s carry needs TWO matched bells, and 22kg/bell would want sixteen 2.5kg plates against the eight you own. The real matched ceiling is 18.5kg/bell, and the card now steps that ladder. At 18.5 the only lever left is distance: 40m → 50m → 60m, then time under load. Your home hex carry (32kg) is the heavier stimulus either way.',tg:40,rstS:45,tempo:'—',perSide:false},
 {id:'cb_arm_cast',nm:'Clubbell Arm Cast',s:3,rp:'10/side',rst:'0:45',rir:'2',tp:'club',fixedKg:8,rl:'Optional finisher. 8kg. Elbow tucked, muzzle to sky. Triceps long-head stimulus. Skip freely on tight days.',note:'Fixed 8kg — progresses by reps and control, not load.',tg:10,rstS:45,tempo:'controlled',perSide:true,optional:true}]};
 
+// Hotel uses its own exercise identities, rotation and fixed rep ranges. Leverage is
+// recorded in notes, never inferred from a rep increase or converted to kilograms.
+const HOTEL_BASE=[
+{id:'hotel_split_squat',nm:'Supported Split Squat',s:3,rp:'8-20/leg',tg:20,rst:'2:00',rstS:120,rir:'1-2',tp:'bw',repsPerSide:true,hotel:true,rl:'Both feet stay on the floor. Use the handles lightly for balance. Build reps at the same depth before reducing assistance or adding secure backpack weight.',note:'Log reps per leg: 12 means 12 on each leg. Lead with the weaker leg and match its reps. Take 20-30 seconds between legs if needed, then 90-120 seconds after both. Record assistance, depth and any backpack weight in setup notes.'},
+{id:'hotel_chest_press',nm:'TRX Chest Press',s:3,rp:'8-20',tg:20,rst:'2:00',rstS:120,rir:'1-2',tp:'bw',hotel:true,rl:'Hands in handles, feet grounded, facing away from the anchor. Keep the body aligned and lower the chest between the hands. Choose a comfortable elbow path.',note:'Record strap length and foot position. Build reps at the same setup; once every set reaches 20 with 1-2 clean reps left, use a slightly more horizontal angle. Switch to floor push-ups if rubbing or instability limits productive pressing.'},
+{id:'hotel_row',nm:'TRX Row',s:3,rp:'8-20',tg:20,rst:'2:00',rstS:120,rir:'1-2',tp:'bw',hotel:true,rl:'Face the anchor. Pull the handles towards the ribs without shrugging, bouncing or twisting. Extend the arms under control.',note:'Keep strap length, foot position and range consistent. Build reps before making the body more horizontal. More reps at an easier angle are not evidence of progression.'},
+{id:'hotel_ham_curl',nm:'TRX Hamstring Curl',s:2,rp:'8-15',tg:15,rst:'1:30',rstS:90,rir:'1-2',tp:'bw',hotel:true,rl:'Lie on your back facing the anchor, heels in cradles. Curl the heels towards you and extend under control. Begin with hips low, progressing to controlled hips-raised curls.',note:'Keep the setup consistent; do not replace hip control with lower-back arching. If you cramp, lower the hips, reduce the range and recover before retrying.'}
+];
+const HOTEL_ACCESS={
+A:{id:'hotel_biceps',nm:'TRX Biceps Curl',s:2,rp:'10-20',tg:20,rst:'1:15',rstS:75,rir:'1-2',tp:'bw',hotel:true,rl:'Face the anchor. Keep the upper arms reasonably still while bending at the elbows. Use a manageable body angle.'},
+B:{id:'hotel_triceps',nm:'TRX Triceps Extension',s:2,rp:'10-20',tg:20,rst:'1:15',rstS:75,rir:'1-2',tp:'bw',hotel:true,rl:'Use an easy angle and bend at the elbows without collapsing through the trunk. Skip if it reproduces elbow discomfort; presses still train the triceps.'},
+C:{id:'hotel_side_plank',nm:'Side Plank (Hotel)',s:2,rp:'20-40s/side',tg:40,rst:'1:00',rstS:60,rir:'controlled',tp:'bw',repsPerSide:true,hotel:true,rl:'Elbow under shoulder, trunk aligned. Breathe normally and stop before posture fails. Enter seconds per side: 30 means 30 seconds on each side.'}
+};
+const HOTEL_LATERAL={id:'hotel_lateral',nm:'Band Lateral Raise (Optional)',s:2,rp:'12-25',tg:25,rst:'1:15',rstS:75,rir:'1-2',tp:'band',bandMode:'resist',hotel:true,optional:true,rl:'Stand on a suitable long band. Raise the arms to the sides through a comfortable range without leaning or shrugging to finish.',note:'Optional shoulder work. Choose the band manually. Record band identity, grip and stance in setup notes. This replaces the rear-delt fly when you enable the packed-band option.'};
+const HOTEL_REVERSE={id:'hotel_reverse_fly',nm:'TRX Reverse Fly (Optional)',s:2,rp:'10-20',tg:20,rst:'1:15',rstS:75,rir:'1-2',tp:'bw',hotel:true,optional:true,rl:'Face the anchor with an easy lean. Open the arms with a soft elbow bend, keeping the trunk still. Use less lean if you cannot control the movement.',note:'Optional rear-delt and upper-back work. This is not an equivalent replacement for side-delt lateral raises. Skip freely after the main exercises.'};
+const HOTEL_BRIDGE={id:'hotel_glute_bridge',nm:'Single-Leg Glute Bridge (Optional)',s:2,rp:'10-20/leg',tg:20,rst:'1:30',rstS:90,rir:'1-2',tp:'bw',repsPerSide:true,hotel:true,optional:true,rl:'Lie on the floor, one foot planted. Raise the hips without arching the lower back; keep the pelvis level. Lead with the weaker side and match reps.',note:'Optional hip-extension work after the main session. Enter reps per leg. Use both legs if needed, and record the variation. If 20 per leg is easy, add secure backpack resistance or accept the loading limit; this does not replace a heavy RDL.'};
+const HOTEL_NORDIC={id:'hotel_nordic',nm:'Assisted Nordic Hamstring Curl',s:2,rp:'4-8',tg:8,rst:'2:30',rstS:150,rir:'2-3',tp:'bw',hotel:true,rl:'Pad the knees and use a suitable secure padded ankle restraint that cannot move or tip. Keep trunk and thighs aligned. Lower for 3-5 seconds through a controllable range and use assistance to return.',note:'First 1-2 weeks: only 1 set of 4-6 assisted reps, about 3 clean reps left. Build to 2 sets when recovery allows. For eccentric-only practice, use 3-5 controlled lowers with a hand catch and push-assisted return. Record assistance and range. Do not use loose barbells, hotel furniture or TRX cradles as an improvised ankle anchor. Swap to TRX curls if the setup is unsuitable.'};
+const HOTEL_SISSY={id:'hotel_sissy_squat',nm:'Supported Sissy Squat (Optional)',s:2,rp:'8-15',tg:15,rst:'1:30',rstS:90,rir:'2-3',tp:'bw',hotel:true,optional:true,rl:'Hold the TRX handles on a suitable secure anchor, or a stable fixed hand support. Keep hips extended and trunk/thighs aligned as knees travel forward and heels rise naturally. Use arm assistance and a comfortable controlled range.',note:'Day C quad accessory in place of the optional bridge; split squats stay first. Start with 1 easy set of 8-12 for the first 1-2 weeks, then build to 2 sets. Progress control and range, then reps, then reduce assistance. Do not add load or force depth through joint pain. Log range and assistance consistently.'};
+const LOWER_BODY_ALTS=[
+{...HOTEL_NORDIC,id:'nordic_curl',hotel:false,manualSetup:true,nm:'Assisted Nordic Hamstring Curl',note:HOTEL_NORDIC.note+' Use only with a suitable ankle restraint.'},
+{...HOTEL_SISSY,id:'sissy_squat',hotel:false,manualSetup:true,optional:false,nm:'Supported Sissy Squat',s:3,note:'Quad accessory: 3 x 8-15 once accustomed; start with 1-2 easy sets. Progress range, control and reps before reducing assistance or adding load. Use stable fixed hand support or a correctly anchored suspension trainer. Record range and assistance.'}
+];
+const HOTEL_ALTS=[
+{...HOTEL_BASE[1],id:'hotel_floor_pushup',nm:'Floor Push-up (Hotel)',rl:'Hands and feet grounded. Lower through a consistent comfortable range without sagging. Choose a variation that challenges pressing muscles with 1-2 clean reps left.',note:'Record hand/foot position and any secure resistance. This is an alternative to the TRX chest press, not extra work.'},
+{...HOTEL_BASE[1],id:'hotel_suspended_pushup',nm:'TRX Feet-Suspended Push-up',rl:'Hands on the floor, feet in the cradles. Keep trunk control while lowering and pressing. Use only if familiar and stable.',note:'This differs from the hands-in-handles chest press. If trunk control fails before pressing muscles tire, choose the grounded alternative.'}
+];
+function hotelProgram(band=D.hotelBand===true,nordic=D.hotelNordic===true){return Object.fromEntries(['A','B','C'].map(day=>[day,[...HOTEL_BASE.map(e=>day==='A'&&nordic&&e.id==='hotel_ham_curl'?HOTEL_NORDIC:e),HOTEL_ACCESS[day],band?HOTEL_LATERAL:HOTEL_REVERSE,day==='C'?HOTEL_SISSY:HOTEL_BRIDGE].map(e=>({...e}))]));}
+function nextTrainingDay(){return (D.location==='hotel'?D.hotelNextDay:D.nextDay)||'A'}
+function hotelCard(view='home'){
+ const active=!!ADAY,back=D.hotelReturnLoc==='partner'?'partner':'home';
+ return `<div class="routine-control" id="hotel-mode"><div class="routine-title">Hotel mode on</div>
+ <p class="routine-meta">Three full-body days, with rest days between. Fixed hypertrophy ranges; your usual phase and next Day ${D.nextDay||'A'} stay saved. Hotel mode stays on until you switch back.</p>
+ <p class="dm">Main movements first, then the day's accessory, then two optional extras. Stop before the extras whenever needed. Main session: about 40-55 minutes; with extras: 50-65; short: 25-35. Rest longer when needed. First two sessions: use the short session and leave about 3 clean reps; then aim for 1-2.</p>
+ <details><summary>Setup and progression</summary><p>Use a sound solid door opening away from the exercise area, firmly closed and preferably locked, with the proper door anchor. Inspect and test gradually; no hollow doors or improvised hotel fixtures. If no suitable anchor exists, use another training space.</p><p>Warm up about 5 minutes with easy movement and practice sets. Record strap length, foot position, range and band/assistance in exercise notes. Add reps at the same setup; at the top of every set, manually increase difficulty slightly. No automatic leverage, weight or band increases. Optional isometric holds are not required finishers.</p><p>Split squats, presses and rows: 9 weekly sets each; hamstring curls: 6, including 2 assisted Nordic sets on A only when enabled. Day C ends with 2 optional supported sissy-squat sets in place of bridges. Start these new exercises with 1 easy set; build gradually. A band adds direct side-delt work. Loading headroom for legs and heavy-lift practice remain limited. Add brisk walks for cardio.</p></details>
+ ${view==='workout'?'':`<label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="hotel-band" type="checkbox"${D.hotelBand?' checked':''}${active?' disabled':''} onchange="setHotelBand(this.checked)">I have a long band - include lateral raises</label><label style="display:flex;gap:8px;align-items:center;margin:10px 0"><input id="hotel-nordic" type="checkbox"${D.hotelNordic?' checked':''}${active?' disabled':''} onchange="setHotelNordic(this.checked)">I have a secure Nordic ankle anchor - use assisted Nordics on A</label><button class="btn btn-wh"${active?' disabled':''} onclick="setLoc('${back}')">Back to ${back==='partner'?"Partner's routine":'Home routine'}</button>`}</div>`;
+}
+function setHotelBand(on){if(!changeTrainingPlanAllowed())return false;const W=structuredClone(D);W.hotelBand=on===true;return save(W,{after:render})}
+function setHotelNordic(on){if(!changeTrainingPlanAllowed())return false;const W=structuredClone(D);W.hotelNordic=on===true;return save(W,{after:render})}
+function hotelSuggestion(ex){
+ const last=getLast(ex.id),setup=last?.notes?' Previous setup: '+last.notes:'';
+ return{text:ex.id==='hotel_side_plank'?'Control first - seconds per side':'Build reps at the same setup',type:'stay',wt:null,band:last?.band||'',traj:[],regress:'',
+ detail:ex.rl+' Log setup notes; change difficulty manually only when every set reaches the top with 1-2 clean reps left.'+setup};
+}
+
 // getProgram — apply phase adjustment for the location's base program
 function getProgram(phase,loc){
+if(loc==='hotel')return hotelProgram();
 const base=loc==='partner'?LOC_B_PR:BASE_PR;
 const p=PHASES[phase]||PHASES[1],pr={};
 for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
@@ -1045,6 +1090,7 @@ for(const[day,exs] of Object.entries(base)){pr[day]=exs.map(ex=>{
 // already logged against day 'X' keep resolving for exactly that reason.)
 const ALL_EX_RAW=[...BASE_PR.A,...BASE_PR.B,...BASE_PR.C,
 ...LOC_B_PR.A,...LOC_B_PR.B,...LOC_B_PR.C,
+...HOTEL_BASE,...Object.values(HOTEL_ACCESS),HOTEL_LATERAL,HOTEL_REVERSE,HOTEL_BRIDGE,HOTEL_NORDIC,HOTEL_SISSY,...HOTEL_ALTS,...LOWER_BODY_ALTS,
 {id:'dead_bug_unloaded',nm:'Dead Bug (unloaded)',s:2,rp:'6-8/side',tg:8,tp:'bw',perSide:true,rst:'1:30',rstS:90,rir:'controlled',tempo:'slow',rl:'Keep the ribs down and move only as far as you can without arching the lower back. Log combined reps: 12 means 6 each side. No added weight.'},
 {id:'lm_bstance_squat',nm:'Landmine B-Stance Squat (weak side leads)',s:3,rp:'8-10/leg',rst:'1:00',rir:'2',tp:'bb',lm:true,rl:'Legacy — replaced on Day A by regular landmine squat. Unilateral quad slot (v14) — the imbalance work the bilateral squats can\'t do. Front-rack the bar end at the shoulder or hold it in the crook of the arm, B-stance kickstand (front foot 70%), sit straight down, drive up tall. Load plates on the FREE end only. ⚠ The pivot offloads part of the load — judge by RIR, not the plate number.',note:'Finding session. Front-rack the landmine or hold in the crook of the arm. Weak side leads; match the strong side\'s reps to the weak side. Judge by RIR, not the plate number (the pivot offloads part of the load). If 10/leg with 2-3 in reserve on the weak side, add load next session.',tg:10,rstS:60,tempo:'3-1-2-0',perSide:true},
 // Retired-day stubs — kept so historical sessions / cues never crash lookups
@@ -1140,6 +1186,10 @@ const JOINTS=['Shoulder','Elbow','Wrist','Lower Back','Hip','Knee','Ankle'];
 // Used for the weekly hypertrophy volume dashboard. Per-side exercises still count their
 // set total once (a 3×8/side lateral set is 3 sets of stimulus, not 6).
 const MG={
+  hotel_split_squat:{quads:1,glutes:0.5},hotel_chest_press:{chest:1,triceps:0.5,fdelt:0.5},
+  hotel_floor_pushup:{chest:1,triceps:0.5,fdelt:0.5},hotel_suspended_pushup:{chest:1,triceps:0.5,fdelt:0.5},
+  hotel_row:{back:1,biceps:0.5,reardelt:0.5},hotel_ham_curl:{hams:1},hotel_nordic:{hams:1},hotel_sissy_squat:{quads:1},nordic_curl:{hams:1},sissy_squat:{quads:1},
+  hotel_biceps:{biceps:1},hotel_triceps:{triceps:1},hotel_side_plank:{core:1},hotel_lateral:{sidedelt:1},hotel_reverse_fly:{reardelt:1,back:0.5},hotel_glute_bridge:{glutes:1},
   // Home compounds
   deadlift:{back:0.5,hams:1,glutes:1},
   hex_dl:{back:0.5,hams:1,glutes:1,quads:0.5}, // hex DL is slightly more quad-dominant than straight
@@ -1599,7 +1649,7 @@ function releasePendingActive(restore=false){if(restore&&PENDING_ACTIVE_BEFORE){
 PENDING_ACTIVE=null;PENDING_ACTIVE_BEFORE=null}
 function discardPendingActive(){if(!WRITER||PENDING_SAVE||!PENDING_ACTIVE||!confirm('Discard the imported unfinished workout that could not be saved? Download the recovery copy first if you need it. Saved history and any earlier resume workout stay saved.'))return false;
 releasePendingActive(true);updateSaveStatus();render();return true}
-function freshState(){return{sessions:[],nextDay:'A',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,originalResume:null,resetEpoch:'0'}}
+function freshState(){return{sessions:[],nextDay:'A',hotelNextDay:'A',hotelBand:false,hotelNordic:false,hotelReturnLoc:'home',lastDeload:null,cues:{},bodyLog:[],cardioLog:[],phase:1,phaseStart:today(),discomfort:[],location:'home',programVersion:21,notify:{enabled:false,rest:true},lastBackup:null,lastBackupCount:0,dismissed:{},theme:'auto',deleted:[],comeback:null,comebackLog:[],trainingPlan:null,originalResume:null,resetEpoch:'0'}}
 function resetAll(){if(!WRITER||PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}const W=freshState();W.resetEpoch=recordId('reset-');
 return save(W,{after:()=>{clearAW();ADAY=null;ACTIVE_ID=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};SS=null;window._S=null;clearTimer();applyTheme();go('home')}})}
 function activeRecord(){if(!ADAY)return null;
@@ -1750,7 +1800,7 @@ disc:['none','mild','moderate'].includes(v.disc)?v.disc:'none',discJoints:Array.
 const swaps={};if(plainObject(d.swaps))for(const[k,v]of Object.entries(d.swaps))if(/^[\w-]{1,100}$/.test(k)&&typeof v==='string'&&/^[\w-]{1,100}$/.test(v))swaps[k]=v;
 const row={id,resetEpoch:state.resetEpoch||'0',day:d.day,log,start:Number(d.start),ts:Number(d.ts),cidx:Math.floor(finiteNumber(d.cidx)||0),
 notes:typeof d.notes==='string'?d.notes:'',wu:Array.from({length:3},(_,i)=>d.wu?.[i]===true),xp:d.xp===true,swaps};
-if(['home','partner'].includes(d.loc))row.loc=d.loc;if([1,2,3].includes(d.phase))row.phase=d.phase;
+if(['home','partner','hotel'].includes(d.loc))row.loc=d.loc;if([1,2,3].includes(d.phase))row.phase=d.phase;
 if(validOriginalResumeId(d.originalResumeId))row.originalResumeId=d.originalResumeId;
 if(Array.isArray(d.exIds))row.exIds=d.exIds.filter(x=>typeof x==='string'&&/^[\w-]{1,100}$/.test(x));
 return row}
@@ -2276,7 +2326,7 @@ function trainingPhaseContext(now=today()){
   `Review from ${fmtD(st.review)}${originalReturn(st)?`; manageable A/B/C completed: ${st.completed.length}/3` :''}. Move on only when sessions and recovery feel manageable; confirm yourself.`;
  return{label:labels[st.stage],next:next[st.stage],when,why:why[st.stage],clock:st.phaseStart||st.stageStart};
 }
-function activePhaseLabel(){return D.location==='partner'?`Partner · Phase ${D.phase} · ${PHASES[D.phase].name}`:trainingPhaseContext().label}
+function activePhaseLabel(){return D.location==='hotel'?'Hotel - fixed hypertrophy ranges':D.location==='partner'?`Partner · Phase ${D.phase} · ${PHASES[D.phase].name}`:trainingPhaseContext().label}
 function trainingStartButton(day,compact=false){
  const st=trainingPlanStatus(),cls=compact?'btn btn-wh btn-md':'start-primary';
  if(st.pending)return `<button class="${cls}" disabled>Starts ${fmtD(st.stageStart)}</button>`;
@@ -2285,6 +2335,7 @@ function trainingStartButton(day,compact=false){
  return `<button class="${cls}" onclick="beginW('${day}',true)">Start ${st.label} · Day ${day}</button>`;
 }
 function trainingPlanCard(view='home'){
+ if(D.location==='hotel')return hotelCard(view);
  const st=trainingPlanStatus(),orig=originalReturn(st),ctx=trainingPhaseContext(),check=shortDeloadStatus();
  const cue=(D.location==='partner'?'Home routine · ':'')+(!st?'Original A/B/C Essentials':st.label+(st.stage==='progress'?' · default':''));
  const effort=st?.stage==='deload'?'4–5':st?.stage==='progress'||st?.stage==='original3'?'2–3':'3';
@@ -2420,12 +2471,12 @@ function shortSuggestion(ex){
  return{text:`${wt}kg · ${action}`,action,type:increase?'up':'stay',wt,traj:[],detail,
   regress:disc?'Hold progression; reduce load or stop if discomfort rises.':''};
 }
-function getCurPR(){return shortHomePlan()?shortProgram():getProgram(D.phase,D.location)}
+function getCurPR(){return D.location==='hotel'?hotelProgram():shortHomePlan()?shortProgram():getProgram(D.phase,D.location)}
 
 // ═══════════════ PERIODIZATION ═══════════════
 function getPhaseInfo(){
 const wksSince=Math.max(1,Math.floor((new Date()-new Date(D.phaseStart+'T00:00:00'))/6048e5)+1);
-const sessSince=D.sessions.filter(s=>s.date>=D.phaseStart&&s.date<=today()).length;
+const sessSince=D.sessions.filter(s=>s.loc!=='hotel'&&s.date>=D.phaseStart&&s.date<=today()).length;
 const p=PHASES[D.phase]||PHASES[1];
 // Intelligent phase assessment: check how many exercises are stalling.
 // Dedupe by id first — a lift on two days (e.g. lm_lateral on A+B) is ONE exercise
@@ -2474,6 +2525,7 @@ return{phase:D.phase,name:p.name,desc:p.desc,wk:wksSince,maxWk:p.wk,sess:sessSin
 // re-tapping the active phase must NOT reset the phase clock.
 function advancePhaseSafe(){if(D.trainingPlan){alert('Use the phase choice in your current plan. Recovery and gradual return keep their prescriptions held.');return false}return setPhase(D.phase>=3?1:D.phase+1)}
 function setPhase(p){
+ if(D.location==='hotel'){alert('Hotel uses fixed rep ranges. Switch back to your usual routine before changing its phase.');return false}
  if(D.trainingPlan?.stage==='progress')return setShorterPhase(p);
  if(D.trainingPlan){alert('Phase changes are held during recovery and gradual return. Choose Linear or Hypertrophy when the easy return week is complete, or before starting the optional original-routine return.');return false}
  if(!PHASES[p]||p===D.phase)return false;
@@ -2491,12 +2543,12 @@ function setPhase(p){
 }
 // One home/partner switch used by Home, Log Past and Settings — replaces three
 // divergent hand-rolled versions (one of which was icon-only with no labels).
-function locSwitchH(cur,fn){return`<div style="display:flex;gap:0;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">
-<button type="button" aria-pressed="${cur!=='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur!=='partner'?'var(--pr)':'var(--cd)'};color:${cur!=='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('home')">🏠 Home</button>
-<button type="button" aria-pressed="${cur==='partner'}" style="flex:1;padding:9px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur==='partner'?'var(--pr)':'var(--cd)'};color:${cur==='partner'?'var(--ink)':'var(--mu)'}" onclick="${fn}('partner')">🏘 Partner's</button></div>`}
-function setLoc(l){if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return}if(l===D.location){render();return}
+function locSwitchH(cur,fn){return`<div style="display:flex;gap:0;border-radius:var(--rad-sm);overflow:hidden;border:1px solid var(--cb)">${[['home','🏠 Home'],['partner',"🏘 Partner's"],['hotel','🏨 Hotel']].map(([loc,label])=>`<button type="button" data-venue="${loc}" aria-pressed="${cur===loc}" style="flex:1;padding:10px 6px;min-height:44px;font-size:11px;font-weight:700;border:none;cursor:pointer;background:${cur===loc?'var(--pr)':'var(--cd)'};color:${cur===loc?'var(--ink)':'var(--mu)'}" onclick="${fn}('${loc}')">${label}</button>`).join('')}</div>`}
+function setLoc(l){if(!['home','partner','hotel'].includes(l))return false;if(PENDING_ACTIVE||IMPORT_BUSY){updateSaveStatus();return false}if(l===D.location){render();return true}
+if((l==='hotel'||D.location==='hotel')&&!changeTrainingPlanAllowed())return false;
 if(checkResume()&&!confirm('You have an unfinished workout at the other location — switching hides it until you switch back. Continue?'))return;
-D.location=l;save();render()}
+const W=structuredClone(D);if(l==='hotel')W.hotelReturnLoc=D.location;W.location=l;
+return save(W,{after:()=>{PICK_DAY=null;render();document.querySelector('[data-venue="'+l+'"]')?.focus()}})}
 
 // ═══════════════ PROGRESSION ═══════════════
 function getHist(exId,n=20){const h=[];for(let i=D.sessions.length-1;i>=0&&h.length<n;i--){const s=D.sessions[i],e=s.ex.find(x=>x.id===exId);if(e)h.unshift({...e,date:s.date,phase:s.phase,loc:s.loc||'home',day:s.day,difficulty:s.difficulty,warmup:s.warmup,...(s.noProg?{noProg:true}:{})})}return h}
@@ -2534,7 +2586,7 @@ return Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)).slice(-n)
 // repsPerSide is a separate legacy-compatible convention: lateral raises store
 // ONE side (15 means 15 each side). Never halve those records or rewrite raw reps.
 function sideTarget(ex){return !!(ex&&(ex.perSide||ex.repsPerSide))}
-function repInputLabel(ex){return ex.perSide?'total reps across both sides':ex.repsPerSide?'reps per side':'reps'}
+function repInputLabel(ex){if(ex.hotel&&/s\/side/.test(ex.rp))return 'seconds per side';return ex.perSide?'total reps across both sides':ex.repsPerSide?'reps per side':'reps'}
 function effectiveReps(ex,reps){
 return (reps||[]).filter(r=>Number(r)>0).map(r=>ex&&ex.perSide?Math.floor(Number(r)/2):Number(r))}
 
@@ -3385,6 +3437,7 @@ function safetyHist(ex){let h=getHist(ex.id,8).filter(x=>!x.noProg&&effectiveRep
   const muted=rampMutedDates();if(muted.size){const f=h.filter(x=>!muted.has(x.date));if(f.length)h=f}
   return h.slice(-5)}
 function getSmartSugg(ex){
+  if(ex.hotel||ex.manualSetup)return hotelSuggestion(ex);
   const base=shortSuggestion(ex)||getSmartSuggCore(ex);
   const context=originalResumeContext(ex),fresh=context?originalProgressionHist(ex,context).at(-1):null,practice=context?originalPractice(ex,context):null;
   if(fresh&&practice&&practice._sessionId!==fresh._sessionId){
@@ -3531,7 +3584,9 @@ let DAY_INK={A:'#ffffff',B:'#ffffff',C:'#ffffff',X:'#ffffff'}; // theme-switched
 // One place that turns a session into its badge text. 'X' was the v19 off-rotation core
 // block — it has no venue-numbered day name, so "Day X1" would be nonsense on every history
 // row. Nothing writes 'X' since v20, but stored ones still flow through here.
-const dayBadge=s=>s.day==='X'?'Core':`Day ${s.day}${s.loc==='partner'?'2':'1'}`;
+const venueSuffix=loc=>loc==='hotel'?'H':loc==='partner'?'2':'1';
+const venueLabel=loc=>loc==='hotel'?'Hotel':loc==='partner'?'Partner':'Home';
+const dayBadge=s=>s.day==='X'?'Core':`Day ${s.day}${venueSuffix(s.loc)}`;
 function svgBars(data,W,H,color,label,opts){
 opts=opts||{};
 if(!data.length)return`<div class="dm" style="text-align:center;padding:16px">Not enough data yet — log a session or two.</div>`;
@@ -3674,6 +3729,7 @@ function shortDeloadGuidanceH(check,view){
  return `<div class="routine-checkin${check.due||check.hold?' caution':''}" role="status"><b>${label}</b>${detail?' · '+esc(detail):''}${check.due&&view!=='workout'?'<div class="routine-actions"><button class="btn btn-wh" onclick="setRecoveryMode(\'deload\')">Start deload today</button></div>':''}</div>`;
 }
 function getDeload(stalledMajor=0){
+if(D.location==='hotel')return null;
 if(D.trainingPlan)return shortDeloadStatus();
 // The deload clock measures accumulated training fatigue since it was last discharged. A
 // layoff long enough to need a return ramp discharges it as surely as a deload week does, so
@@ -3791,7 +3847,7 @@ if(!(Number(start)>0))return null;
 const elapsed=Math.max(0,Math.floor(((now==null?Date.now():now)-Number(start))/1000));
 const left=target-elapsed;
 return{elapsed,left,over:left<0,pct:Math.min(100,elapsed/target*100)}}
-function workoutBudgetTarget(){return shortHomePlan()?(D.trainingPlan.stage==='deload'?40:originalReturn()?80:65)*60:ESSENTIALS_TARGET_SEC}
+function workoutBudgetTarget(){return D.location==='hotel'?35*60:shortHomePlan()?(D.trainingPlan.stage==='deload'?40:originalReturn()?80:65)*60:ESSENTIALS_TARGET_SEC}
 function essentialsBudgetLabel(b){
 if(!b)return'';
 return b.over?`+${fmtMS(-b.left)} over target`:`${fmtMS(b.left)} left`}
@@ -3831,6 +3887,7 @@ function dayAfter(d,n=1){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n
 // null when there is nothing to offer — including when a ramp is open, because the offer and
 // the progress card are mutually exclusive states of the same thing.
 function getBreak(){
+if(D.location==='hotel')return null;
 if(D.trainingPlan)return null;
 if(D.comeback)return null;
 // A store still on the bundled SEED demo has months-old sessions nobody trained. Offering a
@@ -3870,11 +3927,12 @@ return true}
 //           order things were typed in.
 //   stage   1 = re-introduce, 2 = rebuild. Driven by sess, see RTN_STAGE1_SESS.
 function getComeback(){
+if(D.location==='hotel')return null;
 const c=D.comeback;if(!c)return null;
 const t=today();
 const days=dayDiff(c.end,c.start)+1;
 const day=dayDiff(t,c.start)+1;
-const sess=D.sessions.filter(s=>s.date>=c.start&&s.date<=c.end).length;
+const sess=D.sessions.filter(s=>s.loc!=='hotel'&&s.date>=c.start&&s.date<=c.end).length;
 return{start:c.start,end:c.end,gap:c.gap,days,day,sess,
   pending:day<1,over:t>c.end,
   until:Math.max(0,dayDiff(c.start,t)),            // days until it starts (0 once started)
@@ -4179,7 +4237,7 @@ const order=['A','B','C'];
 // The cycle view answers "where am I in A→B→C" — off-rotation core blocks are not part of
 // that answer, and leaving them in made the timeline's rest-day gaps lie (a core block on a
 // rest day read as "b2b" training). Filtered out here, so every consumer below is clean.
-const ss=[...D.sessions].filter(s=>s.date<=asOf&&isRotDay(s.day)).sort((a,b)=>a.date.localeCompare(b.date));
+const ss=[...D.sessions].filter(s=>s.date<=asOf&&isRotDay(s.day)&&(D.location==='hotel'?s.loc==='hotel':s.loc!=='hotel')).sort((a,b)=>a.date.localeCompare(b.date));
 // recent timeline: last up to 5 sessions; gap = calendar days from the previous session
 const recent=ss.slice(-5).map((s,i,arr)=>{const prev=arr[i-1];
 const gap=prev?Math.round((new Date(s.date+'T00:00:00')-new Date(prev.date+'T00:00:00'))/864e5):null;
@@ -4187,7 +4245,7 @@ return{day:s.day,loc:s.loc||'home',date:s.date,gap}});
 // days completed in the current cycle: walk back to and including the most recent 'A'
 let done=new Set();
 for(let i=ss.length-1;i>=0;i--){const d=ss[i].day;if(!order.includes(d))continue;done.add(d);if(d==='A')break}
-const next=D.nextDay||'A';
+const next=nextTrainingDay();
 if(next==='A')done=new Set(); // a fresh A→B→C cycle is about to start
 // days since last session + average gap across all sessions
 const last=ss[ss.length-1];
@@ -4198,7 +4256,7 @@ return{order,recent,done,next,sinceLast,avgGap}}
 
 // ─── HOME ──────────────────────────────────────
 function rHome(el){
-const nd0=PICK_DAY||D.nextDay||'A',isP=D.location==='partner';
+const nd0=PICK_DAY||nextTrainingDay(),isP=D.location==='partner';
 const nd=!['A','B','C'].includes(nd0)?'A':nd0;
 const pr=getCurPR(),exs=pr[nd]||pr['A'],fat=getFatigue(),phi=getPhaseInfo(),dl=getDeload(phi.stalledMajor);
 const resume=checkResume();
@@ -4310,7 +4368,7 @@ ${r.pending?'':`<div class="fg-bar"><div class="fg-fill" style="width:${r.pct}%;
 <div class="dm" style="margin-top:5px;font-size:10px">Your first ${RTN_STAGE1_SESS} sessions back are held out of weight suggestions, so training light now can't pull your working loads down. Stage 2 counts normally.</div></div>`}}
 
 // Hero — show rest-day card if last session was today or yesterday
-const ls=isP?'2':'1';
+const ls=D.location==='hotel'?'H':isP?'2':'1';
 let restDay=null;
 if(D.sessions.length){
   const lastS=D.sessions[D.sessions.length-1];
@@ -4323,7 +4381,7 @@ if(D.sessions.length){
 // reachable in one tap — you could train, but not choose. `nd` already honours PICK_DAY, so
 // this exposes a pick the rest of the screen was already wired for.
 const days=['A','B','C'];
-const sugg=D.nextDay||'A';
+const sugg=nextTrainingDay();
 let picker=`<div class="dpick">`;
 for(const dd of days)picker+=`<button class="${dd===nd?'on':''}" onclick="PICK_DAY='${dd}';render()">${dd}${ls}</button>`;
 picker+=`</div>`;
@@ -4334,7 +4392,7 @@ const lastDay=D.sessions.length?D.sessions[D.sessions.length-1].day:null;
 const repeatHint=overridden&&nd===lastDay?`<div style="font-size:11px;color:var(--am);margin:4px 0 2px">⚠ Day ${nd} was your last session — repeating it stacks the same patterns without a rotation gap.</div>`:'';
 
 if(restDay){
-  const lastLoc=(restDay.last.loc||'home')==='partner'?'2':'1';
+  const lastLoc=venueSuffix(restDay.last.loc);
   const sinceTxt=restDay.state==='today'?'today':'yesterday';
   const recoMsg=restDay.state==='today'
     ?'Today is for recovery. Easy row, walk, or stretch — no lifting.'
@@ -4352,9 +4410,9 @@ if(restDay){
   ${repeatHint}${picker}
   <div style="display:flex;gap:6px">
     <button class="btn btn-pr btn-md" style="flex:2" onclick="go('cardio')">🚣 Log Cardio / Recovery</button>
-    ${shortHomePlan()?trainingStartButton(nd,true):`<button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} Essentials anyway</button>`}
+    ${shortHomePlan()?trainingStartButton(nd,true):`<button class="btn btn-wh btn-md" style="flex:1;font-size:11px" onclick="beginW('${nd}',true)">Day ${nd}${ls} ${D.location==='hotel'?'short hotel session':'Essentials'} anyway</button>`}
   </div>
-  ${shortHomePlan()?'':`<button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} Full anyway</button>`}
+  ${shortHomePlan()?'':`<button class="btn btn-ghost btn-sm" style="margin-top:7px;width:100%;font-size:10px" onclick="beginW('${nd}')">Day ${nd}${ls} ${D.location==='hotel'?'Hotel Workout':'Full'} anyway</button>`}
   ${trainingPlanCard()}
   </div>`;
 }else{
@@ -4362,12 +4420,12 @@ if(restDay){
   // session remains one tap away. At home the audited primary/control filter applies; at the
   // partner venue the seven-movement shared full-body base remains and rotating additions drop.
   const xpD=expressAvailable()?expressDiff(nd):null;
-  const startBtns=shortHomePlan()?trainingStartButton(nd):xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
+  const startBtns=D.location==='hotel'?`<button class="start-primary" onclick="beginW('${nd}')">Start Hotel Workout · 5 main + 2 optional</button><button class="btn btn-wh btn-md" style="margin-top:8px" onclick="beginW('${nd}',true)">Short hotel session · 4 lifts, 2 sets each</button>`:shortHomePlan()?trainingStartButton(nd):xpD&&xpD.drop.length?`<button class="start-primary" onclick="beginW('${nd}',true)">Start Essentials · ${xpD.keep.length} lifts</button>
   <button class="btn btn-wh btn-md" style="margin-top:8px;font-size:12px" onclick="beginW('${nd}')">Full session · ${exs.length} lifts</button>
   <div class="dm" style="margin-top:6px;text-align:center">Essentials is the complete session: main lifts, targeted stability work, and selected accessories. Full optionally adds ${xpD.drop.map(e=>esc(e.nm)).join(', ')}.</div>`
   :`<button class="start-primary" onclick="beginW('${nd}')">Start Workout</button>`;
-  h+=`<div class="start-hero"><h3>Day ${nd}${ls}${isP?" · Partner's":''}</h3>
-  <div class="meta">${shortHomePlan()?trainingPlanStatus().label:`P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk}`} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
+  h+=`<div class="start-hero"><h3>Day ${nd}${ls}${D.location==='hotel'?' · Hotel':isP?" · Partner's":''}</h3>
+  <div class="meta">${D.location==='hotel'?'Hypertrophy · fixed ranges':shortHomePlan()?trainingPlanStatus().label:`P${phi.phase} ${phi.name} · phase wk ${phi.wk}/${phi.maxWk}`} · workload: ${fat.label}${overridden?` · <span style="color:var(--am)">manual pick</span>`:` · next up`}</div>
   ${repeatHint}${picker}
   ${startBtns}${trainingPlanCard()}</div>`;
 }
@@ -4383,7 +4441,7 @@ h+=`</div>`;
 if(ci.recent.length){h+=`<div class="cyc-tl">`;
 ci.recent.forEach((s,i)=>{if(i>0){const rest=Math.max(0,s.gap-1);
 h+=`<div class="cyc-gap"><div class="cyc-dash"></div>${rest===0?'b2b':rest+'d rest'}</div>`}
-h+=`<div class="cyc-node"><span class="bg bg-${s.day.toLowerCase()}" style="font-size:10px;padding:2px 6px">${s.day}${s.loc==='partner'?'2':'1'}</span><span class="dm" style="font-size:9px;margin-top:2px">${fmtSh(s.date)}</span></div>`});
+h+=`<div class="cyc-node"><span class="bg bg-${s.day.toLowerCase()}" style="font-size:10px;padding:2px 6px">${s.day}${venueSuffix(s.loc)}</span><span class="dm" style="font-size:9px;margin-top:2px">${fmtSh(s.date)}</span></div>`});
 h+=`<div class="cyc-gap"><div class="cyc-dash"></div>${ci.sinceLast===0?'today':ci.sinceLast+'d'}</div>`;
 h+=`<div class="cyc-node"><span class="cyc-d next" style="min-width:30px;width:30px;height:30px;font-size:13px;border-radius:9px">${ci.next}</span><span class="dm" style="font-size:9px;margin-top:2px">next</span></div></div>`;
 h+=`<div class="dm" style="margin-top:6px">${ci.avgGap!=null?`~${ci.avgGap}d between sessions · `:''}${ci.sinceLast===0?'trained today':ci.sinceLast===1?'last trained yesterday':`last trained ${ci.sinceLast}d ago`}</div>`;
@@ -4392,8 +4450,8 @@ h+=`</div>`;}
 
 // Preview mirrors the default lifting action: Essentials remains the complete default even
 // when the user deliberately trains through a recommended rest day. Full is always explicit.
-const previewExs=expressAvailable()?dayExs(nd,{},true):exs;
-h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${previewExs.length}${previewExs!==exs?' · Essentials':''}</div>`;
+const previewExs=D.location==='hotel'?exs:expressAvailable()?dayExs(nd,{},true):exs;
+h+=`<div class="cd"><div class="lb" style="margin-bottom:6px">Exercises · ${previewExs.length}${D.location==='hotel'?' · last 2 optional':previewExs!==exs?' · Essentials':''}</div>`;
 const tpIcon={bb:'🏋',db:'💪',band:'🎗',bw:'🤸',kb:'🔔',carry:'🧳',club:'🪈',mace:'⚔'};
 // 'stay' was MISSING from this map entirely (only 'st' existed), so every hold row fell
 // through to the '·' fallback — a lone middle-dot chip that read as broken UI.
@@ -4419,7 +4477,7 @@ h+=`</div>`;
 // Deload-week banner — "Took one" starts a 7-day window where every suggestion carries
 // the ~-10% advisory; show the countdown so the week has a visible start and end.
 {const dlDay=D.lastDeload?dayDiff(today(),D.lastDeload):null;
-if(!D.trainingPlan&&dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#bfe6d0;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
+if(D.location!=='hotel'&&!D.trainingPlan&&dlDay!=null&&dlDay>=0&&dlDay<7)h+=`<div class="deload-banner" style="background:var(--grl);border-color:#bfe6d0;color:var(--gr)">🛌 Deload week · day ${dlDay+1}/7 — ~90% loads, stop 2-3 reps shy. Progression resumes ${dlDay>=6?'tomorrow':'next week'}.</div>`}
 
 // Fatigue strip — no fake "Wk 19/8" denominators: past the deload timer just say how long it's been.
 if(dl&&!dl.shorter)h+=`<div style="display:flex;justify-content:space-between;padding:4px 2px;font-size:10px;color:var(--mu)">
@@ -4429,7 +4487,7 @@ h+=`<div class="fg-bar"><div class="fg-fill" style="width:${fat.score*10}%;backg
 // Phase change — all three computed states now surface (timer_only and early_stall were
 // computed but never rendered, so a well-progressing user never saw a phase prompt).
 const nxtP=phi.phase>=3?1:phi.phase+1;
-if(!D.trainingPlan&&phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
+if(D.location!=='hotel'&&!D.trainingPlan&&phi.recommend==='due')h+=`<div class="cd" style="border:2px solid var(--pu);text-align:center;margin-top:6px"><div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:4px">Switch Phases</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks in · ${phi.stalledMajor} key lifts stalling · ${PHASES[nxtP].desc}</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
 // The dismissal key is the PHASE, not phase+week: keying it to the week regenerated a new
@@ -4437,12 +4495,12 @@ if(!D.trainingPlan&&phi.recommend==='due')h+=`<div class="cd" style="border:2px 
 // banner back weekly no matter how many times they dismissed it. Safe to silence for the
 // whole phase because this is only the SOFT verdict — once lifts actually stall the
 // 'due' branch above takes over, and that one is deliberately not dismissible.
-else if(!D.trainingPlan&&phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.phase)))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
+else if(D.location!=='hotel'&&!D.trainingPlan&&phi.recommend==='timer_only'&&!bannerDismissed('phasetimer',String(phi.phase)))h+=`<div class="cd" style="border:1px solid var(--pu);margin-top:6px;position:relative">
 <button onclick="dismissBanner('phasetimer','${phi.phase}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--pu);margin-bottom:3px;padding-right:20px">Phase timer complete</div>
 <div class="dm" style="margin-bottom:6px">${phi.wk} weeks of ${phi.name} and lifts are still moving (${phi.progressingEx}/${phi.totalEx} progressing). Switch when ready — or ride the wave a little longer.</div>
 <button class="btn-sm btn-pr" onclick="advancePhaseSafe()">Phase ${nxtP}: ${PHASES[nxtP].name}</button></div>`;
-else if(!D.trainingPlan&&phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledMajor))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
+else if(D.location!=='hotel'&&!D.trainingPlan&&phi.recommend==='early_stall'&&!bannerDismissed('phasestall',phi.phase+'-'+phi.stalledMajor))h+=`<div class="cd" style="border:1px solid var(--am);margin-top:6px;position:relative">
 <button onclick="dismissBanner('phasestall','${phi.phase+'-'+phi.stalledMajor}')" aria-label="Dismiss" style="position:absolute;top:0;right:0;background:0;border:none;color:var(--mu);font-size:15px;cursor:pointer;line-height:1;padding:12px 14px">✕</button>
 <div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:3px;padding-right:20px">${phi.stalledMajor} key lifts stalling early</div>
 <div class="dm" style="margin-bottom:6px">Only week ${phi.wk}/${phi.maxWk} of ${phi.name} — check the deload advice above first; if fatigue is fine, an early phase switch can reset momentum.</div>
@@ -4478,7 +4536,7 @@ setDone:Array(ex.s).fill(false),form:Array(ex.s).fill(0),
 // Wall-clock (epoch ms) at which each set was ticked off, 0 = not yet. Saved as
 // SECONDS FROM SESSION START on the finished session (see the `ts` row below), which is
 // what makes the gap between prescribed and actual session length measurable at all.
-setTs:Array(ex.s).fill(0),notes:'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
+setTs:Array(ex.s).fill(0),notes:ex.hotel||ex.manualSetup?last?.notes||'':'',pf:!!last,wu:false,disc:'none',discJoints:[],touched:false}}
 
 // The day's exercise list with any in-session swaps applied. Each returned object
 // carries _slot (the original program id it occupies) so the swap controls can
@@ -4522,6 +4580,7 @@ function isExpressKeep(ex){
 const PARTNER_ESSENTIAL_IDS=new Set(PARTNER_BASE.map(e=>e.id));
 function expressAvailable(){return true}
 function dayExs(day,sw,xp){sw=sw||SWAP;
+if(D.location==='hotel'){const short=xp===undefined?EXPRESS:xp;return(hotelProgram()[day]||[]).filter((e,i)=>!short||i<4).map(ex=>{const alt=sw[ex.id]&&ALL_EX.find(e=>e.id===sw[ex.id]&&e.hotel);return{...(alt||ex),...(short?{s:2}:{}),_slot:ex.id,...(alt?{_swapped:true}:{})}})}
 if(shortHomePlan())return(shortProgram()[day]||[]).map(e=>({...e,_slot:e.id}));
 if(xp===undefined)xp=EXPRESS;
 const rows=(getCurPR()[day]||[]);
@@ -4548,8 +4607,10 @@ function expressDiff(day){
 const TP_LABEL={bb:'Barbell',db:'Dumbbell',band:'Band',kb:'Kettlebell',bw:'Bodyweight',mace:'Mace',club:'Club',carry:'Carry'};
 // Equipment actually present per location — swap suggestions must not offer hex-bar/
 // landmine lifts at the partner's or DB lifts at home.
-const LOC_TP={home:['bb','band','kb','bw','carry','mace'],partner:['db','band','club','bw','carry']};
+const LOC_TP={home:['bb','band','kb','bw','carry','mace'],partner:['db','band','club','bw','carry'],hotel:['bw','band']};
 function swapCandidates(slotId,curId,tpFilter){
+const hotelAllowed=['hotel_chest_press','hotel_floor_pushup','hotel_suspended_pushup'].includes(slotId)?['hotel_chest_press','hotel_floor_pushup','hotel_suspended_pushup']:['hotel_ham_curl','hotel_nordic'].includes(slotId)?['hotel_ham_curl',...(ADAY==='A'&&D.hotelNordic?['hotel_nordic']:[])]:[];
+if(D.location==='hotel'&&!hotelAllowed.length)return[];
 const src=MG[curId]||MG[slotId]||{};
 const prim=Object.keys(src).filter(m=>src[m]>=1);const pset=prim.length?prim:Object.keys(src);
 const shown=new Set(dayExs(ADAY).map(e=>e.id));
@@ -4557,6 +4618,8 @@ const okTp=LOC_TP[D.location||'home']||LOC_TP.home;
 return ALL_EX.filter(e=>{
   if(e.id===curId||shown.has(e.id))return false;
   if(/legacy|retired/i.test(e.rl||''))return false;
+  if(D.location==='hotel'?!e.hotel||e.tp==='band'&&!D.hotelBand:e.hotel)return false;
+  if(D.location==='hotel'&&!hotelAllowed.includes(e.id))return false;
   if(!okTp.includes(e.tp))return false;
   if(tpFilter!=='all'&&e.tp!==tpFilter)return false;
   const m=MG[e.id];return m&&pset.some(x=>m[x])})
@@ -4633,7 +4696,7 @@ function repUnit(ex){const rp=String((ex&&ex.rp)||'');
 const total=!!(ex&&ex.perSide);
 if(/\d\s*m\b/.test(rp))return total?'Total metres':'Metres';
 if(/step/i.test(rp))return total?'Total steps':'Steps';
-if(/\d\s*s(?![a-z])/i.test(rp))return total?'Total secs':'Secs';
+if(/\d\s*s(?![a-z])/i.test(rp))return total?'Total secs':ex&&ex.repsPerSide?'Secs/side':'Secs';
 return total?'Total reps':ex&&ex.repsPerSide?'Reps/side':'Reps'}
 
 // ─── Load-input fragments shared by the non-barbell cards ───────────────────────────
@@ -4672,7 +4735,7 @@ let h='<div class="sec"><h2 class="sr-only">Workout</h2>';
 
 // Header
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${isP?'2':'1'}`}</span>${EXPRESS?` <span class="bg" style="background:var(--prl);color:var(--pr)">${shortHomePlan()?trainingPlanStatus().label:'Essentials'}</span>`:''}</div>
+<div><span class="bg bg-${ADAY.toLowerCase()}">${ADAY==='X'?'Core Block':`Day ${ADAY}${venueSuffix(D.location)}`}</span>${EXPRESS?` <span class="bg" style="background:var(--prl);color:var(--pr)">${D.location==='hotel'?'Short hotel session':shortHomePlan()?trainingPlanStatus().label:'Essentials'}</span>`:''}</div>
 <button class="btn-ghost" style="font-size:10px;color:var(--rd)" onclick="cancelW()">${CANCEL_ARMED?'Confirm':'Cancel'}</button></div>`;
 
 // Live session strip (sticky): running duration + volume/sets banked from CHECKED
@@ -4711,7 +4774,7 @@ h+=`<div class="prog-seg${dn?' pg-done':i===CIDX?' pg-cur':''}"></div>`}
 h+=`</div><div style="text-align:right;font-size:10px;color:var(--mu);margin-bottom:6px">${dC}/${exs.length}</div>`;
 
 // Return-ramp strip. A ramp is a SESSION-level fact — "you are on day 3 of a comeback, run it
-if(shortHomePlan())h+=trainingPlanCard('workout');
+if(shortHomePlan()||D.location==='hotel')h+=trainingPlanCard('workout');
 // at ~90% and stop short" applies to the whole workout, not to one lift. It rode only on the
 // per-lift advisory at first, and that line is emitted from the middle of getSmartSugg's
 // ladder: every lift that returns early (a first-time lift, a band with no history, a
@@ -4727,7 +4790,7 @@ h+=`<div class="ex-row${wuD>=2?' done-row':''}" id="ex-activation">
 <button type="button" id="activation-toggle" class="row-control" aria-expanded="${CIDX===-1}" onclick="selectExercise(-1)" style="display:flex;justify-content:space-between;align-items:center">
 <span style="font-size:12px;font-weight:700">Activation <span class="dm" style="font-weight:500">· recommended before loaded work</span></span>
 <span style="font-size:10px;font-weight:600;color:${wuD>=2?'var(--gr)':'var(--am)'}">${wuD}/3</span></button>`;
-if(CIDX===-1){const its=[{l:'Joint Circles',d:'Shoulders, wrists, elbows, hips'},{l:fIso?.isoWU||'Isometric Hold',d:'Build tension before loading'},{l:'Single-Leg Balance',d:'30s per leg'}];
+if(CIDX===-1){const its=D.location==='hotel'?[{l:'Easy movement',d:'Walk or march for a few minutes'},{l:'Comfortable joint movements',d:'Shoulders, wrists, elbows and hips'},{l:'Easy practice sets',d:'Split squats, rows and presses'}]:[{l:'Joint Circles',d:'Shoulders, wrists, elbows, hips'},{l:fIso?.isoWU||'Isometric Hold',d:'Build tension before loading'},{l:'Single-Leg Balance',d:'30s per leg'}];
 h+=`<div class="ex-expand">`;for(let i=0;i<its.length;i++){
 h+=`<button type="button" id="wu-check-${i}" class="wu-check" aria-pressed="${WU_CHECKS[i]}" onclick="WU_CHECKS[${i}]=!WU_CHECKS[${i}];saveAW();render();document.getElementById('wu-check-${i}').focus()">
 <span aria-hidden="true" class="wu-box${WU_CHECKS[i]?' checked':''}">${WU_CHECKS[i]?'✓':''}</span>
@@ -5128,7 +5191,7 @@ if(shortHomePlan()){session.trainingStage=D.trainingPlan.stage;session.trainingP
  if(D.trainingPlan.stage==='deload')W.lastDeload=D.trainingPlan.start;}
 const ix=W.sessions.findIndex(s=>s.id===S.id);if(ix<0)W.sessions.push(session);else W.sessions[ix]=session;
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
-if(isRotDay(S.day))W.nextDay=NEXT_DAY[S.day];
+if(isRotDay(S.day)){if(session.loc==='hotel')W.hotelNextDay=NEXT_DAY[S.day];else W.nextDay=NEXT_DAY[S.day];}
 const retry=!!PENDING_SAVE&&PENDING_SAVE.sessions.some(s=>s.id===S.id);
 if(!save(W,{retry,after:finishSavedSummary})){
 const backed=saveAW();alert(backed
@@ -5197,7 +5260,7 @@ save(W,{retry,after:()=>{CARDIO_T='Rowing';CARDIO_ID=null;go('home')}})}
 // Exercise IDs that actually have logged history (for a clean, uncluttered picker)
 function loggedExIds(){const s=new Set();for(const ses of D.sessions)for(const e of ses.ex)if(e.reps&&e.reps.some(r=>Number(r)>0))s.add(e.id);return s}
 // Current active program exercise IDs (home + partner, all phases) — so newly-added moves show even pre-history
-function programExIds(){const s=new Set();for(const loc of ['home','partner']){const pr=getProgram(D.phase||1,loc,1);for(const d in pr)for(const e of pr[d])s.add(e.id)}return s}
+function programExIds(){const s=new Set();for(const loc of ['home','partner','hotel']){const pr=getProgram(D.phase||1,loc,1);for(const d in pr)for(const e of pr[d])s.add(e.id)}return s}
 // Headline numbers
 function statSnapshot(now=new Date()){
 const sess=D.sessions;
@@ -6220,9 +6283,9 @@ for(const c of rl)h+=`<div style="display:flex;justify-content:space-between;gap
 h+=`</div>`}}
 if(!ss.length)h+=emptyH('📒','No sessions yet','Finished workouts land here automatically — or use + Log Past to backfill one you did off-app.');
 const RW=rampWindows(Infinity); // hoisted: rampOf runs once per rendered session row
-for(const s of shown){const locBadge=s.loc==='partner'?' 🏘':'';
+for(const s of shown){const locBadge=s.loc==='hotel'?' 🏨 Hotel':s.loc==='partner'?' 🏘':'';
 h+=`<div class="cd" style="padding:10px 14px">
-<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)}, ${s.loc==='partner'?'Partner':'Home'}${s.noProg?', ignored for progression':''}${dupMap.has(s.id)?', possible duplicate':''} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
+<button type="button" class="row-control" id="history-${s.id}" aria-label="Day ${s.day}, ${fmtD(s.date)}, ${venueLabel(s.loc)}${s.noProg?', ignored for progression':''}${dupMap.has(s.id)?', possible duplicate':''} workout details" aria-expanded="${EXP===s.id}" onclick="toggleHistory('${s.id}')" style="display:flex;justify-content:space-between;align-items:center">
 <span style="display:flex;align-items:center;gap:8px"><span class="bg bg-${s.day.toLowerCase()}">${dayBadge(s)}</span>
 <span class="mu" style="font-size:11px">${fmtD(s.date)}${locBadge}</span>
 ${s.difficulty?`<span style="font-size:10px;font-weight:700;color:${EFFORT_COLORS[s.difficulty-1]}">Effort ${s.difficulty}/5</span>`:''}
@@ -6275,7 +6338,7 @@ function delS(id){if(DEL_ARMED===id){D.sessions=D.sessions.filter(s=>s.id!==id);
 if(!Array.isArray(D.deleted))D.deleted=[];
 if(/^[\w.-]{1,64}$/.test(String(id)))D.deleted=[...D.deleted.filter(x=>x!==String(id)),String(id)].slice(-TOMB_MAX);
 {const last=lastRotSession(D.sessions);
-D.nextDay=last?NEXT_DAY[last.day]:'A'}save();render()}
+D.nextDay=last?NEXT_DAY[last.day]:'A';const hotel=D.sessions.filter(s=>s.loc==='hotel'&&isRotDay(s.day)&&s.date<=today()).at(-1);D.hotelNextDay=hotel?NEXT_DAY[hotel.day]:'A'}save();render()}
 else{DEL_ARMED=id;setTimeout(()=>{DEL_ARMED=null;render()},3000);render()}}
 
 // ─── LOG PAST SESSION ───────────────────────
@@ -6288,7 +6351,7 @@ const pr=getProgram(D.phase,LP.loc);
 // day-'X' sessions from shunting the cycle.
 const days=['A','B','C'];
 const exs=pr[LP.day]||[];
-const suffix=LP.loc==='partner'?'2':'1';
+const suffix=venueSuffix(LP.loc);
 const dayLbl=d=>d==='X'?'Core':`Day ${d}${suffix}`;
 let h=`<div class="sec"><h2 class="pg-title" style="margin-bottom:12px">Log Past Session</h2>
 <div class="cd" style="margin-bottom:10px">
@@ -6358,7 +6421,7 @@ W.sessions.push({id:LP.pendingId,date:dt,day:LP.day,loc:LP.loc,phase:D.phase,ex:
 W.sessions.sort((a,b)=>a.date.localeCompare(b.date));
 // Update nextDay based on the latest ROTATION session — location aware. A retro-logged core
 // block must not shunt the cycle forward.
-{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}
+{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];const hotel=W.sessions.filter(s=>s.loc==='hotel'&&isRotDay(s.day)&&s.date<=today()).at(-1);if(hotel)W.hotelNextDay=NEXT_DAY[hotel.day];}
 const retry=!!PENDING_SAVE&&PENDING_SAVE.sessions.some(s=>s.id===LP.pendingId);
 save(W,{retry,after:()=>{delete LP.pendingId;go('history')}})}
 // ─── PLATES ──────────────────────────────────
@@ -6403,7 +6466,7 @@ ${[['auto','🌗 Auto'],['light','☀️ Light'],['dark','🌙 Dark']].map(([k,l
 </div><div class="dm" style="margin-top:6px">Auto follows your phone's dark-mode setting.</div></div>
 <button class="btn btn-wh" style="margin-bottom:8px;margin-top:10px" onclick="go('plates')">📐 Plate Reference</button>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Location</div>
-<div class="cd"><div style="font-size:12px;margin-bottom:8px">Active: <strong>${D.location==='partner'?"🏘 Partner's":"🏠 Home"}</strong></div>
+<div class="cd"><div style="font-size:12px;margin-bottom:8px">Active: <strong>${D.location==='hotel'?'🏨 Hotel':D.location==='partner'?"🏘 Partner's":"🏠 Home"}</strong></div>
 ${locSwitchH(D.location,'setLoc')}<div class="dm" style="margin-top:6px">Home: 11kg bar + landmine + 7kg hex bar + plates + bands + KB + pull-up/dip tower<br>Partner's: DBs + bands + clubbells + parallel bars</div></div>
 <div class="lb" style="margin-top:10px;margin-bottom:6px">Notifications</div>`;
 {const supported=typeof Notification!=='undefined';
@@ -6445,7 +6508,7 @@ h+=`</div>`}
 h+=`<div class="lb" style="margin-top:10px;margin-bottom:6px">Phase Control</div>
 <div class="cd" id="phase-control"><div style="font-size:12px;margin-bottom:8px">Current: <strong>${activePhaseLabel()}</strong>${D.trainingPlan?'':` (Week ${phi.wk}/${phi.maxWk})`}</div>
 <div style="display:flex;gap:6px">`;
-const held=!!D.trainingPlan&&D.trainingPlan.stage!=='progress',selected=['deload','return'].includes(D.trainingPlan?.stage)?null:D.trainingPlan?.stage==='progress'?D.trainingPlan.phase:D.trainingPlan?planPhase():D.phase;
+const held=D.location==='hotel'||!!D.trainingPlan&&D.trainingPlan.stage!=='progress',selected=['deload','return'].includes(D.trainingPlan?.stage)?null:D.trainingPlan?.stage==='progress'?D.trainingPlan.phase:D.trainingPlan?planPhase():D.phase;
 for(let i=1;i<=(D.trainingPlan?2:3);i++)h+=`<button class="btn-sm ${selected===i?'btn-pr':'btn-wh'}" type="button" aria-pressed="${selected===i}"${held?' disabled':''} onclick="setPhase(${i})">P${i}: ${PHASES[i].name}</button>`;
 h+=`</div><div class="dm" style="margin-top:8px">${held?'Phase changes are held while Home recovery or gradual return is active. Choose your phase after the easy return week or before the original-routine return.':
  'Linear: lower-rep main lifts. Hypertrophy: higher-rep emphasis. Choose when recovered and sessions are manageable; a review date does not force a switch. Rep targets change, not the routine list or set counts.'}</div></div>
@@ -6510,7 +6573,7 @@ if(TRAINING_STAGES.includes(s.trainingStage)&&validISODate(s.trainingPlanStart))
  row.trainingComplete=s.trainingComplete===true;
  if(['complete','fatigue','time','discomfort','other','unspecified'].includes(s.finishReason))row.finishReason=s.finishReason;
  if(!['progress','original3'].includes(s.trainingStage)||s.trainingStage==='original3'&&(!row.trainingComplete||['fatigue','discomfort'].includes(row.finishReason)))row.noProg=true;}
-if(['home','partner'].includes(s.loc))row.loc=s.loc;
+if(['home','partner','hotel'].includes(s.loc))row.loc=s.loc;
 if([1,2,3].includes(s.phase))row.phase=s.phase;
 if(validOriginalResumeId(s.originalResumeId))row.originalResumeId=s.originalResumeId;
 for(const k of ['express','retro','noProg'])if(s[k]===true)row[k]=true;
@@ -6537,7 +6600,7 @@ if(['duration','volume'].some(k=>s[k]!=null&&finiteNumber(s[k])===null)||
 (s.difficulty!=null&&![1,2,3,4,5].includes(finiteNumber(s.difficulty)))||
 (s.warmup!=null&&![0,1,2,3].includes(finiteNumber(s.warmup)))||
 (s.notes!=null&&typeof s.notes!=='string')||
-(s.loc!=null&&!['home','partner'].includes(s.loc))||
+(s.loc!=null&&!['home','partner','hotel'].includes(s.loc))||
 (s.phase!=null&&![1,2,3].includes(s.phase))||
 ['express','retro','noProg'].some(k=>s[k]!=null&&typeof s[k]!=='boolean')||
 Object.keys(s).some(k=>!['id','date','day','ex','duration','difficulty','warmup','volume','notes','loc','phase','express','retro','noProg','durationSuspicious','warmupRow','dayCFocus','trainingWeek','trainingStage','trainingPlanStart','trainingComplete','finishReason','originalResumeId'].includes(k))||
@@ -6558,7 +6621,10 @@ for(const k of ['phaseStart','lastDeload','lastBackup'])if(validISODate(d[k]))W[
 if(!validISODate(d.phaseStart))W.phaseStart=W.sessions[0]?.date||today();
 if([1,2,3].includes(d.phase))W.phase=d.phase;
 if(['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
-if(['home','partner'].includes(d.location))W.location=d.location;
+if(['A','B','C'].includes(d.hotelNextDay))W.hotelNextDay=d.hotelNextDay;
+W.hotelBand=d.hotelBand===true;W.hotelNordic=d.hotelNordic===true;
+if(['home','partner'].includes(d.hotelReturnLoc))W.hotelReturnLoc=d.hotelReturnLoc;
+if(['home','partner','hotel'].includes(d.location))W.location=d.location;
 if(['auto','light','dark'].includes(d.theme))W.theme=d.theme;
 if(plainObject(d.notify)){W.notify={enabled:d.notify.enabled===true,rest:d.notify.rest!==false};if(typeof d.notify.wake==='boolean')W.notify.wake=d.notify.wake}
 W.programVersion=finiteNumber(d.programVersion)||0;W.gen=Math.floor(finiteNumber(d.gen)||0);
@@ -6630,7 +6696,9 @@ for(const[k,v] of Object.entries(d.cues))if(typeof v==='string'&&/^[\w-]{1,60}$/
 if(wasFresh){
   if([1,2,3].includes(d.phase))W.phase=d.phase;
   if(typeof d.phaseStart==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.phaseStart))W.phaseStart=d.phaseStart;
-  if(['home','partner'].includes(d.location))W.location=d.location;
+  if(['home','partner','hotel'].includes(d.location))W.location=d.location;
+  W.hotelBand=d.hotelBand===true;W.hotelNordic=d.hotelNordic===true;
+  if(['home','partner'].includes(d.hotelReturnLoc))W.hotelReturnLoc=d.hotelReturnLoc;
   // lastDeload belongs with the phase clock, not with the additive merges above. It used to
   // be adopted UNCONDITIONALLY, which broke two ways on a device that already had history:
   // getSmartSugg drops sessions falling inside the deload week, so an imported date landing
@@ -6646,10 +6714,11 @@ if(wasFresh){
   W.originalResume=validOriginalResume(d.originalResume);
 }
 // Update nextDay from latest session — location aware
-{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];}
+{const last=lastRotSession(W.sessions);if(last)W.nextDay=NEXT_DAY[last.day];const hotel=W.sessions.filter(s=>s.loc==='hotel'&&isRotDay(s.day)&&s.date<=today()).at(-1);if(hotel)W.hotelNextDay=NEXT_DAY[hotel.day];}
 // On a fresh restore the backup's own nextDay wins over the re-derive — it captures a
 // manual rotation override, and same-date A+B sessions make last-by-date ambiguous.
 if(wasFresh&&['A','B','C'].includes(d.nextDay))W.nextDay=d.nextDay;
+if(wasFresh&&['A','B','C'].includes(d.hotelNextDay))W.hotelNextDay=d.hotelNextDay;
 // Run migration on imported data
 migrateData(W);
 delete W.seeded;

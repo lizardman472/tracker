@@ -377,6 +377,7 @@ const T = (name, cond, info = '') => { cond ? pass++ : (fail++, console.log('FAI
     T('hitting every anti-rotation rep target does not prefill a heavier load', await page.evaluate(() => Number(LOG.lm_pallof.wt) === 31));
     await ctx.close(); }
 
+  await require('./hotel.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await require('./storage.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await require('./recovery.browser')({browser,origin:`http://127.0.0.1:${PORT}`,T,errors,baseStore});
   await require('./sw-offline.browser')({browser,T});

@@ -48,6 +48,39 @@ record any resistance and setup in exercise notes. Day A floor press, Day B dips
 the shorter/deload/easy-return lists and Partner are unchanged. Existing hex-bar
 floor-press records remain available in History.
 
+## Hotel workout mode
+
+Choose **Hotel** on Today or in Settings. The selection persists until you choose Home,
+Partner's, or **Back to Home/Partner's routine**. Hotel has its own A/B/C rotation and
+exercise records; the normal rotation, phase, phase start and recovery plan remain saved.
+Finish or discard an unfinished workout before entering/leaving Hotel or changing its
+packed-band option. Failed mode saves use the existing atomic save/retry flow.
+
+Each day starts with supported split squats, TRX chest presses, rows and hamstring curls,
+then the day's accessory. Two optional exercises come last: reverse flyes (or band lateral
+raises if enabled) and single-leg glute bridges on A/B or supported sissy squats on C. Stop before those extras whenever needed.
+**Short hotel session** uses only the four main movements, two sets each. Only checked,
+performed work is saved; omitted extras do not become completed sets.
+
+Hotel uses fixed hypertrophy ranges and manual setup progression, independent of the normal
+phase. Record strap length, foot position, range, assistance and any resistance in exercise
+notes; the last setup notes are carried forward for editing. Rep counts alone never earn
+automatic leverage, load or band increases. Split-squat and bridge entries are reps per leg;
+the hotel side plank records seconds per side. Hotel sessions are labelled **H** in History.
+Hotel preferences and records survive backup/restore; additive imports keep local settings.
+
+Day C's sissy squat is 2 x 8-15, introduced with 1 easy set. Enable **I have a secure
+Nordic ankle anchor** to replace A's TRX curl with 2 x 4-8 assisted Nordics (initially
+1 x 4-6); B/C retain TRX curls. This preference is saved and included in backups.
+Without a suitable ankle restraint, leave it off. Short sessions retain A's Nordic
+when enabled, while optional sissy squats stay outside the short session. Both new
+movements use manual assistance/range progression; previous curl/bridge records stay
+separate. The normal exercise Swap library also includes both exercises; this does
+not replace the normal home programme or recovery plan.
+
+The trainer requires a suitable verified anchor. Neither a hotel room nor its door is
+assumed to be suitable. See [the routine and its evidence](docs/hotel-workout.md).
+
 ## Run locally
 
 Serve the repository root over HTTP; service workers do not run correctly from `file://`.
@@ -70,6 +103,7 @@ node tests/hex.test.js
 node tests/storage.test.js
 node tests/recovery.test.js
 node tests/analytics.test.js
+node tests/hotel.test.js
 node tests/render.smoke.js
 node tests/sw.test.js
 node tests/sw.mutate.js
