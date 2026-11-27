@@ -10,7 +10,7 @@ const context={console,Date,Math,structuredClone,Blob,confirm:()=>true,alert:m=>
 context.window=context;vm.createContext(context);
 vm.runInContext(script.slice(0,script.indexOf('// ═══════════════ INIT'))+`\nrender=()=>{};
 globalThis.R={freshState,normalizeState,mergeImport,validSession,normalizeActiveRecord,activeRecord,hotelProgram,dayExs,getProgram,getCurPR,
- setLoc,setHotelBand,nextTrainingDay,hotelCard,trainingPlanCard,getSmartSugg,beginW,saveSumm,ensureLog,repInputLabel,repUnit,effectiveReps,dayBadge,
+ setLoc,setHotelBand,setHotelNordic,nextTrainingDay,hotelCard,trainingPlanCard,getSmartSugg,beginW,saveSumm,ensureLog,repInputLabel,repUnit,effectiveReps,dayBadge,
  lastRotSession,getPhaseInfo,getComeback,getBreak,getDeload,checkResume,AW_KEY,today,ALL_EX,MG,swapCandidates,retrySave,
  setD:d=>{D=normalizeState(d).W;WRITER=true;WRITER_READY=true;PENDING_SAVE=null;PENDING_ACTIVE=null;ADAY=null;ACTIVE_ORIGINAL_RESUME=null;LOG={};SAVE_ERROR=AW_ERROR='';
  localStorage.removeItem(AW_KEY);localStorage.setItem(SK,JSON.stringify(D));rememberCommitted(localStorage.getItem(SK));},
@@ -92,5 +92,58 @@ test('hotel days do not satisfy normal phase-session or comeback-session counts'
  R.setD(state());const before=R.getPhaseInfo().sess;
  const d=state();d.sessions.push({id:'hotel-count',date:R.today(),day:'A',loc:'hotel',phase:3,ex:[{id:'hotel_row',reps:[10]}]});R.setD(d);
  assert.equal(R.getPhaseInfo().sess,before);R.setLoc('hotel');assert.equal(R.getBreak(),null);assert.equal(R.getDeload(),null);assert.equal(R.getComeback(),null);
+});
+test('Nordic setup is opt-in, persists, replaces only A curls and stays in short A',()=>{
+ R.setD({...state(),location:'hotel'});
+ assert.equal(R.getD().hotelNordic,false);
+ assert.equal(R.dayExs('A',{},true)[3].id,'hotel_ham_curl');
+ assert(R.setHotelNordic(true));
+ assert.equal(JSON.parse(values.get('rft-v12')).hotelNordic,true);
+ for(const day of ['A','B','C']){
+  const full=R.dayExs(day,{},false),short=R.dayExs(day,{},true);
+  assert.equal(full[3].id,day==='A'?'hotel_nordic':'hotel_ham_curl');
+  assert.equal(full.length,7);assert.equal(full.reduce((n,e)=>n+e.s,0),17);
+  assert.equal(short.length,4);assert.equal(short.reduce((n,e)=>n+e.s,0),8);
+  assert.equal(short[3].id,full[3].id);
+ }
+ assert.equal(R.dayExs('C',{},false).at(-1).id,'hotel_sissy_squat');
+ assert(R.dayExs('C',{},false).at(-1).optional);
+ assert(!R.dayExs('C',{},true).some(e=>e.id==='hotel_sissy_squat'));
+ assert.equal(R.dayExs('A',{},false).at(-1).id,'hotel_glute_bridge');
+ assert(R.setHotelNordic(false));assert.equal(R.dayExs('A',{},false)[3].id,'hotel_ham_curl');
+});
+test('anchor changes cannot replace unfinished work and failed preference saves are atomic',()=>{
+ R.setD({...state(),location:'hotel'});R.setActive('A');
+ assert.equal(R.setHotelNordic(true),false);assert.equal(R.getD().hotelNordic,false);
+ R.setActive(null);values.set(R.AW_KEY,JSON.stringify({id:'nordic-pending',day:'C',loc:'hotel',phase:3,start:Date.now(),ts:Date.now(),log:{},notes:'keep old bridge workout'}));
+ assert.equal(R.setHotelNordic(true),false);assert(values.get(R.AW_KEY).includes('keep old bridge workout'));
+ values.delete(R.AW_KEY);failWrite=true;
+ assert.equal(R.setHotelNordic(true),false);assert.equal(R.getD().hotelNordic,false);
+ assert.equal(JSON.parse(values.get('rft-v12')).hotelNordic,false);
+ failWrite=false;assert(R.retrySave());assert.equal(R.getD().hotelNordic,true);
+});
+test('Nordic preference round-trips backups without overriding an occupied device',()=>{
+ const d={...state(),location:'hotel',hotelNordic:true};
+ d.sessions.push({id:'nordic-history',date:R.today(),day:'A',loc:'hotel',phase:3,ex:[{id:'hotel_nordic',reps:[5],notes:'short range; assisted return'}]});
+ d.sessions.push({id:'bridge-history',date:R.today(),day:'C',loc:'hotel',phase:3,ex:[{id:'hotel_glute_bridge',reps:[12,12]}]});
+ const restored=R.mergeImport(R.freshState(),d).W;
+ assert.equal(restored.hotelNordic,true);assert(restored.sessions.some(s=>s.ex[0].id==='hotel_glute_bridge'));
+ assert(restored.sessions.some(s=>s.ex[0].id==='hotel_nordic'));
+ assert.equal(R.mergeImport(state(),d).W.hotelNordic,false);
+ const draft=R.normalizeActiveRecord({id:'sissy-draft',loc:'hotel',phase:3,day:'C',start:Date.now(),ts:Date.now(),log:{hotel_sissy_squat:{reps:[9],notes:'light hand support'}},exIds:['hotel_sissy_squat']},restored);
+ assert.equal(draft.log.hotel_sissy_squat.reps[0],9);assert.equal(draft.log.hotel_sissy_squat.notes,'light hand support');
+});
+test('new movements never earn automatic assistance or load changes and normal swaps resolve',()=>{
+ const d={...state(),location:'hotel',hotelNordic:true};
+ for(const id of ['hotel_nordic','hotel_sissy_squat','nordic_curl','sissy_squat'])d.sessions.push({id:'high-'+id,date:R.today(),day:'A',loc:id.startsWith('hotel_')?'hotel':'home',phase:3,ex:[{id,reps:[25,25,25],notes:'same range and assistance'}]});
+ R.setD(d);
+ for(const id of ['hotel_nordic','hotel_sissy_squat','nordic_curl','sissy_squat']){
+  const ex=R.ALL_EX.find(e=>e.id===id),sg=R.getSmartSugg(ex);
+  assert(ex&&R.MG[id]);assert.equal(sg.type,'stay');assert.equal(sg.wt,null);assert.match(sg.detail,/same range and assistance/);
+ }
+ R.setActive('A');assert(R.swapCandidates('hotel_nordic','hotel_nordic','all').some(e=>e.id==='hotel_ham_curl'));
+ R.setD({...state(),location:'home'});R.setActive('B');
+ assert(R.swapCandidates('band_leg_curl','band_leg_curl','all').some(e=>e.id==='nordic_curl'));
+ R.setActive('C');assert(R.swapCandidates('lm_lateral_squat','lm_lateral_squat','all').some(e=>e.id==='sissy_squat'));
 });
 console.log(`\n${count} hotel mode tests passed`);

@@ -9,12 +9,12 @@ This is a practical temporary programme, not a routine tested as a complete pack
 | 1 | Supported split squat, both feet grounded | 3 x 8-20 per leg | Brief rest between legs, then 90-120 seconds |
 | 2 | TRX chest press, hands in handles and feet grounded | 3 x 8-20 | About 2 minutes |
 | 3 | TRX row | 3 x 8-20 | About 2 minutes |
-| 4 | TRX hamstring curl | 2 x 8-15 | 90-120 seconds |
+| 4 | TRX hamstring curl; A can use assisted Nordics when a suitable ankle anchor is enabled | 2 x 8-15 curls, or 2 x 4-8 assisted Nordics | 90-120 seconds curls; 2-3 minutes Nordics |
 | 5A | TRX biceps curl on day A | 2 x 10-20 | 60-90 seconds |
 | 5B | TRX triceps extension on day B, if comfortable | 2 x 10-20 | 60-90 seconds |
 | 5C | Floor side plank on day C | 2 x 20-40 seconds per side | About 1 minute |
 | 6 optional | Band lateral raise if a long band is packed; otherwise TRX reverse fly | 2 x 12-25 for raises or 10-20 for flyes | 60-90 seconds |
-| 7 optional | Single-leg floor glute bridge | 2 x 10-20 per leg | About 90 seconds after both sides |
+| 7 optional | A/B: single-leg floor glute bridge; C: supported sissy squat | Bridges 2 x 10-20 per leg; sissy squat 2 x 8-15 | About 90 seconds |
 
 Reverse flyes target rear delts and upper back; they are not an equivalent substitute
 for direct side-delt work. Bridges provide additional hip-extension work but do not
@@ -25,6 +25,34 @@ The main five exercises total 13 sets; including both optional slots gives 17. A
 leg counts once for each leg but requires two work bouts. Allow roughly 40-55 minutes for
 the main session or 50-65 with extras; actual duration depends on recovery and transitions.
 The short option uses the first four exercises, two sets each, about 25-35 minutes.
+
+## Nordic curls and supported sissy squats
+
+Use the saved **secure Nordic ankle anchor** checkbox only with an appropriate padded
+restraint that cannot shift or tip. It replaces A's TRX curl, not the hinge pattern in
+the eventual weights programme. B/C retain TRX curls. No suitable restraint means keep
+the TRX curl; a hotel furniture item or loose barbell is not an assumed anchor.
+
+First 1-2 weeks: Nordic 1 x 4-6 assisted reps and sissy squat 1 x 8-12 easy reps. Build
+to the table when recovery permits. Nordic: pad the knees, align trunk/thighs, lower
+for about 3-5 seconds only through a controllable range and use assistance to return.
+For eccentric-only practice use 3-5 controlled lowers, a hand catch and push-assisted
+return. Do not count uncontrolled falls as reps. Sissy squat: hold the TRX or a stable
+fixed support, keep hips extended as knees move forward and heels rise, and control
+a comfortable range. Progress range/control, then reps, then reduce assistance before
+adding load. Reduce work if soreness disrupts the next session; stop for joint pain.
+
+Sissy squats replace C's optional bridge, rather than adding a third extra after an
+already full session. The hotel version has two accessory sets because split squats
+already lead the session; the future weights programme's quad slot can use three.
+Short sessions retain their four main movements, including enabled A Nordics, and omit
+the sissy accessory. Historical curl and bridge logs are not renamed or converted.
+
+Nordic training has direct evidence for hamstring growth with regional differences
+([2024 MRI study](https://onlinelibrary.wiley.com/doi/full/10.1111/sms.14728)); keeping
+a hip-hinge movement in the future weights routine is a practical complementary choice.
+Direct sissy-squat hypertrophy evidence is limited. These doses are coaching choices,
+not a uniquely optimal protocol or a claim of superiority to other quad exercises.
 
 ## Effort and progression
 

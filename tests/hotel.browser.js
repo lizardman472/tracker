@@ -24,6 +24,14 @@ module.exports=async({browser,origin,T,errors,baseStore})=>{
   await page.screenshot({path:path.join(dir,`today-${width}.png`),fullPage:true});
   await page.reload();await page.waitForFunction(()=>WRITER_READY&&WRITER);
   T(`${width}px reload retains hotel mode and selected button`,await page.getByRole('button',{name:'🏨 Hotel',exact:true}).getAttribute('aria-pressed')==='true');
+  const anchor=page.getByLabel('I have a secure Nordic ankle anchor - use assisted Nordics on A');
+  await anchor.check();
+  await page.reload();await page.waitForFunction(()=>WRITER_READY&&WRITER);
+  T(`${width}px secure-anchor choice persists and replaces only A curls`,await anchor.isChecked()&&await page.evaluate(()=>dayExs('A',{},true)[3].id==='hotel_nordic'&&dayExs('B',{},false)[3].id==='hotel_ham_curl'));
+  await anchor.uncheck();
+  await page.evaluate(()=>{D.hotelNextDay='C';save();render()});
+  T(`${width}px C preview ends with supported sissy squats`,/Sissy Squat/.test((await page.locator('.prev2').allTextContents()).at(-1))&&await page.evaluate(()=>dayExs('C',{},false).at(-1).id==='hotel_sissy_squat'&&dayExs('C',{},true).length===4));
+  await page.evaluate(()=>{D.hotelNextDay='A';save();render()});
   await page.getByLabel('I have a long band - include lateral raises').check();
   T(`${width}px packed-band option replaces fly without adding a third extra`,await page.evaluate(()=>dayExs('A',{},false).length===7&&dayExs('A',{},false)[5].id==='hotel_lateral'));
   await page.getByRole('button',{name:'Start Hotel Workout · 5 main + 2 optional',exact:true}).click();
@@ -50,4 +58,20 @@ module.exports=async({browser,origin,T,errors,baseStore})=>{
   T(`${width}px short hotel session has only eight main sets`,await page.evaluate(()=>dayExs(ADAY).length===4&&dayExs(ADAY).every(e=>e.s===2)));
   await ctx.close();
  }
+ const{ctx,page}=await open();
+ await page.getByRole('button',{name:'🏨 Hotel',exact:true}).click();
+ await page.getByLabel('I have a secure Nordic ankle anchor - use assisted Nordics on A').check();
+ await page.evaluate(()=>beginW('A',true));
+ T('short A includes Nordic introduction and records separate assisted reps',await page.evaluate(()=>{
+  const ex=dayExs(ADAY)[3];CIDX=3;render();LOG.hotel_nordic.reps[0]=5;LOG.hotel_nordic.setDone[0]=true;LOG.hotel_nordic.notes='short range, assisted return';saveAW();
+  return ex.id==='hotel_nordic'&&ex.s===2&&ex.note.includes('only 1 set');
+ }));
+ await page.reload();await page.waitForFunction(()=>WRITER_READY&&WRITER);
+ await page.getByRole('button',{name:'Resume',exact:true}).click();
+ T('Nordic reps and setup survive reload without becoming TRX curl records',await page.evaluate(()=>LOG.hotel_nordic.reps[0]===5&&LOG.hotel_nordic.notes==='short range, assisted return'&&!LOG.hotel_ham_curl));
+ await page.evaluate(()=>finishW());await page.getByRole('button',{name:'Save ✓',exact:true}).click();
+ T('saving Nordic work preserves exercise identity and notes',await page.evaluate(()=>D.sessions.at(-1).ex[0].id==='hotel_nordic'&&D.sessions.at(-1).ex[0].notes==='short range, assisted return'));
+ await page.evaluate(()=>beginW('C'));
+ T('C sissy instructions are visible and do not add a third optional movement',await page.evaluate(()=>{CIDX=6;render();return dayExs(ADAY).length===7&&document.getElementById('ex-cur').textContent.includes('Supported Sissy Squat')&&document.getElementById('ex-cur').textContent.includes('comfortable controlled range')}));
+ await ctx.close();
 };
